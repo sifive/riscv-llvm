@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+          "http://www.w3.org/TR/html4/strict.dtd">
+<!-- Material used from: HTML 4.01 specs: http://www.w3.org/TR/html401/ -->
+<html>
+<head>
+  <META http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+  <title>DragonEgg</title>
+</head>
+<body>
+<div id="content">
+
+  <img src="dragoneggsmall.png" alt="DragonEgg logo" width="136" height="136" align="left" hspace="30">
+
+  <!--*********************************************************************-->
+  <h1>DragonEgg - Using LLVM as a GCC backend</h1>
+  <!--*********************************************************************-->
+
+  <p><a href="http://dragonegg.llvm.org/">DragonEgg</a> is a gcc plugin
+  <tt>dragonegg.so</tt> that replaces gcc's optimizers and code generators with
+  those from the <a href="http://llvm.org">LLVM project</a>.</p>
+  <p>It is a reimplementation of
+  <a href="http://llvm.org/docs/CommandGuide/">llvm-gcc</a>
+  that works with <a href="http://gcc.gnu.org">gcc-4.5</a> or later.</p>
+
+  <br clear="all">
+
+  <!--=====================================================================-->
+  <h2 id="goals">Goals</h2>
+  <!--=====================================================================-->
+
+  <ul>
+  <li>Work with unmodified gcc</li>
+  <li>Support all gcc languages</li>
+  </ul>
+
+  <!--=====================================================================-->
+  <h2>Current Status</h2>
+  <!--=====================================================================-->
+
+  <ul>
+  <li>C and Fortran work well</li>
+  <li>Ada and C++ work somewhat</li>
+  <li>Java, Obj-C and Obj-C++ are untested</li>
+  <li>Requires one gcc patch</li>
+  <li>Only supports x86-32 and x86-64</li>
+  <li>Only supports linux and darwin</li>
+  </ul>
+
+  <p><a href="http://dragonegg.llvm.org/">DragonEgg</a> is under heavy
+  development and is not mature - it may crash or produce wrong code.  It works
+  with <a href="http://gcc.gnu.org">gcc-4.5</a> which is nowhere near being
+  released yet and is changing rapidly.  This is an additional source of
+  instability, and means that
+  <a href="http://dragonegg.llvm.org/">DragonEgg</a> may fail to build from
+  time-to-time if it has not caught up with the latest gcc changes.
+  <a href="http://dragonegg.llvm.org/">DragonEgg</a> uses the development
+  version of <a href="http://llvm.org">LLVM</a> which creates similar problems.</p>
+
+  <!--=====================================================================-->
+  <h2>DragonEgg in action</h2>
+  <!--=====================================================================-->
+
+  <p>Here is the result of compiling a simple "hello world" program with gcc-4.5.</p>
+  <pre>
+$ gcc hello.c -S -O1 -o -
+	.file	"hello.c"
+	.section	.rodata.str1.1,"aMS",@progbits,1
+.LC0:
+	.string	"Hello world!"
+	.text
+.globl main
+	.type	main, @function
+main:
+	subq	$8, %rsp
+	movl	$.LC0, %edi
+	call	puts
+	movl	$0, %eax
+	addq	$8, %rsp
+	ret
+	.size	main, .-main
+	.ident	"GCC: (GNU) 4.5.0 20090928 (experimental)"
+	.section	.note.GNU-stack,"",@progbits
+  </pre>
+
+  <p>Adding <tt>-fplugin=path/dragonegg.so</tt> to the gcc command line causes
+  the program to be optimized and codegened by LLVM instead.</p>
+  <pre>
+$ gcc hello.c -S -O1 -o - -fplugin=./dragonegg.so
+	.file	"hello.c"
+# Start of file scope inline assembly
+	.ident	"GCC: (GNU) 4.5.0 20090928 (experimental) LLVM: 82450:82981"
+# End of file scope inline assembly
+
+
+	.text
+	.align	16
+	.globl	main
+	.type	main,@function
+main:
+	subq	$8, %rsp
+	movl	$.L.str, %edi
+	call	puts
+	xorl	%eax, %eax
+	addq	$8, %rsp
+	ret
+	.size	main, .-main
+	.type	.L.str,@object
+	.section	.rodata.str1.1,"aMS",@progbits,1
+.L.str:
+	.asciz	"Hello world!"
+	.size	.L.str, 13
+
+	.section	.note.GNU-stack,"",@progbits
+  </pre>
+
+  <p>Adding <tt>-fplugin-arg-dragonegg-emit-ir</tt> causes LLVM IR to be output.
+  <pre>
+$ gcc hello.c -S -O1 -o - -fplugin=./dragonegg.so -fplugin-arg-dragonegg-emit-ir
+; ModuleID = 'hello.c'
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128"
+target triple = "x86_64-unknown-linux-gnu"
+
+module asm "\09.ident\09\22GCC: (GNU) 4.5.0 20090928 (experimental) LLVM: 82450:82981\22"
+
+@.str = private constant [13 x i8] c"Hello world!\00", align 1 ; <[13 x i8]*> [#uses=1]
+
+define i32 @main() nounwind {
+entry:
+  %0 = tail call i32 @puts(i8* getelementptr inbounds ([13 x i8]* @.str, i64 0, i64 0)) nounwind ; <i32> [#uses=0]
+  ret i32 0
+}
+
+declare i32 @puts(i8* nocapture) nounwind
+</pre>
+  <!--=====================================================================-->
+  <h2>Get it and get involved!</h2>
+  <!--=====================================================================-->
+
+  <p>Need to write this bit!</p>
+</div>
+</body>
+</html>
