@@ -1,0 +1,64 @@
+Build system
+------------
+
+The location of the gcc source and objects should be passed as options to a
+configure script rather than being hardwired into the Makefile.
+
+Determination of the target triple should be moved from the Makefile to a
+configure script.
+
+The plugin revision is created from the subversion revision.  What if people
+are using git etc?  Maybe it should be calculated in a configure script, but
+since that might not get run often perhaps the Makefile is the best place.
+
+Target subdirectories should have their own Makefiles, instead of assuming
+that there's only one source file and that it's called llvm-target.cpp.
+
+Currently the target directory (eg: i386) is calculated from the target triple
+(eg: x86_64-unknown-linux-gnu) using the "target" tool.  This should be done
+from a configure script, rather from the Makefile.
+
+Define LLVM_TARGET_NAME from the Makefile rather than being specified in
+llvm-target.h.  Maybe LLVM_TARGET_INTRINSIC_PREFIX could go too.  An annoyance
+is that the target tool returns "x86" while what is needed is "X86".
+
+Teach the build system that the plugin needs to be rebuilt if any of the bits of
+LLVM/gcc it depends on changes.
+
+
+Optimizations
+-------------
+
+After outputting global variables, maybe they can be deleted or marked somehow
+(eg: TREE_ASM_WRITTEN) so that GCC does not output them (such output gets sent
+to /dev/null, but it would be more efficient to teach GCC to not produce any in
+the first place).  Investigate.
+
+Consider using separate caches for types and globals.
+
+Work out how to stop GCC from outputting debug info for global variables
+when compiling with -g.  The output is all thrown away, so harmless, but it
+would be more efficient not to produce any in the first place.
+
+Correctness
+-----------
+
+If an ssa name refers to a global (can this happen?), the SSANames map might
+need to be updated if the target is altered by changeLLVMConstant.
+
+GCC now has per-function optimization levels.  Add support for this.
+
+
+Code quality
+------------
+
+Check the effect on code speed of having complex numbers be first class
+structures, i.e. values rather than in-memory aggregates.
+
+
+Features
+--------
+
+Output proper debug info rather than throwing most of it away.
+
+Add support for exception handling.
