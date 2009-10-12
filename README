@@ -1,0 +1,90 @@
+----------------------
+- BUILD INSTRUCTIONS -
+----------------------
+
+Step 0: Build and install llvm
+------------------------------
+
+I'm assuming anyone reading this knows how to build and install llvm.
+You need the latest llvm from the subversion repository.
+
+Step 1: Build gcc
+-----------------
+
+Check out gcc from the gcc subversion repository:
+  svn checkout svn://gcc.gnu.org/svn/gcc/trunk SomeLocalDir
+Apply the patches in the gcc-patches subdirectory, if any.  Hopefully one day
+the plugin will work with an unpatched gcc, but for the moment a few small
+patches need to be applied.  Configure gcc with your favorite options.
+Build gcc, and install it somewhere.
+
+Darwin special: the gcc configure script thinks darwin doesn't support dynamic
+libraries and concludes that plugins won't work.  Delete or improve the check.
+If you improve it, please send your patch to the gcc developers!
+
+Step 2: Build the plugin
+------------------------
+
+In the Makefile, set the GCCSOURCE_DIR variable to point to the place you
+checked out the gcc repository, rather than to where I checked it out.
+Set the GCCOBJECT_DIR to point to the place you built the repository.
+Admire the awfulness of the build system, and make a mental note to rewrite
+it properly.
+
+Build the plugin using "make".  The end result of the build is a shared
+library, dragonegg.so.
+
+Darwin special: "-shared" doesn't result in a correct dynamic library on darwin,
+use "-Wl,-flat_namespace -Wl,-undefined -Wl,suppress -dynamiclib" instead.
+
+----------------------
+- USAGE INSTRUCTIONS -
+----------------------
+
+Run gcc as usual, but pass -fplugin=./dragonegg.so as an extra command line
+argument.  Make sure you use the gcc you installed above, not the system gcc!
+
+Currently the plugin isn't capable of compiling much - you have been warned.
+
+
+------------------
+- USEFUL OPTIONS -
+------------------
+
+If you renamed dragonegg.so to something else, for example llvm.so, replace
+-fplugin-arg-dragonegg with -fplugin-arg-llvm in the options below.
+
+-fplugin-arg-dragonegg-emit-ir
+  Output LLVM IR rather than target assembler.  You need to use -S with this,
+  since otherwise GCC will pass the output to the system assembler (these don't
+  usually understand LLVM IR).  It would be nice to fix this and have the option
+  work with -c too but it's not clear how.  If you plan to read the IR then you
+  probably want to use the -fverbose-asm flag as well (see below).
+
+-fverbose-asm
+  Annotate the target assembler with helpful comments.  Turns on the generation
+  of helpful names (the same as in GCC tree dumps) in the LLVM IR.
+
+-fstats
+  Output both LLVM and GCC statistics.
+
+-ftime-report
+  Output both LLVM and GCC timing information.
+
+-fno-ident
+  If the ident global asm in the LLVM IR annoys you, use this to turn it off.
+
+-fdump-rtl-all
+  In the dump file, each function is output both as gimple and as LLVM IR.
+
+-fplugin-arg-dragonegg-disable-llvm-optzns
+  Do not perform any LLVM IR optimizations even if compiling at -O1, -O2 etc.
+
+-fplugin-arg-dragonegg-enable-gcc-optzns
+  Run the GCC tree optimizers as well as the LLVM IR optimizers.  Normally the
+  GCC optimizers are disabled.
+
+-fplugin-arg-dragonegg-save-gcc-output
+  GCC assembler output is normally redirected to /dev/null so that it doesn't
+  clash with the LLVM output.  This option causes GCC output to be written to
+  a file instead.  Good for seeing which GCC output we've failed to turn off.
