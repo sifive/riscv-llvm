@@ -669,13 +669,6 @@ const Type *TypeConverter::ConvertType(tree orig_type) {
     Ty = ConvertUNION(type, orig_type);
     break;
 
-  case BOOLEAN_TYPE: {
-    if ((Ty = GET_TYPE_LLVM(type)))
-      return Ty;
-    Ty = SET_TYPE_LLVM(type, IntegerType::get(Context, TYPE_PRECISION(type)));
-    break;
-  }
-
   case ENUMERAL_TYPE:
     // Use of an enum that is implicitly declared?
     if (TYPE_SIZE(orig_type) == 0) {
@@ -689,6 +682,7 @@ const Type *TypeConverter::ConvertType(tree orig_type) {
     }
     // FALL THROUGH.
     type = orig_type;
+  case BOOLEAN_TYPE:
   case INTEGER_TYPE: {
     if ((Ty = GET_TYPE_LLVM(type))) return Ty;
     // The ARM port defines __builtin_neon_xi as a 511-bit type because GCC's
