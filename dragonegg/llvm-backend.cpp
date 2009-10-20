@@ -264,7 +264,7 @@ void handleVisibility(tree decl, GlobalValue *GV) {
 // not to support anything like that for llvm-gcc.
 static unsigned GuessAtInliningThreshold() {
   unsigned threshold = 200;
-  if (optimize_size || optimize < 3)
+  if (!flag_inline_functions)
     // Reduce inline limit.
     threshold = 50;
   return threshold;
@@ -680,7 +680,7 @@ static void createPerModuleOptimizationPasses() {
   if (!DisableLLVMOptimizations) {
     bool NeedAlwaysInliner = false;
     llvm::Pass *InliningPass = 0;
-    if (optimize >= 2) {
+    if (flag_inline_small_functions && !flag_no_inline) {
       InliningPass = createFunctionInliningPass();    // Inline small functions
     } else {
       // If full inliner is not run, check if always-inline is needed to handle
