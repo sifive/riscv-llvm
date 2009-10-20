@@ -1847,13 +1847,9 @@ void TreeToLLVM::CreateExceptionValues() {
   FuncEHException = Intrinsic::getDeclaration(TheModule,
                                               Intrinsic::eh_exception);
   FuncEHSelector  = Intrinsic::getDeclaration(TheModule,
-                                              (IntTy == Type::getInt32Ty(Context) ?
-                                               Intrinsic::eh_selector_i32 :
-                                               Intrinsic::eh_selector_i64));
+                                              Intrinsic::eh_selector);
   FuncEHGetTypeID = Intrinsic::getDeclaration(TheModule,
-                                              (IntTy == Type::getInt32Ty(Context) ?
-                                               Intrinsic::eh_typeid_for_i32 :
-                                               Intrinsic::eh_typeid_for_i64));
+                                              Intrinsic::eh_typeid_for);
 }
 
 /// getPostPad - Return the post landing pad for the given exception handling
