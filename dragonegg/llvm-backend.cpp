@@ -1951,7 +1951,7 @@ static struct gimple_opt_pass pass_gimple_null =
 {
     {
       GIMPLE_PASS,
-      NULL,		/* name */
+      "*gimple_null",	/* name */
       gate_null,	/* gate */
       NULL,		/* execute */
       NULL,		/* sub */
@@ -1970,26 +1970,26 @@ static struct gimple_opt_pass pass_gimple_null =
 static struct ipa_opt_pass_d pass_ipa_null = {
     {
       IPA_PASS,
-      NULL,             /* name */
-      gate_null,        /* gate */
-      NULL,             /* execute */
-      NULL,             /* sub */
-      NULL,             /* next */
-      0,                /* static_pass_number */
-      TV_NONE,          /* tv_id */
-      0,                /* properties_required */
-      0,                /* properties_provided */
-      0,                /* properties_destroyed */
-      0,                /* todo_flags_start */
-      0                 /* todo_flags_finish */
+      "*ipa_null",	/* name */
+      gate_null,	/* gate */
+      NULL,		/* execute */
+      NULL,		/* sub */
+      NULL,		/* next */
+      0,		/* static_pass_number */
+      TV_NONE,		/* tv_id */
+      0,		/* properties_required */
+      0,		/* properties_provided */
+      0,		/* properties_destroyed */
+      0,		/* todo_flags_start */
+      0			/* todo_flags_finish */
     },
-    NULL,       /* generate_summary */
-    NULL,       /* write_summary */
-    NULL,       /* read_summary */
-    NULL,       /* function_read_summary */
-    0,          /* TODOs */
-    NULL,       /* function_transform */
-    NULL        /* variable_transform */
+    NULL,	/* generate_summary */
+    NULL,	/* write_summary */
+    NULL,	/* read_summary */
+    NULL,	/* function_read_summary */
+    0,		/* TODOs */
+    NULL,	/* function_transform */
+    NULL	/* variable_transform */
 };
 
 /// pass_rtl_null - RTL pass that does nothing.
@@ -1997,7 +1997,7 @@ static struct rtl_opt_pass pass_rtl_null =
 {
     {
       RTL_PASS,
-      NULL,		/* name */
+      "*rtl_null",	/* name */
       gate_null,	/* gate */
       NULL,		/* execute */
       NULL,		/* sub */
@@ -2017,7 +2017,7 @@ static struct simple_ipa_opt_pass pass_simple_ipa_null =
 {
     {
       SIMPLE_IPA_PASS,
-      NULL,		/* name */
+      "*simple_null",	/* name */
       gate_null,	/* gate */
       NULL,		/* execute */
       NULL,		/* sub */
