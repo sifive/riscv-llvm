@@ -2017,18 +2017,18 @@ static struct simple_ipa_opt_pass pass_simple_ipa_null =
 {
     {
       SIMPLE_IPA_PASS,
-      "*simple_null",	/* name */
-      gate_null,	/* gate */
-      NULL,		/* execute */
-      NULL,		/* sub */
-      NULL,		/* next */
-      0,		/* static_pass_number */
-      TV_NONE,		/* tv_id */
-      0,		/* properties_required */
-      0,		/* properties_provided */
-      0,		/* properties_destroyed */
-      0,            	/* todo_flags_start */
-      0			/* todo_flags_finish */
+      "*simple_ipa_null",	/* name */
+      gate_null,		/* gate */
+      NULL,			/* execute */
+      NULL,			/* sub */
+      NULL,			/* next */
+      0,			/* static_pass_number */
+      TV_NONE,			/* tv_id */
+      0,			/* properties_required */
+      0,			/* properties_provided */
+      0,			/* properties_destroyed */
+      0,            		/* todo_flags_start */
+      0				/* todo_flags_finish */
     }
 };
 
