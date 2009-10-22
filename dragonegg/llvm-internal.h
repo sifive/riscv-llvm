@@ -241,7 +241,7 @@ bool isBitfield(tree_node *field_decl);
 inline uint64_t getFieldOffsetInBits(tree_node *field) {
   assert(DECL_FIELD_BIT_OFFSET(field) != 0);
   uint64_t Result = getInt64(DECL_FIELD_BIT_OFFSET(field), true);
-  if (DECL_FIELD_OFFSET(field))
+  if (DECL_FIELD_OFFSET(field) && isInt64(DECL_FIELD_OFFSET(field), true))
     Result += getInt64(DECL_FIELD_OFFSET(field), true) * BITS_PER_UNIT;
   return Result;
 }

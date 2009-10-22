@@ -592,7 +592,8 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
       if (TREE_CODE(Field) != FIELD_DECL) continue;
 
-      if (!DECL_FIELD_OFFSET(Field))
+      if (!DECL_FIELD_OFFSET(Field) || !isInt64(DECL_FIELD_OFFSET(Field), true))
+        // Variable, humongous or negative offset.
         return true;
 
       uint64_t FieldBitOffset = getFieldOffsetInBits(Field);
@@ -1661,7 +1662,9 @@ void adjustPaddingElement(tree oldtree, tree newtree) {
 /// false.
 bool TypeConverter::DecodeStructFields(tree Field,
                                        StructTypeConversionInfo &Info) {
-  if (TREE_CODE(Field) != FIELD_DECL || !DECL_FIELD_OFFSET(Field))
+  if (TREE_CODE(Field) != FIELD_DECL || !DECL_FIELD_OFFSET(Field) ||
+      !isInt64(DECL_FIELD_OFFSET(Field), true))
+    // Not a field, or a field with a variable, humongous or negative offset.
     return true;
 
   // Handle bit-fields specially.
@@ -1956,7 +1959,9 @@ const Type *TypeConverter::ConvertRECORD(tree type, tree orig_type) {
   // offset.
   unsigned CurFieldNo = 0;
   for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
-    if (TREE_CODE(Field) == FIELD_DECL && DECL_FIELD_OFFSET(Field)) {
+    if (TREE_CODE(Field) == FIELD_DECL && DECL_FIELD_OFFSET(Field) &&
+        isInt64(DECL_FIELD_OFFSET(Field), true)) {
+      // A field with a non-negative constant offset that fits in 64 bits.
       uint64_t FieldOffsetInBits = getFieldOffsetInBits(Field);
       tree FieldType = getDeclaredType(Field);
       const Type *FieldTy = ConvertType(FieldType);

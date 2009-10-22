@@ -647,8 +647,10 @@ DIType DebugInfo::createStructType(tree type) {
 
     if (TREE_CODE(Member) == FIELD_DECL) {
       
-      if (DECL_FIELD_OFFSET(Member) == 0)
-        // FIXME: field with variable position, skip it for now.
+      if (DECL_FIELD_OFFSET(Member) == 0 ||
+          !isInt64(DECL_FIELD_OFFSET(Member), true))
+        // FIXME: field with variable, humongous or negative position.
+        // Skip it for now.
         continue;
       
       /* Ignore nameless fields.  */
