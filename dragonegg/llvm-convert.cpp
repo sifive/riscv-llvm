@@ -5958,7 +5958,9 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   Value *FieldPtr;
 
   // If this is a normal field at a fixed offset from the start, handle it.
-  if (!TREE_OPERAND(exp, 2)) {
+  if (DECL_FIELD_OFFSET(FieldDecl) &&
+      isInt64(DECL_FIELD_OFFSET(FieldDecl), true)) {
+    assert(!TREE_OPERAND(exp, 2) && "Constant not gimple min invariant?");
     unsigned int MemberIndex = GetFieldIndex(FieldDecl);
 
     // If the LLVM struct has zero field, don't try to index into it, just use
@@ -5998,14 +6000,27 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
     if (lookup_attribute("annotate", DECL_ATTRIBUTES(FieldDecl)))
       FieldPtr = EmitFieldAnnotation(FieldPtr, FieldDecl);
   } else {
-    // Offset is the field offset in octets.  GCC provides us with the offset in
-    // units divided by (DECL_OFFSET_ALIGN / BITS_PER_UNIT).  Convert to octets.
-    Value *Offset = Emit(TREE_OPERAND(exp, 2), 0);
+    // Offset will hold the field offset in octets.
+    Value *Offset;
+
     assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
-    unsigned factor = DECL_OFFSET_ALIGN(FieldDecl) / 8;
-    if (factor != 1)
-      Offset = Builder.CreateMul(Offset,
-                                 ConstantInt::get(Offset->getType(), factor));
+    if (TREE_OPERAND(exp, 2)) {
+      Offset = EmitGimpleReg(TREE_OPERAND(exp, 2));
+      // At this point the offset is measured in units divided by (exactly)
+      // (DECL_OFFSET_ALIGN / BITS_PER_UNIT).  Convert to octets.
+      unsigned factor = DECL_OFFSET_ALIGN(FieldDecl) / 8;
+      if (factor != 1)
+        Offset = Builder.CreateMul(Offset,
+                                   ConstantInt::get(Offset->getType(), factor));
+    } else {
+      assert(DECL_FIELD_OFFSET(FieldDecl) && "Field offset not available!");
+      Offset = EmitGimpleReg(DECL_FIELD_OFFSET(FieldDecl));
+      // At this point the offset is measured in units.  Convert to octets.
+      unsigned factor = BITS_PER_UNIT / 8;
+      if (factor != 1)
+        Offset = Builder.CreateMul(Offset,
+                                   ConstantInt::get(Offset->getType(), factor));
+    }
 
     // Here BitStart gives the offset of the field in bits from Offset.
     // Incorporate as much of it as possible into the pointer computation.
