@@ -5880,7 +5880,10 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
 
   if (VOID_TYPE_P(TREE_TYPE(ArrayTreeType))) {
     ArrayAddr = Builder.CreateBitCast(ArrayAddr, Type::getInt8PtrTy(Context));
-    return LValue(Builder.CreateGEP(ArrayAddr, IndexVal), 1);
+    ArrayAddr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
+      Builder.CreateInBoundsGEP(ArrayAddr, IndexVal) :
+      Builder.CreateGEP(ArrayAddr, IndexVal);
+    return LValue(ArrayAddr, 1);
   }
 
   // FIXME: Might also get here if the element type has constant size, but is
@@ -8067,7 +8070,9 @@ Constant *TreeConstantToLLVM::EmitLV_ARRAY_REF(tree exp) {
   Idx[0] = ConstantInt::get(IntPtrTy, 0);
   Idx[1] = IndexVal;
 
-  return TheFolder->CreateGetElementPtr(ArrayAddr, Idx, 2);
+  return POINTER_TYPE_OVERFLOW_UNDEFINED ?
+    TheFolder->CreateInBoundsGetElementPtr(ArrayAddr, Idx, 2) :
+    TheFolder->CreateGetElementPtr(ArrayAddr, Idx, 2);
 }
 
 Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
@@ -8098,11 +8103,7 @@ Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
       Constant::getNullValue(Type::getInt32Ty(Context)),
       ConstantInt::get(Type::getInt32Ty(Context), MemberIndex)
     };
-    FieldPtr = TheFolder->CreateGetElementPtr(StructAddrLV, Ops+1, 2);
-
-    FieldPtr = ConstantFoldInstOperands(Instruction::GetElementPtr,
-                                        FieldPtr->getType(), Ops,
-                                        3, Context, &TD);
+    FieldPtr = TheFolder->CreateInBoundsGetElementPtr(StructAddrLV, Ops+1, 2);
 
     // Now that we did an offset from the start of the struct, subtract off
     // the offset from BitStart.
