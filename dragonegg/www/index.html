@@ -3,7 +3,7 @@
 <!-- Material used from: HTML 4.01 specs: http://www.w3.org/TR/html401/ -->
 <html>
 <head>
-  <META http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+  <META http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>DragonEgg</title>
 </head>
 <body>
@@ -124,11 +124,11 @@ target triple = "x86_64-unknown-linux-gnu"
 
 module asm "\09.ident\09\22GCC: (GNU) 4.5.0 20090928 (experimental) LLVM: 82450:82981\22"
 
-@.str = private constant [13 x i8] c"Hello world!\00", align 1 ; <[13 x i8]*> [#uses=1]
+@.str = private constant [13 x i8] c"Hello world!\00", align 1 ; &lt;[13 x i8]*&gt; [#uses=1]
 
 define i32 @main() nounwind {
 entry:
-  %0 = tail call i32 @puts(i8* getelementptr inbounds ([13 x i8]* @.str, i64 0, i64 0)) nounwind ; <i32> [#uses=0]
+  %0 = tail call i32 @puts(i8* getelementptr inbounds ([13 x i8]* @.str, i64 0, i64 0)) nounwind ; &lt;i32&gt; [#uses=0]
   ret i32 0
 }
 
@@ -138,22 +138,22 @@ declare i32 @puts(i8* nocapture) nounwind
   <h2>Getting it</h2>
   <!--=====================================================================-->
 
-  <p>Get the development version of <a href="http://llvm.org">LLVM</a>:
+  <p>Get the development version of <a href="http://llvm.org">LLVM</a>:</p>
      <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
-     Build it in the usual way.  You do not need to install it.</p>
-  <p>Get the development version of <a href="http://gcc.gnu.org">gcc</a>:
+  <p>Build it in the usual way.  You do not need to install it.</p>
+  <p>Get the development version of <a href="http://gcc.gnu.org">gcc</a>:</p>
      <pre>	svn co http://gcc.gnu.org/svn/gcc/trunk gcc</pre>
-     Build it in the usual way.  You do not need to install it in order
+  <p>Build it in the usual way.  You do not need to install it in order
      to build <a href="http://dragonegg.llvm.org/">DragonEgg</a>, but you do
      need to install it in order to use
      <a href="http://dragonegg.llvm.org/">DragonEgg</a>.</p>
-  <p>Get <a href="http://dragonegg.llvm.org/">DragonEgg</a>:
+  <p>Get <a href="http://dragonegg.llvm.org/">DragonEgg</a>:</p>
      <pre>	svn co http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg</pre>
-     and adjust the paths at the start of the <tt>Makefile</tt> to point to the
+  <p>and adjust the paths at the start of the <tt>Makefile</tt> to point to the
      versions of <a href="http://llvm.org">LLVM</a> and
-     <a href="http://gcc.gnu.org">gcc</a> you just built.  Doing
+     <a href="http://gcc.gnu.org">gcc</a> you just built.  Doing</p>
      <pre>	make</pre>
-     is supposed to then build <tt>dragonegg.so</tt>.
+  <p>is supposed to then build <tt>dragonegg.so</tt>.
      See the <tt>README</tt> file for more details.</p>
   <p>To use <tt>dragonegg.so</tt>, compile something with your just-built
      version of <tt>gcc</tt>, adding <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt>
