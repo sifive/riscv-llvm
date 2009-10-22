@@ -5863,17 +5863,26 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
   // much nicer in cases like:
   //   float foo(int w, float A[][w], int g) { return A[g][0]; }
 
-  ArrayAddr = Builder.CreateBitCast(ArrayAddr, Type::getInt8PtrTy(Context));
-  if (VOID_TYPE_P(TREE_TYPE(ArrayTreeType)))
+  if (VOID_TYPE_P(TREE_TYPE(ArrayTreeType))) {
+    ArrayAddr = Builder.CreateBitCast(ArrayAddr, Type::getInt8PtrTy(Context));
     return LValue(Builder.CreateGEP(ArrayAddr, IndexVal), 1);
+  }
 
-  Value *TypeSize = Emit(array_ref_element_size(exp), 0);
-  TypeSize = CastToUIntType(TypeSize, IntPtrTy);
-  IndexVal = Builder.CreateMul(IndexVal, TypeSize);
-  unsigned Alignment = 1;
-  if (isa<ConstantInt>(IndexVal))
-    Alignment = MinAlign(ArrayAlign,
-                         cast<ConstantInt>(IndexVal)->getZExtValue());
+  // FIXME: Might also get here if the element type has constant size, but is
+  // humongous.  Add support for this case.
+  assert(TREE_OPERAND(exp, 3) && "Size missing for variable sized element!");
+  // ScaleFactor is the size of the element type in units divided by (exactly)
+  // TYPE_ALIGN_UNIT(ElementType).
+  Value *ScaleFactor = CastToUIntType(Emit(TREE_OPERAND(exp, 3), 0), IntPtrTy);
+  assert(isPowerOf2_32(TYPE_ALIGN(ElementType)) &&
+         "Alignment not a power of two!");
+  assert(TYPE_ALIGN(ElementType) >= 8 && "Unit size not a multiple of 8 bits!");
+  // ScaleType is chosen to correct for the division in ScaleFactor.
+  const Type *ScaleType = IntegerType::get(Context, TYPE_ALIGN(ElementType));
+  ArrayAddr = Builder.CreateBitCast(ArrayAddr, ScaleType->getPointerTo());
+
+  IndexVal = Builder.CreateMul(IndexVal, ScaleFactor);
+  unsigned Alignment = MinAlign(ArrayAlign, TYPE_ALIGN(ElementType) / 8);
   Value *Ptr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
     Builder.CreateInBoundsGEP(ArrayAddr, IndexVal) :
     Builder.CreateGEP(ArrayAddr, IndexVal);
@@ -5989,13 +5998,14 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
     if (lookup_attribute("annotate", DECL_ATTRIBUTES(FieldDecl)))
       FieldPtr = EmitFieldAnnotation(FieldPtr, FieldDecl);
   } else {
-    // Offset is the field offset in octets.
+    // Offset is the field offset in octets.  GCC provides us with the offset in
+    // units divided by (DECL_OFFSET_ALIGN / BITS_PER_UNIT).  Convert to octets.
     Value *Offset = Emit(TREE_OPERAND(exp, 2), 0);
-    if (BITS_PER_UNIT != 8) {
-      assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
-      Offset = Builder.CreateMul(Offset, ConstantInt::get(Offset->getType(),
-                                                          BITS_PER_UNIT / 8));
-    }
+    assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
+    unsigned factor = DECL_OFFSET_ALIGN(FieldDecl) / 8;
+    if (factor != 1)
+      Offset = Builder.CreateMul(Offset,
+                                 ConstantInt::get(Offset->getType(), factor));
 
     // Here BitStart gives the offset of the field in bits from Offset.
     // Incorporate as much of it as possible into the pointer computation.
