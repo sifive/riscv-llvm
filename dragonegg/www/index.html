@@ -136,22 +136,27 @@ declare i32 @puts(i8* nocapture) nounwind
   <h2>Getting it</h2>
   <!--=====================================================================-->
 
-  <p>Get the development version of <a href="http://llvm.org">LLVM</a>:</p>
-     <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
-  <p>Build it in the usual way.  You do not need to install it.</p>
-  <p>Get the development version of <a href="http://gcc.gnu.org">gcc</a>:</p>
-     <pre>	svn co http://gcc.gnu.org/svn/gcc/trunk gcc</pre>
-  <p>Build it in the usual way.  You do not need to install it in order
-     to build <a href="http://dragonegg.llvm.org/">DragonEgg</a>, but you do
-     need to install it in order to use
-     <a href="http://dragonegg.llvm.org/">DragonEgg</a>.</p>
   <p>Get <a href="http://dragonegg.llvm.org/">DragonEgg</a>:</p>
      <pre>	svn co http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg</pre>
-  <p>and adjust the paths at the start of the <tt>Makefile</tt> to point to the
+  <p>Get the development version of <a href="http://llvm.org">LLVM</a>:</p>
+     <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
+  <p>Build <a href="http://llvm.org">LLVM</a> in the usual way.
+     You do not need to install it.</p>
+  <p>Get the development version of <a href="http://gcc.gnu.org">gcc</a>:</p>
+     <pre>	svn co http://gcc.gnu.org/svn/gcc/trunk gcc</pre>
+  <p>Apply all of the patches in <tt>dragonegg/gcc-patches/</tt>, if any, to
+     <a href="http://gcc.gnu.org">gcc</a>.
+     Build <a href="http://gcc.gnu.org">gcc</a> in the usual way.  You do not
+     need to install <a href="http://gcc.gnu.org">gcc</a> in order to build
+     <a href="http://dragonegg.llvm.org/">DragonEgg</a>, but you do need to
+     install <a href="http://gcc.gnu.org">gcc</a> in order to use
+     <a href="http://dragonegg.llvm.org/">DragonEgg</a>.</p>
+  <p>Before building <a href="http://dragonegg.llvm.org/">DragonEgg</a> you need to
+     adjust the paths at the start of <tt>dragonegg/Makefile</tt> to point to the
      versions of <a href="http://llvm.org">LLVM</a> and
      <a href="http://gcc.gnu.org">gcc</a> you just built.  Doing</p>
      <pre>	make</pre>
-  <p>is supposed to then build <tt>dragonegg.so</tt>.
+  <p>in the <tt>dragonegg</tt> directory should then build <tt>dragonegg.so</tt>.
      See the <tt>README</tt> file for more details.</p>
   <p>To use <tt>dragonegg.so</tt>, compile something with your just-built
      version of <tt>gcc</tt>, adding <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt>
