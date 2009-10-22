@@ -833,6 +833,21 @@ void TreeToLLVM::PopulatePhiNodes() {
     PhiArguments.clear();
     Predecessors.clear();
   }
+
+  // FIXME: Because we don't support exception handling yet, we don't output GCC
+  // basic blocks for landing pads and so forth.  This can result in LLVM basic
+  // blocks with no predecessors but a phi node, which the verifier rejects.
+  // Workaround this for the moment by replacing all such phi nodes with undef.
+  LocalDecls.clear();
+  SSANames.clear();
+  for (unsigned i = 0, e = PendingPhis.size(); i < e; ++i) {
+    PhiRecord &P = PendingPhis[i];
+    if (P.PHI->getNumIncomingValues())
+      continue;
+    P.PHI->replaceAllUsesWith(UndefValue::get(P.PHI->getType()));
+    P.PHI->eraseFromParent();
+  }
+
   PendingPhis.clear();
 }
 
