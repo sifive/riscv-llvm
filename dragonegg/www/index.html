@@ -115,7 +115,7 @@ main:
 	.section	.note.GNU-stack,"",@progbits
   </pre>
 
-  <p>Adding <tt>-fplugin-arg-dragonegg-emit-ir</tt> causes LLVM IR to be output.
+  <p>Adding <tt>-fplugin-arg-dragonegg-emit-ir</tt> causes LLVM IR to be output.</p>
   <pre>
 $ gcc hello.c -S -O1 -o - -fplugin=./dragonegg.so -fplugin-arg-dragonegg-emit-ir
 ; ModuleID = 'hello.c'
@@ -135,10 +135,38 @@ entry:
 declare i32 @puts(i8* nocapture) nounwind
 </pre>
   <!--=====================================================================-->
-  <h2>Get it and get involved!</h2>
+  <h2>Getting it</h2>
   <!--=====================================================================-->
 
-  <p>Need to write this bit!</p>
+  <p>Get the development version of <a href="http://llvm.org">LLVM</a>:
+     <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
+     Build it in the usual way.  You do not need to install it.</p>
+  <p>Get the development version of <a href="http://gcc.gnu.org">gcc</a>:
+     <pre>	svn co http://gcc.gnu.org/svn/gcc/trunk gcc</pre>
+     Build it in the usual way.  You do not need to install it in order
+     to build <a href="http://dragonegg.llvm.org/">DragonEgg</a>, but you do
+     need to install it in order to use
+     <a href="http://dragonegg.llvm.org/">DragonEgg</a>.</p>
+  <p>Get <a href="http://dragonegg.llvm.org/">DragonEgg</a>:
+     <pre>	svn co http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg</pre>
+     and adjust the paths at the start of the <tt>Makefile</tt> to point to the
+     versions of <a href="http://llvm.org">LLVM</a> and
+     <a href="http://gcc.gnu.org">gcc</a> you just built.  Doing
+     <pre>	make</pre>
+     is supposed to then build <tt>dragonegg.so</tt>.
+     See the <tt>README</tt> file for more details.</p>
+  <p>To use <tt>dragonegg.so</tt>, compile something with your just-built
+     version of <tt>gcc</tt>, adding <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt>
+     to the command line.  See the <tt>README</tt> file for more details and useful
+     command line options.</p>
+
+  <!--=====================================================================-->
+  <h2>It doesn't work!</h2>
+  <!--=====================================================================-->
+  <p>Sorry about that!  Please report bugs and problems to the LLVM developers'
+     <a href="http://llvm.org/docs/#maillist">mailing list</a>, or using LLVM's
+     <a href="http://llvm.org/bugs/">bugzilla</a>.</p>
+  <p>Suggestions for improvement are welcome.  Patches are even more welcome!</p>
 </div>
 </body>
 </html>
