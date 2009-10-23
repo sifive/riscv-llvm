@@ -20,20 +20,11 @@ along with GCC; see the file COPYING3.  If not see
 /* This file is machine generated.  Do not edit.  */
 
 /* GC marker procedures.  */
+/* macros and declarations */
 #define gt_ggc_m_13tree_llvm_map(X) do { \
   if (X != NULL) gt_ggc_mx_tree_llvm_map (X);\
   } while (0)
 extern void gt_ggc_mx_tree_llvm_map (void *);
-
-void
-gt_ggc_mx_tree_llvm_map (void *x_p)
-{
-  struct tree_llvm_map * const x = (struct tree_llvm_map *)x_p;
-  if (ggc_test_and_set_mark (x))
-    {
-      gt_ggc_m_9tree_node ((*x).base.from);
-    }
-}
 #define gt_ggc_m_15interface_tuple(X) do { \
   if (X != NULL) gt_ggc_mx_interface_tuple (X);\
   } while (0)
@@ -138,6 +129,10 @@ extern void gt_ggc_mx_VEC_const_char_p_gc (void *);
   if (X != NULL) gt_ggc_mx_pending_abstract_type (X);\
   } while (0)
 extern void gt_ggc_mx_pending_abstract_type (void *);
+#define gt_ggc_m_15VEC_tree_int_gc(X) do { \
+  if (X != NULL) gt_ggc_mx_VEC_tree_int_gc (X);\
+  } while (0)
+extern void gt_ggc_mx_VEC_tree_int_gc (void *);
 #define gt_ggc_m_9cp_parser(X) do { \
   if (X != NULL) gt_ggc_mx_cp_parser (X);\
   } while (0)
@@ -250,6 +245,14 @@ extern void gt_ggc_mx_VEC_parm_attr_gc (void *);
   if (X != NULL) gt_ggc_mx_parm_attr_d (X);\
   } while (0)
 extern void gt_ggc_mx_parm_attr_d (void *);
+#define gt_ggc_m_22VEC_ipa_edge_args_t_gc(X) do { \
+  if (X != NULL) gt_ggc_mx_VEC_ipa_edge_args_t_gc (X);\
+  } while (0)
+extern void gt_ggc_mx_VEC_ipa_edge_args_t_gc (void *);
+#define gt_ggc_m_20lto_symtab_entry_def(X) do { \
+  if (X != NULL) gt_ggc_mx_lto_symtab_entry_def (X);\
+  } while (0)
+extern void gt_ggc_mx_lto_symtab_entry_def (void *);
 #define gt_ggc_m_20ssa_operand_memory_d(X) do { \
   if (X != NULL) gt_ggc_mx_ssa_operand_memory_d (X);\
   } while (0)
@@ -302,6 +305,18 @@ extern void gt_ggc_mx_eh_landing_pad_d (void *);
   if (X != NULL) gt_ggc_mx_eh_region_d (X);\
   } while (0)
 extern void gt_ggc_mx_eh_region_d (void *);
+#define gt_ggc_m_10vcall_insn(X) do { \
+  if (X != NULL) gt_ggc_mx_vcall_insn (X);\
+  } while (0)
+extern void gt_ggc_mx_vcall_insn (void *);
+#define gt_ggc_m_18VEC_vcall_entry_gc(X) do { \
+  if (X != NULL) gt_ggc_mx_VEC_vcall_entry_gc (X);\
+  } while (0)
+extern void gt_ggc_mx_VEC_vcall_entry_gc (void *);
+#define gt_ggc_m_18VEC_dcall_entry_gc(X) do { \
+  if (X != NULL) gt_ggc_mx_VEC_dcall_entry_gc (X);\
+  } while (0)
+extern void gt_ggc_mx_VEC_dcall_entry_gc (void *);
 #define gt_ggc_m_16var_loc_list_def(X) do { \
   if (X != NULL) gt_ggc_mx_var_loc_list_def (X);\
   } while (0)
@@ -326,6 +341,10 @@ extern void gt_ggc_mx_VEC_pubname_entry_gc (void *);
   if (X != NULL) gt_ggc_mx_VEC_dw_attr_node_gc (X);\
   } while (0)
 extern void gt_ggc_mx_VEC_dw_attr_node_gc (void *);
+#define gt_ggc_m_18comdat_type_struct(X) do { \
+  if (X != NULL) gt_ggc_mx_comdat_type_struct (X);\
+  } while (0)
+extern void gt_ggc_mx_comdat_type_struct (void *);
 #define gt_ggc_m_25dw_ranges_by_label_struct(X) do { \
   if (X != NULL) gt_ggc_mx_dw_ranges_by_label_struct (X);\
   } while (0)
@@ -398,6 +417,22 @@ extern void gt_ggc_mx_cgraph_asm_node (void *);
   if (X != NULL) gt_ggc_mx_varpool_node (X);\
   } while (0)
 extern void gt_ggc_mx_varpool_node (void *);
+#define gt_ggc_m_22VEC_cgraph_node_set_gc(X) do { \
+  if (X != NULL) gt_ggc_mx_VEC_cgraph_node_set_gc (X);\
+  } while (0)
+extern void gt_ggc_mx_VEC_cgraph_node_set_gc (void *);
+#define gt_ggc_m_19cgraph_node_set_def(X) do { \
+  if (X != NULL) gt_ggc_mx_cgraph_node_set_def (X);\
+  } while (0)
+extern void gt_ggc_mx_cgraph_node_set_def (void *);
+#define gt_ggc_m_27cgraph_node_set_element_def(X) do { \
+  if (X != NULL) gt_ggc_mx_cgraph_node_set_element_def (X);\
+  } while (0)
+extern void gt_ggc_mx_cgraph_node_set_element_def (void *);
+#define gt_ggc_m_22VEC_cgraph_node_ptr_gc(X) do { \
+  if (X != NULL) gt_ggc_mx_VEC_cgraph_node_ptr_gc (X);\
+  } while (0)
+extern void gt_ggc_mx_VEC_cgraph_node_ptr_gc (void *);
 #define gt_ggc_m_11cgraph_edge(X) do { \
   if (X != NULL) gt_ggc_mx_cgraph_edge (X);\
   } while (0)
@@ -679,22 +714,6 @@ extern void gt_ggc_m_SP9tree_node17splay_tree_node_s (void *);
 extern void gt_ggc_m_P9tree_nodeP9tree_node17splay_tree_node_s (void *);
 extern void gt_ggc_m_IP9tree_node17splay_tree_node_s (void *);
 extern void gt_ggc_m_P13tree_llvm_map4htab (void *);
-
-void
-gt_ggc_m_P13tree_llvm_map4htab (void *x_p)
-{
-  struct htab * const x = (struct htab *)x_p;
-  if (ggc_test_and_set_mark (x))
-    {
-      if ((*x).entries != NULL) {
-        size_t i0;
-        for (i0 = 0; i0 != (size_t)(((*x)).size); i0++) {
-          gt_ggc_m_13tree_llvm_map ((*x).entries[i0]);
-        }
-        ggc_mark ((*x).entries);
-      }
-    }
-}
 extern void gt_ggc_m_P15interface_tuple4htab (void *);
 extern void gt_ggc_m_P16volatilized_type4htab (void *);
 extern void gt_ggc_m_P17string_descriptor4htab (void *);
@@ -707,6 +726,7 @@ extern void gt_ggc_m_P10spec_entry4htab (void *);
 extern void gt_ggc_m_P16cxx_int_tree_map4htab (void *);
 extern void gt_ggc_m_P17named_label_entry4htab (void *);
 extern void gt_ggc_m_P12tree_int_map4htab (void *);
+extern void gt_ggc_m_P20lto_symtab_entry_def4htab (void *);
 extern void gt_ggc_m_IP9tree_node12splay_tree_s (void *);
 extern void gt_ggc_m_P9tree_nodeP9tree_node12splay_tree_s (void *);
 extern void gt_ggc_m_P12varpool_node4htab (void *);
@@ -725,16 +745,46 @@ extern void gt_ggc_m_P9reg_attrs4htab (void *);
 extern void gt_ggc_m_P9mem_attrs4htab (void *);
 extern void gt_ggc_m_P7rtx_def4htab (void *);
 extern void gt_ggc_m_SP9tree_node12splay_tree_s (void *);
+extern void gt_ggc_m_P10vcall_insn4htab (void *);
 extern void gt_ggc_m_P16var_loc_list_def4htab (void *);
 extern void gt_ggc_m_P10die_struct4htab (void *);
 extern void gt_ggc_m_P15dwarf_file_data4htab (void *);
 extern void gt_ggc_m_P20indirect_string_node4htab (void *);
 extern void gt_ggc_m_P11cgraph_node4htab (void *);
 extern void gt_ggc_m_II12splay_tree_s (void *);
+extern void gt_ggc_m_P27cgraph_node_set_element_def4htab (void *);
 extern void gt_ggc_m_P11cgraph_edge4htab (void *);
 extern void gt_ggc_m_P9loop_exit4htab (void *);
 extern void gt_ggc_m_P24types_used_by_vars_entry4htab (void *);
 extern void gt_ggc_m_P9tree_node4htab (void *);
+
+/* functions code */
+
+void
+gt_ggc_mx_tree_llvm_map (void *x_p)
+{
+  struct tree_llvm_map * const x = (struct tree_llvm_map *)x_p;
+  if (ggc_test_and_set_mark (x))
+    {
+      gt_ggc_m_9tree_node ((*x).base.from);
+    }
+}
+
+void
+gt_ggc_m_P13tree_llvm_map4htab (void *x_p)
+{
+  struct htab * const x = (struct htab *)x_p;
+  if (ggc_test_and_set_mark (x))
+    {
+      if ((*x).entries != NULL) {
+        size_t i0;
+        for (i0 = 0; i0 != (size_t)(((*x)).size); i0++) {
+          gt_ggc_m_13tree_llvm_map ((*x).entries[i0]);
+        }
+        ggc_mark ((*x).entries);
+      }
+    }
+}
 
 /* GC roots.  */
 
