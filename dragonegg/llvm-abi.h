@@ -420,7 +420,10 @@ public:
 
       // FIXME: should return the hidden first argument for some targets
       // (e.g. ELF i386).
-      C.HandleAggregateShadowResult(Ty->getPointerTo(), false);
+      if (AGGREGATE_TYPE_P(type))
+        C.HandleAggregateShadowResult(Ty->getPointerTo(), false);
+      else
+        C.HandleScalarShadowResult(Ty->getPointerTo(), false);
     }
   }
   
@@ -776,7 +779,10 @@ public:
 
       // FIXME: should return the hidden first argument for some targets
       // (e.g. ELF i386).
-      C.HandleAggregateShadowResult(Ty->getPointerTo(), false);
+      if (AGGREGATE_TYPE_P(type))
+        C.HandleAggregateShadowResult(Ty->getPointerTo(), false);
+      else
+        C.HandleScalarShadowResult(Ty->getPointerTo(), false);
     }
   }
   
