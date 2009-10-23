@@ -8095,7 +8095,8 @@ Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   const TargetData &TD = getTargetData();
 
   // If this is a normal field at a fixed offset from the start, handle it.
-  if (!TREE_OPERAND(exp, 2)) {
+  if (DECL_FIELD_OFFSET(FieldDecl) &&
+      isInt64(DECL_FIELD_OFFSET(FieldDecl), true)) {
     unsigned int MemberIndex = GetFieldIndex(FieldDecl);
 
     Constant *Ops[] = {
@@ -8113,14 +8114,30 @@ Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
     }
 
   } else {
-    // Offset is the field offset in octets.
-    Constant *Offset = Convert(TREE_OPERAND(exp, 2));
-    if (BITS_PER_UNIT != 8) {
-      assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
-      Offset = TheFolder->CreateMul(Offset,
-                                    ConstantInt::get(Offset->getType(),
-                                                     BITS_PER_UNIT / 8));
+    // Offset will hold the field offset in octets.
+    Constant *Offset;
+
+    assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
+    if (TREE_OPERAND(exp, 2)) {
+      Offset = Convert(TREE_OPERAND(exp, 2));
+      // At this point the offset is measured in units divided by (exactly)
+      // (DECL_OFFSET_ALIGN / BITS_PER_UNIT).  Convert to octets.
+      unsigned factor = DECL_OFFSET_ALIGN(FieldDecl) / 8;
+      if (factor != 1)
+        Offset = TheFolder->CreateMul(Offset,
+                                      ConstantInt::get(Offset->getType(),
+                                                       factor));
+    } else {
+      assert(DECL_FIELD_OFFSET(FieldDecl) && "Field offset not available!");
+      Offset = Convert(DECL_FIELD_OFFSET(FieldDecl));
+      // At this point the offset is measured in units.  Convert to octets.
+      unsigned factor = BITS_PER_UNIT / 8;
+      if (factor != 1)
+        Offset = TheFolder->CreateMul(Offset,
+                                      ConstantInt::get(Offset->getType(),
+                                                       factor));
     }
+
     Constant *Ptr = TheFolder->CreatePtrToInt(StructAddrLV, Offset->getType());
     Ptr = TheFolder->CreateAdd(Ptr, Offset);
     FieldPtr = TheFolder->CreateIntToPtr(Ptr, FieldTy->getPointerTo());
