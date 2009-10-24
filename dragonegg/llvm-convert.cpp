@@ -771,8 +771,11 @@ void TreeToLLVM::PopulatePhiNodes() {
       // Associate the incoming expression with all of them, since any of them
       // may occur as a predecessor of the LLVM basic block containing the phi.
       Function::iterator FI(BI->second), FE = Fn->end();
-      for (++FI; FI != FE && !FI->hasName(); ++FI)
+      for (++FI; FI != FE && !FI->hasName(); ++FI) {
+        assert(FI->getSinglePredecessor() == IncomingValues.back().first &&
+               "Anonymous block does not continue predecessor!");
         IncomingValues.push_back(std::make_pair(FI, val));
+      }
     }
 
     // Sort the incoming values by basic block to help speed up queries.
