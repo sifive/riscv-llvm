@@ -8035,7 +8035,11 @@ Constant *TreeConstantToLLVM::EmitLV_STRING_CST(tree exp) {
                                           GlobalVariable::PrivateLinkage, Init,
                                           ".str");
 
-  GV->setAlignment(TYPE_ALIGN(TREE_TYPE(exp)) / 8);
+  unsigned align = TYPE_ALIGN(TREE_TYPE(exp));
+#ifdef CONSTANT_ALIGNMENT
+  align = CONSTANT_ALIGNMENT (exp, align);
+#endif
+  GV->setAlignment(align / 8);
 
   if (SlotP) *SlotP = GV;
   return GV;
