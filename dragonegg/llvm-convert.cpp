@@ -1518,10 +1518,12 @@ void TreeToLLVM::EmitAggregateCopy(MemRef DestLoc, MemRef SrcLoc, tree type) {
     return;  // noop copy.
 
   // If the type is small, copy the elements instead of using a block copy.
-  if (TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
-      TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type)) <
-          TARGET_LLVM_MIN_BYTES_COPY_BY_MEMCPY) {
-    const Type *LLVMTy = ConvertType(type);
+  const Type *LLVMTy = ConvertType(type);
+  unsigned NumElts = CountAggregateElements(LLVMTy);
+  if (NumElts == 1 ||
+      (TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
+       TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type)) <
+       TARGET_LLVM_MIN_BYTES_COPY_BY_MEMCPY)) {
 
     // Some targets (x87) cannot pass non-floating-point values using FP
     // instructions.  The LLVM type for a union may include FP elements,
@@ -1533,7 +1535,7 @@ void TreeToLLVM::EmitAggregateCopy(MemRef DestLoc, MemRef SrcLoc, tree type) {
     if ((TREE_CODE(type) != UNION_TYPE || !containsFPField(LLVMTy)) &&
         !TheTypeConverter->GCCTypeOverlapsWithLLVMTypePadding(type, LLVMTy) &&
         // Don't copy tons of tiny elements.
-        CountAggregateElements(LLVMTy) <= 8) {
+        NumElts <= 8) {
       DestLoc.Ptr = Builder.CreateBitCast(DestLoc.Ptr, LLVMTy->getPointerTo());
       SrcLoc.Ptr = Builder.CreateBitCast(SrcLoc.Ptr, LLVMTy->getPointerTo());
       CopyAggregate(DestLoc, SrcLoc, Builder, type);
