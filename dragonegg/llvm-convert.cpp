@@ -602,7 +602,7 @@ void TreeToLLVM::StartFunctionBody() {
   handleVisibility(FnDecl, Fn);
 
   // Handle attribute "aligned".
-  if (DECL_ALIGN (FnDecl) != 8)
+  if (DECL_ALIGN (FnDecl) != FUNCTION_BOUNDARY)
     Fn->setAlignment(DECL_ALIGN (FnDecl) / 8);
 
   // Handle functions in specified sections.
@@ -1525,7 +1525,7 @@ void TreeToLLVM::EmitAggregateCopy(MemRef DestLoc, MemRef SrcLoc, tree type) {
   const Type *LLVMTy = ConvertType(type);
   unsigned NumElts = CountAggregateElements(LLVMTy);
   if (TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
-      (NumElts == 1 ||  
+      (NumElts == 1 ||
        TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type)) <
        TARGET_LLVM_MIN_BYTES_COPY_BY_MEMCPY)) {
 
