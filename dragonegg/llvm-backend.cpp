@@ -630,13 +630,14 @@ static void createPerFunctionOptimizationPasses() {
     FunctionPassManager *PM = PerFunctionPasses;    
     HasPerFunctionPasses = true;
 
-    CodeGenOpt::Level OptLevel = CodeGenOpt::Default;
-
-    switch (optimize) {
-    default: break;
-    case 0: OptLevel = CodeGenOpt::None; break;
-    case 3: OptLevel = CodeGenOpt::Aggressive; break;
-    }
+    CodeGenOpt::Level OptLevel = CodeGenOpt::Default;  // -O2, -Os, and -Oz
+    if (optimize == 0)
+      OptLevel = CodeGenOpt::None;
+    else if (optimize == 1)
+      OptLevel = CodeGenOpt::Less;
+    else if (optimize == 3)
+      // -O3 and above.
+      OptLevel = CodeGenOpt::Aggressive;
 
     // Normal mode, emit a .s file by running the code generator.
     // Note, this also adds codegenerator level optimization passes.
