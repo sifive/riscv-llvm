@@ -1569,7 +1569,7 @@ struct StructTypeConversionInfo {
   void dump() const;
 };
 
-// Add new element which is a bit field. Size is not the size of bit filed,
+// Add new element which is a bit field. Size is not the size of bit field,
 // but size of bits required to determine type of new Field which will be
 // used to access this bit field.
 void StructTypeConversionInfo::addNewBitField(uint64_t Size,
@@ -2054,7 +2054,7 @@ const Type *TypeConverter::ConvertUNION(tree type, tree orig_type) {
 
   // Find the type with the largest aligment, and if we have multiple types with
   // the same alignment, select one with largest size. If type with max. align
-  // is smaller then other types then we will add padding later on anyway to
+  // is smaller than other types, then we will add padding later on anyway to
   // match union size.
   const TargetData &TD = getTargetData();
   const Type *UnionTy = 0;
