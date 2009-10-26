@@ -1788,10 +1788,17 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
 
   // Insert an alloca for this variable.
   AllocaInst *AI;
-  if (!Size)                             // Fixed size alloca -> entry block.
+  if (!Size) {                           // Fixed size alloca -> entry block.
     AI = CreateTemporary(Ty);
-  else
+#ifdef ATTACH_DEBUG_INFO_TO_AN_INSN
+    if (TheDebugInfo) {
+      TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
+      Builder.SetDebugLocation(AI);
+    }
+#endif
+  } else {
     AI = Builder.CreateAlloca(Ty, Size);
+  }
   NameValue(AI, decl);
 
   AI->setAlignment(Alignment);
