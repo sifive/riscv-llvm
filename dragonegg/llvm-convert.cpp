@@ -546,7 +546,8 @@ void TreeToLLVM::StartFunctionBody() {
     Function *FnEntry = TheModule->getFunction(Name);
     if (FnEntry) {
       assert(FnEntry->getName() == Name && "Same entry, different name?");
-      assert(FnEntry->isDeclaration() &&
+      assert((FnEntry->isDeclaration() ||
+              FnEntry->getLinkage() == Function::AvailableExternallyLinkage) &&
              "Multiple fns with same name and neither are external!");
       FnEntry->setName("");  // Clear name to avoid conflicts.
       assert(FnEntry->getCallingConv() == CallingConv &&
