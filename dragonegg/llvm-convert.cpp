@@ -1204,6 +1204,18 @@ Value *TreeToLLVM::Emit(tree exp, const MemRef *DestLoc) {
   return Result;
 }
 
+/// get_constant_alignment - Return the alignment of constant EXP in bits.
+///
+static unsigned int
+get_constant_alignment (tree exp)
+{
+  unsigned int align = TYPE_ALIGN (TREE_TYPE (exp));
+#ifdef CONSTANT_ALIGNMENT
+  align = CONSTANT_ALIGNMENT (exp, align);
+#endif
+  return align;
+}
+
 /// EmitLV - Convert the specified l-value tree node to LLVM code, returning
 /// the address of the result.
 LValue TreeToLLVM::EmitLV(tree exp) {
@@ -1250,12 +1262,12 @@ LValue TreeToLLVM::EmitLV(tree exp) {
   }
   case COMPLEX_CST: {
     Value *Ptr = TreeConstantToLLVM::EmitLV_COMPLEX_CST(exp);
-    LV = LValue(Ptr, TYPE_ALIGN(TREE_TYPE(exp)) / 8);
+    LV = LValue(Ptr, get_constant_alignment(exp) / 8);
     break;
   }
   case STRING_CST: {
     Value *Ptr = TreeConstantToLLVM::EmitLV_STRING_CST(exp);
-    LV = LValue(Ptr, TYPE_ALIGN(TREE_TYPE(exp)) / 8);
+    LV = LValue(Ptr, get_constant_alignment(exp) / 8);
     break;
   }
 
@@ -8034,12 +8046,7 @@ Constant *TreeConstantToLLVM::EmitLV_STRING_CST(tree exp) {
   GlobalVariable *GV = new GlobalVariable(*TheModule, Init->getType(), true,
                                           GlobalVariable::PrivateLinkage, Init,
                                           ".str");
-
-  unsigned align = TYPE_ALIGN(TREE_TYPE(exp));
-#ifdef CONSTANT_ALIGNMENT
-  align = CONSTANT_ALIGNMENT (exp, align);
-#endif
-  GV->setAlignment(align / 8);
+  GV->setAlignment(get_constant_alignment(exp) / 8);
 
   if (SlotP) *SlotP = GV;
   return GV;
