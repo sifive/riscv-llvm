@@ -93,7 +93,7 @@ public:
 
   /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of 
   /// source line.
-  void EmitStopPoint(Function *Fn, BasicBlock *CurBB);
+  void EmitStopPoint(Function *Fn, BasicBlock *CurBB, LLVMBuilder &Builder);
                      
   /// EmitGlobalVariable - Emit information about a global variable.
   ///

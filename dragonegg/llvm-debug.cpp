@@ -243,8 +243,9 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
                                   Fn->hasInternalLinkage(),
                                   true /*definition*/);
 
+#ifndef ATTACH_DEBUG_INFO_TO_AN_INSN
   DebugFactory.InsertSubprogramStart(SP, CurBB);
-
+#endif
   // Push function on region stack.
   RegionStack.push_back(SP);
   RegionMap[FnDecl] = SP;
@@ -285,7 +286,9 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
 /// region - "llvm.dbg.region.end."
 void DebugInfo::EmitFunctionEnd(BasicBlock *CurBB, bool EndFunction) {
   assert(!RegionStack.empty() && "Region stack mismatch, stack empty!");
+#ifndef ATTACH_DEBUG_INFO_TO_AN_INSN
   DebugFactory.InsertRegionEnd(RegionStack.back(), CurBB);
+#endif
   RegionStack.pop_back();
   // Blocks get erased; clearing these is needed for determinism, and also
   // a good idea if the next function gets inlined.
@@ -325,8 +328,8 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name,
 
 /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of 
 /// source line - "llvm.dbg.stoppoint."  Now enabled at -O.
-void DebugInfo::EmitStopPoint(Function *Fn, BasicBlock *CurBB) {
-
+void DebugInfo::EmitStopPoint(Function *Fn, BasicBlock *CurBB,
+                              LLVMBuilder &Builder) {
   // Don't bother if things are the same as last time.
   if (PrevLineNo == CurLineNo &&
       PrevBB == CurBB &&
