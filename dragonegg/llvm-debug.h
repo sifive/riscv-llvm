@@ -81,13 +81,9 @@ public:
   /// "llvm.dbg.func.start."
   void EmitFunctionStart(tree_node *FnDecl, Function *Fn, BasicBlock *CurBB);
 
-  /// EmitRegionStart- Constructs the debug code for entering a declarative
-  /// region - "llvm.dbg.region.start."
-  void EmitRegionStart(BasicBlock *CurBB);
-
-  /// EmitRegionEnd - Constructs the debug code for exiting a declarative
+  /// EmitFunctionEnd - Constructs the debug code for exiting a declarative
   /// region - "llvm.dbg.region.end."
-  void EmitRegionEnd(BasicBlock *CurBB, bool EndFunction);
+  void EmitFunctionEnd(BasicBlock *CurBB, bool EndFunction);
 
   /// EmitDeclare - Constructs the debug code for allocation of a new variable.
   /// region - "llvm.dbg.declare."

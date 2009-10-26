@@ -281,20 +281,9 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
   return getOrCreateCompileUnit(main_input_filename);
 }
 
-/// EmitRegionStart- Constructs the debug code for entering a declarative
-/// region - "llvm.dbg.region.start."
-void DebugInfo::EmitRegionStart(BasicBlock *CurBB) {
-  llvm::DIDescriptor D;
-  if (!RegionStack.empty())
-    D = RegionStack.back();
-  D = DebugFactory.CreateLexicalBlock(D);
-  RegionStack.push_back(D);
-  DebugFactory.InsertRegionStart(D, CurBB);
-}
-
-/// EmitRegionEnd - Constructs the debug code for exiting a declarative
+/// EmitFunctionEnd - Constructs the debug code for exiting a declarative
 /// region - "llvm.dbg.region.end."
-void DebugInfo::EmitRegionEnd(BasicBlock *CurBB, bool EndFunction) {
+void DebugInfo::EmitFunctionEnd(BasicBlock *CurBB, bool EndFunction) {
   assert(!RegionStack.empty() && "Region stack mismatch, stack empty!");
   DebugFactory.InsertRegionEnd(RegionStack.back(), CurBB);
   RegionStack.pop_back();
