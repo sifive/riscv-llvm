@@ -4528,12 +4528,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_SQRT:
   case BUILT_IN_SQRTF:
   case BUILT_IN_SQRTL:
-    // If errno math has been disabled, expand these to llvm.sqrt calls.
-    if (!flag_errno_math) {
-      Result = EmitBuiltinSQRT(stmt);
-      Result = CastToFPType(Result, ConvertType(gimple_call_return_type(stmt)));
-      return true;
-    }
+    // The result of sqrt(negative) is implementation-defined, but follows
+    // IEEE754 in most current implementations. llvm.sqrt, which has undefined
+    // behavior for such inputs, is an inappropriate substitute.
     break;
   case BUILT_IN_POWI:
   case BUILT_IN_POWIF:
