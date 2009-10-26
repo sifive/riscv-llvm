@@ -602,7 +602,7 @@ void TreeToLLVM::StartFunctionBody() {
   handleVisibility(FnDecl, Fn);
 
   // Handle attribute "aligned".
-  if (lookup_attribute ("aligned", DECL_ATTRIBUTES (FnDecl)))
+  if (DECL_ALIGN (FnDecl) != 8)
     Fn->setAlignment(DECL_ALIGN (FnDecl) / 8);
 
   // Handle functions in specified sections.
