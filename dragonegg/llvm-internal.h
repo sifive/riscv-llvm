@@ -190,6 +190,7 @@ private:
   void SetFieldIndex(tree_node *field_decl, unsigned int Index);
   bool DecodeStructFields(tree_node *Field, StructTypeConversionInfo &Info);
   void DecodeStructBitField(tree_node *Field, StructTypeConversionInfo &Info);
+  void SelectUnionMember(tree_node *type, StructTypeConversionInfo &Info);
 };
 
 extern TypeConverter *TheTypeConverter;
@@ -238,10 +239,11 @@ bool isBitfield(tree_node *field_decl);
 
 /// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
 inline uint64_t getFieldOffsetInBits(tree_node *field) {
+  if (!DECL_FIELD_OFFSET(field) || !isInt64(DECL_FIELD_OFFSET(field), true))
+    return 0;
   assert(DECL_FIELD_BIT_OFFSET(field) != 0);
   uint64_t Result = getInt64(DECL_FIELD_BIT_OFFSET(field), true);
-  if (DECL_FIELD_OFFSET(field) && isInt64(DECL_FIELD_OFFSET(field), true))
-    Result += getInt64(DECL_FIELD_OFFSET(field), true) * BITS_PER_UNIT;
+  Result += getInt64(DECL_FIELD_OFFSET(field), true) * BITS_PER_UNIT;
   return Result;
 }
 

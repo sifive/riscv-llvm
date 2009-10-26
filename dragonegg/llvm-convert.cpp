@@ -7877,28 +7877,51 @@ Constant *TreeConstantToLLVM::ConvertUnionCONSTRUCTOR(tree exp) {
   assert(VEC_length(constructor_elt, elt) == 1
          && "Union CONSTRUCTOR with multiple elements?");
 
-  std::vector<Constant*> Elts;
+  ConstantLayoutInfo LayoutInfo(getTargetData());
+
   // Convert the constant itself.
-  Elts.push_back(Convert(VEC_index(constructor_elt, elt, 0)->value));
+  Constant *Val = Convert(VEC_index(constructor_elt, elt, 0)->value);
+
+  // Unions are initialized using the first member field.  Find it.
+  tree Field = TYPE_FIELDS(TREE_TYPE(exp));
+  assert(Field && "cannot initialize union with no fields");
+  while (TREE_CODE(Field) != FIELD_DECL) {
+    Field = TREE_CHAIN(Field);
+    assert(Field && "cannot initialize union with no fields");
+  }
+
+  // If this is a non-bitfield value, just slap it onto the end of the struct
+  // with the appropriate padding etc.  If it is a bitfield, we have more
+  // processing to do.
+  if (!isBitfield(Field))
+    LayoutInfo.AddFieldToRecordConstant(Val, 0);
+  else {
+    // Bitfields can only be initialized with constants (integer constant
+    // expressions).
+    ConstantInt *ValC = cast<ConstantInt>(Val);
+    uint64_t FieldSizeInBits = getInt64(DECL_SIZE(Field), true);
+    uint64_t ValueSizeInBits = Val->getType()->getPrimitiveSizeInBits();
+
+    assert(ValueSizeInBits >= FieldSizeInBits &&
+           "disagreement between LLVM and GCC on bitfield size");
+    if (ValueSizeInBits != FieldSizeInBits) {
+      // Fields are allowed to be smaller than their type.  Simply discard
+      // the unwanted upper bits in the field value.
+      APInt ValAsInt = ValC->getValue();
+      ValC = ConstantInt::get(Context, ValAsInt.trunc(FieldSizeInBits));
+    }
+    LayoutInfo.AddBitFieldToRecordConstant(ValC, 0);
+  }
 
   // If the union has a fixed size, and if the value we converted isn't large
   // enough to fill all the bits, add a zero initialized array at the end to pad
   // it out.
-  tree UnionType = TREE_TYPE(exp);
-  if (TYPE_SIZE(UnionType) && TREE_CODE(TYPE_SIZE(UnionType)) == INTEGER_CST) {
-    uint64_t UnionSize = ((uint64_t)TREE_INT_CST_LOW(TYPE_SIZE(UnionType))+7)/8;
-    uint64_t InitSize = getTargetData().getTypeAllocSize(Elts[0]->getType());
-    if (UnionSize != InitSize) {
-      const Type *FillTy;
-      assert(UnionSize > InitSize && "Init shouldn't be larger than union!");
-      if (UnionSize - InitSize == 1)
-        FillTy = Type::getInt8Ty(Context);
-      else
-        FillTy = ArrayType::get(Type::getInt8Ty(Context), UnionSize - InitSize);
-      Elts.push_back(Constant::getNullValue(FillTy));
-    }
-  }
-  return ConstantStruct::get(Context, Elts, false);
+  tree UnionTypeSizeTree = TYPE_SIZE(TREE_TYPE(exp));
+  if (UnionTypeSizeTree && TREE_CODE(UnionTypeSizeTree) == INTEGER_CST)
+    LayoutInfo.HandleTailPadding(getInt64(UnionTypeSizeTree, true));
+
+  return ConstantStruct::get(Context, LayoutInfo.ResultElts,
+                             LayoutInfo.StructIsPacked);
 }
 
 //===----------------------------------------------------------------------===//
