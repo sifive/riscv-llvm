@@ -617,7 +617,7 @@ DIType DebugInfo::createStructType(tree type) {
     return FwdDecl;
   
   // Insert into the TypeCache so that recursive uses will find it.
-  TypeCache[type] =  FwdDecl.getNode();
+  TypeCache[type] =  WeakVH(FwdDecl.getNode());
   
   // Convert all the elements.
   llvm::SmallVector<llvm::DIDescriptor, 16> EltTys;
@@ -729,9 +729,10 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
   
   DIType Ty;
   if (tree TyDef = TYPE_NAME(type)) {
-      std::map<tree_node *, MDNode *>::iterator I = TypeCache.find(TyDef);
+      std::map<tree_node *, WeakVH >::iterator I = TypeCache.find(TyDef);
       if (I != TypeCache.end())
-        return DIType(I->second);
+	if (Value *M = I->second)
+	  return DIType(cast<MDNode>(M));
     if (TREE_CODE(TyDef) == TYPE_DECL &&  DECL_ORIGINAL_TYPE(TyDef)) {
       expanded_location TypeDefLoc = GetNodeLocation(TyDef);
       Ty = DebugFactory.CreateDerivedType(DW_TAG_typedef, findRegion(TyDef),
@@ -743,7 +744,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
                                           0 /*offset */, 
                                           0 /*flags*/, 
                                           MainTy);
-      TypeCache[TyDef] = Ty.getNode();
+      TypeCache[TyDef] = WeakVH(Ty.getNode());
       return Ty;
     }
   }
@@ -773,7 +774,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
                                          MainTy);
   
   if (TYPE_VOLATILE(type) || TYPE_READONLY(type)) {
-    TypeCache[type] = Ty.getNode();
+    TypeCache[type] = WeakVH(Ty.getNode());
     return Ty;
   }
 
@@ -793,9 +794,10 @@ DIType DebugInfo::getOrCreateType(tree type) {
   if (TREE_CODE(type) == VOID_TYPE) return DIType();
   
   // Check to see if the compile unit already has created this type.
-  std::map<tree_node *, MDNode *>::iterator I = TypeCache.find(type);
+  std::map<tree_node *, WeakVH >::iterator I = TypeCache.find(type);
   if (I != TypeCache.end())
-    return DIType(I->second);
+    if (Value *M = I->second)
+      return DIType(cast<MDNode>(M));
 
   DIType MainTy;
   if (type != TYPE_MAIN_VARIANT(type) && TYPE_MAIN_VARIANT(type))
@@ -854,7 +856,7 @@ DIType DebugInfo::getOrCreateType(tree type) {
       Ty = createBasicType(type);
       break;
   }
-  TypeCache[type] = Ty.getNode();
+  TypeCache[type] = WeakVH(Ty.getNode());
   return Ty;
 }
 
@@ -880,9 +882,10 @@ DICompileUnit DebugInfo::getOrCreateCompileUnit(const char *FullPath,
                                                 bool isMain) {
   if (!FullPath)
     FullPath = main_input_filename;
-  MDNode *&CU = CUCache[FullPath];
-  if (CU)
-    return DICompileUnit(CU);
+  std::map<std::string, WeakVH >::iterator I = CUCache.find(FullPath);
+  if (I != CUCache.end())
+    if (Value *M = I->second)
+      return DICompileUnit(cast<MDNode>(M));
 
   // Get source file information.
   std::string Directory;
@@ -911,16 +914,16 @@ DICompileUnit DebugInfo::getOrCreateCompileUnit(const char *FullPath,
   else
     LangTag = DW_LANG_C89;
 
-   // flag_objc_abi represents Objective-C runtime version number. It is zero
-   // for all other language.
-   unsigned ObjcRunTimeVer = 0;
-//TODO   if (flag_objc_abi != 0 && flag_objc_abi != -1)
-//TODO     ObjcRunTimeVer = flag_objc_abi;
-   DICompileUnit NewCU = DebugFactory.CreateCompileUnit(LangTag, FileName, 
-                                                        Directory, 
-                                                        version_string, isMain,
-                                                        optimize, "",
-                                                        ObjcRunTimeVer);
-  CU = NewCU.getNode();
+  // flag_objc_abi represents Objective-C runtime version number. It is zero
+  // for all other language.
+  unsigned ObjcRunTimeVer = 0;
+//  if (flag_objc_abi != 0 && flag_objc_abi != -1)
+//    ObjcRunTimeVer = flag_objc_abi;
+  DICompileUnit NewCU = DebugFactory.CreateCompileUnit(LangTag, FileName, 
+                                                     Directory, 
+                                                     version_string, isMain,
+                                                     optimize, "",
+                                                     ObjcRunTimeVer);
+  CUCache[FullPath] = WeakVH(NewCU.getNode());
   return NewCU;
 }
