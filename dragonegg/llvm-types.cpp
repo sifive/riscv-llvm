@@ -1658,7 +1658,7 @@ void adjustPaddingElement(tree oldtree, tree newtree) {
 
 /// DecodeStructFields - This method decodes the specified field, if it is a
 /// FIELD_DECL, adding or updating the specified StructTypeConversionInfo to
-/// reflect it.  Return tree if field is decoded correctly. Otherwise return
+/// reflect it.  Return true if field is decoded correctly. Otherwise return
 /// false.
 bool TypeConverter::DecodeStructFields(tree Field,
                                        StructTypeConversionInfo &Info) {
