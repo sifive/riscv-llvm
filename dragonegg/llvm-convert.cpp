@@ -1524,8 +1524,8 @@ void TreeToLLVM::EmitAggregateCopy(MemRef DestLoc, MemRef SrcLoc, tree type) {
   // If the type is small, copy the elements instead of using a block copy.
   const Type *LLVMTy = ConvertType(type);
   unsigned NumElts = CountAggregateElements(LLVMTy);
-  if (NumElts == 1 ||
-      (TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
+  if (TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
+      (NumElts == 1 ||  
        TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type)) <
        TARGET_LLVM_MIN_BYTES_COPY_BY_MEMCPY)) {
 
