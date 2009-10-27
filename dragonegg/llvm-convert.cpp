@@ -4493,12 +4493,22 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       return false;
     }
 
-    // This treats everything as unknown, and is minimally defensible as
-    // correct, although completely useless.
-    if (tree_low_cst (ObjSizeTree, 0) < 2)
-      Result = Constant::getAllOnesValue(TD.getIntPtrType(Context));
-    else
-      Result = ConstantInt::get(TD.getIntPtrType(Context), 0);
+    Value* Args[] = {
+      Emit(gimple_call_arg(stmt, 0), 0),
+      Emit(gimple_call_arg(stmt, 1), 0)
+    };
+
+    const Type* Ty[3] = {
+      ConvertType(gimple_call_return_type(stmt)),
+      Type::getInt8PtrTy(Context),
+      Type::getInt32Ty(Context)
+    };
+
+    Result = Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
+							  Intrinsic::objectsize,
+							  Ty,
+							  1),
+				Args, Args + 2);
     return true;
   }
   // Unary bit counting intrinsics.
