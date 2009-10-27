@@ -1659,10 +1659,6 @@ void adjustPaddingElement(tree oldtree, tree newtree) {
 /// false.
 bool TypeConverter::DecodeStructFields(tree Field,
                                        StructTypeConversionInfo &Info) {
-  if (TREE_CODE(Field) != FIELD_DECL || !OffsetIsLLVMCompatible(Field))
-    // Not a field, or a field with a variable or humongous offset.
-    return true;
-
   // Handle bit-fields specially.
   if (isBitfield(Field)) {
     // If this field is forcing packed llvm struct then retry entire struct
@@ -1961,7 +1957,19 @@ const Type *TypeConverter::ConvertRECORD(tree type, tree orig_type) {
   // Note that we are compiling a struct now.
   bool OldConvertingStruct = ConvertingStruct;
   ConvertingStruct = true;
-  
+
+  // Record those fields which will be converted to LLVM fields.
+  SmallVector<std::pair<tree, uint64_t>, 32> Fields;
+  for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
+    if (TREE_CODE(Field) == FIELD_DECL && OffsetIsLLVMCompatible(Field))
+      Fields.push_back(std::make_pair(Field, getFieldOffsetInBits(Field)));
+
+  // The fields are almost always sorted, but occasionally not.  Sort them by
+  // field offset.
+  for (unsigned i = 1, e = Fields.size(); i < e; i++)
+    for (unsigned j = i; j && Fields[j].second < Fields[j-1].second; j--)
+      std::swap(Fields[j], Fields[j-1]);
+
   StructTypeConversionInfo *Info = 
     new StructTypeConversionInfo(*TheTarget, TYPE_ALIGN(type) / 8,
                                  TYPE_PACKED(type));
@@ -1976,22 +1984,20 @@ const Type *TypeConverter::ConvertRECORD(tree type, tree orig_type) {
   } else {
     // Convert over all of the elements of the struct.
     bool retryAsPackedStruct = false;
-    for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-      if (DecodeStructFields(Field, *Info) == false) {
+    for (unsigned i = 0, e = Fields.size(); i < e; i++)
+      if (DecodeStructFields(Fields[i].first, *Info) == false) {
         retryAsPackedStruct = true;
         break;
       }
-    }
 
     if (retryAsPackedStruct) {
       delete Info;
       Info = new StructTypeConversionInfo(*TheTarget, TYPE_ALIGN(type) / 8,
                                           true);
-      for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-        if (DecodeStructFields(Field, *Info) == false) {
+      for (unsigned i = 0, e = Fields.size(); i < e; i++)
+        if (DecodeStructFields(Fields[i].first, *Info) == false) {
           assert(0 && "Unable to decode struct fields.");
         }
-      }
     }
   }
 
@@ -2042,50 +2048,51 @@ const Type *TypeConverter::ConvertRECORD(tree type, tree orig_type) {
   // and set index values for each FieldDecl that doesn't start at a variable
   // offset.
   unsigned CurFieldNo = 0;
-  for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
-    if (TREE_CODE(Field) == FIELD_DECL && OffsetIsLLVMCompatible(Field)) {
-      // A field with a non-negative constant offset that fits in 64 bits.
-      if (HasOnlyZeroOffsets) {
-        // Set the field idx to zero for all members of a union.
-        SetFieldIndex(Field, 0);
-      } else {
-        uint64_t FieldOffsetInBits = getFieldOffsetInBits(Field);
-        tree FieldType = getDeclaredType(Field);
-        const Type *FieldTy = ConvertType(FieldType);
+  for (unsigned i = 0, e = Fields.size(); i < e; i++) {
+    tree Field = Fields[i].first;
+    uint64_t FieldOffsetInBits = Fields[i].second;
 
-        // If this is a bitfield, we may want to adjust the FieldOffsetInBits
-        // to produce safe code.  In particular, bitfields will be
-        // loaded/stored as their *declared* type, not the smallest integer
-        // type that contains them.  As such, we need to respect the alignment
-        // of the declared type.
-        if (isBitfield(Field)) {
-          // If this is a bitfield, the declared type must be an integral type.
-          unsigned BitAlignment = Info->getTypeAlignment(FieldTy)*8;
+    // A field with a non-negative constant offset that fits in 64 bits.
+    if (HasOnlyZeroOffsets) {
+      // Set the field idx to zero for all members of a union.
+      SetFieldIndex(Field, 0);
+    } else {
+      tree FieldType = getDeclaredType(Field);
+      const Type *FieldTy = ConvertType(FieldType);
 
-          FieldOffsetInBits &= ~(BitAlignment-1ULL);
-          // When we fix the field alignment, we must restart the FieldNo
-          // search because the FieldOffsetInBits can be lower than it was in
-          // the previous iteration.
-          CurFieldNo = 0;
+      // If this is a bitfield, we may want to adjust the FieldOffsetInBits
+      // to produce safe code.  In particular, bitfields will be
+      // loaded/stored as their *declared* type, not the smallest integer
+      // type that contains them.  As such, we need to respect the alignment
+      // of the declared type.
+      if (isBitfield(Field)) {
+        // If this is a bitfield, the declared type must be an integral type.
+        unsigned BitAlignment = Info->getTypeAlignment(FieldTy)*8;
 
-          // Skip 'int:0', which just affects layout.
-          if (integer_zerop(DECL_SIZE(Field)))
-            continue;
-        }
+        FieldOffsetInBits &= ~(BitAlignment-1ULL);
+        // When we fix the field alignment, we must restart the FieldNo
+        // search because the FieldOffsetInBits can be lower than it was in
+        // the previous iteration.
+        CurFieldNo = 0;
 
-        // Figure out if this field is zero bits wide, e.g. {} or [0 x int].
-        bool isZeroSizeField = FieldTy->isSized() &&
-          getTargetData().getTypeSizeInBits(FieldTy) == 0;
-
-        unsigned FieldNo =
-          Info->getLLVMFieldFor(FieldOffsetInBits, CurFieldNo, isZeroSizeField);
-        SetFieldIndex(Field, FieldNo);
-
-        assert((isBitfield(Field) || FieldNo == ~0U ||
-                FieldOffsetInBits == 8*Info->ElementOffsetInBytes[FieldNo]) &&
-               "Wrong LLVM field offset!");
+        // Skip 'int:0', which just affects layout.
+        if (integer_zerop(DECL_SIZE(Field)))
+          continue;
       }
+
+      // Figure out if this field is zero bits wide, e.g. {} or [0 x int].
+      bool isZeroSizeField = FieldTy->isSized() &&
+        getTargetData().getTypeSizeInBits(FieldTy) == 0;
+
+      unsigned FieldNo =
+        Info->getLLVMFieldFor(FieldOffsetInBits, CurFieldNo, isZeroSizeField);
+      SetFieldIndex(Field, FieldNo);
+
+      assert((isBitfield(Field) || FieldNo == ~0U ||
+              FieldOffsetInBits == 8*Info->ElementOffsetInBytes[FieldNo]) &&
+             "Wrong LLVM field offset!");
     }
+  }
 
   const Type *ResultTy = Info->getLLVMType();
   StructTypeInfoMap[type] = Info;
