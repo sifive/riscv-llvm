@@ -503,27 +503,17 @@ static bool isPassedByVal(tree type, const Type *Ty,
   return false;
 }
 
-
-/// isCompilingCCode - Return true if we are compiling C or Objective-C code.
-static bool isCompilingCCode() {
+/// LanguageIsC - Return true if we are compiling C or Objective-C.
+static bool LanguageIsC() {
   // If we've already determined this, return it.
   static unsigned Val = 2;
   if (Val != 2) return (bool)Val;
-  
+
   StringRef LanguageName = lang_hooks.name;
-  
+
   if (LanguageName == "GNU C" || LanguageName == "GNU Objective-C")
     return (Val = true);
-  
-  if (LanguageName == "GNU C++" ||
-      LanguageName == "GNU Ada" ||
-      LanguageName == "GNU F77" ||
-      LanguageName == "GNU Pascal" ||
-      LanguageName == "GNU Java" ||
-      LanguageName == "GNU Objective-C++")
-    return (Val = false);
-
-  return (Val = true);
+  return (Val = false);
 }
 
 void TreeToLLVM::StartFunctionBody() {
@@ -546,7 +536,7 @@ void TreeToLLVM::StartFunctionBody() {
   //
   // Note that we only do this in C/Objective-C.  Doing this in C++ for
   // functions explicitly declared as taking (...) is bad.
-  if (TYPE_ARG_TYPES(TREE_TYPE(FnDecl)) == 0 && isCompilingCCode()) {
+  if (TYPE_ARG_TYPES(TREE_TYPE(FnDecl)) == 0 && LanguageIsC()) {
     FTy = TheTypeConverter->ConvertArgListToFnType(TREE_TYPE(FnDecl),
                                                    DECL_ARGUMENTS(FnDecl),
                                                    static_chain,
