@@ -234,14 +234,19 @@ bool isPassedByInvisibleReference(tree_node *type);
 /// We assume that objects without a known size do not.
 bool isSequentialCompatible(tree_node *type);
 
+/// OffsetIsLLVMCompatible - Return true if the given field is offset from the
+/// start of the record by a constant amount which is not humongously big.
+inline bool OffsetIsLLVMCompatible(tree_node *field_decl) {
+  return DECL_FIELD_OFFSET(field_decl) &&
+    isInt64(DECL_FIELD_OFFSET(field_decl), true);
+}
+
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
 bool isBitfield(tree_node *field_decl);
 
 /// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
 inline uint64_t getFieldOffsetInBits(tree_node *field) {
-  if (!DECL_FIELD_OFFSET(field) || !isInt64(DECL_FIELD_OFFSET(field), true))
-    return 0;
-  assert(DECL_FIELD_BIT_OFFSET(field) != 0);
+  assert(OffsetIsLLVMCompatible(field) && "Offset is not constant!");
   uint64_t Result = getInt64(DECL_FIELD_BIT_OFFSET(field), true);
   Result += getInt64(DECL_FIELD_OFFSET(field), true) * BITS_PER_UNIT;
   return Result;

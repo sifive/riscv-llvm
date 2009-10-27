@@ -592,8 +592,8 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
       if (TREE_CODE(Field) != FIELD_DECL) continue;
 
-      if (!DECL_FIELD_OFFSET(Field) || !isInt64(DECL_FIELD_OFFSET(Field), true))
-        // Variable, humongous or negative offset.
+      if (!OffsetIsLLVMCompatible(Field))
+        // Variable or humongous offset.
         return true;
 
       uint64_t FieldBitOffset = getFieldOffsetInBits(Field);
@@ -1659,9 +1659,8 @@ void adjustPaddingElement(tree oldtree, tree newtree) {
 /// false.
 bool TypeConverter::DecodeStructFields(tree Field,
                                        StructTypeConversionInfo &Info) {
-  if (TREE_CODE(Field) != FIELD_DECL || !DECL_FIELD_OFFSET(Field) ||
-      !isInt64(DECL_FIELD_OFFSET(Field), true))
-    // Not a field, or a field with a variable, humongous or negative offset.
+  if (TREE_CODE(Field) != FIELD_DECL || !OffsetIsLLVMCompatible(Field))
+    // Not a field, or a field with a variable or humongous offset.
     return true;
 
   // Handle bit-fields specially.
@@ -1845,7 +1844,7 @@ void TypeConverter::DecodeStructBitField(tree_node *Field,
 static bool UnionHasOnlyZeroOffsets(tree type) {
   for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
     if (TREE_CODE(Field) != FIELD_DECL) continue;
-    if (!DECL_FIELD_OFFSET(Field) || !isInt64(DECL_FIELD_OFFSET(Field), true))
+    if (!OffsetIsLLVMCompatible(Field))
       return false;
     if (getFieldOffsetInBits(Field) != 0)
       return false;
@@ -2044,8 +2043,7 @@ const Type *TypeConverter::ConvertRECORD(tree type, tree orig_type) {
   // offset.
   unsigned CurFieldNo = 0;
   for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
-    if (TREE_CODE(Field) == FIELD_DECL && DECL_FIELD_OFFSET(Field) &&
-        isInt64(DECL_FIELD_OFFSET(Field), true)) {
+    if (TREE_CODE(Field) == FIELD_DECL && OffsetIsLLVMCompatible(Field)) {
       // A field with a non-negative constant offset that fits in 64 bits.
       if (HasOnlyZeroOffsets) {
         // Set the field idx to zero for all members of a union.

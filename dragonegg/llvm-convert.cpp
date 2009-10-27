@@ -6019,12 +6019,12 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 
   // BitStart - This is the actual offset of the field from the start of the
   // struct, in bits.  For bitfields this may be on a non-byte boundary.
-  unsigned BitStart = getFieldOffsetInBits(TREE_OPERAND(exp, 1));
+  unsigned BitStart;
   Value *FieldPtr;
 
   // If this is a normal field at a fixed offset from the start, handle it.
-  if (DECL_FIELD_OFFSET(FieldDecl) &&
-      isInt64(DECL_FIELD_OFFSET(FieldDecl), true)) {
+  if (OffsetIsLLVMCompatible(FieldDecl)) {
+    BitStart = getFieldOffsetInBits(TREE_OPERAND(exp, 1));
     assert(!TREE_OPERAND(exp, 2) && "Constant not gimple min invariant?");
     unsigned int MemberIndex = GetFieldIndex(FieldDecl);
 
@@ -6088,6 +6088,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
     }
 
     // Here BitStart gives the offset of the field in bits from Offset.
+    BitStart = getInt64(DECL_FIELD_BIT_OFFSET(FieldDecl), true);
     // Incorporate as much of it as possible into the pointer computation.
     unsigned ByteOffset = BitStart/8;
     if (ByteOffset > 0) {
@@ -8159,13 +8160,13 @@ Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 
   // BitStart - This is the actual offset of the field from the start of the
   // struct, in bits.  For bitfields this may be on a non-byte boundary.
-  unsigned BitStart = getFieldOffsetInBits(TREE_OPERAND(exp, 1));
+  unsigned BitStart;
   Constant *FieldPtr;
   const TargetData &TD = getTargetData();
 
   // If this is a normal field at a fixed offset from the start, handle it.
-  if (DECL_FIELD_OFFSET(FieldDecl) &&
-      isInt64(DECL_FIELD_OFFSET(FieldDecl), true)) {
+  if (OffsetIsLLVMCompatible(FieldDecl)) {
+    BitStart = getFieldOffsetInBits(TREE_OPERAND(exp, 1));
     unsigned int MemberIndex = GetFieldIndex(FieldDecl);
 
     Constant *Ops[] = {
@@ -8205,6 +8206,17 @@ Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
         Offset = TheFolder->CreateMul(Offset,
                                       ConstantInt::get(Offset->getType(),
                                                        factor));
+    }
+
+    // Here BitStart gives the offset of the field in bits from Offset.
+    BitStart = getInt64(DECL_FIELD_BIT_OFFSET(FieldDecl), true);
+    // Incorporate as much of it as possible into the pointer computation.
+    unsigned ByteOffset = BitStart/8;
+    if (ByteOffset > 0) {
+      Offset = TheFolder->CreateAdd(Offset,
+                                    ConstantInt::get(Offset->getType(),
+                                                     ByteOffset));
+      BitStart -= ByteOffset*8;
     }
 
     Constant *Ptr = TheFolder->CreatePtrToInt(StructAddrLV, Offset->getType());
