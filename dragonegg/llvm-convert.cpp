@@ -76,6 +76,7 @@ extern "C" {
 #include "tree-pass.h"
 #include "rtl.h"
 #include "domwalk.h"
+#include "langhooks.h"
 
 extern int get_pointer_alignment (tree exp, unsigned int max_align);
 extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
@@ -502,6 +503,29 @@ static bool isPassedByVal(tree type, const Type *Ty,
   return false;
 }
 
+
+/// isCompilingCCode - Return true if we are compiling C or Objective-C code.
+static bool isCompilingCCode() {
+  // If we've already determined this, return it.
+  static unsigned Val = 2;
+  if (Val != 2) return (bool)Val;
+  
+  StringRef LanguageName = lang_hooks.name;
+  
+  if (LanguageName == "GNU C" || LanguageName == "GNU Objective-C")
+    return (Val = true);
+  
+  if (LanguageName == "GNU C++" ||
+      LanguageName == "GNU Ada" ||
+      LanguageName == "GNU F77" ||
+      LanguageName == "GNU Pascal" ||
+      LanguageName == "GNU Java" ||
+      LanguageName == "GNU Objective-C++")
+    return (Val = false);
+
+  return (Val = true);
+}
+
 void TreeToLLVM::StartFunctionBody() {
   std::string Name = getLLVMAssemblerName(FnDecl).str();
   // TODO: Add support for dropping the leading '\1' in order to support
@@ -519,7 +543,10 @@ void TreeToLLVM::StartFunctionBody() {
   // allows C functions declared as "T foo() {}" to be treated like
   // "T foo(void) {}" and allows us to handle functions with K&R-style
   // definitions correctly.
-  if (TYPE_ARG_TYPES(TREE_TYPE(FnDecl)) == 0) {
+  //
+  // Note that we only do this in C/Objective-C.  Doing this in C++ for
+  // functions explicitly declared as taking (...) is bad.
+  if (TYPE_ARG_TYPES(TREE_TYPE(FnDecl)) == 0 && isCompilingCCode()) {
     FTy = TheTypeConverter->ConvertArgListToFnType(TREE_TYPE(FnDecl),
                                                    DECL_ARGUMENTS(FnDecl),
                                                    static_chain,
