@@ -1539,16 +1539,11 @@ void llvm_mark_decl_weak(tree decl) {
   }
 }
 
-/// llvm_emit_ctor_dtor - Called to emit static ctors/dtors to LLVM code.
-/// fndecl is a 'void()' FUNCTION_DECL for the code, initprio is the init
+/// register_ctor_dtor - Called to register static ctors/dtors with LLVM.
+/// Fn is a 'void()' ctor/dtor function to be run, initprio is the init
 /// priority, and isCtor indicates whether this is a ctor or dtor.
-void llvm_emit_ctor_dtor(tree FnDecl, int InitPrio, int isCtor) {
-  mark_decl_referenced(FnDecl);  // Inform cgraph that we used the global.
-
-  if (errorcount || sorrycount) return;
-
-  Constant *C = cast<Constant>(DECL_LLVM(FnDecl));
-  (isCtor ? &StaticCtors:&StaticDtors)->push_back(std::make_pair(C, InitPrio));
+void register_ctor_dtor(Function *Fn, int InitPrio, bool isCtor) {
+  (isCtor ? &StaticCtors:&StaticDtors)->push_back(std::make_pair(Fn, InitPrio));
 }
 
 void llvm_emit_typedef(tree decl) {

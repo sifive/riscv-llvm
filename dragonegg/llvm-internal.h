@@ -119,6 +119,7 @@ extern Value *get_decl_llvm(union tree_node *);
 #define DECL_LLVM_SET_P(NODE) (DECL_LLVM_IF_SET(NODE) != NULL)
 
 void changeLLVMConstant(Constant *Old, Constant *New);
+void register_ctor_dtor(Function *, int, bool);
 void readLLVMTypesStringTable();
 void writeLLVMTypesStringTable();
 void readLLVMValues();

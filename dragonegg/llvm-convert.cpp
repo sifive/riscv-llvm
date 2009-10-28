@@ -618,6 +618,12 @@ void TreeToLLVM::StartFunctionBody() {
   // Handle visibility style
   handleVisibility(FnDecl, Fn);
 
+  // Register constructors and destructors.
+  if (DECL_STATIC_CONSTRUCTOR(FnDecl))
+    register_ctor_dtor(Fn, DECL_INIT_PRIORITY(FnDecl), true);
+  if (DECL_STATIC_DESTRUCTOR(FnDecl))
+    register_ctor_dtor(Fn, DECL_FINI_PRIORITY(FnDecl), false);
+
   // Handle attribute "aligned".
   if (DECL_ALIGN (FnDecl) != FUNCTION_BOUNDARY)
     Fn->setAlignment(DECL_ALIGN (FnDecl) / 8);
