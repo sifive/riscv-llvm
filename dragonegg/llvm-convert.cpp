@@ -241,9 +241,6 @@ TreeToLLVM::TreeToLLVM(tree fndecl) :
   FuncEHSelector = 0;
   FuncEHGetTypeID = 0;
 
-  NumAddressTakenBlocks = 0;
-  IndirectGotoBlock = 0;
-
   assert(TheTreeToLLVM == 0 && "Reentering function creation?");
   TheTreeToLLVM = this;
 }
@@ -946,18 +943,6 @@ Function *TreeToLLVM::FinishFunctionBody() {
   EmitPostPads();
   EmitUnwindBlock();
 
-  // If this function takes the address of a label, emit the indirect goto
-  // block.
-  if (IndirectGotoBlock) {
-    EmitBlock(IndirectGotoBlock);
-
-    // Change the default destination to go to one of the other destinations, if
-    // there is any other dest.
-    SwitchInst *SI = cast<SwitchInst>(IndirectGotoBlock->getTerminator());
-    if (SI->getNumSuccessors() > 1)
-      SI->setSuccessor(0, SI->getSuccessor(1));
-  }
-
   // Populate phi nodes with their operands now that all ssa names have been
   // defined and all basic blocks output.
   PopulatePhiNodes();
@@ -1284,8 +1269,7 @@ LValue TreeToLLVM::EmitLV(tree exp) {
 
   // Constants.
   case LABEL_DECL: {
-    Value *Ptr = TreeConstantToLLVM::EmitLV_LABEL_DECL(exp);
-    LV = LValue(Ptr, 1);
+    LV = LValue(EmitLV_LABEL_DECL(exp), 1);
     break;
   }
   case COMPLEX_CST: {
@@ -1848,43 +1832,6 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
                                 Builder.GetInsertBlock());
     }
   }
-}
-
-//===----------------------------------------------------------------------===//
-//                ... Address Of Labels Extension Support ...
-//===----------------------------------------------------------------------===//
-
-/// getIndirectGotoBlockNumber - Return the unique ID of the specified basic
-/// block for uses that take the address of it.
-Constant *TreeToLLVM::getIndirectGotoBlockNumber(BasicBlock *BB) {
-  ConstantInt *&Val = AddressTakenBBNumbers[BB];
-  if (Val) return Val;
-
-  // Assign the new ID, update AddressTakenBBNumbers to remember it.
-  uint64_t BlockNo = ++NumAddressTakenBlocks;
-  BlockNo &= ~0ULL >> (64-TD.getPointerSizeInBits());
-  Val = ConstantInt::get(TD.getIntPtrType(Context), BlockNo);
-
-  // Add it to the switch statement in the indirect goto block.
-  cast<SwitchInst>(getIndirectGotoBlock()->getTerminator())->addCase(Val, BB);
-  return Val;
-}
-
-/// getIndirectGotoBlock - Get (and potentially lazily create) the indirect
-/// goto block.
-BasicBlock *TreeToLLVM::getIndirectGotoBlock() {
-  if (IndirectGotoBlock) return IndirectGotoBlock;
-
-  // Create a temporary for the value to be switched on.
-  IndirectGotoValue = CreateTemporary(TD.getIntPtrType(Context));
-
-  // Create the block, emit a load, and emit the switch in the block.
-  IndirectGotoBlock = BasicBlock::Create(Context, "indirectgoto");
-  Value *Ld = new LoadInst(IndirectGotoValue, "gotodest", IndirectGotoBlock);
-  SwitchInst::Create(Ld, IndirectGotoBlock, 0, IndirectGotoBlock);
-
-  // Finally, return it.
-  return IndirectGotoBlock;
 }
 
 
@@ -6362,6 +6309,12 @@ LValue TreeToLLVM::EmitLV_SSA_NAME(tree exp) {
   return LValue(Temp, 1);
 }
 
+Constant *TreeToLLVM::EmitLV_LABEL_DECL(tree exp) {
+  // GCC kindly diverts labels for unreachable basic blocks to reachable blocks,
+  // so we are not obliged to output unreachable blocks even if the original
+  // code took the address of one.
+  return BlockAddress::get(Fn, getLabelDeclBlock(exp));
+}
 
 //===----------------------------------------------------------------------===//
 //                      ... Convert GIMPLE to LLVM ...
@@ -6861,16 +6814,16 @@ void TreeToLLVM::RenderGIMPLE_GOTO(gimple stmt) {
     return;
   }
 
-  // Otherwise we have an indirect goto.
-  BasicBlock *DestBB = getIndirectGotoBlock();
+  // Indirect branch.
+  basic_block source = gimple_bb(stmt);
+  IndirectBrInst *Br = Builder.CreateIndirectBr(EmitGimpleReg(dest),
+                                                EDGE_COUNT(source->succs));
 
-  // Store the destination block to the GotoValue alloca.
-  Value *V = Builder.CreatePtrToInt(Emit(dest, 0), TD.getIntPtrType(Context));
-  Builder.CreateStore(V, IndirectGotoValue);
-
-  // FIXME: This is HORRIBLY INCORRECT in the presence of exception handlers.
-  // There should be one collector block per cleanup level!
-  Builder.CreateBr(DestBB);
+  // Add the list of possible destinations.
+  edge e;
+  edge_iterator ei;
+  FOR_EACH_EDGE (e, ei, source->succs)
+    Br->addDestination(getBasicBlock(e->dest));
 }
 
 void TreeToLLVM::RenderGIMPLE_RESX(gimple stmt) {
@@ -8071,10 +8024,7 @@ Constant *TreeConstantToLLVM::EmitLV_LABEL_DECL(tree exp) {
            "Taking the address of a label that isn't in the current fn!?");
   }
 
-  BasicBlock *BB = TheTreeToLLVM->getLabelDeclBlock(exp);
-  Constant *C = TheTreeToLLVM->getIndirectGotoBlockNumber(BB);
-  return
-       TheFolder->CreateIntToPtr(C, Type::getInt8PtrTy(Context));
+  return TheTreeToLLVM->EmitLV_LABEL_DECL(exp);
 }
 
 Constant *TreeConstantToLLVM::EmitLV_COMPLEX_CST(tree exp) {
