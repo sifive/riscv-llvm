@@ -1105,7 +1105,6 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
   FOR_EACH_EDGE (e, ei, bb->succs)
     if (e->flags & EDGE_FALLTHRU) {
       Builder.CreateBr(getBasicBlock(e->dest));
-      EmitBlock(BasicBlock::Create(Context));
       break;
     }
 }
