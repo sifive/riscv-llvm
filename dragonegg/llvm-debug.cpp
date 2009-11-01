@@ -341,10 +341,21 @@ void DebugInfo::EmitStopPoint(Function *Fn, BasicBlock *CurBB,
   PrevFullPath = CurFullPath;
   PrevLineNo = CurLineNo;
   PrevBB = CurBB;
-  
-  DebugFactory.InsertStopPoint(getOrCreateCompileUnit(CurFullPath), 
-                               CurLineNo, 0 /*column no. */,
-                               CurBB);
+
+#ifdef ATTACH_DEBUG_INFO_TO_AN_INSN
+    if (RegionStack.empty())
+      return;
+    llvm::DIDescriptor DR = RegionStack.back();
+    llvm::DIScope DS = llvm::DIScope(DR.getNode());
+    llvm::DILocation DO(NULL);
+    llvm::DILocation DL = 
+      DebugFactory.CreateLocation(CurLineNo, 0 /* column */, DS, DO);
+    Builder.SetCurrentDebugLocation(DL.getNode());
+#else
+    DebugFactory.InsertStopPoint(getOrCreateCompileUnit(CurFullPath), 
+                                 CurLineNo, 0 /*column no. */,
+                                 CurBB);
+#endif
 }
 
 /// EmitGlobalVariable - Emit information about a global variable.
