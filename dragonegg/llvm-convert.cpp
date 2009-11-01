@@ -228,7 +228,7 @@ TreeToLLVM::TreeToLLVM(tree fndecl) :
       TheDebugInfo->setLocationFile(Location.file);
       TheDebugInfo->setLocationLine(Location.line);
     } else {
-      TheDebugInfo->setLocationFile("<unknown file>");
+      TheDebugInfo->setLocationFile("");
       TheDebugInfo->setLocationLine(0);
     }
   }
@@ -1051,6 +1051,17 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
     gimple stmt = gsi_stmt(gsi);
     ++NumStatements;
 
+    if (TheDebugInfo) {
+      if (gimple_has_location(stmt)) {
+        TheDebugInfo->setLocationFile(gimple_filename(stmt));
+        TheDebugInfo->setLocationLine(gimple_lineno(stmt));
+      } else {
+        TheDebugInfo->setLocationFile("");
+        TheDebugInfo->setLocationLine(0);
+      }
+      TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
+    }
+
     switch (gimple_code(stmt)) {
     case GIMPLE_ASM:
       RenderGIMPLE_ASM(stmt);
@@ -1099,6 +1110,12 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
     }
   }
 
+  if (TheDebugInfo) {
+    TheDebugInfo->setLocationFile("");
+    TheDebugInfo->setLocationLine(0);
+    TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
+  }
+
   // Add a branch to the fallthru block.
   edge e;
   edge_iterator ei;
@@ -1138,16 +1155,6 @@ Value *TreeToLLVM::Emit(tree exp, const MemRef *DestLoc) {
          "Didn't pass DestLoc to an aggregate expr, or passed it to scalar!");
 
   Value *Result = 0;
-
-  if (TheDebugInfo) {
-    if (EXPR_HAS_LOCATION(exp)) {
-      // Set new location on the way up the tree.
-      TheDebugInfo->setLocationFile(EXPR_FILENAME(exp));
-      TheDebugInfo->setLocationLine(EXPR_LINENO(exp));
-    }
-
-    TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
-  }
 
   switch (TREE_CODE(exp)) {
   default:
@@ -1193,12 +1200,6 @@ Value *TreeToLLVM::Emit(tree exp, const MemRef *DestLoc) {
   case VECTOR_CST:
     Result = TreeConstantToLLVM::ConvertVECTOR_CST(exp);
     break;
-  }
-
-  if (TheDebugInfo && EXPR_HAS_LOCATION(exp)) {
-    // Restore location back down the tree.
-    TheDebugInfo->setLocationFile(EXPR_FILENAME(exp));
-    TheDebugInfo->setLocationLine(EXPR_LINENO(exp));
   }
 
   assert(((DestLoc && Result == 0) || DestLoc == 0) &&
