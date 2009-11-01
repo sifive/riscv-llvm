@@ -168,69 +168,48 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     {"__builtin_ia32_orps", &&IX86_BUILTIN_ORPS},
     {"__builtin_ia32_orps256", &&IX86_BUILTIN_ORPS},
     {"__builtin_ia32_paddb", &&IX86_BUILTIN_PADDB},
-    {"__builtin_ia32_paddb128", &&IX86_BUILTIN_PADDB},
     {"__builtin_ia32_paddb128", &&IX86_BUILTIN_PADDB128},
     {"__builtin_ia32_paddd", &&IX86_BUILTIN_PADDD},
-    {"__builtin_ia32_paddd128", &&IX86_BUILTIN_PADDD},
     {"__builtin_ia32_paddd128", &&IX86_BUILTIN_PADDD128},
-    {"__builtin_ia32_paddq128", &&IX86_BUILTIN_PADDQ},
     {"__builtin_ia32_paddq", &&IX86_BUILTIN_PADDQ},
     {"__builtin_ia32_paddq128", &&IX86_BUILTIN_PADDQ128},
     {"__builtin_ia32_paddw", &&IX86_BUILTIN_PADDW},
-    {"__builtin_ia32_paddw128", &&IX86_BUILTIN_PADDW},
     {"__builtin_ia32_paddw128", &&IX86_BUILTIN_PADDW128},
     {"__builtin_ia32_pand", &&IX86_BUILTIN_PAND},
-    {"__builtin_ia32_pandn", &&IX86_BUILTIN_PAND},
-    {"__builtin_ia32_pand128", &&IX86_BUILTIN_PAND},
-    {"__builtin_ia32_pandn128", &&IX86_BUILTIN_PAND},
     {"__builtin_ia32_pand128", &&IX86_BUILTIN_PAND128},
     {"__builtin_ia32_pandn", &&IX86_BUILTIN_PANDN},
-    {"__builtin_ia32_pandn128", &&IX86_BUILTIN_PANDN},
     {"__builtin_ia32_pandn128", &&IX86_BUILTIN_PANDN128},
     {"__builtin_ia32_pmullw", &&IX86_BUILTIN_PMULLW},
-    {"__builtin_ia32_pmullw128", &&IX86_BUILTIN_PMULLW},
     {"__builtin_ia32_pmullw128", &&IX86_BUILTIN_PMULLW128},
     {"__builtin_ia32_por", &&IX86_BUILTIN_POR},
-    {"__builtin_ia32_por128", &&IX86_BUILTIN_POR},
     {"__builtin_ia32_por128", &&IX86_BUILTIN_POR128},
     {"__builtin_ia32_pshufd", &&IX86_BUILTIN_PSHUFD},
     {"__builtin_ia32_pshufhw", &&IX86_BUILTIN_PSHUFHW},
     {"__builtin_ia32_pshuflw", &&IX86_BUILTIN_PSHUFLW},
     {"__builtin_ia32_pshufw", &&IX86_BUILTIN_PSHUFW},
     {"__builtin_ia32_psubb", &&IX86_BUILTIN_PSUBB},
-    {"__builtin_ia32_psubb128", &&IX86_BUILTIN_PSUBB},
     {"__builtin_ia32_psubb128", &&IX86_BUILTIN_PSUBB128},
     {"__builtin_ia32_psubd", &&IX86_BUILTIN_PSUBD},
-    {"__builtin_ia32_psubd128", &&IX86_BUILTIN_PSUBD},
     {"__builtin_ia32_psubd128", &&IX86_BUILTIN_PSUBD128},
-    {"__builtin_ia32_psubq128", &&IX86_BUILTIN_PSUBQ},
     {"__builtin_ia32_psubq", &&IX86_BUILTIN_PSUBQ},
     {"__builtin_ia32_psubq128", &&IX86_BUILTIN_PSUBQ128},
     {"__builtin_ia32_psubw", &&IX86_BUILTIN_PSUBW},
-    {"__builtin_ia32_psubw128", &&IX86_BUILTIN_PSUBW},
     {"__builtin_ia32_psubw128", &&IX86_BUILTIN_PSUBW128},
     {"__builtin_ia32_punpckhbw", &&IX86_BUILTIN_PUNPCKHBW},
-    {"__builtin_ia32_punpckhbw128", &&IX86_BUILTIN_PUNPCKHBW},
     {"__builtin_ia32_punpckhbw128", &&IX86_BUILTIN_PUNPCKHBW128},
     {"__builtin_ia32_punpckhdq", &&IX86_BUILTIN_PUNPCKHDQ},
-    {"__builtin_ia32_punpckhdq128", &&IX86_BUILTIN_PUNPCKHDQ},
     {"__builtin_ia32_punpckhdq128", &&IX86_BUILTIN_PUNPCKHDQ128},
     {"__builtin_ia32_punpckhqdq128", &&IX86_BUILTIN_PUNPCKHQDQ128},
     {"__builtin_ia32_punpckhwd", &&IX86_BUILTIN_PUNPCKHWD},
-    {"__builtin_ia32_punpckhwd128", &&IX86_BUILTIN_PUNPCKHWD},
     {"__builtin_ia32_punpckhwd128", &&IX86_BUILTIN_PUNPCKHWD128},
     {"__builtin_ia32_punpcklbw", &&IX86_BUILTIN_PUNPCKLBW},
-    {"__builtin_ia32_punpcklbw128", &&IX86_BUILTIN_PUNPCKLBW},
     {"__builtin_ia32_punpcklbw128", &&IX86_BUILTIN_PUNPCKLBW128},
     {"__builtin_ia32_punpckldq", &&IX86_BUILTIN_PUNPCKLDQ},
-    {"__builtin_ia32_punpckldq128", &&IX86_BUILTIN_PUNPCKLDQ},
     {"__builtin_ia32_punpckldq128", &&IX86_BUILTIN_PUNPCKLDQ128},
     {"__builtin_ia32_punpcklqdq128", &&IX86_BUILTIN_PUNPCKLQDQ128},
     {"__builtin_ia32_punpcklwd", &&IX86_BUILTIN_PUNPCKLWD},
-    {"__builtin_ia32_punpcklwd128", &&IX86_BUILTIN_PUNPCKLWD},
     {"__builtin_ia32_punpcklwd128", &&IX86_BUILTIN_PUNPCKLWD128},
     {"__builtin_ia32_pxor", &&IX86_BUILTIN_PXOR},
-    {"__builtin_ia32_pxor128", &&IX86_BUILTIN_PXOR},
     {"__builtin_ia32_pxor128", &&IX86_BUILTIN_PXOR128},
     {"__builtin_ia32_shufpd", &&IX86_BUILTIN_SHUFPD},
     {"__builtin_ia32_shufpd256", &&IX86_BUILTIN_SHUFPD},
@@ -285,8 +264,17 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   void *&Handler = FunctionCodeCache[DECL_FUNCTION_CODE(fndecl)];
   if (!Handler) {
     // Find the handler for this intrinsic.
-    HandlerEntry ToFind = {IDENTIFIER_POINTER(DECL_NAME(fndecl)), NULL};
     size_t N = sizeof(Handlers) / sizeof(Handlers[0]);
+#ifndef NDEBUG
+    // Check that the list of handlers is sorted by name.
+    static bool Checked = false;
+    if (!Checked) {
+      for (unsigned i = 1; i < N; ++i)
+        assert(LT(Handlers[i-1], Handlers[i]) && "Handlers not sorted!");
+      Checked = true;
+    }
+#endif
+    HandlerEntry ToFind = {IDENTIFIER_POINTER(DECL_NAME(fndecl)), NULL};
     const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind, LT);
     Handler = E == Handlers + N ? &&unknown : E->Handler;
   }
