@@ -152,7 +152,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     {"__builtin_ia32_loadups256", &&IX86_BUILTIN_LOADUPS},
     {"__builtin_ia32_movhlps", &&IX86_BUILTIN_MOVHLPS},
     {"__builtin_ia32_movlhps", &&IX86_BUILTIN_MOVLHPS},
-    {"__builtin_ia32_movq128", &&IX86_BUILTIN_MOVQ},
+    {"__builtin_ia32_movq128", &&IX86_BUILTIN_MOVQ128},
     {"__builtin_ia32_movsd", &&IX86_BUILTIN_MOVSD},
     {"__builtin_ia32_movshdup", &&IX86_BUILTIN_MOVSHDUP},
     {"__builtin_ia32_movshdup256", &&IX86_BUILTIN_MOVSHDUP},
@@ -494,7 +494,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   IX86_BUILTIN_MOVSD:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 2, 1);
     return true;
-  IX86_BUILTIN_MOVQ: {
+  IX86_BUILTIN_MOVQ128: {
     Value *Zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
     Result = BuildVector(Zero, Zero, Zero, Zero, NULL);
     Result = BuildVectorShuffle(Result, Ops[0], 4, 5, 2, 3);
