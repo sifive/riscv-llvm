@@ -703,7 +703,7 @@ private:
 
   // Optional target defined builtin intrinsic expanding function.
   bool TargetIntrinsicLower(gimple stmt,
-                            unsigned FnCode,
+                            tree_node *fndecl,
                             const MemRef *DestLoc,
                             Value *&Result,
                             const Type *ResultType,

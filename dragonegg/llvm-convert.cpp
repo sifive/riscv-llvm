@@ -4247,8 +4247,7 @@ bool TreeToLLVM::EmitFrontendExpandedBuiltinCall(gimple stmt, tree fndecl,
     }
   }
 
-  unsigned FnCode = DECL_FUNCTION_CODE(fndecl);
-  return LLVM_TARGET_INTRINSIC_LOWER(stmt, FnCode, DestLoc, Result, ResultType,
+  return LLVM_TARGET_INTRINSIC_LOWER(stmt, fndecl, DestLoc, Result, ResultType,
                                      Operands);
 #endif
   return false;
@@ -4257,10 +4256,6 @@ bool TreeToLLVM::EmitFrontendExpandedBuiltinCall(gimple stmt, tree fndecl,
 /// TargetBuiltinCache - A cache of builtin intrinsics indexed by the GCC
 /// builtin number.
 static std::vector<Constant*> TargetBuiltinCache;
-
-void clearTargetBuiltinCache() {
-  TargetBuiltinCache.clear();
-}
 
 void TreeToLLVM::EmitMemoryBarrier(bool ll, bool ls, bool sl, bool ss) {
   Value* C[5];

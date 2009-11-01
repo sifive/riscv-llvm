@@ -53,109 +53,330 @@ extern "C" {
 
 static LLVMContext &Context = getGlobalContext();
 
+/// BitCastToIntVector - Bitcast the vector operand to a vector of integers of
+//  the same length.
+static Value *BitCastToIntVector(Value *Op, LLVMBuilder &Builder) {
+  const VectorType *VecTy = cast<VectorType>(Op->getType());
+  const Type *EltTy = VecTy->getElementType();
+  const Type *IntTy = IntegerType::get(Context,EltTy->getPrimitiveSizeInBits());
+  return Builder.CreateBitCast(Op, VectorType::get(IntTy,
+                                                   VecTy->getNumElements()));
+}
+
+struct HandlerEntry {
+  const char *Name; void *Handler;
+};
+
+static bool LT(const HandlerEntry &E, const HandlerEntry &F) {
+  return strcmp(E.Name, F.Name) < 0;
+}
+
 /* TargetIntrinsicLower - For builtins that we want to expand to normal LLVM
  * code, emit the code now.  If we can handle the code, this macro should emit
  * the code, return true.
  */
 bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
-                                      unsigned FnCode,
+                                      tree fndecl,
                                       const MemRef *DestLoc,
                                       Value *&Result,
                                       const Type *ResultType,
                                       std::vector<Value*> &Ops) {
-  switch (FnCode) {
-  default: break;
-  case IX86_BUILTIN_ADDPS:
-  case IX86_BUILTIN_ADDPD:
-  case IX86_BUILTIN_PADDB:
-  case IX86_BUILTIN_PADDW:
-  case IX86_BUILTIN_PADDD:
-  case IX86_BUILTIN_PADDQ:
-  case IX86_BUILTIN_PADDB128:
-  case IX86_BUILTIN_PADDW128:
-  case IX86_BUILTIN_PADDD128:
-  case IX86_BUILTIN_PADDQ128:
+  const HandlerEntry Handlers[] = {
+    {"__builtin_ia32_addpd", &&IX86_BUILTIN_ADDPD},
+    {"__builtin_ia32_addpd256", &&IX86_BUILTIN_ADDPD},
+    {"__builtin_ia32_addps", &&IX86_BUILTIN_ADDPS},
+    {"__builtin_ia32_addps256", &&IX86_BUILTIN_ADDPS},
+    {"__builtin_ia32_andnpd", &&IX86_BUILTIN_ANDNPD},
+    {"__builtin_ia32_andnpd256", &&IX86_BUILTIN_ANDNPD},
+    {"__builtin_ia32_andnps", &&IX86_BUILTIN_ANDNPS},
+    {"__builtin_ia32_andnps256", &&IX86_BUILTIN_ANDNPS},
+    {"__builtin_ia32_andpd", &&IX86_BUILTIN_ANDPD},
+    {"__builtin_ia32_andpd256", &&IX86_BUILTIN_ANDPD},
+    {"__builtin_ia32_andps", &&IX86_BUILTIN_ANDPS},
+    {"__builtin_ia32_andps256", &&IX86_BUILTIN_ANDPS},
+    {"__builtin_ia32_cmpeqpd", &&IX86_BUILTIN_CMPEQPD},
+    {"__builtin_ia32_cmpeqps", &&IX86_BUILTIN_CMPEQPS},
+    {"__builtin_ia32_cmpeqsd", &&IX86_BUILTIN_CMPEQSD},
+    {"__builtin_ia32_cmpeqss", &&IX86_BUILTIN_CMPEQSS},
+    {"__builtin_ia32_cmpgepd", &&IX86_BUILTIN_CMPGEPD},
+    {"__builtin_ia32_cmpgeps", &&IX86_BUILTIN_CMPGEPS},
+    {"__builtin_ia32_cmpgtpd", &&IX86_BUILTIN_CMPGTPD},
+    {"__builtin_ia32_cmpgtps", &&IX86_BUILTIN_CMPGTPS},
+    {"__builtin_ia32_cmplepd", &&IX86_BUILTIN_CMPLEPD},
+    {"__builtin_ia32_cmpleps", &&IX86_BUILTIN_CMPLEPS},
+    {"__builtin_ia32_cmplesd", &&IX86_BUILTIN_CMPLESD},
+    {"__builtin_ia32_cmpless", &&IX86_BUILTIN_CMPLESS},
+    {"__builtin_ia32_cmpltpd", &&IX86_BUILTIN_CMPLTPD},
+    {"__builtin_ia32_cmpltps", &&IX86_BUILTIN_CMPLTPS},
+    {"__builtin_ia32_cmpltsd", &&IX86_BUILTIN_CMPLTSD},
+    {"__builtin_ia32_cmpltss", &&IX86_BUILTIN_CMPLTSS},
+    {"__builtin_ia32_cmpneqpd", &&IX86_BUILTIN_CMPNEQPD},
+    {"__builtin_ia32_cmpneqps", &&IX86_BUILTIN_CMPNEQPS},
+    {"__builtin_ia32_cmpneqsd", &&IX86_BUILTIN_CMPNEQSD},
+    {"__builtin_ia32_cmpneqss", &&IX86_BUILTIN_CMPNEQSS},
+    {"__builtin_ia32_cmpngepd", &&IX86_BUILTIN_CMPNGEPD},
+    {"__builtin_ia32_cmpngeps", &&IX86_BUILTIN_CMPNGEPS},
+    {"__builtin_ia32_cmpngtpd", &&IX86_BUILTIN_CMPNGTPD},
+    {"__builtin_ia32_cmpngtps", &&IX86_BUILTIN_CMPNGTPS},
+    {"__builtin_ia32_cmpnlepd", &&IX86_BUILTIN_CMPNLEPD},
+    {"__builtin_ia32_cmpnleps", &&IX86_BUILTIN_CMPNLEPS},
+    {"__builtin_ia32_cmpnlesd", &&IX86_BUILTIN_CMPNLESD},
+    {"__builtin_ia32_cmpnless", &&IX86_BUILTIN_CMPNLESS},
+    {"__builtin_ia32_cmpnltpd", &&IX86_BUILTIN_CMPNLTPD},
+    {"__builtin_ia32_cmpnltps", &&IX86_BUILTIN_CMPNLTPS},
+    {"__builtin_ia32_cmpnltsd", &&IX86_BUILTIN_CMPNLTSD},
+    {"__builtin_ia32_cmpnltss", &&IX86_BUILTIN_CMPNLTSS},
+    {"__builtin_ia32_cmpordpd", &&IX86_BUILTIN_CMPORDPD},
+    {"__builtin_ia32_cmpordps", &&IX86_BUILTIN_CMPORDPS},
+    {"__builtin_ia32_cmpordsd", &&IX86_BUILTIN_CMPORDSD},
+    {"__builtin_ia32_cmpordss", &&IX86_BUILTIN_CMPORDSS},
+    {"__builtin_ia32_cmpunordpd", &&IX86_BUILTIN_CMPUNORDPD},
+    {"__builtin_ia32_cmpunordps", &&IX86_BUILTIN_CMPUNORDPS},
+    {"__builtin_ia32_cmpunordsd", &&IX86_BUILTIN_CMPUNORDSD},
+    {"__builtin_ia32_cmpunordss", &&IX86_BUILTIN_CMPUNORDSS},
+    {"__builtin_ia32_divpd", &&IX86_BUILTIN_DIVPD},
+    {"__builtin_ia32_divpd256", &&IX86_BUILTIN_DIVPD},
+    {"__builtin_ia32_divps", &&IX86_BUILTIN_DIVPS},
+    {"__builtin_ia32_divps256", &&IX86_BUILTIN_DIVPS},
+    {"__builtin_ia32_ldmxcsr", &&IX86_BUILTIN_LDMXCSR},
+    {"__builtin_ia32_loaddqu", &&IX86_BUILTIN_LOADDQU},
+    {"__builtin_ia32_loaddqu256", &&IX86_BUILTIN_LOADDQU},
+    {"__builtin_ia32_loadhpd", &&IX86_BUILTIN_LOADHPD},
+    {"__builtin_ia32_loadhps", &&IX86_BUILTIN_LOADHPS},
+    {"__builtin_ia32_loadlpd", &&IX86_BUILTIN_LOADLPD},
+    {"__builtin_ia32_loadlps", &&IX86_BUILTIN_LOADLPS},
+    {"__builtin_ia32_loadlv4si", &&IX86_BUILTIN_LOADQ},
+    {"__builtin_ia32_loadupd", &&IX86_BUILTIN_LOADUPD},
+    {"__builtin_ia32_loadupd256", &&IX86_BUILTIN_LOADUPD},
+    {"__builtin_ia32_loadups", &&IX86_BUILTIN_LOADUPS},
+    {"__builtin_ia32_loadups256", &&IX86_BUILTIN_LOADUPS},
+    {"__builtin_ia32_movhlps", &&IX86_BUILTIN_MOVHLPS},
+    {"__builtin_ia32_movlhps", &&IX86_BUILTIN_MOVLHPS},
+    {"__builtin_ia32_movq128", &&IX86_BUILTIN_MOVQ},
+    {"__builtin_ia32_movsd", &&IX86_BUILTIN_MOVSD},
+    {"__builtin_ia32_movshdup", &&IX86_BUILTIN_MOVSHDUP},
+    {"__builtin_ia32_movshdup256", &&IX86_BUILTIN_MOVSHDUP},
+    {"__builtin_ia32_movsldup", &&IX86_BUILTIN_MOVSLDUP},
+    {"__builtin_ia32_movsldup256", &&IX86_BUILTIN_MOVSLDUP},
+    {"__builtin_ia32_movss", &&IX86_BUILTIN_MOVSS},
+    {"__builtin_ia32_mulpd", &&IX86_BUILTIN_MULPD},
+    {"__builtin_ia32_mulpd256", &&IX86_BUILTIN_MULPD},
+    {"__builtin_ia32_mulps", &&IX86_BUILTIN_MULPS},
+    {"__builtin_ia32_mulps256", &&IX86_BUILTIN_MULPS},
+    {"__builtin_ia32_orpd", &&IX86_BUILTIN_ORPD},
+    {"__builtin_ia32_orpd256", &&IX86_BUILTIN_ORPD},
+    {"__builtin_ia32_orps", &&IX86_BUILTIN_ORPS},
+    {"__builtin_ia32_orps256", &&IX86_BUILTIN_ORPS},
+    {"__builtin_ia32_paddb", &&IX86_BUILTIN_PADDB},
+    {"__builtin_ia32_paddb128", &&IX86_BUILTIN_PADDB},
+    {"__builtin_ia32_paddb128", &&IX86_BUILTIN_PADDB128},
+    {"__builtin_ia32_paddd", &&IX86_BUILTIN_PADDD},
+    {"__builtin_ia32_paddd128", &&IX86_BUILTIN_PADDD},
+    {"__builtin_ia32_paddd128", &&IX86_BUILTIN_PADDD128},
+    {"__builtin_ia32_paddq128", &&IX86_BUILTIN_PADDQ},
+    {"__builtin_ia32_paddq", &&IX86_BUILTIN_PADDQ},
+    {"__builtin_ia32_paddq128", &&IX86_BUILTIN_PADDQ128},
+    {"__builtin_ia32_paddw", &&IX86_BUILTIN_PADDW},
+    {"__builtin_ia32_paddw128", &&IX86_BUILTIN_PADDW},
+    {"__builtin_ia32_paddw128", &&IX86_BUILTIN_PADDW128},
+    {"__builtin_ia32_pand", &&IX86_BUILTIN_PAND},
+    {"__builtin_ia32_pandn", &&IX86_BUILTIN_PAND},
+    {"__builtin_ia32_pand128", &&IX86_BUILTIN_PAND},
+    {"__builtin_ia32_pandn128", &&IX86_BUILTIN_PAND},
+    {"__builtin_ia32_pand128", &&IX86_BUILTIN_PAND128},
+    {"__builtin_ia32_pandn", &&IX86_BUILTIN_PANDN},
+    {"__builtin_ia32_pandn128", &&IX86_BUILTIN_PANDN},
+    {"__builtin_ia32_pandn128", &&IX86_BUILTIN_PANDN128},
+    {"__builtin_ia32_pmullw", &&IX86_BUILTIN_PMULLW},
+    {"__builtin_ia32_pmullw128", &&IX86_BUILTIN_PMULLW},
+    {"__builtin_ia32_pmullw128", &&IX86_BUILTIN_PMULLW128},
+    {"__builtin_ia32_por", &&IX86_BUILTIN_POR},
+    {"__builtin_ia32_por128", &&IX86_BUILTIN_POR},
+    {"__builtin_ia32_por128", &&IX86_BUILTIN_POR128},
+    {"__builtin_ia32_pshufd", &&IX86_BUILTIN_PSHUFD},
+    {"__builtin_ia32_pshufhw", &&IX86_BUILTIN_PSHUFHW},
+    {"__builtin_ia32_pshuflw", &&IX86_BUILTIN_PSHUFLW},
+    {"__builtin_ia32_pshufw", &&IX86_BUILTIN_PSHUFW},
+    {"__builtin_ia32_psubb", &&IX86_BUILTIN_PSUBB},
+    {"__builtin_ia32_psubb128", &&IX86_BUILTIN_PSUBB},
+    {"__builtin_ia32_psubb128", &&IX86_BUILTIN_PSUBB128},
+    {"__builtin_ia32_psubd", &&IX86_BUILTIN_PSUBD},
+    {"__builtin_ia32_psubd128", &&IX86_BUILTIN_PSUBD},
+    {"__builtin_ia32_psubd128", &&IX86_BUILTIN_PSUBD128},
+    {"__builtin_ia32_psubq128", &&IX86_BUILTIN_PSUBQ},
+    {"__builtin_ia32_psubq", &&IX86_BUILTIN_PSUBQ},
+    {"__builtin_ia32_psubq128", &&IX86_BUILTIN_PSUBQ128},
+    {"__builtin_ia32_psubw", &&IX86_BUILTIN_PSUBW},
+    {"__builtin_ia32_psubw128", &&IX86_BUILTIN_PSUBW},
+    {"__builtin_ia32_psubw128", &&IX86_BUILTIN_PSUBW128},
+    {"__builtin_ia32_punpckhbw", &&IX86_BUILTIN_PUNPCKHBW},
+    {"__builtin_ia32_punpckhbw128", &&IX86_BUILTIN_PUNPCKHBW},
+    {"__builtin_ia32_punpckhbw128", &&IX86_BUILTIN_PUNPCKHBW128},
+    {"__builtin_ia32_punpckhdq", &&IX86_BUILTIN_PUNPCKHDQ},
+    {"__builtin_ia32_punpckhdq128", &&IX86_BUILTIN_PUNPCKHDQ},
+    {"__builtin_ia32_punpckhdq128", &&IX86_BUILTIN_PUNPCKHDQ128},
+    {"__builtin_ia32_punpckhqdq128", &&IX86_BUILTIN_PUNPCKHQDQ128},
+    {"__builtin_ia32_punpckhwd", &&IX86_BUILTIN_PUNPCKHWD},
+    {"__builtin_ia32_punpckhwd128", &&IX86_BUILTIN_PUNPCKHWD},
+    {"__builtin_ia32_punpckhwd128", &&IX86_BUILTIN_PUNPCKHWD128},
+    {"__builtin_ia32_punpcklbw", &&IX86_BUILTIN_PUNPCKLBW},
+    {"__builtin_ia32_punpcklbw128", &&IX86_BUILTIN_PUNPCKLBW},
+    {"__builtin_ia32_punpcklbw128", &&IX86_BUILTIN_PUNPCKLBW128},
+    {"__builtin_ia32_punpckldq", &&IX86_BUILTIN_PUNPCKLDQ},
+    {"__builtin_ia32_punpckldq128", &&IX86_BUILTIN_PUNPCKLDQ},
+    {"__builtin_ia32_punpckldq128", &&IX86_BUILTIN_PUNPCKLDQ128},
+    {"__builtin_ia32_punpcklqdq128", &&IX86_BUILTIN_PUNPCKLQDQ128},
+    {"__builtin_ia32_punpcklwd", &&IX86_BUILTIN_PUNPCKLWD},
+    {"__builtin_ia32_punpcklwd128", &&IX86_BUILTIN_PUNPCKLWD},
+    {"__builtin_ia32_punpcklwd128", &&IX86_BUILTIN_PUNPCKLWD128},
+    {"__builtin_ia32_pxor", &&IX86_BUILTIN_PXOR},
+    {"__builtin_ia32_pxor128", &&IX86_BUILTIN_PXOR},
+    {"__builtin_ia32_pxor128", &&IX86_BUILTIN_PXOR128},
+    {"__builtin_ia32_shufpd", &&IX86_BUILTIN_SHUFPD},
+    {"__builtin_ia32_shufpd256", &&IX86_BUILTIN_SHUFPD},
+    {"__builtin_ia32_shufps", &&IX86_BUILTIN_SHUFPS},
+    {"__builtin_ia32_shufps256", &&IX86_BUILTIN_SHUFPS},
+    {"__builtin_ia32_stmxcsr", &&IX86_BUILTIN_STMXCSR},
+    {"__builtin_ia32_storedqu", &&IX86_BUILTIN_STOREDQU},
+    {"__builtin_ia32_storedqu256", &&IX86_BUILTIN_STOREDQU},
+    {"__builtin_ia32_storehps", &&IX86_BUILTIN_STOREHPS},
+    {"__builtin_ia32_storelps", &&IX86_BUILTIN_STORELPS},
+    {"__builtin_ia32_storeupd", &&IX86_BUILTIN_STOREUPD},
+    {"__builtin_ia32_storeupd256", &&IX86_BUILTIN_STOREUPD},
+    {"__builtin_ia32_storeups", &&IX86_BUILTIN_STOREUPS},
+    {"__builtin_ia32_storeups256", &&IX86_BUILTIN_STOREUPS},
+    {"__builtin_ia32_subpd", &&IX86_BUILTIN_SUBPD},
+    {"__builtin_ia32_subpd256", &&IX86_BUILTIN_SUBPD},
+    {"__builtin_ia32_subps", &&IX86_BUILTIN_SUBPS},
+    {"__builtin_ia32_subps256", &&IX86_BUILTIN_SUBPS},
+    {"__builtin_ia32_unpckhpd", &&IX86_BUILTIN_UNPCKHPD},
+    {"__builtin_ia32_unpckhpd256", &&IX86_BUILTIN_UNPCKHPD},
+    {"__builtin_ia32_unpckhps", &&IX86_BUILTIN_UNPCKHPS},
+    {"__builtin_ia32_unpckhps256", &&IX86_BUILTIN_UNPCKHPS},
+    {"__builtin_ia32_unpcklpd", &&IX86_BUILTIN_UNPCKLPD},
+    {"__builtin_ia32_unpcklpd256", &&IX86_BUILTIN_UNPCKLPD},
+    {"__builtin_ia32_unpcklps", &&IX86_BUILTIN_UNPCKLPS},
+    {"__builtin_ia32_unpcklps256", &&IX86_BUILTIN_UNPCKLPS},
+    {"__builtin_ia32_vec_ext_v16qi", &&IX86_BUILTIN_VEC_EXT_V16QI},
+    {"__builtin_ia32_vec_ext_v2df", &&IX86_BUILTIN_VEC_EXT_V2DF},
+    {"__builtin_ia32_vec_ext_v2di", &&IX86_BUILTIN_VEC_EXT_V2DI},
+    {"__builtin_ia32_vec_ext_v2si", &&IX86_BUILTIN_VEC_EXT_V2SI},
+    {"__builtin_ia32_vec_ext_v4hi", &&IX86_BUILTIN_VEC_EXT_V4HI},
+    {"__builtin_ia32_vec_ext_v4sf", &&IX86_BUILTIN_VEC_EXT_V4SF},
+    {"__builtin_ia32_vec_ext_v4si", &&IX86_BUILTIN_VEC_EXT_V4SI},
+    {"__builtin_ia32_vec_ext_v8hi", &&IX86_BUILTIN_VEC_EXT_V8HI},
+    {"__builtin_ia32_vec_init_v2si", &&IX86_BUILTIN_VEC_INIT_V2SI},
+    {"__builtin_ia32_vec_init_v4hi", &&IX86_BUILTIN_VEC_INIT_V4HI},
+    {"__builtin_ia32_vec_init_v8qi", &&IX86_BUILTIN_VEC_INIT_V8QI},
+    {"__builtin_ia32_vec_set_v16qi", &&IX86_BUILTIN_VEC_SET_V16QI},
+    {"__builtin_ia32_vec_set_v2di", &&IX86_BUILTIN_VEC_SET_V2DI},
+    {"__builtin_ia32_vec_set_v4hi", &&IX86_BUILTIN_VEC_SET_V4HI},
+    {"__builtin_ia32_vec_set_v4si", &&IX86_BUILTIN_VEC_SET_V4SI},
+    {"__builtin_ia32_vec_set_v8hi", &&IX86_BUILTIN_VEC_SET_V8HI},
+    {"__builtin_ia32_xorpd", &&IX86_BUILTIN_XORPD},
+    {"__builtin_ia32_xorpd256", &&IX86_BUILTIN_XORPD},
+    {"__builtin_ia32_xorps", &&IX86_BUILTIN_XORPS},
+    {"__builtin_ia32_xorps256", &&IX86_BUILTIN_XORPS}
+  };
+
+  static std::vector<void*> FunctionCodeCache;
+  if (FunctionCodeCache.size() <= DECL_FUNCTION_CODE(fndecl))
+      FunctionCodeCache.resize(DECL_FUNCTION_CODE(fndecl) + 1);
+  void *&Handler = FunctionCodeCache[DECL_FUNCTION_CODE(fndecl)];
+  if (!Handler) {
+    // Find the handler for this intrinsic.
+    HandlerEntry ToFind = {IDENTIFIER_POINTER(DECL_NAME(fndecl)), NULL};
+    size_t N = sizeof(Handlers) / sizeof(Handlers[0]);
+    const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind, LT);
+    Handler = E == Handlers + N ? &&unknown : E->Handler;
+  }
+
+  bool flip = false;
+  unsigned PredCode;
+  goto *Handler;
+
+  unknown: return false;
+  IX86_BUILTIN_ADDPS:
+  IX86_BUILTIN_ADDPD:
+  IX86_BUILTIN_PADDB:
+  IX86_BUILTIN_PADDW:
+  IX86_BUILTIN_PADDD:
+  IX86_BUILTIN_PADDQ:
+  IX86_BUILTIN_PADDB128:
+  IX86_BUILTIN_PADDW128:
+  IX86_BUILTIN_PADDD128:
+  IX86_BUILTIN_PADDQ128:
     Result = Builder.CreateAdd(Ops[0], Ops[1]);
     return true;
-  case IX86_BUILTIN_SUBPS:
-  case IX86_BUILTIN_SUBPD:
-  case IX86_BUILTIN_PSUBB:
-  case IX86_BUILTIN_PSUBW:
-  case IX86_BUILTIN_PSUBD:
-  case IX86_BUILTIN_PSUBQ:
-  case IX86_BUILTIN_PSUBB128:
-  case IX86_BUILTIN_PSUBW128:
-  case IX86_BUILTIN_PSUBD128:
-  case IX86_BUILTIN_PSUBQ128:
+  IX86_BUILTIN_SUBPS:
+  IX86_BUILTIN_SUBPD:
+  IX86_BUILTIN_PSUBB:
+  IX86_BUILTIN_PSUBW:
+  IX86_BUILTIN_PSUBD:
+  IX86_BUILTIN_PSUBQ:
+  IX86_BUILTIN_PSUBB128:
+  IX86_BUILTIN_PSUBW128:
+  IX86_BUILTIN_PSUBD128:
+  IX86_BUILTIN_PSUBQ128:
     Result = Builder.CreateSub(Ops[0], Ops[1]);
     return true;
-  case IX86_BUILTIN_MULPS:
-  case IX86_BUILTIN_MULPD:
-  case IX86_BUILTIN_PMULLW:
-  case IX86_BUILTIN_PMULLW128:
+  IX86_BUILTIN_MULPS:
+  IX86_BUILTIN_MULPD:
+  IX86_BUILTIN_PMULLW:
+  IX86_BUILTIN_PMULLW128:
     Result = Builder.CreateMul(Ops[0], Ops[1]);
     return true;
-  case IX86_BUILTIN_DIVPS:
-  case IX86_BUILTIN_DIVPD:
+  IX86_BUILTIN_DIVPS:
+  IX86_BUILTIN_DIVPD:
     Result = Builder.CreateFDiv(Ops[0], Ops[1]);
     return true;
-  case IX86_BUILTIN_PAND:
-  case IX86_BUILTIN_PAND128:
+  IX86_BUILTIN_PAND:
+  IX86_BUILTIN_PAND128:
     Result = Builder.CreateAnd(Ops[0], Ops[1]);
     return true;
-  case IX86_BUILTIN_PANDN:
-  case IX86_BUILTIN_PANDN128:
+  IX86_BUILTIN_PANDN:
+  IX86_BUILTIN_PANDN128:
     Ops[0] = Builder.CreateNot(Ops[0]);
     Result = Builder.CreateAnd(Ops[0], Ops[1]);
     return true;
-  case IX86_BUILTIN_POR:
-  case IX86_BUILTIN_POR128:
+  IX86_BUILTIN_POR:
+  IX86_BUILTIN_POR128:
     Result = Builder.CreateOr(Ops[0], Ops[1]);
     return true;
-  case IX86_BUILTIN_PXOR:
-  case IX86_BUILTIN_PXOR128:
+  IX86_BUILTIN_PXOR:
+  IX86_BUILTIN_PXOR128:
     Result = Builder.CreateXor(Ops[0], Ops[1]);
     return true;
-  case IX86_BUILTIN_ANDPS:
-  case IX86_BUILTIN_ORPS:
-  case IX86_BUILTIN_XORPS:
-  case IX86_BUILTIN_ANDNPS:
-  case IX86_BUILTIN_ANDPD:
-  case IX86_BUILTIN_ORPD:
-  case IX86_BUILTIN_XORPD:
-  case IX86_BUILTIN_ANDNPD:
-    if (cast<VectorType>(ResultType)->getNumElements() == 4)  // v4f32
-      Ops[0] = Builder.CreateBitCast(Ops[0], 
-                                  VectorType::get(Type::getInt32Ty(Context), 4),
-                                     "tmp");
-    else                                                      // v2f64
-      Ops[0] = Builder.CreateBitCast(Ops[0], 
-                                 VectorType::get(Type::getInt64Ty(Context), 2),
-                                     "tmp");
-    
+  IX86_BUILTIN_ANDPS:
+  IX86_BUILTIN_ANDPD:
+    Ops[0] = BitCastToIntVector(Ops[0], Builder);
     Ops[1] = Builder.CreateBitCast(Ops[1], Ops[0]->getType());
-    switch (FnCode) {
-      case IX86_BUILTIN_ANDPS:
-      case IX86_BUILTIN_ANDPD:
-        Result = Builder.CreateAnd(Ops[0], Ops[1]);
-        break;
-      case IX86_BUILTIN_ORPS:
-      case IX86_BUILTIN_ORPD:
-        Result = Builder.CreateOr (Ops[0], Ops[1]);
-         break;
-      case IX86_BUILTIN_XORPS:
-      case IX86_BUILTIN_XORPD:
-        Result = Builder.CreateXor(Ops[0], Ops[1]);
-        break;
-      case IX86_BUILTIN_ANDNPS:
-      case IX86_BUILTIN_ANDNPD:
-        Ops[0] = Builder.CreateNot(Ops[0]);
-        Result = Builder.CreateAnd(Ops[0], Ops[1]);
-        break;
-    }
+    Result = Builder.CreateAnd(Ops[0], Ops[1]);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
-  case IX86_BUILTIN_SHUFPS:
+  IX86_BUILTIN_ORPS:
+  IX86_BUILTIN_ORPD:
+    Ops[0] = BitCastToIntVector(Ops[0], Builder);
+    Ops[1] = Builder.CreateBitCast(Ops[1], Ops[0]->getType());
+    Result = Builder.CreateOr(Ops[0], Ops[1]);
+    Result = Builder.CreateBitCast(Result, ResultType);
+    return true;
+  IX86_BUILTIN_XORPS:
+  IX86_BUILTIN_XORPD:
+    Ops[0] = BitCastToIntVector(Ops[0], Builder);
+    Ops[1] = Builder.CreateBitCast(Ops[1], Ops[0]->getType());
+    Result = Builder.CreateXor(Ops[0], Ops[1]);
+    Result = Builder.CreateBitCast(Result, ResultType);
+    return true;
+  IX86_BUILTIN_ANDNPS:
+  IX86_BUILTIN_ANDNPD:
+    Ops[0] = BitCastToIntVector(Ops[0], Builder);
+    Ops[1] = Builder.CreateBitCast(Ops[1], Ops[0]->getType());
+    Ops[0] = Builder.CreateNot(Ops[0]);
+    Result = Builder.CreateAnd(Ops[0], Ops[1]);
+    Result = Builder.CreateBitCast(Result, ResultType);
+    return true;
+  IX86_BUILTIN_SHUFPS:
     if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[2])) {
       int EV = Elt->getZExtValue();
       Result = BuildVectorShuffle(Ops[0], Ops[1],
@@ -166,7 +387,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       Result = Ops[0];
     }
     return true;
-  case IX86_BUILTIN_SHUFPD:
+  IX86_BUILTIN_SHUFPD:
     if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[2])) {
       int EV = Elt->getZExtValue();
       Result = BuildVectorShuffle(Ops[0], Ops[1],
@@ -176,8 +397,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       Result = Ops[0];
     }
     return true;
-  case IX86_BUILTIN_PSHUFW:
-  case IX86_BUILTIN_PSHUFD:
+  IX86_BUILTIN_PSHUFW:
+  IX86_BUILTIN_PSHUFD:
     if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[1])) {
       int EV = Elt->getZExtValue();
       Result = BuildVectorShuffle(Ops[0], Ops[0],
@@ -188,7 +409,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       Result = Ops[0];
     }
     return true;
-  case IX86_BUILTIN_PSHUFHW:
+  IX86_BUILTIN_PSHUFHW:
     if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[1])) {
       int EV = Elt->getZExtValue();
       Result = BuildVectorShuffle(Ops[0], Ops[0],
@@ -198,7 +419,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       return true;
     }
     return false;
-  case IX86_BUILTIN_PSHUFLW:
+  IX86_BUILTIN_PSHUFLW:
     if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[1])) {
       int EV = Elt->getZExtValue();
       Result = BuildVectorShuffle(Ops[0], Ops[0],
@@ -211,87 +432,87 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     }
     
     return true;
-  case IX86_BUILTIN_PUNPCKHBW:
+  IX86_BUILTIN_PUNPCKHBW:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 4, 12, 5, 13,
                                                 6, 14, 7, 15);
     return true;
-  case IX86_BUILTIN_PUNPCKHWD:
+  IX86_BUILTIN_PUNPCKHWD:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 2, 6, 3, 7);
     return true;
-  case IX86_BUILTIN_PUNPCKHDQ:
+  IX86_BUILTIN_PUNPCKHDQ:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 1, 3);
     return true;
-  case IX86_BUILTIN_PUNPCKLBW:
+  IX86_BUILTIN_PUNPCKLBW:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0,  8, 1,  9,
                                                 2, 10, 3, 11);
     return true;
-  case IX86_BUILTIN_PUNPCKLWD:
+  IX86_BUILTIN_PUNPCKLWD:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0, 4, 1, 5);
     return true;
-  case IX86_BUILTIN_PUNPCKLDQ:
+  IX86_BUILTIN_PUNPCKLDQ:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0, 2);
     return true;
-  case IX86_BUILTIN_PUNPCKHBW128:
+  IX86_BUILTIN_PUNPCKHBW128:
     Result = BuildVectorShuffle(Ops[0], Ops[1],  8, 24,  9, 25,
                                                 10, 26, 11, 27,
                                                 12, 28, 13, 29,
                                                 14, 30, 15, 31);
     return true;
-  case IX86_BUILTIN_PUNPCKHWD128:
+  IX86_BUILTIN_PUNPCKHWD128:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 4, 12, 5, 13, 6, 14, 7, 15);
     return true;
-  case IX86_BUILTIN_PUNPCKHDQ128:
+  IX86_BUILTIN_PUNPCKHDQ128:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 2, 6, 3, 7);
     return true;
-  case IX86_BUILTIN_PUNPCKHQDQ128:
+  IX86_BUILTIN_PUNPCKHQDQ128:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 1, 3);
     return true;
-  case IX86_BUILTIN_PUNPCKLBW128:
+  IX86_BUILTIN_PUNPCKLBW128:
     Result = BuildVectorShuffle(Ops[0], Ops[1],  0, 16,  1, 17,
                                                  2, 18,  3, 19,
                                                  4, 20,  5, 21,
                                                  6, 22,  7, 23);
     return true;
-  case IX86_BUILTIN_PUNPCKLWD128:
+  IX86_BUILTIN_PUNPCKLWD128:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0, 8, 1, 9, 2, 10, 3, 11);
     return true;
-  case IX86_BUILTIN_PUNPCKLDQ128:
+  IX86_BUILTIN_PUNPCKLDQ128:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0, 4, 1, 5);
     return true;
-  case IX86_BUILTIN_PUNPCKLQDQ128:
+  IX86_BUILTIN_PUNPCKLQDQ128:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0, 2);
     return true;
-  case IX86_BUILTIN_UNPCKHPS:
+  IX86_BUILTIN_UNPCKHPS:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 2, 6, 3, 7);
     return true;
-  case IX86_BUILTIN_UNPCKHPD:
+  IX86_BUILTIN_UNPCKHPD:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 1, 3);
     return true;
-  case IX86_BUILTIN_UNPCKLPS:
+  IX86_BUILTIN_UNPCKLPS:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0, 4, 1, 5);
     return true;
-  case IX86_BUILTIN_UNPCKLPD:
+  IX86_BUILTIN_UNPCKLPD:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0, 2);
     return true;
-  case IX86_BUILTIN_MOVHLPS:
+  IX86_BUILTIN_MOVHLPS:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 6, 7, 2, 3);
     return true;
-  case IX86_BUILTIN_MOVLHPS:
+  IX86_BUILTIN_MOVLHPS:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0, 1, 4, 5);
     return true;
-  case IX86_BUILTIN_MOVSS:
+  IX86_BUILTIN_MOVSS:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 4, 1, 2, 3);
     return true;
-  case IX86_BUILTIN_MOVSD:
+  IX86_BUILTIN_MOVSD:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 2, 1);
     return true;
-  case IX86_BUILTIN_MOVQ: {
+  IX86_BUILTIN_MOVQ: {
     Value *Zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
     Result = BuildVector(Zero, Zero, Zero, Zero, NULL);
     Result = BuildVectorShuffle(Result, Ops[0], 4, 5, 2, 3);
     return true;
   }
-  case IX86_BUILTIN_LOADQ: {
+  IX86_BUILTIN_LOADQ: {
     const PointerType *i64Ptr = Type::getInt64PtrTy(Context);
     Ops[0] = Builder.CreateBitCast(Ops[0], i64Ptr);
     Ops[0] = Builder.CreateLoad(Ops[0]);
@@ -302,7 +523,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
-  case IX86_BUILTIN_LOADUPS: {
+  IX86_BUILTIN_LOADUPS: {
     VectorType *v4f32 = VectorType::get(Type::getFloatTy(Context), 4);
     const PointerType *v4f32Ptr = v4f32->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v4f32Ptr);
@@ -311,7 +532,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = LI;
     return true;
   }
-  case IX86_BUILTIN_LOADUPD: {
+  IX86_BUILTIN_LOADUPD: {
     VectorType *v2f64 = VectorType::get(Type::getDoubleTy(Context), 2);
     const PointerType *v2f64Ptr = v2f64->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v2f64Ptr);
@@ -320,7 +541,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = LI;
     return true;
   }
-  case IX86_BUILTIN_LOADDQU: {
+  IX86_BUILTIN_LOADDQU: {
     VectorType *v16i8 = VectorType::get(Type::getInt8Ty(Context), 16);
     const PointerType *v16i8Ptr = v16i8->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v16i8Ptr);
@@ -329,7 +550,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = LI;
     return true;
   }
-  case IX86_BUILTIN_STOREUPS: {
+  IX86_BUILTIN_STOREUPS: {
     VectorType *v4f32 = VectorType::get(Type::getFloatTy(Context), 4);
     const PointerType *v4f32Ptr = v4f32->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v4f32Ptr);
@@ -338,7 +559,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = SI;
     return true;
   }
-  case IX86_BUILTIN_STOREUPD: {
+  IX86_BUILTIN_STOREUPD: {
     VectorType *v2f64 = VectorType::get(Type::getDoubleTy(Context), 2);
     const PointerType *v2f64Ptr = v2f64->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v2f64Ptr);
@@ -347,7 +568,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = SI;
     return true;
   }
-  case IX86_BUILTIN_STOREDQU: {
+  IX86_BUILTIN_STOREDQU: {
     VectorType *v16i8 = VectorType::get(Type::getInt8Ty(Context), 16);
     const PointerType *v16i8Ptr = v16i8->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v16i8Ptr);
@@ -356,7 +577,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = SI;
     return true;
   }
-  case IX86_BUILTIN_LOADHPS: {
+  IX86_BUILTIN_LOADHPS: {
     const PointerType *f64Ptr = Type::getDoublePtrTy(Context);
     Ops[1] = Builder.CreateBitCast(Ops[1], f64Ptr);
     Value *Load = Builder.CreateLoad(Ops[1]);
@@ -366,7 +587,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
-  case IX86_BUILTIN_LOADLPS: {
+  IX86_BUILTIN_LOADLPS: {
     const PointerType *f64Ptr = Type::getDoublePtrTy(Context);
     Ops[1] = Builder.CreateBitCast(Ops[1], f64Ptr);
     Value *Load = Builder.CreateLoad(Ops[1]);
@@ -376,7 +597,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
-  case IX86_BUILTIN_LOADHPD: {
+  IX86_BUILTIN_LOADHPD: {
     Value *Load = Builder.CreateLoad(Ops[1]);
     Ops[1] = BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)), NULL);
     Ops[1] = Builder.CreateBitCast(Ops[1], ResultType);
@@ -384,7 +605,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
-  case IX86_BUILTIN_LOADLPD: {
+  IX86_BUILTIN_LOADLPD: {
     Value *Load = Builder.CreateLoad(Ops[1]);
     Ops[1] = BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)), NULL);
     Ops[1] = Builder.CreateBitCast(Ops[1], ResultType);
@@ -392,7 +613,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
-  case IX86_BUILTIN_STOREHPS: {
+  IX86_BUILTIN_STOREHPS: {
     VectorType *v2f64 = VectorType::get(Type::getDoubleTy(Context), 2);
     const PointerType *f64Ptr = Type::getDoublePtrTy(Context);
     Ops[0] = Builder.CreateBitCast(Ops[0], f64Ptr);
@@ -402,7 +623,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateStore(Ops[1], Ops[0]);
     return true;
   }
-  case IX86_BUILTIN_STORELPS: {
+  IX86_BUILTIN_STORELPS: {
     VectorType *v2f64 = VectorType::get(Type::getDoubleTy(Context), 2);
     const PointerType *f64Ptr = Type::getDoublePtrTy(Context);
     Ops[0] = Builder.CreateBitCast(Ops[0], f64Ptr);
@@ -412,86 +633,71 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateStore(Ops[1], Ops[0]);
     return true;
   }
-  case IX86_BUILTIN_MOVSHDUP:
+  IX86_BUILTIN_MOVSHDUP:
     Result = BuildVectorShuffle(Ops[0], Ops[0], 1, 1, 3, 3);
     return true;
-  case IX86_BUILTIN_MOVSLDUP:
+  IX86_BUILTIN_MOVSLDUP:
     Result = BuildVectorShuffle(Ops[0], Ops[0], 0, 0, 2, 2);
     return true;
-  case IX86_BUILTIN_VEC_INIT_V2SI:
+  IX86_BUILTIN_VEC_INIT_V2SI:
     Result = BuildVector(Ops[0], Ops[1], NULL);
     return true;
-  case IX86_BUILTIN_VEC_INIT_V4HI:
+  IX86_BUILTIN_VEC_INIT_V4HI:
     // Sometimes G++ promotes arguments to int.
     for (unsigned i = 0; i != 4; ++i)
       Ops[i] = Builder.CreateIntCast(Ops[i], Type::getInt16Ty(Context), false);
     Result = BuildVector(Ops[0], Ops[1], Ops[2], Ops[3], NULL);
     return true;
-  case IX86_BUILTIN_VEC_INIT_V8QI:
+  IX86_BUILTIN_VEC_INIT_V8QI:
     // Sometimes G++ promotes arguments to int.
     for (unsigned i = 0; i != 8; ++i)
       Ops[i] = Builder.CreateIntCast(Ops[i], Type::getInt8Ty(Context), false);
     Result = BuildVector(Ops[0], Ops[1], Ops[2], Ops[3],
                          Ops[4], Ops[5], Ops[6], Ops[7], NULL);
     return true;
-  case IX86_BUILTIN_VEC_EXT_V2SI:
-  case IX86_BUILTIN_VEC_EXT_V4HI:
-  case IX86_BUILTIN_VEC_EXT_V2DF:
-  case IX86_BUILTIN_VEC_EXT_V2DI:
-  case IX86_BUILTIN_VEC_EXT_V4SI:
-  case IX86_BUILTIN_VEC_EXT_V4SF:
-  case IX86_BUILTIN_VEC_EXT_V8HI:
-  case IX86_BUILTIN_VEC_EXT_V16QI:
+  IX86_BUILTIN_VEC_EXT_V2SI:
+  IX86_BUILTIN_VEC_EXT_V4HI:
+  IX86_BUILTIN_VEC_EXT_V2DF:
+  IX86_BUILTIN_VEC_EXT_V2DI:
+  IX86_BUILTIN_VEC_EXT_V4SI:
+  IX86_BUILTIN_VEC_EXT_V4SF:
+  IX86_BUILTIN_VEC_EXT_V8HI:
+  IX86_BUILTIN_VEC_EXT_V16QI:
     Result = Builder.CreateExtractElement(Ops[0], Ops[1]);
     return true;
-  case IX86_BUILTIN_VEC_SET_V16QI:
+  IX86_BUILTIN_VEC_SET_V16QI:
     // Sometimes G++ promotes arguments to int.
     Ops[1] = Builder.CreateIntCast(Ops[1], Type::getInt8Ty(Context), false);
     Result = Builder.CreateInsertElement(Ops[0], Ops[1], Ops[2]);
     return true;
-  case IX86_BUILTIN_VEC_SET_V4HI:
-  case IX86_BUILTIN_VEC_SET_V8HI:
+  IX86_BUILTIN_VEC_SET_V4HI:
+  IX86_BUILTIN_VEC_SET_V8HI:
     // GCC sometimes doesn't produce the right element type.
     Ops[1] = Builder.CreateIntCast(Ops[1], Type::getInt16Ty(Context), false);
     Result = Builder.CreateInsertElement(Ops[0], Ops[1], Ops[2]);
     return true;
-  case IX86_BUILTIN_VEC_SET_V4SI:
+  IX86_BUILTIN_VEC_SET_V4SI:
     Result = Builder.CreateInsertElement(Ops[0], Ops[1], Ops[2]);
     return true;
-  case IX86_BUILTIN_VEC_SET_V2DI:
+  IX86_BUILTIN_VEC_SET_V2DI:
     Result = Builder.CreateInsertElement(Ops[0], Ops[1], Ops[2]);
     return true;
-  case IX86_BUILTIN_CMPEQPS:
-  case IX86_BUILTIN_CMPLTPS:
-  case IX86_BUILTIN_CMPLEPS:
-  case IX86_BUILTIN_CMPGTPS:
-  case IX86_BUILTIN_CMPGEPS:
-  case IX86_BUILTIN_CMPNEQPS:
-  case IX86_BUILTIN_CMPNLTPS:
-  case IX86_BUILTIN_CMPNLEPS:
-  case IX86_BUILTIN_CMPNGTPS:
-  case IX86_BUILTIN_CMPNGEPS:
-  case IX86_BUILTIN_CMPORDPS:
-  case IX86_BUILTIN_CMPUNORDPS: {
+
+  IX86_BUILTIN_CMPEQPS: PredCode = 0; goto CMPXXPS;
+  IX86_BUILTIN_CMPLTPS: PredCode = 1; goto CMPXXPS;
+  IX86_BUILTIN_CMPGTPS: PredCode = 1; flip = true; goto CMPXXPS;
+  IX86_BUILTIN_CMPLEPS: PredCode = 2; goto CMPXXPS;
+  IX86_BUILTIN_CMPGEPS: PredCode = 2; flip = true; goto CMPXXPS;
+  IX86_BUILTIN_CMPUNORDPS: PredCode = 3; goto CMPXXPS;
+  IX86_BUILTIN_CMPNEQPS: PredCode = 4; goto CMPXXPS;
+  IX86_BUILTIN_CMPNLTPS: PredCode = 5; goto CMPXXPS;
+  IX86_BUILTIN_CMPNGTPS: PredCode = 5; flip = true; goto CMPXXPS;
+  IX86_BUILTIN_CMPNLEPS: PredCode = 6; goto CMPXXPS;
+  IX86_BUILTIN_CMPNGEPS: PredCode = 6; flip = true; goto CMPXXPS;
+  IX86_BUILTIN_CMPORDPS: PredCode = 7; goto CMPXXPS;
+  CMPXXPS: {
     Function *cmpps =
       Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_cmp_ps);
-    bool flip = false;
-    unsigned PredCode;
-    switch (FnCode) {
-    default: assert(0 && "Unknown fncode!");
-    case IX86_BUILTIN_CMPEQPS: PredCode = 0; break;
-    case IX86_BUILTIN_CMPLTPS: PredCode = 1; break;
-    case IX86_BUILTIN_CMPGTPS: PredCode = 1; flip = true; break;
-    case IX86_BUILTIN_CMPLEPS: PredCode = 2; break;
-    case IX86_BUILTIN_CMPGEPS: PredCode = 2; flip = true; break;
-    case IX86_BUILTIN_CMPUNORDPS: PredCode = 3; break;
-    case IX86_BUILTIN_CMPNEQPS: PredCode = 4; break;
-    case IX86_BUILTIN_CMPNLTPS: PredCode = 5; break;
-    case IX86_BUILTIN_CMPNGTPS: PredCode = 5; flip = true; break;
-    case IX86_BUILTIN_CMPNLEPS: PredCode = 6; break;
-    case IX86_BUILTIN_CMPNGEPS: PredCode = 6; flip = true; break;
-    case IX86_BUILTIN_CMPORDPS: PredCode = 7; break;
-    }
     Value *Pred = ConstantInt::get(Type::getInt8Ty(Context), PredCode);
     Value *Arg0 = Ops[0];
     Value *Arg1 = Ops[1];
@@ -501,67 +707,38 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
-  case IX86_BUILTIN_CMPEQSS:
-  case IX86_BUILTIN_CMPLTSS:
-  case IX86_BUILTIN_CMPLESS:
-  case IX86_BUILTIN_CMPNEQSS:
-  case IX86_BUILTIN_CMPNLTSS:
-  case IX86_BUILTIN_CMPNLESS:
-  case IX86_BUILTIN_CMPNGTSS:
-  case IX86_BUILTIN_CMPNGESS:
-  case IX86_BUILTIN_CMPORDSS:
-  case IX86_BUILTIN_CMPUNORDSS: {
+  IX86_BUILTIN_CMPEQSS:    PredCode = 0; goto CMPXXSS;
+  IX86_BUILTIN_CMPLTSS:    PredCode = 1; goto CMPXXSS;
+  IX86_BUILTIN_CMPLESS:    PredCode = 2; goto CMPXXSS;
+  IX86_BUILTIN_CMPUNORDSS: PredCode = 3; goto CMPXXSS;
+  IX86_BUILTIN_CMPNEQSS:   PredCode = 4; goto CMPXXSS;
+  IX86_BUILTIN_CMPNLTSS:   PredCode = 5; goto CMPXXSS;
+  IX86_BUILTIN_CMPNLESS:   PredCode = 6; goto CMPXXSS;
+  IX86_BUILTIN_CMPORDSS:   PredCode = 7; goto CMPXXSS;
+  CMPXXSS: {
     Function *cmpss =
       Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_cmp_ss);
-    unsigned PredCode;
-    switch (FnCode) {
-    default: assert(0 && "Unknown fncode");
-    case IX86_BUILTIN_CMPEQSS:    PredCode = 0; break;
-    case IX86_BUILTIN_CMPLTSS:    PredCode = 1; break;
-    case IX86_BUILTIN_CMPLESS:    PredCode = 2; break;
-    case IX86_BUILTIN_CMPUNORDSS: PredCode = 3; break;
-    case IX86_BUILTIN_CMPNEQSS:   PredCode = 4; break;
-    case IX86_BUILTIN_CMPNLTSS:   PredCode = 5; break;
-    case IX86_BUILTIN_CMPNLESS:   PredCode = 6; break;
-    case IX86_BUILTIN_CMPORDSS:   PredCode = 7; break;
-    }
     Value *Pred = ConstantInt::get(Type::getInt8Ty(Context), PredCode);
     Value *CallOps[3] = { Ops[0], Ops[1], Pred };
     Result = Builder.CreateCall(cmpss, CallOps, CallOps+3);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
-  case IX86_BUILTIN_CMPEQPD:
-  case IX86_BUILTIN_CMPLTPD:
-  case IX86_BUILTIN_CMPLEPD:
-  case IX86_BUILTIN_CMPGTPD:
-  case IX86_BUILTIN_CMPGEPD:
-  case IX86_BUILTIN_CMPNEQPD:
-  case IX86_BUILTIN_CMPNLTPD:
-  case IX86_BUILTIN_CMPNLEPD:
-  case IX86_BUILTIN_CMPNGTPD:
-  case IX86_BUILTIN_CMPNGEPD:
-  case IX86_BUILTIN_CMPORDPD:
-  case IX86_BUILTIN_CMPUNORDPD: {
+  IX86_BUILTIN_CMPEQPD:    PredCode = 0; goto CMPXXPD;
+  IX86_BUILTIN_CMPLTPD:    PredCode = 1; goto CMPXXPD;
+  IX86_BUILTIN_CMPGTPD:    PredCode = 1; flip = true; goto CMPXXPD;
+  IX86_BUILTIN_CMPLEPD:    PredCode = 2; goto CMPXXPD;
+  IX86_BUILTIN_CMPGEPD:    PredCode = 2; flip = true; goto CMPXXPD;
+  IX86_BUILTIN_CMPUNORDPD: PredCode = 3; goto CMPXXPD;
+  IX86_BUILTIN_CMPNEQPD:   PredCode = 4; goto CMPXXPD;
+  IX86_BUILTIN_CMPNLTPD:   PredCode = 5; goto CMPXXPD;
+  IX86_BUILTIN_CMPNGTPD:   PredCode = 5; flip = true; goto CMPXXPD;
+  IX86_BUILTIN_CMPNLEPD:   PredCode = 6; goto CMPXXPD;
+  IX86_BUILTIN_CMPNGEPD:   PredCode = 6; flip = true; goto CMPXXPD;
+  IX86_BUILTIN_CMPORDPD:   PredCode = 7; goto CMPXXPD;
+  CMPXXPD: {
     Function *cmppd =
       Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse2_cmp_pd);
-    bool flip = false;
-    unsigned PredCode;
-    switch (FnCode) {
-    default: assert(0 && "Unknown fncode!");
-    case IX86_BUILTIN_CMPEQPD:    PredCode = 0; break;
-    case IX86_BUILTIN_CMPLTPD:    PredCode = 1; break;
-    case IX86_BUILTIN_CMPGTPD:    PredCode = 1; flip = true; break;
-    case IX86_BUILTIN_CMPLEPD:    PredCode = 2; break;
-    case IX86_BUILTIN_CMPGEPD:    PredCode = 2; flip = true; break;
-    case IX86_BUILTIN_CMPUNORDPD: PredCode = 3; break;
-    case IX86_BUILTIN_CMPNEQPD:   PredCode = 4; break;
-    case IX86_BUILTIN_CMPNLTPD:   PredCode = 5; break;
-    case IX86_BUILTIN_CMPNGTPD:   PredCode = 5; flip = true; break;
-    case IX86_BUILTIN_CMPNLEPD:   PredCode = 6; break;
-    case IX86_BUILTIN_CMPNGEPD:   PredCode = 6; flip = true; break;
-    case IX86_BUILTIN_CMPORDPD:   PredCode = 7; break;
-    }
     Value *Pred = ConstantInt::get(Type::getInt8Ty(Context), PredCode);
     Value *Arg0 = Ops[0];
     Value *Arg1 = Ops[1];
@@ -572,35 +749,24 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
-  case IX86_BUILTIN_CMPEQSD:
-  case IX86_BUILTIN_CMPLTSD:
-  case IX86_BUILTIN_CMPLESD:
-  case IX86_BUILTIN_CMPNEQSD:
-  case IX86_BUILTIN_CMPNLTSD:
-  case IX86_BUILTIN_CMPNLESD:
-  case IX86_BUILTIN_CMPORDSD:
-  case IX86_BUILTIN_CMPUNORDSD: {
+  IX86_BUILTIN_CMPEQSD:    PredCode = 0; goto CMPXXSD;
+  IX86_BUILTIN_CMPLTSD:    PredCode = 1; goto CMPXXSD;
+  IX86_BUILTIN_CMPLESD:    PredCode = 2; goto CMPXXSD;
+  IX86_BUILTIN_CMPUNORDSD: PredCode = 3; goto CMPXXSD;
+  IX86_BUILTIN_CMPNEQSD:   PredCode = 4; goto CMPXXSD;
+  IX86_BUILTIN_CMPNLTSD:   PredCode = 5; goto CMPXXSD;
+  IX86_BUILTIN_CMPNLESD:   PredCode = 6; goto CMPXXSD;
+  IX86_BUILTIN_CMPORDSD:   PredCode = 7; goto CMPXXSD;
+  CMPXXSD: {
     Function *cmpsd =
       Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse2_cmp_sd);
-    unsigned PredCode;
-    switch (FnCode) {
-      default: assert(0 && "Unknown fncode");
-    case IX86_BUILTIN_CMPEQSD:    PredCode = 0; break;
-    case IX86_BUILTIN_CMPLTSD:    PredCode = 1; break;
-    case IX86_BUILTIN_CMPLESD:    PredCode = 2; break;
-    case IX86_BUILTIN_CMPUNORDSD: PredCode = 3; break;
-    case IX86_BUILTIN_CMPNEQSD:   PredCode = 4; break;
-    case IX86_BUILTIN_CMPNLTSD:   PredCode = 5; break;
-    case IX86_BUILTIN_CMPNLESD:   PredCode = 6; break;
-    case IX86_BUILTIN_CMPORDSD:   PredCode = 7; break;
-    }
     Value *Pred = ConstantInt::get(Type::getInt8Ty(Context), PredCode);
     Value *CallOps[3] = { Ops[0], Ops[1], Pred };
     Result = Builder.CreateCall(cmpsd, CallOps, CallOps+3);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
-  case IX86_BUILTIN_LDMXCSR: {
+  IX86_BUILTIN_LDMXCSR: {
     Function *ldmxcsr =
       Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_ldmxcsr);
     Value *Ptr = CreateTemporary(Type::getInt32Ty(Context));
@@ -609,7 +775,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateCall(ldmxcsr, Ptr);
     return true;
   }
-  case IX86_BUILTIN_STMXCSR: {
+  IX86_BUILTIN_STMXCSR: {
     Function *stmxcsr =
       Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_stmxcsr);
     Value *Ptr  = CreateTemporary(Type::getInt32Ty(Context));
@@ -619,9 +785,6 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateLoad(Ptr);
     return true;
   }
-  }
-
-  return false;
 }
 
 /* These are defined in i386.c */
