@@ -465,12 +465,10 @@ static void LazilyInitializeModule(void) {
   else
     RegisterRegAlloc::setDefault(createLocalRegisterAllocator);
 
-//TODO  // FIXME - Do not disable debug info while writing pch.
-//TODO  if (!flag_pch_file &&
-//TODO      debug_info_level > DINFO_LEVEL_NONE)
-//TODO    TheDebugInfo = new DebugInfo(TheModule);
-//TODO  if (TheDebugInfo)
-//TODO    TheDebugInfo->Initialize();
+  if (debug_info_level > DINFO_LEVEL_NONE)
+    TheDebugInfo = new DebugInfo(TheModule);
+  if (TheDebugInfo)
+    TheDebugInfo->Initialize();
 //TODO}
 //TODO
 //TODO/// performLateBackendInitialization - Set backend options that may only be
