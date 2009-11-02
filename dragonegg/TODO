@@ -62,3 +62,7 @@ Features
 Output proper debug info rather than throwing most of it away.
 
 Add support for exception handling.
+
+Many x86 specific builtins are not supported, even though it would be easy to
+add support for some of them, for example the 256 bit versions of builtins we
+do support.  Improve this.
