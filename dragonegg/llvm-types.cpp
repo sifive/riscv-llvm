@@ -1854,13 +1854,17 @@ static bool UnionHasOnlyZeroOffsets(tree type) {
 /// then we will add padding later on anyway to match union size.
 void TypeConverter::SelectUnionMember(tree type,
                                       StructTypeConversionInfo &Info) {
+  bool FindBiggest = TREE_CODE(type) != QUAL_UNION_TYPE;
+
   const Type *UnionTy = 0;
   tree GccUnionTy = 0;
   tree UnionField = 0;
-  unsigned MaxAlignSize = 0, MaxAlign = 0;
+  unsigned MinAlign = ~0U;
+  uint64_t BestSize = FindBiggest ? 0ULL : ~0ULL;
   for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
     if (TREE_CODE(Field) != FIELD_DECL) continue;
-    assert(getFieldOffsetInBits(Field) == 0 && "Union with non-zero offset?");
+    assert(DECL_FIELD_OFFSET(Field) && integer_zerop(DECL_FIELD_OFFSET(Field))
+           && "Union with non-zero offset?");
 
     // Skip fields that are known not to be present.
     if (TREE_CODE(type) == QUAL_UNION_TYPE &&
@@ -1869,29 +1873,29 @@ void TypeConverter::SelectUnionMember(tree type,
 
     tree TheGccTy = TREE_TYPE(Field);
 
-    // Skip zero-length fields; ConvertType refuses to construct a type
-    // of size 0.
-    if (DECL_SIZE(Field) &&
-        TREE_CODE(DECL_SIZE(Field)) == INTEGER_CST &&
-        TREE_INT_CST_LOW(DECL_SIZE(Field)) == 0)
+    // Skip zero-length bitfields.  These are only used for setting the
+    // alignment.
+    if (DECL_BIT_FIELD(Field) && DECL_SIZE(Field) &&
+        integer_zerop(DECL_SIZE(Field)))
       continue;
 
     const Type *TheTy = ConvertType(TheGccTy);
-    unsigned Size  = Info.getTypeSize(TheTy);
     unsigned Align = Info.getTypeAlignment(TheTy);
+    uint64_t Size  = Info.getTypeSize(TheTy);
 
     adjustPaddingElement(GccUnionTy, TheGccTy);
 
-    // Select TheTy as union type if it is more aligned than any other.  If
-    // more than one field achieves the maximum alignment then choose the
-    // biggest.
-    if (UnionTy == 0 || Align > MaxAlign ||
-        (Align == MaxAlign && Size > MaxAlignSize)) {
+    // Select TheTy as union type if it is the biggest/smallest field (depending
+    // on the value of FindBiggest).  If more than one field achieves this size
+    // then choose the least aligned.
+    if ((Size == BestSize && Align < MinAlign) ||
+        (FindBiggest && Size > BestSize) ||
+        (!FindBiggest && Size < BestSize)) {
       UnionTy = TheTy;
       UnionField = Field;
       GccUnionTy = TheGccTy;
-      MaxAlignSize = Size;
-      MaxAlign = Align;
+      BestSize = Size;
+      MinAlign = Align;
     }
 
     // Skip remaining fields if this one is known to be present.
