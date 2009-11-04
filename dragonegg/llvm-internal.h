@@ -674,6 +674,7 @@ private:
   bool EmitBuiltinEHReturn(gimple stmt, Value *&Result);
   bool EmitBuiltinInitDwarfRegSizes(gimple stmt, Value *&Result);
   bool EmitBuiltinUnwindInit(gimple stmt, Value *&Result);
+  bool EmitBuiltinAdjustTrampoline(gimple stmt, Value *&Result);
   bool EmitBuiltinInitTrampoline(gimple stmt, Value *&Result);
 
   // Complex Math Expressions.

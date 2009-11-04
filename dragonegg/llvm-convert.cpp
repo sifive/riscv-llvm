@@ -4406,6 +4406,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
    return EmitBuiltinExtractReturnAddr(stmt, Result);
   case BUILT_IN_FROB_RETURN_ADDR:
    return EmitBuiltinFrobReturnAddr(stmt, Result);
+  case BUILT_IN_ADJUST_TRAMPOLINE:
+    return EmitBuiltinAdjustTrampoline(stmt, Result);
   case BUILT_IN_INIT_TRAMPOLINE:
     return EmitBuiltinInitTrampoline(stmt, Result);
 
@@ -5631,27 +5633,76 @@ bool TreeToLLVM::EmitBuiltinVACopy(gimple stmt) {
   return true;
 }
 
+bool TreeToLLVM::EmitBuiltinAdjustTrampoline(gimple stmt, Value *&Result) {
+  if (!validate_gimple_arglist(stmt, POINTER_TYPE, VOID_TYPE))
+    return false;
+
+  const Type *ResultTy = ConvertType(gimple_call_return_type(stmt));
+
+  // The adjusted value is stored as a pointer at the start of the storage GCC
+  // allocated for the trampoline - load it out and return it.
+  assert(TD.getPointerSize() <= TRAMPOLINE_SIZE &&
+         "Trampoline smaller than a pointer!");
+  Value *Tramp = EmitGimpleReg(gimple_call_arg(stmt, 0));
+  Tramp = Builder.CreateBitCast(Tramp, ResultTy->getPointerTo());
+  Result = Builder.CreateLoad(Tramp, "adjusted");
+
+  // The load has the alignment of the trampoline storage.
+  unsigned Align = TYPE_ALIGN(TREE_TYPE(TREE_TYPE(gimple_call_arg(stmt, 0))))/8;
+  cast<LoadInst>(Result)->setAlignment(Align);
+
+  return true;
+}
+
 bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt, Value *&Result) {
   if (!validate_gimple_arglist(stmt, POINTER_TYPE, POINTER_TYPE, POINTER_TYPE,
                          VOID_TYPE))
     return false;
 
+  // LLVM's trampoline intrinsic, llvm.init.trampoline, combines the effect of
+  // GCC's init_trampoline and adjust_trampoline.  Calls to adjust_trampoline
+  // should return the result of the llvm.init.trampoline call.  This is tricky
+  // because the adjust_trampoline and init_trampoline calls need not occur in
+  // the same function.  To overcome this, we don't store the trampoline machine
+  // code in the storage GCC created for it, we store the result of the call to
+  // llvm.init.trampoline there instead.  Since this storage is the argument to
+  // adjust_trampoline, we turn adjust_trampoline into a load from its argument.
+  // The trampoline machine code itself is stored in a stack temporary that we
+  // create (one for each init_trampoline) in the function where init_trampoline
+  // is called.
   static const Type *VPTy = Type::getInt8PtrTy(Context);
 
-  Value *Tramp = Emit(gimple_call_arg(stmt, 0), 0);
-  Tramp = Builder.CreateBitCast(Tramp, VPTy);
+  // Create a stack temporary to hold the trampoline machine code.
+  const Type *TrampType = ArrayType::get(Type::getInt8Ty(Context),
+                                         TRAMPOLINE_SIZE);
+  AllocaInst *TrampTmp = CreateTemporary(TrampType);
+  TrampTmp->setAlignment(TRAMPOLINE_ALIGNMENT);
+  TrampTmp->setName("TRAMP");
 
   Value *Func = Emit(gimple_call_arg(stmt, 1), 0);
-  Func = Builder.CreateBitCast(Func, VPTy);
-
   Value *Chain = Emit(gimple_call_arg(stmt, 2), 0);
-  Chain = Builder.CreateBitCast(Chain, VPTy);
 
-  Value *Ops[3] = { Tramp, Func, Chain };
+  Value *Ops[3] = {
+    Builder.CreateBitCast(TrampTmp, VPTy),
+    Builder.CreateBitCast(Func, VPTy),
+    Builder.CreateBitCast(Chain, VPTy)
+  };
 
   Function *Intr = Intrinsic::getDeclaration(TheModule,
                                              Intrinsic::init_trampoline);
-  Result = Builder.CreateCall(Intr, Ops, Ops+3, "tramp");
+  Value *Adjusted = Builder.CreateCall(Intr, Ops, Ops + 3, "adjusted");
+
+  // Store the llvm.init.trampoline result to the GCC trampoline storage.
+  assert(TD.getPointerSize() <= TRAMPOLINE_SIZE &&
+         "Trampoline smaller than a pointer!");
+  Value *Tramp = Emit(gimple_call_arg(stmt, 0), 0);
+  Tramp = Builder.CreateBitCast(Tramp, Adjusted->getType()->getPointerTo());
+  StoreInst *Store = Builder.CreateStore(Adjusted, Tramp);
+
+  // The store has the alignment of the trampoline storage.
+  unsigned Align = TYPE_ALIGN(TREE_TYPE(TREE_TYPE(gimple_call_arg(stmt, 0))))/8;
+  Store->setAlignment(Align);
+
   return true;
 }
 
