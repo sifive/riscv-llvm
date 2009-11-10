@@ -357,6 +357,10 @@ class TreeToLLVM {
   /// LocalDecls - Map from local declarations to their associated LLVM values.
   DenseMap<tree, AssertingVH<> > LocalDecls;
 
+  /// InvariantRegions - Calls to llvm.invariant.start for which a corresponding
+  /// call to llvm.invariant.end needs to be generated at function exit points.
+  SmallVector<CallInst*, 8> InvariantRegions;
+
   /// PendingPhis - Phi nodes which have not yet been populated with operands.
   SmallVector<PhiRecord, 16> PendingPhis;
 
@@ -469,10 +473,14 @@ private: // Helper functions.
   /// StartFunctionBody - Start the emission of 'fndecl', outputing all
   /// declarations for parameters and setting things up.
   void StartFunctionBody();
-  
+
   /// FinishFunctionBody - Once the body of the function has been emitted, this
   /// cleans up and returns the result function.
   Function *FinishFunctionBody();
+
+  /// EndInvariantRegions - Output a call to llvm.invariant.end for each call
+  /// of llvm.invariant.start recorded in InvariantRegions.
+  void EndInvariantRegions();
 
   /// PopulatePhiNodes - Populate generated phi nodes with their operands.
   void PopulatePhiNodes();

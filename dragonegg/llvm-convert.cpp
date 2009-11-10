@@ -763,6 +763,26 @@ typedef SmallVector<std::pair<BasicBlock*, unsigned>, 8> PredVector;
 typedef SmallVector<std::pair<BasicBlock*, tree>, 8> TreeVector;
 typedef SmallVector<std::pair<BasicBlock*, Value*>, 8> ValueVector;
 
+/// EndInvariantRegions - Output a call to llvm.invariant.end for each call
+/// to llvm.invariant.start recorded in InvariantRegions.
+void TreeToLLVM::EndInvariantRegions() {
+  if (InvariantRegions.empty())
+    return;
+
+  Value *Ops[3];
+  Value *IEnd = Intrinsic::getDeclaration(TheModule,Intrinsic::invariant_end);
+  for (unsigned i = 0, e = InvariantRegions.size(); i < e; ++i) {
+    CallInst *CI = InvariantRegions[i];
+    Ops[0] = CI;
+    Ops[1] = CI->getOperand(1);
+    Ops[2] = CI->getOperand(2);
+    Builder.CreateCall(IEnd, Ops, Ops + 3);
+  }
+
+  // Do not clear out InvariantRegions in case the function has multiple exits:
+  // we need to output calls to llvm.invariant.end before each one.
+}
+
 /// PopulatePhiNodes - Populate generated phi nodes with their operands.
 void TreeToLLVM::PopulatePhiNodes() {
   PredVector Predecessors;
@@ -929,6 +949,9 @@ Function *TreeToLLVM::FinishFunctionBody() {
     TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
     TheDebugInfo->EmitFunctionEnd(Builder.GetInsertBlock(), true);
   }
+
+  EndInvariantRegions();
+
   if (RetVals.empty())
     Builder.CreateRetVoid();
   else if (RetVals.size() == 1 && RetVals[0]->getType() == Fn->getReturnType()){
@@ -2105,6 +2128,7 @@ void TreeToLLVM::EmitUnwindBlock() {
   if (UnwindBB) {
     CreateExceptionValues();
     EmitBlock(UnwindBB);
+    EndInvariantRegions();
 abort();//FIXME
 //FIXME    // Fetch and store exception handler.
 //FIXME    Value *Arg = Builder.CreateLoad(ExceptionValue, "eh_ptr");
@@ -2543,6 +2567,7 @@ Value *TreeToLLVM::EmitGimpleCallRHS(gimple stmt, const MemRef *DestLoc) {
   // after the function to prevent LLVM from thinking that control flow will
   // fall into the subsequent block.
   if (gimple_call_flags(stmt) & ECF_NORETURN) {
+    EndInvariantRegions();
     Builder.CreateUnreachable();
     EmitBlock(BasicBlock::Create(Context));
   }
@@ -4613,6 +4638,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_TRAP:
     Builder.CreateCall(Intrinsic::getDeclaration(TheModule, Intrinsic::trap));
     // Emit an explicit unreachable instruction.
+    EndInvariantRegions();
     Builder.CreateUnreachable();
     EmitBlock(BasicBlock::Create(Context));
     return true;
@@ -5459,6 +5485,7 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&Result) {
   Args.push_back(Handler);
   Builder.CreateCall(Intrinsic::getDeclaration(TheModule, IID),
 		     Args.begin(), Args.end());
+  EndInvariantRegions();
   Result = Builder.CreateUnreachable();
   EmitBlock(BasicBlock::Create(Context));
 
@@ -5672,6 +5699,26 @@ bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt, Value *&Result) {
   // is called.
   static const Type *VPTy = Type::getInt8PtrTy(Context);
 
+  // In order to simplify the use of llvm.invariant.start/end, generate the
+  // trampoline initialization code in the entry block.
+  BasicBlock *EntryBlock = Fn->begin();
+
+  // Note the current builder position.
+  BasicBlock *SavedInsertBB = Builder.GetInsertBlock();
+  BasicBlock::iterator SavedInsertPoint = Builder.GetInsertPoint();
+
+  // Pop the entry block terminator.  There may not be a terminator if the entry
+  // block was not yet finished.
+  Instruction *Terminator = EntryBlock->getTerminator();
+  assert(((SavedInsertBB != EntryBlock && Terminator) ||
+          (SavedInsertPoint == EntryBlock->end() && !Terminator)) &&
+         "Insertion point doesn't make sense!");
+  if (Terminator)
+    Terminator->removeFromParent();
+
+  // Point the builder at the end of the entry block.
+  Builder.SetInsertPoint(EntryBlock);
+
   // Create a stack temporary to hold the trampoline machine code.
   const Type *TrampType = ArrayType::get(Type::getInt8Ty(Context),
                                          TRAMPOLINE_SIZE);
@@ -5702,6 +5749,22 @@ bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt, Value *&Result) {
   // The store has the alignment of the trampoline storage.
   unsigned Align = TYPE_ALIGN(TREE_TYPE(TREE_TYPE(gimple_call_arg(stmt, 0))))/8;
   Store->setAlignment(Align);
+
+  // The GCC trampoline storage is constant from this point on.   Tell this to
+  // the optimizers.
+  Intr = Intrinsic::getDeclaration(TheModule, Intrinsic::invariant_start);
+  Ops[0] = ConstantInt::get(Type::getInt64Ty(Context), TRAMPOLINE_SIZE);
+  Ops[1] = Builder.CreateBitCast(Tramp, VPTy);
+  CallInst *InvStart = Builder.CreateCall(Intr, Ops, Ops + 2);
+  InvariantRegions.push_back(InvStart);
+
+  // Restore the entry block terminator.
+  if (Terminator)
+    EntryBlock->getInstList().push_back(Terminator);
+
+  // Restore the builder insertion point.
+  if (SavedInsertBB != EntryBlock)
+    Builder.SetInsertPoint(SavedInsertBB, SavedInsertPoint);
 
   return true;
 }
