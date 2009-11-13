@@ -2063,6 +2063,19 @@ static struct plugin_info llvm_plugin_info = {
   NULL		// help
 };
 
+static bool version_check(struct plugin_gcc_version *gcc_version,
+                          struct plugin_gcc_version *plugin_version) {
+  // Make it possible to turn off the version check - useful for testing gcc
+  // bootstrap.
+  if (getenv("dragonegg_disable_version_check"))
+    return true;
+
+  // Check that the running gcc has exactly the same version as the gcc we were
+  // built against.  This strict check seems wise when developing against a fast
+  // moving gcc tree.  TODO: Use a milder check if doing a "release build".
+  return plugin_default_version_check (gcc_version, plugin_version);
+}
+
 
 /// plugin_init - Plugin initialization routine, called by GCC.  This is the
 /// first code executed in the plugin (except for constructors).  Configure
@@ -2072,10 +2085,8 @@ int plugin_init (struct plugin_name_args *plugin_info,
   const char *plugin_name = plugin_info->base_name;
   struct register_pass_info pass_info;
 
-  // Check that the running gcc is the same as the gcc we were built against.
-  // If not, refuse to load.  This seems wise when developing against a fast
-  // moving gcc tree.  TODO: Use a milder check if doing a "release build".
-  if (!plugin_default_version_check (version, &gcc_version)) {
+  // Check that the plugin is compatible with the running gcc.
+  if (!version_check (&gcc_version, version)) {
     errs() << "Incompatible plugin version\n";
     return 1;
   }
