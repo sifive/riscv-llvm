@@ -7866,6 +7866,23 @@ Constant *TreeConstantToLLVM::ConvertRecordCONSTRUCTOR(tree exp) {
     uint64_t GCCFieldOffsetInBits = getFieldOffsetInBits(Field);
     NextField = TREE_CHAIN(Field);
 
+    uint64_t FieldSizeInBits = getInt64(DECL_SIZE(Field), true);
+    uint64_t ValueSizeInBits = Val->getType()->getPrimitiveSizeInBits();
+    ConstantInt *ValC = dyn_cast<ConstantInt>(Val);
+    if (ValC && ValC->isZero()) {
+      // G++ has various bugs handling {} initializers where it doesn't
+      // synthesize a zero node of the right type.  Instead of figuring out G++,
+      // just hack around it by special casing zero and allowing it to be the
+      // wrong size.
+      if (ValueSizeInBits != FieldSizeInBits) {
+        APInt ValAsInt = ValC->getValue();
+        ValC = ConstantInt::get(Context, ValueSizeInBits < FieldSizeInBits ?
+                                         ValAsInt.zext(FieldSizeInBits) :
+                                         ValAsInt.trunc(FieldSizeInBits));
+        ValueSizeInBits = FieldSizeInBits;
+        Val = ValC;
+      }
+    }
 
     // If this is a non-bitfield value, just slap it onto the end of the struct
     // with the appropriate padding etc.  If it is a bitfield, we have more
@@ -7875,20 +7892,7 @@ Constant *TreeConstantToLLVM::ConvertRecordCONSTRUCTOR(tree exp) {
     else {
       // Bitfields can only be initialized with constants (integer constant
       // expressions).
-      ConstantInt *ValC = cast<ConstantInt>(Val);
-      uint64_t FieldSizeInBits = getInt64(DECL_SIZE(Field), true);
-      uint64_t ValueSizeInBits = Val->getType()->getPrimitiveSizeInBits();
-
-      // G++ has various bugs handling {} initializers where it doesn't
-      // synthesize a zero node of the right type.  Instead of figuring out G++,
-      // just hack around it by special casing zero and allowing it to be the
-      // wrong size.
-      if (ValueSizeInBits < FieldSizeInBits && ValC->isZero()) {
-        APInt ValAsInt = ValC->getValue();
-        ValC = ConstantInt::get(Context, ValAsInt.zext(FieldSizeInBits));
-        ValueSizeInBits = FieldSizeInBits;
-      }
-
+      assert(ValC);
       assert(ValueSizeInBits >= FieldSizeInBits &&
              "disagreement between LLVM and GCC on bitfield size");
       if (ValueSizeInBits != FieldSizeInBits) {
