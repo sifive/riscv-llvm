@@ -4448,17 +4448,18 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       Emit(gimple_call_arg(stmt, 1), 0)
     };
 
-    const Type* Ty[3] = {
-      ConvertType(gimple_call_return_type(stmt)),
-      Type::getInt8PtrTy(Context),
-      Type::getInt32Ty(Context)
-    };
+    // Grab the current return type.
+    const Type* Ty = ConvertType(gimple_call_return_type(stmt));
+
+    // Manually coerce the arg to the correct pointer type.
+    Args[0] = Builder.CreateBitCast(Args[0], Type::getInt8PtrTy(Context));
+    Args[1] = Builder.CreateIntCast(Args[1], Type::getInt32Ty(Context), false);
 
     Result = Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
-							  Intrinsic::objectsize,
-							  Ty,
-							  1),
-				Args, Args + 2);
+                                                          Intrinsic::objectsize,
+                                                          &Ty,
+                                                          1),
+                                Args, Args + 2);
     return true;
   }
   // Unary bit counting intrinsics.
