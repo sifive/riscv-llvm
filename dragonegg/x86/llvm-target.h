@@ -137,7 +137,7 @@ extern const Type *llvm_x86_aggr_type_for_struct_return(tree type);
 
 /* LLVM_AGGR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be 
    returned as an aggregate, otherwise return NULL. */
-#define LLVM_AGGR_TYPE_FOR_STRUCT_RETURN(X) \
+#define LLVM_AGGR_TYPE_FOR_STRUCT_RETURN(X, CC) \
   llvm_x86_aggr_type_for_struct_return(X)
 
 extern void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,

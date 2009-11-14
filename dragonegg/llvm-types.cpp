@@ -1024,16 +1024,16 @@ ConvertArgListToFnType(tree type, tree Args, tree static_chain,
   tree ReturnType = TREE_TYPE(type);
   std::vector<PATypeHolder> ArgTys;
   PATypeHolder RetTy(Type::getVoidTy(Context));
-  
+
   FunctionTypeConversion Client(RetTy, ArgTys, CallingConv, true /*K&R*/);
   TheLLVMABI<FunctionTypeConversion> ABIConverter(Client);
+
+#ifdef TARGET_ADJUST_LLVM_CC
+  TARGET_ADJUST_LLVM_CC(CallingConv, type);
+#endif
   
   // Builtins are always prototyped, so this isn't one.
   ABIConverter.HandleReturnType(ReturnType, current_function_decl, false);
-
-#ifdef TARGET_ADJUST_LLVM_CC
-    TARGET_ADJUST_LLVM_CC(CallingConv, type);
-#endif
 
   SmallVector<AttributeWithIndex, 8> Attrs;
 
@@ -1090,15 +1090,15 @@ ConvertFunctionType(tree type, tree decl, tree static_chain,
   bool isVarArg = false;
   FunctionTypeConversion Client(RetTy, ArgTypes, CallingConv, false/*not K&R*/);
   TheLLVMABI<FunctionTypeConversion> ABIConverter(Client);
-  
-  ABIConverter.HandleReturnType(TREE_TYPE(type), current_function_decl,
-                                decl ? DECL_BUILT_IN(decl) : false);
-  
+
   // Allow the target to set the CC for things like fastcall etc.
 #ifdef TARGET_ADJUST_LLVM_CC
   TARGET_ADJUST_LLVM_CC(CallingConv, type);
 #endif
 
+  ABIConverter.HandleReturnType(TREE_TYPE(type), current_function_decl,
+                                decl ? DECL_BUILT_IN(decl) : false);
+  
   // Compute attributes for return type (and function attributes).
   SmallVector<AttributeWithIndex, 8> Attrs;
   Attributes FnAttributes = Attribute::None;
