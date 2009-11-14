@@ -630,19 +630,18 @@ public:
       Elts.push_back(ATy);
     }
 
-    if (Size >= 4) {
+    // Put any left over bytes into one last register.  This target-independent
+    // code does not know the size of the argument registers, so use the
+    // smallest size that will work.
+    if (Size > 4) {
+      Elts.push_back(Type::getInt64Ty(getGlobalContext()));
+    } else if (Size > 2) {
       Elts.push_back(Type::getInt32Ty(getGlobalContext()));
-      Size -= 4;
-    }
-    if (Size >= 2) {
+    } else if (Size > 1) {
       Elts.push_back(Type::getInt16Ty(getGlobalContext()));
-      Size -= 2;
-    }
-    if (Size >= 1) {
+    } else {
       Elts.push_back(Type::getInt8Ty(getGlobalContext()));
-      Size -= 1;
     }
-    assert(Size == 0 && "Didn't cover value?");
     const StructType *STy = StructType::get(getGlobalContext(), Elts, false);
 
     unsigned i = 0;
@@ -1077,19 +1076,18 @@ public:
       Elts.push_back(ATy);
     }
 
-    if (Size >= 4) {
+    // Put any left over bytes into one last register.  This target-independent
+    // code does not know the size of the argument registers, so use the
+    // smallest size that will work.
+    if (Size > 4) {
+      Elts.push_back(Type::getInt64Ty(getGlobalContext()));
+    } else if (Size > 2) {
       Elts.push_back(Type::getInt32Ty(getGlobalContext()));
-      Size -= 4;
-    }
-    if (Size >= 2) {
+    } else if (Size > 1) {
       Elts.push_back(Type::getInt16Ty(getGlobalContext()));
-      Size -= 2;
-    }
-    if (Size >= 1) {
+    } else {
       Elts.push_back(Type::getInt8Ty(getGlobalContext()));
-      Size -= 1;
     }
-    assert(Size == 0 && "Didn't cover value?");
     const StructType *STy = StructType::get(getGlobalContext(), Elts, false);
 
     unsigned i = 0;
