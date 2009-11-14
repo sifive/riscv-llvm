@@ -375,15 +375,14 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
   // Gather location information.
   expanded_location Loc = expand_location(DECL_SOURCE_LOCATION(decl));
   DIType TyD = getOrCreateType(TREE_TYPE(decl));
-  std::string DispName = GV->getNameStr();
+  const char *DispName = GV->getNameStr().c_str();
   if (DECL_NAME(decl)) {
     if (IDENTIFIER_POINTER(DECL_NAME(decl)))
       DispName = IDENTIFIER_POINTER(DECL_NAME(decl));
   }
     
   DebugFactory.CreateGlobalVariable(getOrCreateCompileUnit(Loc.file), 
-                                    GV->getNameStr(), 
-                                    DispName,
+                                    DispName, DispName,
                                     getLinkageName(decl), 
                                     getOrCreateCompileUnit(Loc.file), Loc.line,
                                     TyD, GV->hasInternalLinkage(),
@@ -624,7 +623,7 @@ DIType DebugInfo::createStructType(tree type) {
   llvm::DICompositeType FwdDecl =
     DebugFactory.CreateCompositeType(Tag, 
                                      findRegion(type),
-                                     FwdName,
+                                     FwdName.c_str(),
                                      getOrCreateCompileUnit(Loc.file), 
                                      Loc.line, 
                                      0, 0, 0, Flags,
@@ -946,8 +945,8 @@ DICompileUnit DebugInfo::getOrCreateCompileUnit(const char *FullPath,
   unsigned ObjcRunTimeVer = 0;
 //  if (flag_objc_abi != 0 && flag_objc_abi != -1)
 //    ObjcRunTimeVer = flag_objc_abi;
-  DICompileUnit NewCU = DebugFactory.CreateCompileUnit(LangTag, FileName, 
-                                                     Directory, 
+  DICompileUnit NewCU = DebugFactory.CreateCompileUnit(LangTag, FileName.c_str(), 
+                                                     Directory.c_str(), 
                                                      version_string, isMain,
                                                      optimize, NULL,
                                                      ObjcRunTimeVer);
