@@ -268,15 +268,8 @@ static unsigned GuessAtInliningThreshold() {
     return 50;
   
   if (optimize >= 3)
-    return 200;
-
-  // gcc mark C++ member functions "inline" and inline them more aggressively.
-  // We are not going to do that. Up the inline threshold when compiling for
-  // C++.
-  StringRef LanguageName = lang_hooks.name;
-  if (LanguageName == "GNU C++" || LanguageName == "GNU Objective-C++")
-    return 200;
-  return 50;
+    return 250;
+  return 200;
 }
 
 #ifndef LLVM_TARGET_NAME
