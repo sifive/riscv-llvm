@@ -243,9 +243,6 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
                                   Fn->hasInternalLinkage(),
                                   true /*definition*/);
 
-#ifndef ATTACH_DEBUG_INFO_TO_AN_INSN
-  DebugFactory.InsertSubprogramStart(SP, CurBB);
-#endif
   // Push function on region stack.
   RegionStack.push_back(SP);
   RegionMap[FnDecl] = SP;
@@ -286,9 +283,6 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
 /// region - "llvm.dbg.region.end."
 void DebugInfo::EmitFunctionEnd(BasicBlock *CurBB, bool EndFunction) {
   assert(!RegionStack.empty() && "Region stack mismatch, stack empty!");
-#ifndef ATTACH_DEBUG_INFO_TO_AN_INSN
-  DebugFactory.InsertRegionEnd(RegionStack.back(), CurBB);
-#endif
   RegionStack.pop_back();
   // Blocks get erased; clearing these is needed for determinism, and also
   // a good idea if the next function gets inlined.
@@ -327,14 +321,12 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name,
   Instruction *Call = DebugFactory.InsertDeclare(AI, D, 
                                                  Builder.GetInsertBlock());
 
-#ifdef ATTACH_DEBUG_INFO_TO_AN_INSN
-    llvm::DIDescriptor DR = RegionStack.back();
-    llvm::DIScope DS = llvm::DIScope(DR.getNode());
-    llvm::DILocation DO(NULL);
-    llvm::DILocation DL = 
-      DebugFactory.CreateLocation(CurLineNo, 0 /* column */, DS, DO);
-    Builder.SetDebugLocation(Call, DL.getNode());
-#endif
+  llvm::DIDescriptor DR = RegionStack.back();
+  llvm::DIScope DS = llvm::DIScope(DR.getNode());
+  llvm::DILocation DO(NULL);
+  llvm::DILocation DL = 
+    DebugFactory.CreateLocation(CurLineNo, 0 /* column */, DS, DO);
+  Builder.SetDebugLocation(Call, DL.getNode());
 }
 
 /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of 
@@ -353,7 +345,6 @@ void DebugInfo::EmitStopPoint(Function *Fn, BasicBlock *CurBB,
   PrevLineNo = CurLineNo;
   PrevBB = CurBB;
 
-#ifdef ATTACH_DEBUG_INFO_TO_AN_INSN
     if (RegionStack.empty())
       return;
     llvm::DIDescriptor DR = RegionStack.back();
@@ -362,11 +353,6 @@ void DebugInfo::EmitStopPoint(Function *Fn, BasicBlock *CurBB,
     llvm::DILocation DL = 
       DebugFactory.CreateLocation(CurLineNo, 0 /* column */, DS, DO);
     Builder.SetCurrentDebugLocation(DL.getNode());
-#else
-    DebugFactory.InsertStopPoint(getOrCreateCompileUnit(CurFullPath), 
-                                 CurLineNo, 0 /*column no. */,
-                                 CurBB);
-#endif
 }
 
 /// EmitGlobalVariable - Emit information about a global variable.
