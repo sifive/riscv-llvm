@@ -882,15 +882,22 @@ void DebugInfo::Initialize() {
   // code generator accepts maximum one main compile unit per module. If a
   // module does not contain any main compile unit then the code generator 
   // will emit multiple compile units in the output object file.
-  getOrCreateCompileUnit(main_input_filename, true);
+  if (!strcmp (main_input_filename, ""))
+    getOrCreateCompileUnit("<stdin>", true);
+  else
+    getOrCreateCompileUnit(main_input_filename, true);
 }
 
 /// getOrCreateCompileUnit - Get the compile unit from the cache or 
 /// create a new one if necessary.
 DICompileUnit DebugInfo::getOrCreateCompileUnit(const char *FullPath,
                                                 bool isMain) {
-  if (!FullPath)
-    FullPath = main_input_filename;
+  if (!FullPath) {
+    if (!strcmp (main_input_filename, ""))
+      FullPath = "<stdin>";
+    else
+      FullPath = main_input_filename;
+  }
   std::map<std::string, WeakVH >::iterator I = CUCache.find(FullPath);
   if (I != CUCache.end())
     if (Value *M = I->second)
