@@ -42,12 +42,4 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
     argvec.push_back ("--relocation-model=static")
 #endif /* !TARGET_386 && !TARGET_ARM */
 
-/* Give a constant string a sufficient alignment for the platform.  */
-#define TARGET_ADJUST_CSTRING_ALIGN(GV)                                 \
-  do {                                                                  \
-    if (GV->hasInternalLinkage()) {                                     \
-      GV->setAlignment(TARGET_64BIT ? 8 : 4);                           \
-    }                                                                   \
-  } while (0)
-
 #endif /* LLVM_OS_H */

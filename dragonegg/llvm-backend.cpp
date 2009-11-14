@@ -1210,16 +1210,8 @@ void emit_global_to_llvm(tree decl) {
       unsigned TargetAlign =
         getTargetData().getABITypeAlignment(GV->getType()->getElementType());
       if (DECL_USER_ALIGN(decl) ||
-          8 * TargetAlign < (unsigned)DECL_ALIGN(decl)) {
+          8 * TargetAlign < (unsigned)DECL_ALIGN(decl))
         GV->setAlignment(DECL_ALIGN(decl) / 8);
-      }
-#ifdef TARGET_ADJUST_CSTRING_ALIGN
-      else if (DECL_INITIAL(decl) != error_mark_node && // uninitialized?
-               DECL_INITIAL(decl) &&
-               TREE_CODE(DECL_INITIAL(decl)) == STRING_CST) {
-        TARGET_ADJUST_CSTRING_ALIGN(GV);
-      }
-#endif
     }
 
     // Handle used decls
