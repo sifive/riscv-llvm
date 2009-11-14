@@ -698,7 +698,7 @@ static void createPerModuleOptimizationPasses() {
 
     HasPerModulePasses = true;
     createStandardModulePasses(PerModulePasses, optimize,
-                               optimize_size || optimize < 3,
+                               optimize_size,
                                flag_unit_at_a_time, flag_unroll_loops,
                                !flag_no_simplify_libcalls, flag_exceptions,
                                InliningPass);
