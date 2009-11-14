@@ -263,11 +263,20 @@ void handleVisibility(tree decl, GlobalValue *GV) {
 // inliner.  gcc has many options that control inlining, but we have decided
 // not to support anything like that for llvm-gcc.
 static unsigned GuessAtInliningThreshold() {
-  unsigned threshold = 200;
-  if (!flag_inline_functions)
+  if (optimize_size)
     // Reduce inline limit.
-    threshold = 50;
-  return threshold;
+    return 50;
+  
+  if (optimize >= 3)
+    return 200;
+
+  // gcc mark C++ member functions "inline" and inline them more aggressively.
+  // We are not going to do that. Up the inline threshold when compiling for
+  // C++.
+  StringRef LanguageName = lang_hooks.name;
+  if (LanguageName == "GNU C++" || LanguageName == "GNU Objective-C++")
+    return 200;
+  return 50;
 }
 
 #ifndef LLVM_TARGET_NAME
