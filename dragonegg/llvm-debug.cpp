@@ -326,7 +326,15 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name,
   // Insert an llvm.dbg.declare into the current block.
   Instruction *Call = DebugFactory.InsertDeclare(AI, D, 
                                                  Builder.GetInsertBlock());
-  Builder.SetDebugLocation(Call);
+
+#ifdef ATTACH_DEBUG_INFO_TO_AN_INSN
+    llvm::DIDescriptor DR = RegionStack.back();
+    llvm::DIScope DS = llvm::DIScope(DR.getNode());
+    llvm::DILocation DO(NULL);
+    llvm::DILocation DL = 
+      DebugFactory.CreateLocation(CurLineNo, 0 /* column */, DS, DO);
+    Builder.SetDebugLocation(Call, DL.getNode());
+#endif
 }
 
 /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of 
