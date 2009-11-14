@@ -351,7 +351,7 @@ static inline const Type* getLLVMAggregateTypeForStructReturn(tree type) {
 // LLVM_AGGR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be 
 // returned as an aggregate, otherwise return NULL.
 #ifndef LLVM_AGGR_TYPE_FOR_STRUCT_RETURN
-#define LLVM_AGGR_TYPE_FOR_STRUCT_RETURN(X) \
+#define LLVM_AGGR_TYPE_FOR_STRUCT_RETURN(X, CC)    \
   getLLVMAggregateTypeForStructReturn(X)
 #endif
 
