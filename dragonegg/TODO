@@ -48,6 +48,12 @@ need to be updated if the target is altered by changeLLVMConstant.
 
 GCC now has per-function optimization levels.  Add support for this.
 
+Fortran is currently broken because it has a boolean type with a precision
+of 1 bit but size not equal to 8 bits.  We convert to i1 which has the wrong
+AllocSize.  Fix this by distinguishing between the "memory type" used for
+passing the value around in memory (which would be i32 for this Fortran type),
+and the "register type" used for passing about in register (i1 in this case).
+This should tie in nicely with gimple registers versus references.
 
 Code quality
 ------------
@@ -55,6 +61,11 @@ Code quality
 Check the effect on code speed of having complex numbers be first class
 structures, i.e. values rather than in-memory aggregates.
 
+Clarify and extend the distinction between gimple registers and "the rest",
+the rest being mostly references.
+
+BIT_FIELD_REF is used to extract (and presumably insert) vector elements.
+Consider turning this directly into the corresponding vector operations.
 
 Features
 --------
