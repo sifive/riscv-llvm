@@ -2159,8 +2159,11 @@ Value *TreeToLLVM::EmitSSA_NAME(tree reg) {
   assert(is_gimple_reg_type(TREE_TYPE(reg)) && "Not of register type!");
 
   DenseMap<tree, AssertingVH<> >::iterator I = SSANames.find(reg);
-  if (I != SSANames.end())
+  if (I != SSANames.end()) {
+    assert(I->second->getType() == ConvertType(TREE_TYPE(reg)) &&
+           "SSA name has wrong type!");
     return I->second;
+  }
 
   // This SSA name is the default definition for the underlying symbol.
   assert(SSA_NAME_IS_DEFAULT_DEF(reg) && "SSA name used before being defined!");
@@ -2172,6 +2175,8 @@ Value *TreeToLLVM::EmitSSA_NAME(tree reg) {
   // If the variable is itself an ssa name, use its LLVM value.
   if (TREE_CODE (var) == SSA_NAME) {
     Value *Val = EmitSSA_NAME(var);
+    assert(Val->getType() == ConvertType(TREE_TYPE(reg)) &&
+           "SSA name has wrong type!");
     return SSANames[reg] = Val;
   }
 
@@ -2241,6 +2246,8 @@ Value *TreeToLLVM::EmitGimpleInvariantAddress(tree reg) {
   if (SavedInsertBB != EntryBlock)
     Builder.SetInsertPoint(SavedInsertBB, SavedInsertPoint);
 
+  assert(Address->getType() == ConvertType(TREE_TYPE(reg)) &&
+         "Invariant address has wrong type!");
   return Address;
 }
 
@@ -2248,22 +2255,32 @@ Value *TreeToLLVM::EmitGimpleInvariantAddress(tree reg) {
 Constant *TreeToLLVM::EmitGimpleConstant(tree reg) {
   assert(is_gimple_constant(reg) && "Not a gimple constant!");
   assert(is_gimple_reg_type(TREE_TYPE(reg)) && "Not of register type!");
+
+  Constant *C;
   switch (TREE_CODE(reg)) {
   default:
     debug_tree(reg);
     llvm_unreachable("Unhandled GIMPLE constant!");
 
   case INTEGER_CST:
-    return TreeConstantToLLVM::ConvertINTEGER_CST(reg);
+    C = TreeConstantToLLVM::ConvertINTEGER_CST(reg);
+    break;
   case REAL_CST:
-    return TreeConstantToLLVM::ConvertREAL_CST(reg);
+    C = TreeConstantToLLVM::ConvertREAL_CST(reg);
+    break;
   case COMPLEX_CST:
-    return TreeConstantToLLVM::ConvertCOMPLEX_CST(reg);
+    C = TreeConstantToLLVM::ConvertCOMPLEX_CST(reg);
+    break;
   case VECTOR_CST:
-    return TreeConstantToLLVM::ConvertVECTOR_CST(reg);
+    C = TreeConstantToLLVM::ConvertVECTOR_CST(reg);
+    break;
   case CONSTRUCTOR:
-    return TreeConstantToLLVM::ConvertCONSTRUCTOR(reg);
+    C = TreeConstantToLLVM::ConvertCONSTRUCTOR(reg);
+    break;
   }
+  assert(C->getType() == ConvertType(TREE_TYPE(reg)) &&
+         "Constant has wrong type!");
+  return C;
 }
 
 Value *TreeToLLVM::EmitGimpleAssignRHS(gimple stmt, const MemRef *DestLoc) {

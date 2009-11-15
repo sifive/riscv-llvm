@@ -500,17 +500,21 @@ private: // Helper functions.
   /// EmitGimpleMinInvariant - The given value is constant in this function.
   /// Return the corresponding LLVM value. Only creates code in the entry block.
   Value *EmitGimpleMinInvariant(tree_node *reg) {
-    if (TREE_CODE(reg) == ADDR_EXPR)
-      return EmitGimpleInvariantAddress(reg);
-    return EmitGimpleConstant(reg);
+    Value *V = (TREE_CODE(reg) == ADDR_EXPR) ?
+      EmitGimpleInvariantAddress(reg) : EmitGimpleConstant(reg);
+    assert(V->getType() == ConvertType(TREE_TYPE(reg)) &&
+           "Gimple min invariant has wrong type!");
+    return V;
   }
 
   /// EmitGimpleReg - Convert the specified gimple register or local constant of
   /// register type to an LLVM value.  Only creates code in the entry block.
   Value *EmitGimpleReg(tree_node *reg) {
-    if (TREE_CODE(reg) == SSA_NAME)
-      return EmitSSA_NAME(reg);
-    return EmitGimpleMinInvariant(reg);
+    Value *V = (TREE_CODE(reg) == SSA_NAME) ?
+      EmitSSA_NAME(reg) : EmitGimpleMinInvariant(reg);
+    assert(V->getType() == ConvertType(TREE_TYPE(reg)) &&
+           "Gimple register has wrong type!");
+    return V;
   }
 
   /// Emit - Convert the specified tree node to LLVM code.  If the node is an

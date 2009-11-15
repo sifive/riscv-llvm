@@ -69,6 +69,34 @@ static LLVMContext &Context = getGlobalContext();
 
 const Type *llvm_set_type(tree Tr, const Type *Ty) {
   assert(TYPE_P(Tr) && "Expected a gcc type!");
+
+  // Check that the LLVM and GCC types have the same size, or, if the type has
+  // variable size, that the LLVM type is not bigger than any possible value of
+  // the GCC type.
+#ifndef NDEBUG
+  if (TYPE_SIZE(Tr) && Ty->isSized()) {
+    if (isInt64(TYPE_SIZE(Tr), true)) {
+      // Type with constant (and not humongous) size.  Sizes must be equal.
+      assert(getInt64(TYPE_SIZE(Tr), true) ==
+             getTargetData().getTypeAllocSizeInBits(Ty) &&
+             "LLVM type size doesn't match GCC type size!");
+    } else {
+      // Type with variable or humongous size.  LLVM size must be smaller or
+      // equal to the GCC size.
+      // TODO: Implement an effective check here.  Size expressions can be too
+      // complicated for "fold" to simplify effectively; this mostly seems to be
+      // due to Ada's size type and bitsize types being signed (meaning that the
+      // folder can't always tell that values are non-negative).
+//TODO      tree LLVMSize = build_int_cst(TREE_TYPE(TYPE_SIZE(Tr)),
+//TODO                                    getTargetData().getTypeAllocSizeInBits(Ty));
+//TODO      tree isSmaller = fold_build2(LE_EXPR, boolean_type_node, LLVMSize,
+//TODO                                   TYPE_SIZE(Tr));
+//TODO      assert(integer_onep(isSmaller) &&
+//TODO             "LLVM type may be larger than GCC type!");
+    }
+  }
+#endif
+
   return (const Type *)llvm_set_cached(Tr, Ty);
 }
 
