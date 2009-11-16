@@ -1345,38 +1345,6 @@ Value *TreeToLLVM::CastToAnyType(Value *V, bool VisSigned,
   return Builder.CreateCast(opc, V, Ty);
 }
 
-/// CastToUIntType - Cast the specified value to the specified type assuming
-/// that the value and type are unsigned integer types.
-Value *TreeToLLVM::CastToUIntType(Value *V, const Type* Ty) {
-  // Eliminate useless casts of a type to itself.
-  if (V->getType() == Ty)
-    return V;
-
-  unsigned SrcBits = V->getType()->getPrimitiveSizeInBits();
-  unsigned DstBits = Ty->getPrimitiveSizeInBits();
-  assert(SrcBits != DstBits && "Types are different but have same #bits?");
-
-  Instruction::CastOps opcode =
-    (SrcBits > DstBits ? Instruction::Trunc : Instruction::ZExt);
-  return Builder.CreateCast(opcode, V, Ty);
-}
-
-/// CastToSIntType - Cast the specified value to the specified type assuming
-/// that the value and type are signed integer types.
-Value *TreeToLLVM::CastToSIntType(Value *V, const Type* Ty) {
-  // Eliminate useless casts of a type to itself.
-  if (V->getType() == Ty)
-    return V;
-
-  unsigned SrcBits = V->getType()->getPrimitiveSizeInBits();
-  unsigned DstBits = Ty->getPrimitiveSizeInBits();
-  assert(SrcBits != DstBits && "Types are different but have same #bits?");
-
-  Instruction::CastOps opcode =
-    (SrcBits > DstBits ? Instruction::Trunc : Instruction::SExt);
-  return Builder.CreateCast(opcode, V, Ty);
-}
-
 /// CastToFPType - Cast the specified value to the specified type assuming
 /// that the value and type are floating point.
 Value *TreeToLLVM::CastToFPType(Value *V, const Type* Ty) {
@@ -1620,7 +1588,7 @@ Value *TreeToLLVM::EmitMemCpy(Value *DestPtr, Value *SrcPtr, Value *Size,
   Value *Ops[4] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateBitCast(SrcPtr, SBP),
-    CastToSIntType(Size, IntPtr),
+    Builder.CreateIntCast(Size, IntPtr, /*isSigned*/true),
     ConstantInt::get(Type::getInt32Ty(Context), Align)
   };
 
@@ -1636,7 +1604,7 @@ Value *TreeToLLVM::EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size,
   Value *Ops[4] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateBitCast(SrcPtr, SBP),
-    CastToSIntType(Size, IntPtr),
+    Builder.CreateIntCast(Size, IntPtr, /*isSigned*/true),
     ConstantInt::get(Type::getInt32Ty(Context), Align)
   };
 
@@ -1651,8 +1619,8 @@ Value *TreeToLLVM::EmitMemSet(Value *DestPtr, Value *SrcVal, Value *Size,
   const Type *IntPtr = TD.getIntPtrType(Context);
   Value *Ops[4] = {
     Builder.CreateBitCast(DestPtr, SBP),
-    CastToSIntType(SrcVal, Type::getInt8Ty(Context)),
-    CastToSIntType(Size, IntPtr),
+    Builder.CreateIntCast(SrcVal, Type::getInt8Ty(Context), /*isSigned*/true),
+    Builder.CreateIntCast(Size, IntPtr, /*isSigned*/true),
     ConstantInt::get(Type::getInt32Ty(Context), Align)
   };
 
@@ -1782,7 +1750,8 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
       Size = Emit(DECL_SIZE_UNIT(decl), 0);
       Ty = Type::getInt8Ty(Context);
     }
-    Size = CastToUIntType(Size, Type::getInt32Ty(Context));
+    Size = Builder.CreateIntCast(Size, Type::getInt32Ty(Context),
+                                 /*isSigned*/false);
   }
 
   unsigned Alignment = 0; // Alignment in bytes.
@@ -2502,10 +2471,8 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp, const MemRef *DestLoc) {
       }
     }
 
-    if (TYPE_UNSIGNED(TREE_TYPE(exp)))
-      return CastToUIntType(Result, Ty);
-    else
-      return CastToSIntType(Result, Ty);
+    return Builder.CreateIntCast(Result, Ty,
+                                 /*isSigned*/!TYPE_UNSIGNED(TREE_TYPE(exp)));
   }
 }
 
@@ -3233,7 +3200,7 @@ Value *TreeToLLVM::EmitTRUTH_NOT_EXPR(tree type, tree op) {
     V = Builder.CreateICmpNE(V,
           Constant::getNullValue(V->getType()), "toBool");
   V = Builder.CreateNot(V, (V->getNameStr()+"not").c_str());
-  return CastToUIntType(V, ConvertType(type));
+  return Builder.CreateIntCast(V, ConvertType(type), /*isSigned*/false);
 }
 
 /// EmitCompare - Compare LHS with RHS using the appropriate comparison code.
@@ -3392,7 +3359,7 @@ Value *TreeToLLVM::EmitShiftOp(tree op0, tree op1, unsigned Opc) {
   Value *LHS = EmitGimpleReg(op0);
   Value *RHS = EmitGimpleReg(op1);
   if (RHS->getType() != LHS->getType())
-    RHS = Builder.CreateIntCast(RHS, LHS->getType(), false,
+    RHS = Builder.CreateIntCast(RHS, LHS->getType(), /*isSigned*/false,
                                 (RHS->getNameStr()+".cast").c_str());
 
   return Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
@@ -3404,7 +3371,7 @@ Value *TreeToLLVM::EmitRotateOp(tree type, tree op0, tree op1,
   Value *Amt = EmitGimpleReg(op1);
 
   if (Amt->getType() != In->getType())
-    Amt = Builder.CreateIntCast(Amt, In->getType(), false,
+    Amt = Builder.CreateIntCast(Amt, In->getType(), /*isSigned*/false,
                                 (Amt->getNameStr()+".cast").c_str());
 
   Value *TypeSize =
@@ -3418,7 +3385,7 @@ Value *TreeToLLVM::EmitRotateOp(tree type, tree op0, tree op1,
 
   // Or the two together to return them.
   Value *Merge = Builder.CreateOr(V1, V2);
-  return CastToUIntType(Merge, ConvertType(type));
+  return Builder.CreateIntCast(Merge, ConvertType(type), /*isSigned*/false);
 }
 
 Value *TreeToLLVM::EmitMinMaxExpr(tree type, tree op0, tree op1,
@@ -3679,7 +3646,9 @@ Value *TreeToLLVM::EmitROUND_DIV_EXPR(tree type, tree op0, tree op1) {
   Value *Quotient = Builder.CreateUDiv(Numerator, RHS);
 
   // Return Quotient unless we overflowed, in which case return Quotient + 1.
-  return Builder.CreateAdd(Quotient, CastToUIntType(Overflowed, Ty), "rdiv");
+  return Builder.CreateAdd(Quotient, Builder.CreateIntCast(Overflowed, Ty,
+                                                           /*isSigned*/false),
+                           "rdiv");
 }
 
 Value *TreeToLLVM::EmitPOINTER_PLUS_EXPR(tree type, tree op0, tree op1) {
@@ -4293,7 +4262,8 @@ void TreeToLLVM::EmitMemoryBarrier(bool ll, bool ls, bool sl, bool ss) {
 
 Value *
 TreeToLLVM::BuildBinaryAtomicBuiltin(gimple stmt, Intrinsic::ID id) {
-  const Type *ResultTy = ConvertType(gimple_call_return_type(stmt));
+  tree return_type = gimple_call_return_type(stmt);
+  const Type *ResultTy = ConvertType(return_type);
   Value* C[2] = {
     Emit(gimple_call_arg(stmt, 0), 0),
     Emit(gimple_call_arg(stmt, 1), 0)
@@ -4302,7 +4272,9 @@ TreeToLLVM::BuildBinaryAtomicBuiltin(gimple stmt, Intrinsic::ID id) {
   Ty[0] = ResultTy;
   Ty[1] = ResultTy->getPointerTo();
   C[0] = Builder.CreateBitCast(C[0], Ty[1]);
-  C[1] = Builder.CreateIntCast(C[1], Ty[0], "cast");
+  C[1] = Builder.CreateIntCast(C[1], Ty[0],
+                               /*isSigned*/!TYPE_UNSIGNED(return_type),
+                               "cast");
   // The gcc builtins are also full memory barriers.
   // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
   EmitMemoryBarrier(true, true, true, true);
@@ -4326,8 +4298,10 @@ TreeToLLVM::BuildCmpAndSwapAtomicBuiltin(gimple stmt, tree type, bool isBool) {
   Ty[0] = ResultTy;
   Ty[1] = ResultTy->getPointerTo();
   C[0] = Builder.CreateBitCast(C[0], Ty[1]);
-  C[1] = Builder.CreateIntCast(C[1], Ty[0], "cast");
-  C[2] = Builder.CreateIntCast(C[2], Ty[0], "cast");
+  C[1] = Builder.CreateIntCast(C[1], Ty[0], /*isSigned*/!TYPE_UNSIGNED(type),
+                               "cast");
+  C[2] = Builder.CreateIntCast(C[2], Ty[0], /*isSigned*/!TYPE_UNSIGNED(type),
+                               "cast");
 
   // The gcc builtins are also full memory barriers.
   // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
@@ -4344,8 +4318,9 @@ TreeToLLVM::BuildCmpAndSwapAtomicBuiltin(gimple stmt, tree type, bool isBool) {
   EmitMemoryBarrier(true, true, true, true);
 
   if (isBool)
-    Result = CastToUIntType(Builder.CreateICmpEQ(Result, C[1]),
-                            ConvertType(boolean_type_node));
+    Result = Builder.CreateIntCast(Builder.CreateICmpEQ(Result, C[1]),
+                                   ConvertType(boolean_type_node),
+                                   /*isSigned*/false);
   else
     Result = Builder.CreateIntToPtr(Result, ResultTy);
   return Result;
@@ -4473,7 +4448,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 
     // Manually coerce the arg to the correct pointer type.
     Args[0] = Builder.CreateBitCast(Args[0], Type::getInt8PtrTy(Context));
-    Args[1] = Builder.CreateIntCast(Args[1], Type::getInt32Ty(Context), false);
+    Args[1] = Builder.CreateIntCast(Args[1], Type::getInt32Ty(Context),
+                                    /*isSigned*/false);
 
     Result = Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
                                                           Intrinsic::objectsize,
@@ -4490,8 +4466,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_CLZLL: {
     Value *Amt = Emit(gimple_call_arg(stmt, 0), 0);
     EmitBuiltinUnaryOp(Amt, Result, Intrinsic::ctlz);
-    const Type *DestTy = ConvertType(gimple_call_return_type(stmt));
-    Result = Builder.CreateIntCast(Result, DestTy, "cast");
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *DestTy = ConvertType(return_type);
+    Result = Builder.CreateIntCast(Result, DestTy,
+                                   /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                   "cast");
     return true;
   }
   case BUILT_IN_CTZ:       // These GCC builtins always return int.
@@ -4499,8 +4478,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_CTZLL: {
     Value *Amt = Emit(gimple_call_arg(stmt, 0), 0);
     EmitBuiltinUnaryOp(Amt, Result, Intrinsic::cttz);
-    const Type *DestTy = ConvertType(gimple_call_return_type(stmt));
-    Result = Builder.CreateIntCast(Result, DestTy, "cast");
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *DestTy = ConvertType(return_type);
+    Result = Builder.CreateIntCast(Result, DestTy,
+                                   /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                   "cast");
     return true;
   }
   case BUILT_IN_PARITYLL:
@@ -4517,16 +4499,22 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_POPCOUNTLL: {
     Value *Amt = Emit(gimple_call_arg(stmt, 0), 0);
     EmitBuiltinUnaryOp(Amt, Result, Intrinsic::ctpop);
-    const Type *DestTy = ConvertType(gimple_call_return_type(stmt));
-    Result = Builder.CreateIntCast(Result, DestTy, "cast");
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *DestTy = ConvertType(return_type);
+    Result = Builder.CreateIntCast(Result, DestTy,
+                                   /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                   "cast");
     return true;
   }
   case BUILT_IN_BSWAP32:
   case BUILT_IN_BSWAP64: {
     Value *Amt = Emit(gimple_call_arg(stmt, 0), 0);
     EmitBuiltinUnaryOp(Amt, Result, Intrinsic::bswap);
-    const Type *DestTy = ConvertType(gimple_call_return_type(stmt));
-    Result = Builder.CreateIntCast(Result, DestTy, "cast");
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *DestTy = ConvertType(return_type);
+    Result = Builder.CreateIntCast(Result, DestTy,
+                                   /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                   "cast");
     return true;
   }
 
@@ -4615,7 +4603,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     EmitBuiltinUnaryOp(Amt, Result, Intrinsic::cttz);
     Result = Builder.CreateAdd(Result,
       ConstantInt::get(Result->getType(), 1));
-    Result = CastToUIntType(Result, ConvertType(gimple_call_return_type(stmt)));
+    Result = Builder.CreateIntCast(Result,
+                                   ConvertType(gimple_call_return_type(stmt)),
+                                   /*isSigned*/false);
     Value *Cond =
       Builder.CreateICmpEQ(Amt,
                            Constant::getNullValue(Amt->getType()));
@@ -4810,7 +4800,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_ADD_AND_FETCH_1:
   case BUILT_IN_ADD_AND_FETCH_2:
   case BUILT_IN_ADD_AND_FETCH_4: {
-    const Type *ResultTy = ConvertType(gimple_call_return_type(stmt));
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *ResultTy = ConvertType(return_type);
     Value* C[2] = {
       Emit(gimple_call_arg(stmt, 0), 0),
       Emit(gimple_call_arg(stmt, 1), 0)
@@ -4819,7 +4810,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     Ty[0] = ResultTy;
     Ty[1] = ResultTy->getPointerTo();
     C[0] = Builder.CreateBitCast(C[0], Ty[1]);
-    C[1] = Builder.CreateIntCast(C[1], Ty[0], "cast");
+    C[1] = Builder.CreateIntCast(C[1], Ty[0],
+                                 /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                 "cast");
 
     // The gcc builtins are also full memory barriers.
     // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
@@ -4847,7 +4840,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_SUB_AND_FETCH_1:
   case BUILT_IN_SUB_AND_FETCH_2:
   case BUILT_IN_SUB_AND_FETCH_4: {
-    const Type *ResultTy = ConvertType(gimple_call_return_type(stmt));
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *ResultTy = ConvertType(return_type);
     Value* C[2] = {
       Emit(gimple_call_arg(stmt, 0), 0),
       Emit(gimple_call_arg(stmt, 1), 0)
@@ -4856,7 +4850,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     Ty[0] = ResultTy;
     Ty[1] = ResultTy->getPointerTo();
     C[0] = Builder.CreateBitCast(C[0], Ty[1]);
-    C[1] = Builder.CreateIntCast(C[1], Ty[0], "cast");
+    C[1] = Builder.CreateIntCast(C[1], Ty[0],
+                                 /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                 "cast");
 
     // The gcc builtins are also full memory barriers.
     // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
@@ -4884,7 +4880,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_OR_AND_FETCH_1:
   case BUILT_IN_OR_AND_FETCH_2:
   case BUILT_IN_OR_AND_FETCH_4: {
-    const Type *ResultTy = ConvertType(gimple_call_return_type(stmt));
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *ResultTy = ConvertType(return_type);
     Value* C[2] = {
       Emit(gimple_call_arg(stmt, 0), 0),
       Emit(gimple_call_arg(stmt, 1), 0)
@@ -4893,7 +4890,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     Ty[0] = ResultTy;
     Ty[1] = ResultTy->getPointerTo();
     C[0] = Builder.CreateBitCast(C[0], Ty[1]);
-    C[1] = Builder.CreateIntCast(C[1], Ty[0], "cast");
+    C[1] = Builder.CreateIntCast(C[1], Ty[0],
+                                 /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                 "cast");
 
     // The gcc builtins are also full memory barriers.
     // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
@@ -4921,7 +4920,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_AND_AND_FETCH_1:
   case BUILT_IN_AND_AND_FETCH_2:
   case BUILT_IN_AND_AND_FETCH_4: {
-    const Type *ResultTy = ConvertType(gimple_call_return_type(stmt));
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *ResultTy = ConvertType(return_type);
     Value* C[2] = {
       Emit(gimple_call_arg(stmt, 0), 0),
       Emit(gimple_call_arg(stmt, 1), 0)
@@ -4930,7 +4930,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     Ty[0] = ResultTy;
     Ty[1] = ResultTy->getPointerTo();
     C[0] = Builder.CreateBitCast(C[0], Ty[1]);
-    C[1] = Builder.CreateIntCast(C[1], Ty[0], "cast");
+    C[1] = Builder.CreateIntCast(C[1], Ty[0],
+                                 /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                 "cast");
 
     // The gcc builtins are also full memory barriers.
     // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
@@ -4958,7 +4960,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_XOR_AND_FETCH_1:
   case BUILT_IN_XOR_AND_FETCH_2:
   case BUILT_IN_XOR_AND_FETCH_4: {
-    const Type *ResultTy = ConvertType(gimple_call_return_type(stmt));
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *ResultTy = ConvertType(return_type);
     Value* C[2] = {
       Emit(gimple_call_arg(stmt, 0), 0),
       Emit(gimple_call_arg(stmt, 1), 0)
@@ -4967,7 +4970,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     Ty[0] = ResultTy;
     Ty[1] = ResultTy->getPointerTo();
     C[0] = Builder.CreateBitCast(C[0], Ty[1]);
-    C[1] = Builder.CreateIntCast(C[1], Ty[0], "cast");
+    C[1] = Builder.CreateIntCast(C[1], Ty[0],
+                                 /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                 "cast");
 
     // The gcc builtins are also full memory barriers.
     // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
@@ -4995,7 +5000,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_NAND_AND_FETCH_1:
   case BUILT_IN_NAND_AND_FETCH_2:
   case BUILT_IN_NAND_AND_FETCH_4: {
-    const Type *ResultTy = ConvertType(gimple_call_return_type(stmt));
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *ResultTy = ConvertType(return_type);
     Value* C[2] = {
       Emit(gimple_call_arg(stmt, 0), 0),
       Emit(gimple_call_arg(stmt, 1), 0)
@@ -5004,7 +5010,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     Ty[0] = ResultTy;
     Ty[1] = ResultTy->getPointerTo();
     C[0] = Builder.CreateBitCast(C[0], Ty[1]);
-    C[1] = Builder.CreateIntCast(C[1], Ty[0], "cast");
+    C[1] = Builder.CreateIntCast(C[1], Ty[0],
+                                 /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                 "cast");
 
     // The gcc builtins are also full memory barriers.
     // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
@@ -5123,7 +5131,7 @@ Value *TreeToLLVM::EmitBuiltinPOWI(gimple stmt) {
   Value *Val = Emit(gimple_call_arg(stmt, 0), 0);
   Value *Pow = Emit(gimple_call_arg(stmt, 1), 0);
   const Type *Ty = Val->getType();
-  Pow = CastToSIntType(Pow, Type::getInt32Ty(Context));
+  Pow = Builder.CreateIntCast(Pow, Type::getInt32Ty(Context), /*isSigned*/true);
 
   SmallVector<Value *,2> Args;
   Args.push_back(Val);
@@ -5288,7 +5296,8 @@ bool TreeToLLVM::EmitBuiltinPrefetch(gimple stmt) {
       ReadWrite = 0;
     } else {
       ReadWrite = Builder.getFolder().CreateIntCast(cast<Constant>(ReadWrite),
-                                              Type::getInt32Ty(Context), false);
+                                                    Type::getInt32Ty(Context),
+                                                    /*isSigned*/false);
     }
 
     if (gimple_call_num_args(stmt) > 2) {
@@ -5301,7 +5310,8 @@ bool TreeToLLVM::EmitBuiltinPrefetch(gimple stmt) {
         Locality = 0;
       } else {
         Locality = Builder.getFolder().CreateIntCast(cast<Constant>(Locality),
-                                              Type::getInt32Ty(Context), false);
+                                                     Type::getInt32Ty(Context),
+                                                     /*isSigned*/false);
       }
     }
   }
@@ -5472,7 +5482,7 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&Result) {
   Intrinsic::ID IID = (IntPtr == Type::getInt32Ty(Context) ?
 		       Intrinsic::eh_return_i32 : Intrinsic::eh_return_i64);
 
-  Offset = Builder.CreateIntCast(Offset, IntPtr, true);
+  Offset = Builder.CreateIntCast(Offset, IntPtr, /*isSigned*/true);
   Handler = Builder.CreateBitCast(Handler, Type::getInt8PtrTy(Context));
 
   SmallVector<Value *, 2> Args;
@@ -5579,7 +5589,7 @@ bool TreeToLLVM::EmitBuiltinAlloca(gimple stmt, Value *&Result) {
   if (!validate_gimple_arglist(stmt, INTEGER_TYPE, VOID_TYPE))
     return false;
   Value *Amt = Emit(gimple_call_arg(stmt, 0), 0);
-  Amt = CastToSIntType(Amt, Type::getInt32Ty(Context));
+  Amt = Builder.CreateIntCast(Amt, Type::getInt32Ty(Context), /*isSigned*/true);
   Result = Builder.CreateAlloca(Type::getInt8Ty(Context), Amt);
   return true;
 }
@@ -5925,12 +5935,8 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
   ArrayAlign = ArrayAddrLV.getAlignment();
 
   const Type *IntPtrTy = getTargetData().getIntPtrType(Context);
-  if (TYPE_UNSIGNED(IndexType)) // if the index is unsigned
-    // ZExt it to retain its value in the larger type
-    IndexVal = CastToUIntType(IndexVal, IntPtrTy);
-  else
-    // SExt it to retain its value in the larger type
-    IndexVal = CastToSIntType(IndexVal, IntPtrTy);
+  IndexVal = Builder.CreateIntCast(IndexVal, IntPtrTy,
+                                   /*isSigned*/!TYPE_UNSIGNED(IndexType));
 
   // If we are indexing over a fixed-size type, just use a GEP.
   if (isSequentialCompatible(ArrayTreeType)) {
@@ -5965,7 +5971,8 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
   assert(TREE_OPERAND(exp, 3) && "Size missing for variable sized element!");
   // ScaleFactor is the size of the element type in units divided by (exactly)
   // TYPE_ALIGN_UNIT(ElementType).
-  Value *ScaleFactor = CastToUIntType(Emit(TREE_OPERAND(exp, 3), 0), IntPtrTy);
+  Value *ScaleFactor = Builder.CreateIntCast(Emit(TREE_OPERAND(exp, 3), 0),
+                                             IntPtrTy, /*isSigned*/false);
   assert(isPowerOf2_32(TYPE_ALIGN(ElementType)) &&
          "Alignment not a power of two!");
   assert(TYPE_ALIGN(ElementType) >= 8 && "Unit size not a multiple of 8 bits!");
@@ -8169,9 +8176,8 @@ Constant *TreeConstantToLLVM::EmitLV_ARRAY_REF(tree exp) {
   ArrayAddr = EmitLV(Array);
 
   const Type *IntPtrTy = getTargetData().getIntPtrType(Context);
-  if (IndexVal->getType() != IntPtrTy)
-    IndexVal = TheFolder->CreateIntCast(IndexVal, IntPtrTy,
-                                        !TYPE_UNSIGNED(IndexType));
+  IndexVal = TheFolder->CreateIntCast(IndexVal, IntPtrTy,
+                                      /*isSigned*/!TYPE_UNSIGNED(IndexType));
 
   Value *Idx[2];
   Idx[0] = ConstantInt::get(IntPtrTy, 0);

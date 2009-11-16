@@ -1104,13 +1104,15 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   IX86_BUILTIN_VEC_INIT_V4HI:
     // Sometimes G++ promotes arguments to int.
     for (unsigned i = 0; i != 4; ++i)
-      Ops[i] = Builder.CreateIntCast(Ops[i], Type::getInt16Ty(Context), false);
+      Ops[i] = Builder.CreateIntCast(Ops[i], Type::getInt16Ty(Context),
+                                     /*isSigned*/false);
     Result = BuildVector(Ops[0], Ops[1], Ops[2], Ops[3], NULL);
     return true;
   IX86_BUILTIN_VEC_INIT_V8QI:
     // Sometimes G++ promotes arguments to int.
     for (unsigned i = 0; i != 8; ++i)
-      Ops[i] = Builder.CreateIntCast(Ops[i], Type::getInt8Ty(Context), false);
+      Ops[i] = Builder.CreateIntCast(Ops[i], Type::getInt8Ty(Context),
+                                     /*isSigned*/false);
     Result = BuildVector(Ops[0], Ops[1], Ops[2], Ops[3],
                          Ops[4], Ops[5], Ops[6], Ops[7], NULL);
     return true;
@@ -1126,13 +1128,15 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     return true;
   IX86_BUILTIN_VEC_SET_V16QI:
     // Sometimes G++ promotes arguments to int.
-    Ops[1] = Builder.CreateIntCast(Ops[1], Type::getInt8Ty(Context), false);
+    Ops[1] = Builder.CreateIntCast(Ops[1], Type::getInt8Ty(Context),
+                                   /*isSigned*/false);
     Result = Builder.CreateInsertElement(Ops[0], Ops[1], Ops[2]);
     return true;
   IX86_BUILTIN_VEC_SET_V4HI:
   IX86_BUILTIN_VEC_SET_V8HI:
     // GCC sometimes doesn't produce the right element type.
-    Ops[1] = Builder.CreateIntCast(Ops[1], Type::getInt16Ty(Context), false);
+    Ops[1] = Builder.CreateIntCast(Ops[1], Type::getInt16Ty(Context),
+                                   /*isSigned*/false);
     Result = Builder.CreateInsertElement(Ops[0], Ops[1], Ops[2]);
     return true;
   IX86_BUILTIN_VEC_SET_V4SI:
