@@ -63,6 +63,7 @@ namespace llvm {
   class TargetData;
   class DebugInfo;
   template<typename> class AssertingVH;
+  template<typename> class TrackingVH;
 }
 using namespace llvm;
 
@@ -355,13 +356,13 @@ class TreeToLLVM {
   DenseMap<basic_block, BasicBlock*> BasicBlocks;
 
   /// LocalDecls - Map from local declarations to their associated LLVM values.
-  DenseMap<tree, AssertingVH<> > LocalDecls;
+  DenseMap<tree, AssertingVH<Value> > LocalDecls;
 
   /// PendingPhis - Phi nodes which have not yet been populated with operands.
   SmallVector<PhiRecord, 16> PendingPhis;
 
   // SSANames - Map from GCC ssa names to the defining LLVM value.
-  DenseMap<tree, AssertingVH<> > SSANames;
+  DenseMap<tree, TrackingVH<Value> > SSANames;
 
 public:
 
@@ -483,6 +484,10 @@ private: // Helper functions.
   /// getLabelDeclBlock - Lazily get and create a basic block for the specified
   /// label.
   BasicBlock *getLabelDeclBlock(tree_node *LabelDecl);
+
+  /// DefineSSAName - Use the given value as the definition of the given SSA
+  /// name.  Returns the provided value as a convenience.
+  Value *DefineSSAName(tree_node *reg, Value *Val);
 
   /// EmitSSA_NAME - Return the defining value of the given SSA_NAME.
   /// Only creates code in the entry block.

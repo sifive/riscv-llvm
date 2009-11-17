@@ -75,7 +75,6 @@ extern "C" {
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "rtl.h"
-#include "domwalk.h"
 #include "langhooks.h"
 
 extern int get_pointer_alignment (tree exp, unsigned int max_align);
@@ -154,6 +153,21 @@ static unsigned int getPointerAlignment(tree exp) {
   assert(POINTER_TYPE_P (TREE_TYPE (exp)) && "Expected a pointer type!");
   unsigned int align = get_pointer_alignment(exp, BIGGEST_ALIGNMENT) / 8;
   return align ? align : 1;
+}
+
+/// getSSAPlaceholder - A fake value associated with an SSA name when the name
+/// is used before being defined (this can occur because basic blocks are not
+/// output in dominator order).  Replaced with the correct value when the SSA
+/// name's definition is encountered.
+static Value *GetSSAPlaceholder(const Type *Ty) {
+  return new BitCastInst(UndefValue::get(Ty), Ty);
+}
+
+/// isSSAPlaceholder - Whether this is a fake value being used as a placeholder
+/// for the definition of an SSA name.
+static bool isSSAPlaceholder(Value *V) {
+  BitCastInst *BC = dyn_cast<BitCastInst>(V);
+  return BC && !BC->getParent();
 }
 
 /// NameValue - Try to name the given value after the given GCC tree node.  If
@@ -275,7 +289,7 @@ Value *TreeToLLVM::set_decl_local(tree decl, Value *V) {
 Value *TreeToLLVM::get_decl_local(tree decl) {
   if (!isLocalDecl(decl))
     return get_decl_llvm(decl);
-  DenseMap<tree, AssertingVH<> >::iterator I = LocalDecls.find(decl);
+  DenseMap<tree, AssertingVH<Value> >::iterator I = LocalDecls.find(decl);
   if (I != LocalDecls.end())
     return I->second;
   return NULL;
@@ -287,7 +301,7 @@ Value *TreeToLLVM::make_decl_local(tree decl) {
   if (!isLocalDecl(decl))
     return make_decl_llvm(decl);
 
-  DenseMap<tree, AssertingVH<> >::iterator I = LocalDecls.find(decl);
+  DenseMap<tree, AssertingVH<Value> >::iterator I = LocalDecls.find(decl);
   if (I != LocalDecls.end())
     return I->second;
 
@@ -762,6 +776,21 @@ void TreeToLLVM::StartFunctionBody() {
   ReturnBB = BasicBlock::Create(Context, "return");
 }
 
+/// DefineSSAName - Use the given value as the definition of the given SSA name.
+/// Returns the provided value as a convenience.
+Value *TreeToLLVM::DefineSSAName(tree_node *reg, Value *Val) {
+  assert(TREE_CODE(reg) == SSA_NAME && "Not an SSA name!");
+  if (Value *ExistingValue = SSANames[reg]) {
+    assert(isSSAPlaceholder(ExistingValue) && "Multiply defined SSA name!");
+    // Replace the placeholder with the value everywhere.  This also updates the
+    // map entry.
+    ExistingValue->replaceAllUsesWith(Val);
+    delete ExistingValue;
+    return Val;
+  }
+  return SSANames[reg] = Val;
+}
+
 typedef SmallVector<std::pair<BasicBlock*, unsigned>, 8> PredVector;
 typedef SmallVector<std::pair<BasicBlock*, tree>, 8> TreeVector;
 typedef SmallVector<std::pair<BasicBlock*, Value*>, 8> ValueVector;
@@ -784,8 +813,7 @@ void TreeToLLVM::PopulatePhiNodes() {
       // If there is no corresponding LLVM basic block then the GCC basic block
       // was unreachable - skip this phi argument.
       DenseMap<basic_block, BasicBlock*>::iterator BI = BasicBlocks.find(bb);
-      if (BI == BasicBlocks.end())
-        continue;
+      assert(BI != BasicBlocks.end() && "GCC basic block not output?");
 
       // The incoming GCC expression.
       tree val = gimple_phi_arg(P.gcc_phi, i)->def;
@@ -865,20 +893,6 @@ void TreeToLLVM::PopulatePhiNodes() {
     Predecessors.clear();
   }
 
-  // FIXME: Because we don't support exception handling yet, we don't output GCC
-  // basic blocks for landing pads and so forth.  This can result in LLVM basic
-  // blocks with no predecessors but a phi node, which the verifier rejects.
-  // Workaround this for the moment by replacing all such phi nodes with undef.
-  LocalDecls.clear();
-  SSANames.clear();
-  for (unsigned i = 0, e = PendingPhis.size(); i < e; ++i) {
-    PhiRecord &P = PendingPhis[i];
-    if (P.PHI->getNumIncomingValues())
-      continue;
-    P.PHI->replaceAllUsesWith(UndefValue::get(P.PHI->getType()));
-    P.PHI->eraseFromParent();
-  }
-
   PendingPhis.clear();
 }
 
@@ -949,6 +963,15 @@ Function *TreeToLLVM::FinishFunctionBody() {
   // Populate phi nodes with their operands now that all ssa names have been
   // defined and all basic blocks output.
   PopulatePhiNodes();
+
+#ifndef NDEBUG
+  for (DenseMap<tree, TrackingVH<Value> >::const_iterator I = SSANames.begin(),
+       E = SSANames.end(); I != E; ++I)
+    if (isSSAPlaceholder(I->second)) {
+      debug_tree(I->first);
+      llvm_unreachable("SSA name never defined!");
+    }
+#endif
 
   return Fn;
 }
@@ -1037,11 +1060,9 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
     // The phi defines the associated ssa name.
     tree name = gimple_phi_result(gcc_phi);
     assert(TREE_CODE(name) == SSA_NAME && "PHI result not an SSA name!");
-    assert(SSANames.find(name) == SSANames.end() &&
-           "Multiply defined SSA name!");
     if (flag_verbose_asm)
       NameValue(PHI, name);
-    SSANames[name] = PHI;
+    DefineSSAName(name, PHI);
 
     // The phi operands will be populated later - remember the phi node.
     PhiRecord P = { gcc_phi, PHI };
@@ -1129,25 +1150,14 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
     }
 }
 
-static void emit_basic_block(struct dom_walk_data *walk_data, basic_block bb) {
-  ((TreeToLLVM *)walk_data->global_data)->EmitBasicBlock(bb);
-}
-
 Function *TreeToLLVM::EmitFunction() {
   // Set up parameters and prepare for return, for the function.
   StartFunctionBody();
 
-  // Emit the body of the function by iterating over all BBs.  To ensure that
-  // definitions of ssa names are seen before any uses, the iteration is done
-  // in dominator order.
-  struct dom_walk_data walk_data;
-  memset(&walk_data, 0, sizeof(struct dom_walk_data));
-  walk_data.dom_direction = CDI_DOMINATORS;
-  walk_data.before_dom_children = emit_basic_block;
-  walk_data.global_data = this;
-  init_walk_dominator_tree(&walk_data);
-  walk_dominator_tree(&walk_data, ENTRY_BLOCK_PTR);
-  fini_walk_dominator_tree(&walk_data);
+  // Output the basic blocks.
+  basic_block bb;
+  FOR_EACH_BB(bb)
+    EmitBasicBlock(bb);
 
   // Wrap things up.
   return FinishFunctionBody();
@@ -2127,15 +2137,22 @@ Value *TreeToLLVM::EmitSSA_NAME(tree reg) {
   assert(TREE_CODE(reg) == SSA_NAME && "Expected an SSA name!");
   assert(is_gimple_reg_type(TREE_TYPE(reg)) && "Not of register type!");
 
-  DenseMap<tree, AssertingVH<> >::iterator I = SSANames.find(reg);
-  if (I != SSANames.end()) {
-    assert(I->second->getType() == ConvertType(TREE_TYPE(reg)) &&
+  // If we already found the definition of the SSA name, return it.
+  if (Value *ExistingValue = SSANames[reg]) {
+    assert(ExistingValue->getType() == ConvertType(TREE_TYPE(reg)) &&
            "SSA name has wrong type!");
-    return I->second;
+    if (!isSSAPlaceholder(ExistingValue))
+      return ExistingValue;
+  }
+
+  // If this is not the definition of the SSA name, return a placeholder value.
+  if (!SSA_NAME_IS_DEFAULT_DEF(reg)) {
+    if (Value *ExistingValue = SSANames[reg])
+      return ExistingValue;
+    return SSANames[reg] = GetSSAPlaceholder(ConvertType(TREE_TYPE(reg)));
   }
 
   // This SSA name is the default definition for the underlying symbol.
-  assert(SSA_NAME_IS_DEFAULT_DEF(reg) && "SSA name used before being defined!");
 
   // The underlying symbol is an SSA variable.
   tree var = SSA_NAME_VAR(reg);
@@ -2146,7 +2163,7 @@ Value *TreeToLLVM::EmitSSA_NAME(tree reg) {
     Value *Val = EmitSSA_NAME(var);
     assert(Val->getType() == ConvertType(TREE_TYPE(reg)) &&
            "SSA name has wrong type!");
-    return SSANames[reg] = Val;
+    return DefineSSAName(reg, Val);
   }
 
   // Otherwise the symbol is a VAR_DECL, PARM_DECL or RESULT_DECL.  Since a
@@ -2154,7 +2171,7 @@ Value *TreeToLLVM::EmitSSA_NAME(tree reg) {
   // variable in the function is a read operation, and refers to the value
   // read, it has an undefined value except for PARM_DECLs.
   if (TREE_CODE(var) != PARM_DECL)
-    return UndefValue::get(ConvertType(TREE_TYPE(reg)));
+    return DefineSSAName(reg, UndefValue::get(ConvertType(TREE_TYPE(reg))));
 
   // Read the initial value of the parameter and associate it with the ssa name.
   assert(DECL_LOCAL_IF_SET(var) && "Parameter not laid out?");
@@ -2175,7 +2192,7 @@ Value *TreeToLLVM::EmitSSA_NAME(tree reg) {
     Def = new BitCastInst(Def, Ty, "", SSAInsertionPoint);
   if (flag_verbose_asm)
     NameValue(Def, reg);
-  return SSANames[reg] = Def;
+  return DefineSSAName(reg, Def);
 }
 
 /// EmitGimpleInvariantAddress - The given address is constant in this function.
@@ -6391,9 +6408,6 @@ LValue TreeToLLVM::EmitLV_SSA_NAME(tree exp) {
 }
 
 Constant *TreeToLLVM::EmitLV_LABEL_DECL(tree exp) {
-  // GCC kindly diverts labels for unreachable basic blocks to reachable blocks,
-  // so we are not obliged to output unreachable blocks even if the original
-  // code took the address of one.
   return BlockAddress::get(Fn, getLabelDeclBlock(exp));
 }
 
@@ -6821,7 +6835,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
 
   // If the call defined any ssa names, associate them with their value.
   for (unsigned i = 0, e = CallResultSSANames.size(); i != e; ++i)
-    SSANames[CallResultSSANames[i]] = Builder.CreateLoad(CallResultSSATemps[i]);
+    DefineSSAName(CallResultSSANames[i],
+                  Builder.CreateLoad(CallResultSSATemps[i]));
 
   // Give the backend a chance to upgrade the inline asm to LLVM code.  This
   // handles some common cases that LLVM has intrinsics for, e.g. x86 bswap ->
@@ -8287,10 +8302,9 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
 
   // If this is the definition of an ssa name, record it in the SSANames map.
   if (TREE_CODE(lhs) == SSA_NAME) {
-    assert(SSANames.find(lhs) == SSANames.end() &&"Multiply defined SSA name!");
     if (flag_verbose_asm)
       NameValue(RHS, lhs);
-    SSANames[lhs] = RHS;
+    DefineSSAName(lhs, RHS);
     return;
   }
 

@@ -1733,9 +1733,6 @@ static unsigned int emit_function (void) {
   // know we want to output it.
   DECL_DEFER_OUTPUT(current_function_decl) = 0;
 
-  // Provide the function convertor with dominators.
-  calculate_dominance_info(CDI_DOMINATORS);
-
   // Convert the AST to raw/ugly LLVM code.
   Function *Fn;
   {
@@ -1743,7 +1740,7 @@ static unsigned int emit_function (void) {
     Fn = Emitter.EmitFunction();
   }
 
-  // Free dominator and other ssa data structures.
+  // Free any data structures.
   execute_free_datastructures();
 
 //TODO  performLateBackendInitialization();
