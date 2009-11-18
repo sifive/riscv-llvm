@@ -781,11 +781,13 @@ void TreeToLLVM::StartFunctionBody() {
 Value *TreeToLLVM::DefineSSAName(tree_node *reg, Value *Val) {
   assert(TREE_CODE(reg) == SSA_NAME && "Not an SSA name!");
   if (Value *ExistingValue = SSANames[reg]) {
-    assert(isSSAPlaceholder(ExistingValue) && "Multiply defined SSA name!");
-    // Replace the placeholder with the value everywhere.  This also updates the
-    // map entry.
-    ExistingValue->replaceAllUsesWith(Val);
-    delete ExistingValue;
+    if (Val != ExistingValue) {
+      assert(isSSAPlaceholder(ExistingValue) && "Multiply defined SSA name!");
+      // Replace the placeholder with the value everywhere.  This also updates
+      // the map entry, because it is a TrackingVH.
+      ExistingValue->replaceAllUsesWith(Val);
+      delete ExistingValue;
+    }
     return Val;
   }
   return SSANames[reg] = Val;
