@@ -272,6 +272,18 @@ static unsigned GuessAtInliningThreshold() {
   return 200;
 }
 
+// SizeOfGlobalMatchesDecl - Whether the size of the given global value
+// is the same as that of the given GCC declaration.
+static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
+  const Type *Ty = GV->getType()->getElementType();
+  if (!DECL_SIZE(decl) || !Ty->isSized())
+    return true;
+  if (!isInt64(DECL_SIZE(decl), true))
+    return false;
+  return TheTarget->getTargetData()->getTypeAllocSizeInBits(Ty) ==
+    getInt64(DECL_SIZE(decl), true);
+}
+
 #ifndef LLVM_TARGET_NAME
 #error LLVM_TARGET_NAME macro not specified
 #endif
@@ -1049,6 +1061,7 @@ void reset_type_and_initializer_llvm(tree decl) {
                                              GV->isConstant(),
                                              GV->getLinkage(), 0,
                                              GV->getName());
+    assert(SizeOfGlobalMatchesDecl(NGV, decl) && "Global has wrong size!");
     NGV->setVisibility(GV->getVisibility());
     NGV->setSection(GV->getSection());
     NGV->setAlignment(GV->getAlignment());
@@ -1126,6 +1139,7 @@ void emit_global_to_llvm(tree decl) {
                                              GV->isConstant(),
                                              GlobalValue::ExternalLinkage, 0,
                                              GV->getName());
+    assert(SizeOfGlobalMatchesDecl(NGV, decl) && "Global has wrong size!");
     GV->replaceAllUsesWith(TheFolder->CreateBitCast(NGV, GV->getType()));
     changeLLVMConstant(GV, NGV);
     delete GV;
@@ -1494,6 +1508,7 @@ Value *make_decl_llvm(tree decl) {
     if (TREE_CODE(decl) == VAR_DECL && DECL_THREAD_LOCAL_P(decl))
       GV->setThreadLocal(true);
 
+    assert(SizeOfGlobalMatchesDecl(GV, decl) && "Global has wrong size!");
     return SET_DECL_LLVM(decl, GV);
   }
 //TODO  timevar_pop(TV_LLVM_GLOBALS);
