@@ -123,19 +123,19 @@ uint64_t getINTEGER_CSTVal(tree exp) {
 /// true, returns whether the value is non-negative and fits in a uint64_t.
 /// Always returns false for overflowed constants.
 bool isInt64(tree t, bool Unsigned) {
+  if (!t)
+    return false;
   if (HOST_BITS_PER_WIDE_INT == 64)
     return host_integerp(t, Unsigned) && !TREE_OVERFLOW (t);
-  else {
-    assert(HOST_BITS_PER_WIDE_INT == 32 &&
-           "Only 32- and 64-bit hosts supported!");
-    return
-      (TREE_CODE (t) == INTEGER_CST && !TREE_OVERFLOW (t))
-      && ((TYPE_UNSIGNED(TREE_TYPE(t)) == Unsigned) ||
-          // If the constant is signed and we want an unsigned result, check
-          // that the value is non-negative.  If the constant is unsigned and
-          // we want a signed result, check it fits in 63 bits.
-          (HOST_WIDE_INT)TREE_INT_CST_HIGH(t) >= 0);
-  }
+  assert(HOST_BITS_PER_WIDE_INT == 32 &&
+         "Only 32- and 64-bit hosts supported!");
+  return
+    (TREE_CODE (t) == INTEGER_CST && !TREE_OVERFLOW (t))
+    && ((TYPE_UNSIGNED(TREE_TYPE(t)) == Unsigned) ||
+        // If the constant is signed and we want an unsigned result, check
+        // that the value is non-negative.  If the constant is unsigned and
+        // we want a signed result, check it fits in 63 bits.
+        (HOST_WIDE_INT)TREE_INT_CST_HIGH(t) >= 0);
 }
 
 /// getInt64 - Extract the value of an INTEGER_CST as a 64 bit integer.  If
@@ -1746,22 +1746,9 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
     // Variable of fixed size that goes on the stack.
     Ty = ConvertType(type);
   } else {
-    // Dynamic-size object: must push space on the stack.
-    if (TREE_CODE(type) == ARRAY_TYPE
-        && isSequentialCompatible(type)
-        && TYPE_SIZE(type) == DECL_SIZE(decl)) {
-      Ty = ConvertType(TREE_TYPE(type));  // Get array element type.
-      // Compute the number of elements in the array.
-      Size = Emit(DECL_SIZE(decl), 0);
-      assert(!integer_zerop(TYPE_SIZE(TREE_TYPE(type)))
-             && "Array of positive size with elements of zero size!");
-      Value *EltSize = Emit(TYPE_SIZE(TREE_TYPE(type)), 0);
-      Size = Builder.CreateUDiv(Size, EltSize, "len");
-    } else {
-      // Compute the variable's size in bytes.
-      Size = Emit(DECL_SIZE_UNIT(decl), 0);
-      Ty = Type::getInt8Ty(Context);
-    }
+    // Compute the variable's size in bytes.
+    Size = Emit(DECL_SIZE_UNIT(decl), 0);
+    Ty = Type::getInt8Ty(Context);
     Size = Builder.CreateIntCast(Size, Type::getInt32Ty(Context),
                                  /*isSigned*/false);
   }
@@ -5959,15 +5946,14 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
 
   // If we are indexing over a fixed-size type, just use a GEP.
   if (isSequentialCompatible(ArrayTreeType)) {
-    Value *Idx[2];
-    Idx[0] = ConstantInt::get(IntPtrTy, 0);
-    Idx[1] = IndexVal;
+    // Avoid any assumptions about how the array type is represented in LLVM by
+    // doing the GEP on a pointer to the first array element.
+    const Type *EltTy = ConvertType(ElementType);
+    ArrayAddr = Builder.CreateBitCast(ArrayAddr, EltTy->getPointerTo());
     Value *Ptr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
-      Builder.CreateInBoundsGEP(ArrayAddr, Idx, Idx + 2) :
-      Builder.CreateGEP(ArrayAddr, Idx, Idx + 2);
-
-    const Type *ElementTy = ConvertType(ElementType);
-    unsigned Alignment = MinAlign(ArrayAlign, TD.getABITypeAlignment(ElementTy));
+      Builder.CreateInBoundsGEP(ArrayAddr, IndexVal) :
+      Builder.CreateGEP(ArrayAddr, IndexVal);
+    unsigned Alignment = MinAlign(ArrayAlign, TD.getABITypeAlignment(EltTy));
     return LValue(Builder.CreateBitCast(Ptr,
                   PointerType::getUnqual(ConvertType(TREE_TYPE(exp)))),
                   Alignment);
@@ -7496,8 +7482,7 @@ Constant *TreeConstantToLLVM::ConvertArrayCONSTRUCTOR(tree exp) {
 
   // Zero length array.
   if (ResultElts.empty())
-    return ConstantArray::get(
-      cast<ArrayType>(ConvertType(TREE_TYPE(exp))), ResultElts);
+    return Constant::getNullValue(ConvertType(TREE_TYPE(exp)));
   assert(SomeVal && "If we had some initializer, we should have some value!");
 
   // Do a post-pass over all of the elements.  We're taking care of two things
@@ -7522,10 +7507,23 @@ Constant *TreeConstantToLLVM::ConvertArrayCONSTRUCTOR(tree exp) {
     return ConstantVector::get(ResultElts);
   }
 
-  if (AllEltsSameType)
-    return ConstantArray::get(
-      ArrayType::get(ElTy, ResultElts.size()), ResultElts);
-  return ConstantStruct::get(Context, ResultElts, false);
+  Constant *Res = AllEltsSameType ?
+    ConstantArray::get(ArrayType::get(ElTy, ResultElts.size()), ResultElts) :
+    ConstantStruct::get(Context, ResultElts, false);
+
+  // If the array does not require extra padding, return it.
+  int64_t PadBits = getInt64(TYPE_SIZE(InitType), true) -
+    getTargetData().getTypeAllocSizeInBits(Res->getType());
+  assert(PadBits >= 0 && "Supersized array initializer!");
+  if (PadBits <= 0)
+    return Res;
+
+  // Wrap the array in a struct with padding at the end.
+  Constant *PadElts[2];
+  PadElts[0] = Res;
+  PadElts[1] = UndefValue::get(ArrayType::get(Type::getInt8Ty(Context),
+                                              PadBits / 8));
+  return ConstantStruct::get(Context, PadElts, 2, false);
 }
 
 
@@ -8180,8 +8178,6 @@ Constant *TreeConstantToLLVM::EmitLV_ARRAY_REF(tree exp) {
   assert(isSequentialCompatible(TREE_TYPE(Array)) &&
          "Global with variable size?");
 
-  Constant *ArrayAddr;
-
   // First subtract the lower bound, if any, in the type of the index.
   Constant *IndexVal = Convert(Index);
   tree LowerBound = array_ref_low_bound(exp);
@@ -8190,19 +8186,19 @@ Constant *TreeConstantToLLVM::EmitLV_ARRAY_REF(tree exp) {
       TheFolder->CreateSub(IndexVal, Convert(LowerBound)) :
       TheFolder->CreateNSWSub(IndexVal, Convert(LowerBound));
 
-  ArrayAddr = EmitLV(Array);
-
   const Type *IntPtrTy = getTargetData().getIntPtrType(Context);
   IndexVal = TheFolder->CreateIntCast(IndexVal, IntPtrTy,
                                       /*isSigned*/!TYPE_UNSIGNED(IndexType));
 
-  Value *Idx[2];
-  Idx[0] = ConstantInt::get(IntPtrTy, 0);
-  Idx[1] = IndexVal;
+  // Avoid any assumptions about how the array type is represented in LLVM by
+  // doing the GEP on a pointer to the first array element.
+  Constant *ArrayAddr = EmitLV(Array);
+  const Type *EltTy = ConvertType(TREE_TYPE(TREE_TYPE(Array)));
+  ArrayAddr = TheFolder->CreateBitCast(ArrayAddr, EltTy->getPointerTo());
 
   return POINTER_TYPE_OVERFLOW_UNDEFINED ?
-    TheFolder->CreateInBoundsGetElementPtr(ArrayAddr, Idx, 2) :
-    TheFolder->CreateGetElementPtr(ArrayAddr, Idx, 2);
+    TheFolder->CreateInBoundsGetElementPtr(ArrayAddr, &IndexVal, 1) :
+    TheFolder->CreateGetElementPtr(ArrayAddr, &IndexVal, 1);
 }
 
 Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {

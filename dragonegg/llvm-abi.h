@@ -537,6 +537,9 @@ public:
                (TREE_CODE(type) == QUAL_UNION_TYPE)) {
       HandleUnion(type, ScalarElts);
     } else if (TREE_CODE(type) == ARRAY_TYPE) {
+      // Array with padding?
+      if (isa<StructType>(Ty))
+        Ty = cast<StructType>(Ty)->getTypeAtIndex(0U);
       const ArrayType *ATy = cast<ArrayType>(Ty);
       for (unsigned i = 0, e = ATy->getNumElements(); i != e; ++i) {
         C.EnterField(i, Ty);

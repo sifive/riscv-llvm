@@ -296,21 +296,6 @@ static void NameType(const Type *Ty, tree t, Twine Prefix = Twine(),
   }
 }
 
-/// isSequentialCompatible - Return true if the specified gcc array or pointer
-/// type and the corresponding LLVM SequentialType lay out their components
-/// identically in memory, so doing a GEP accesses the right memory location.
-/// We assume that objects without a known size do not.
-bool isSequentialCompatible(tree_node *type) {
-  assert((TREE_CODE(type) == ARRAY_TYPE ||
-          TREE_CODE(type) == POINTER_TYPE ||
-          TREE_CODE(type) == REFERENCE_TYPE) && "not a sequential type!");
-  // This relies on gcc types with constant size mapping to LLVM types with the
-  // same size.  It is possible for the component type not to have a size:
-  // struct foo;  extern foo bar[];
-  return TYPE_SIZE(TREE_TYPE(type)) &&
-         isInt64(TYPE_SIZE(TREE_TYPE(type)), true);
-}
-
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
 bool isBitfield(tree_node *field_decl) {
   tree type = DECL_BIT_FIELD_TYPE(field_decl);
@@ -324,7 +309,7 @@ bool isBitfield(tree_node *field_decl) {
     // Does not start on a byte boundary - must treat as a bitfield.
     return true;
 
-  if (!TYPE_SIZE(type) || !isInt64(TYPE_SIZE (type), true))
+  if (!isInt64(TYPE_SIZE (type), true))
     // No size or variable sized - play safe, treat as a bitfield.
     return true;
 
@@ -537,12 +522,8 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
 
   // If the type does not overlap, don't bother checking below.
 
-  if (!TYPE_SIZE(type))
-    // C-style variable length array?  Be conservative.
-    return true;
-
   if (!isInt64(TYPE_SIZE(type), true))
-    // Negative size (!) or huge - be conservative.
+    // No size, negative size (!) or huge - be conservative.
     return true;
 
   if (!getInt64(TYPE_SIZE(type), true) ||
@@ -570,8 +551,10 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
     return true;
 
   case ARRAY_TYPE: {
-    unsigned EltSizeBits = TREE_INT_CST_LOW(TYPE_SIZE(TREE_TYPE(type)));
-    unsigned NumElts = cast<ArrayType>(ConvertType(type))->getNumElements();
+    uint64_t NumElts = ArrayLengthOf(type);
+    if (NumElts == ~0ULL)
+      return true;
+    unsigned EltSizeBits = getInt64(TYPE_SIZE(TREE_TYPE(type)), true);
 
     // Check each element for overlap.  This is inelegant, but effective.
     for (unsigned i = 0; i != NumElts; ++i)
@@ -849,51 +832,31 @@ const Type *TypeConverter::ConvertType(tree orig_type) {
     if ((Ty = GET_TYPE_LLVM(type)))
       return Ty;
 
-    uint64_t ElementSize;
-    const Type *ElementTy;
-    if (isSequentialCompatible(type)) {
-      // The gcc element type maps to an LLVM type of the same size.
-      // Convert to an LLVM array of the converted element type.
-      ElementSize = getInt64(TYPE_SIZE(TREE_TYPE(type)), true);
-      ElementTy = ConvertType(TREE_TYPE(type));
-    } else {
-      // The gcc element type has no size, or has variable size.  Convert to an
-      // LLVM array of bytes.  In the unlikely but theoretically possible case
-      // that the gcc array type has constant size, using an i8 for the element
-      // type ensures we can produce an LLVM array of the right size.
-      ElementSize = 8;
-      ElementTy = Type::getInt8Ty(Context);
+    const Type *ElementTy = ConvertType(TREE_TYPE(type));
+    uint64_t NumElements = ArrayLengthOf(type);
+
+    if (NumElements == ~0ULL) // Variable length array?
+      NumElements = 0;
+
+    // Create the array type.
+    Ty = ArrayType::get(ElementTy, NumElements);
+
+    // If the user increased the alignment of the array element type, then the
+    // size of the array is rounded up by that alignment even though the size
+    // of the array element type is not (!).  Correct for this if necessary by
+    // adding padding.  May also need padding if the element type has variable
+    // size and the array type has variable length, but by a miracle the product
+    // gives a constant size.
+    if (isInt64(TYPE_SIZE(type), true)) {
+      uint64_t PadBits = getInt64(TYPE_SIZE(type), true) -
+        getTargetData().getTypeAllocSizeInBits(Ty);
+      if (PadBits) {
+        const Type *Padding = ArrayType::get(Type::getInt8Ty(Context), PadBits / 8);
+        Ty = StructType::get(Context, Ty, Padding, NULL);
+      }
     }
 
-    uint64_t NumElements;
-    if (!TYPE_SIZE(type)) {
-      // We get here if we have something that is declared to be an array with
-      // no dimension.  This just becomes a zero length array of the element
-      // type, so 'int X[]' becomes '%X = external global [0 x i32]'.
-      //
-      // Note that this also affects new expressions, which return a pointer
-      // to an unsized array of elements.
-      NumElements = 0;
-    } else if (!isInt64(TYPE_SIZE(type), true)) {
-      // This handles cases like "int A[n]" which have a runtime constant
-      // number of elements, but is a compile-time variable.  Since these
-      // are variable sized, we represent them as [0 x type].
-      NumElements = 0;
-    } else if (integer_zerop(TYPE_SIZE(type))) {
-      // An array of zero length, or with an element type of zero size.
-      // Turn it into a zero length array of the element type.
-      NumElements = 0;
-    } else {
-      // Normal constant-size array.
-      assert(ElementSize
-             && "Array of positive size with elements of zero size!");
-      NumElements = getInt64(TYPE_SIZE(type), true);
-      assert(!(NumElements % ElementSize)
-             && "Array size is not a multiple of the element size!");
-      NumElements /= ElementSize;
-    }
-
-    Ty = TypeDB.setType(type, ArrayType::get(ElementTy, NumElements));
+    Ty = TypeDB.setType(type, Ty);
     break;
   }
 

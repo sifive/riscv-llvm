@@ -216,7 +216,7 @@ uint64_t getINTEGER_CSTVal(tree_node *exp);
 /// isInt64 - Return true if t is an INTEGER_CST that fits in a 64 bit integer.
 /// If Unsigned is false, returns whether it fits in a int64_t.  If Unsigned is
 /// true, returns whether the value is non-negative and fits in a uint64_t.
-/// Always returns false for overflowed constants.
+/// Always returns false for overflowed constants or if t is NULL.
 bool isInt64(tree_node *t, bool Unsigned);
 
 /// getInt64 - Extract the value of an INTEGER_CST as a 64 bit integer.  If
@@ -234,13 +234,42 @@ bool isPassedByInvisibleReference(tree_node *type);
 /// type and the corresponding LLVM SequentialType lay out their components
 /// identically in memory, so doing a GEP accesses the right memory location.
 /// We assume that objects without a known size do not.
-bool isSequentialCompatible(tree_node *type);
+inline bool isSequentialCompatible(tree_node *type) {
+  assert((TREE_CODE(type) == ARRAY_TYPE ||
+          TREE_CODE(type) == POINTER_TYPE ||
+          TREE_CODE(type) == REFERENCE_TYPE) && "not a sequential type!");
+  // This relies on gcc types with constant size mapping to LLVM types with the
+  // same size.  It is possible for the component type not to have a size:
+  // struct foo;  extern foo bar[];
+  return isInt64(TYPE_SIZE(TREE_TYPE(type)), true);
+}
 
 /// OffsetIsLLVMCompatible - Return true if the given field is offset from the
 /// start of the record by a constant amount which is not humongously big.
 inline bool OffsetIsLLVMCompatible(tree_node *field_decl) {
-  return DECL_FIELD_OFFSET(field_decl) &&
-    isInt64(DECL_FIELD_OFFSET(field_decl), true);
+  return isInt64(DECL_FIELD_OFFSET(field_decl), true);
+}
+
+/// ArrayLengthOf - Returns the length of the given gcc array type, or ~0ULL if
+/// the array has variable or unknown length.
+inline uint64_t ArrayLengthOf(tree_node *type) {
+  assert(TREE_CODE(type) == ARRAY_TYPE && "Only for array types!");
+  // If the element type has variable size and the array type has variable
+  // length, but by some miracle the product gives a constant size, then we
+  // also return ~0ULL here.  I can live with this, and I bet you can too!
+  if (!isInt64(TYPE_SIZE(type), true) ||
+      !isInt64(TYPE_SIZE(TREE_TYPE(type)), true))
+    return ~0ULL;
+  // May return zero for arrays that gcc considers to have non-zero length, but
+  // only if the array type has zero size (this can happen if the element type
+  // has zero size), in which case the discrepancy doesn't matter.
+  //
+  // If the user increased the alignment of the element type, then the size of
+  // the array type is rounded up by that alignment, but the size of the element
+  // is not.  Since gcc requires the user alignment to be strictly smaller than
+  // the element size, this does not impact the length computation.
+  return integer_zerop(TYPE_SIZE(type)) ?  0 : getInt64(TYPE_SIZE(type), true) /
+    getInt64(TYPE_SIZE(TREE_TYPE(type)), true);
 }
 
 /// isBitfield - Returns whether to treat the specified field as a bitfield.

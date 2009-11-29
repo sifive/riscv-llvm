@@ -276,10 +276,8 @@ static unsigned GuessAtInliningThreshold() {
 // is the same as that of the given GCC declaration.
 static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
   const Type *Ty = GV->getType()->getElementType();
-  if (!DECL_SIZE(decl) || !Ty->isSized())
+  if (!isInt64(DECL_SIZE(decl), true) || !Ty->isSized())
     return true;
-  if (!isInt64(DECL_SIZE(decl), true))
-    return false;
   return TheTarget->getTargetData()->getTypeAllocSizeInBits(Ty) ==
     getInt64(DECL_SIZE(decl), true);
 }
