@@ -136,7 +136,7 @@ static tree FieldType(tree Field) {
 
 /// GetNodeName - Returns the name stored in a node regardless of whether the
 /// node is a TYPE or DECL.
-static const char *GetNodeName(tree Node) {
+static StringRef GetNodeName(tree Node) {
   tree Name = NULL;
   
   if (DECL_P(Node)) {
@@ -150,11 +150,11 @@ static const char *GetNodeName(tree Node) {
       return IDENTIFIER_POINTER(Name);
     } else if (TREE_CODE(Name) == TYPE_DECL && DECL_NAME(Name) &&
                !DECL_IGNORED_P(Name)) {
-      return IDENTIFIER_POINTER(DECL_NAME(Name));
+      return StringRef(IDENTIFIER_POINTER(DECL_NAME(Name)));
     }
   }
   
-  return NULL;
+  return StringRef();
 }
 
 /// GetNodeLocation - Returns the location stored in a node  regardless of
@@ -195,12 +195,12 @@ static expanded_location GetNodeLocation(tree Node, bool UseStub = true) {
   return Location;
 }
 
-static const char *getLinkageName(tree Node) {
+static StringRef getLinkageName(tree Node) {
 
   // Use llvm value name as linkage name if it is available.
   if (DECL_LLVM_SET_P(Node)) {
     Value *V = DECL_LLVM(Node);
-    return V->getName().data();
+    return V->getName();
   }
 
   tree decl_name = DECL_NAME(Node);
@@ -208,10 +208,10 @@ static const char *getLinkageName(tree Node) {
     if (TREE_PUBLIC(Node) &&
         DECL_ASSEMBLER_NAME(Node) != DECL_NAME(Node) && 
         !DECL_ABSTRACT(Node)) {
-      return IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(Node));
+      return StringRef(IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(Node)));
     } 
   }
-  return NULL;
+  return StringRef();
 }
 
 DebugInfo::DebugInfo(Module *m)
@@ -231,7 +231,7 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
                                   BasicBlock *CurBB) {
   // Gather location information.
   expanded_location Loc = GetNodeLocation(FnDecl, false);
-  const char *LinkageName = getLinkageName(FnDecl);
+  StringRef LinkageName = getLinkageName(FnDecl);
 
   DISubprogram SP = 
     DebugFactory.CreateSubprogram(findRegion(FnDecl),
@@ -269,8 +269,6 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
       context = TYPE_MAIN_VARIANT
         (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl)))));
     
-    if (context && !TYPE_P (context))
-      context = NULL_TREE;
     if (context != NULL_TREE)
       return findRegion(context);
   }
@@ -361,14 +359,13 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
   // Gather location information.
   expanded_location Loc = expand_location(DECL_SOURCE_LOCATION(decl));
   DIType TyD = getOrCreateType(TREE_TYPE(decl));
-  std::string DispNameStr = GV->getNameStr();
-  const char *DispName = DispNameStr.c_str();
+  StringRef DispName = GV->getName();
   if (DECL_NAME(decl)) {
     if (IDENTIFIER_POINTER(DECL_NAME(decl)))
       DispName = IDENTIFIER_POINTER(DECL_NAME(decl));
   }
     
-  DebugFactory.CreateGlobalVariable(getOrCreateCompileUnit(Loc.file), 
+  DebugFactory.CreateGlobalVariable(findRegion(decl),
                                     DispName, DispName,
                                     getLinkageName(decl), 
                                     getOrCreateCompileUnit(Loc.file), Loc.line,
@@ -379,7 +376,7 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
 /// createBasicType - Create BasicType.
 DIType DebugInfo::createBasicType(tree type) {
 
-  const char *TypeName = GetNodeName(type);
+  StringRef TypeName = GetNodeName(type);
   uint64_t Size = NodeSizeInBits(type);
   uint64_t Align = NodeAlignInBits(type);
 
@@ -444,7 +441,7 @@ DIType DebugInfo::createMethodType(tree type) {
     DebugFactory.GetOrCreateArray(EltTys.data(), EltTys.size());
 
   return DebugFactory.CreateCompositeType(llvm::dwarf::DW_TAG_subroutine_type,
-                                          findRegion(type), NULL,
+                                          findRegion(type), StringRef(),
                                           getOrCreateCompileUnit(NULL), 
                                           0, 0, 0, 0, 0,
                                           llvm::DIType(), EltTypeArray);
@@ -461,7 +458,7 @@ DIType DebugInfo::createPointerType(tree type) {
     DW_TAG_reference_type;
   expanded_location Loc = GetNodeLocation(type);
 
-  const char *PName = FromTy.getName();
+  StringRef PName = FromTy.getName();
   return  DebugFactory.CreateDerivedType(Tag, findRegion(type), PName,
                                          getOrCreateCompileUnit(NULL), 
                                          0 /*line no*/, 
@@ -518,7 +515,7 @@ DIType DebugInfo::createArrayType(tree type) {
     DebugFactory.GetOrCreateArray(Subscripts.data(), Subscripts.size());
   expanded_location Loc = GetNodeLocation(type);
   return DebugFactory.CreateCompositeType(llvm::dwarf::DW_TAG_array_type,
-                                          findRegion(type), NULL,
+                                          findRegion(type), StringRef(),
                                           getOrCreateCompileUnit(Loc.file), 0, 
                                           NodeSizeInBits(type), 
                                           NodeAlignInBits(type), 0, 0,
@@ -599,13 +596,13 @@ DIType DebugInfo::createStructType(tree type) {
   /// also while creating FwdDecl for now.
   std::string FwdName;
   if (TYPE_CONTEXT(type)) {
-    const char *TypeContextName = GetNodeName(TYPE_CONTEXT(type));
-    if (TypeContextName)
+    StringRef TypeContextName = GetNodeName(TYPE_CONTEXT(type));
+    if (!TypeContextName.empty())
       FwdName = TypeContextName;
   }
-  const char *TypeName = GetNodeName(type);
-  if (TypeName)
-    FwdName = FwdName + TypeName;
+  StringRef TypeName = GetNodeName(type);
+  if (!TypeName.empty())
+    FwdName = FwdName + TypeName.data();
   unsigned Flags = llvm::DIType::FlagFwdDecl;
   llvm::DICompositeType FwdDecl =
     DebugFactory.CreateCompositeType(Tag, 
@@ -622,6 +619,7 @@ DIType DebugInfo::createStructType(tree type) {
     return FwdDecl;
   
   // Insert into the TypeCache so that recursive uses will find it.
+  llvm::TrackingVH<llvm::MDNode> FwdDeclNode = FwdDecl.getNode();
   TypeCache[type] =  WeakVH(FwdDecl.getNode());
   
   // Convert all the elements.
@@ -636,7 +634,7 @@ DIType DebugInfo::createStructType(tree type) {
       // FIXME : name, size, align etc...
       DIType DTy = 
         DebugFactory.CreateDerivedType(DW_TAG_inheritance, 
-                                       findRegion(type), NULL,
+                                       findRegion(type), StringRef(),
                                        llvm::DICompileUnit(), 0,0,0, 
                                        getINTEGER_CSTVal(BINFO_OFFSET(BInfo)),
                                        0, BaseClass);
@@ -667,7 +665,7 @@ DIType DebugInfo::createStructType(tree type) {
       // Field type is the declared type of the field.
       tree FieldNodeType = FieldType(Member);
       DIType MemberType = getOrCreateType(FieldNodeType);
-      const char *MemberName = GetNodeName(Member);
+      StringRef MemberName = GetNodeName(Member);
       unsigned Flags = 0;
       if (TREE_PROTECTED(Member))
         Flags = llvm::DIType::FlagProtected;
@@ -700,7 +698,7 @@ DIType DebugInfo::createStructType(tree type) {
     expanded_location MemLoc = GetNodeLocation(Member, false);
     
     const char *MemberName = lang_hooks.dwarf_name(Member, 0);        
-    const char *LinkageName = getLinkageName(Member);
+    StringRef LinkageName = getLinkageName(Member);
     DIType SPTy = getOrCreateType(TREE_TYPE(Member));
     DISubprogram SP = 
       DebugFactory.CreateSubprogram(findRegion(Member), MemberName, MemberName,
@@ -724,7 +722,7 @@ DIType DebugInfo::createStructType(tree type) {
   
   // Now that we have a real decl for the struct, replace anything using the
   // old decl with the new one.  This will recursively update the debug info.
-  FwdDecl.replaceAllUsesWith(RealDecl);
+  llvm::DIDerivedType(FwdDeclNode).replaceAllUsesWith(RealDecl);
   return RealDecl;
 }
 
@@ -755,7 +753,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
 
   if (TYPE_VOLATILE(type)) {
     Ty = DebugFactory.CreateDerivedType(DW_TAG_volatile_type, 
-                                        findRegion(type), NULL,
+                                        findRegion(type), StringRef(),
                                         getOrCreateCompileUnit(NULL), 
                                         0 /*line no*/, 
                                         NodeSizeInBits(type),
@@ -768,7 +766,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
 
   if (TYPE_READONLY(type)) 
     Ty =  DebugFactory.CreateDerivedType(DW_TAG_const_type, 
-                                         findRegion(type), NULL,
+                                         findRegion(type), StringRef(),
                                          getOrCreateCompileUnit(NULL), 
                                          0 /*line no*/, 
                                          NodeSizeInBits(type),
@@ -935,7 +933,7 @@ DICompileUnit DebugInfo::getOrCreateCompileUnit(const char *FullPath,
   DICompileUnit NewCU = DebugFactory.CreateCompileUnit(LangTag, FileName.c_str(), 
                                                      Directory.c_str(), 
                                                      version_string, isMain,
-                                                     optimize, NULL,
+                                                     optimize, StringRef(),
                                                      ObjcRunTimeVer);
   CUCache[FullPath] = WeakVH(NewCU.getNode());
   return NewCU;
