@@ -1181,15 +1181,16 @@ Value *TreeToLLVM::Emit(tree exp, const MemRef *DestLoc) {
 //FIXME  case FILTER_EXPR:    Result = EmitFILTER_EXPR(exp); break;
 
   // Expressions
-  case VAR_DECL:
-  case PARM_DECL:
-  case RESULT_DECL:
-  case INDIRECT_REF:
   case ARRAY_REF:
   case ARRAY_RANGE_REF:
-  case COMPONENT_REF:
   case BIT_FIELD_REF:
+  case COMPONENT_REF:
+  case INDIRECT_REF:
+  case PARM_DECL:
+  case RESULT_DECL:
   case STRING_CST:
+  case VAR_DECL:
+  case VIEW_CONVERT_EXPR:
     Result = EmitLoadOfLValue(exp, DestLoc);
     break;
   case SSA_NAME:        Result = EmitSSA_NAME(exp); break;
@@ -1199,7 +1200,6 @@ Value *TreeToLLVM::Emit(tree exp, const MemRef *DestLoc) {
     // Unary Operators
   case REALPART_EXPR:     Result = EmitXXXXPART_EXPR(exp, 0); break;
   case IMAGPART_EXPR:     Result = EmitXXXXPART_EXPR(exp, 1); break;
-  case VIEW_CONVERT_EXPR: Result = EmitVIEW_CONVERT_EXPR(exp, DestLoc); break;
   case CONSTRUCTOR:       Result = EmitCONSTRUCTOR(exp, DestLoc); break;
 
   // Complex Math Expressions.
@@ -1247,7 +1247,6 @@ get_constant_alignment (tree exp)
 /// EmitLV - Convert the specified l-value tree node to LLVM code, returning
 /// the address of the result.
 LValue TreeToLLVM::EmitLV(tree exp) {
-  // Needs to be in sync with EmitVIEW_CONVERT_EXPR.
   LValue LV;
 
   switch (TREE_CODE(exp)) {
@@ -3024,98 +3023,6 @@ Value *TreeToLLVM::EmitCONVERT_EXPR(tree type, tree op) {
   bool OpIsSigned = !TYPE_UNSIGNED(TREE_TYPE(op));
   bool ExpIsSigned = !TYPE_UNSIGNED(type);
   return CastToAnyType(Emit(op, 0), OpIsSigned, ConvertType(type), ExpIsSigned);
-}
-
-Value *TreeToLLVM::EmitVIEW_CONVERT_EXPR(tree exp, const MemRef *DestLoc) {
-  tree Op = TREE_OPERAND(exp, 0);
-
-  if (AGGREGATE_TYPE_P(TREE_TYPE(Op))) {
-    MemRef Target;
-    if (DestLoc)
-      // This is an aggregate-to-agg VIEW_CONVERT_EXPR, just evaluate in place.
-      Target = *DestLoc;
-    else
-      // This is an aggregate-to-scalar VIEW_CONVERT_EXPR, evaluate, then load.
-      Target = CreateTempLoc(ConvertType(TREE_TYPE(exp)));
-
-    // Make the destination look like the source type.
-    const Type *OpTy = ConvertType(TREE_TYPE(Op));
-    Target.Ptr = Builder.CreateBitCast(Target.Ptr, OpTy->getPointerTo());
-
-    // Needs to be in sync with EmitLV.
-    switch (TREE_CODE(Op)) {
-    default: {
-      Value *OpVal = Emit(Op, &Target);
-      (void)OpVal;
-      assert(OpVal == 0 && "Expected an aggregate operand!");
-      break;
-    }
-
-    // Lvalues
-    case VAR_DECL:
-    case PARM_DECL:
-    case RESULT_DECL:
-    case INDIRECT_REF:
-    case ARRAY_REF:
-    case ARRAY_RANGE_REF:
-    case COMPONENT_REF:
-    case BIT_FIELD_REF:
-    case STRING_CST:
-    case REALPART_EXPR:
-    case IMAGPART_EXPR:
-      // Same as EmitLoadOfLValue but taking the size from TREE_TYPE(exp), since
-      // the size of TREE_TYPE(Op) may not be available.
-      LValue LV = EmitLV(Op);
-      assert(!LV.isBitfield() && "Expected an aggregate operand!");
-      bool isVolatile = TREE_THIS_VOLATILE(Op);
-      unsigned Alignment = LV.getAlignment();
-
-      EmitAggregateCopy(Target, MemRef(LV.Ptr, Alignment, isVolatile),
-                        TREE_TYPE(exp));
-      break;
-    }
-
-    if (DestLoc)
-      return 0;
-
-    // Target holds the temporary created above.
-    const Type *ExpTy = ConvertType(TREE_TYPE(exp));
-    return Builder.CreateLoad(Builder.CreateBitCast(Target.Ptr,
-                                                    ExpTy->getPointerTo()));
-  }
-
-  if (DestLoc) {
-    // The input is a scalar the output is an aggregate, just eval the input,
-    // then store into DestLoc.
-    Value *OpVal = Emit(Op, 0);
-    assert(OpVal && "Expected a scalar result!");
-    Value *Ptr = Builder.CreateBitCast(DestLoc->Ptr,
-                                      PointerType::getUnqual(OpVal->getType()));
-    StoreInst *St = Builder.CreateStore(OpVal, Ptr, DestLoc->Volatile);
-    St->setAlignment(DestLoc->getAlignment());
-    return 0;
-  }
-
-  // Otherwise, this is a scalar to scalar conversion.
-  Value *OpVal = Emit(Op, 0);
-  assert(OpVal && "Expected a scalar result!");
-  const Type *DestTy = ConvertType(TREE_TYPE(exp));
-
-  // If the source is a pointer, use ptrtoint to get it to something
-  // bitcast'able.  This supports things like v_c_e(foo*, float).
-  if (isa<PointerType>(OpVal->getType())) {
-    if (isa<PointerType>(DestTy))   // ptr->ptr is a simple bitcast.
-      return Builder.CreateBitCast(OpVal, DestTy);
-    // Otherwise, ptrtoint to intptr_t first.
-    OpVal = Builder.CreatePtrToInt(OpVal, TD.getIntPtrType(Context));
-  }
-
-  // If the destination type is a pointer, use inttoptr.
-  if (isa<PointerType>(DestTy))
-    return Builder.CreateIntToPtr(OpVal, DestTy);
-
-  // Otherwise, use a bitcast.
-  return Builder.CreateBitCast(OpVal, DestTy);
 }
 
 Value *TreeToLLVM::EmitNEGATE_EXPR(tree op) {

@@ -636,7 +636,6 @@ private:
                     const AttrListPtr &PAL);
   Value *EmitNOP_EXPR(tree_node *type, tree_node *op, const MemRef *DestLoc);
   Value *EmitCONVERT_EXPR(tree_node *type, tree_node *op);
-  Value *EmitVIEW_CONVERT_EXPR(tree_node *exp, const MemRef *DestLoc);
   Value *EmitNEGATE_EXPR(tree_node *op);
   Value *EmitCONJ_EXPR(tree_node *op);
   Value *EmitABS_EXPR(tree_node *op);
