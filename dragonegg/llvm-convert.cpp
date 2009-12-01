@@ -1185,13 +1185,12 @@ Value *TreeToLLVM::Emit(tree exp, const MemRef *DestLoc) {
   case ARRAY_RANGE_REF:
   case BIT_FIELD_REF:
   case COMPONENT_REF:
+  case IMAGPART_EXPR:
   case INDIRECT_REF:
+  case REALPART_EXPR:
   case VIEW_CONVERT_EXPR:
     Result = EmitLoadOfLValue(exp, DestLoc);
     break;
-
-  case REALPART_EXPR: Result = EmitXXXXPART_EXPR(exp, 0); break;
-  case IMAGPART_EXPR: Result = EmitXXXXPART_EXPR(exp, 1); break;
 
   // Declarations (tcc_declaration).
   case PARM_DECL:
@@ -3588,10 +3587,6 @@ Value *TreeToLLVM::EmitPOINTER_PLUS_EXPR(tree type, tree op0, tree op1) {
 
   // The result may be of a different pointer type.
   return Builder.CreateBitCast(GEP, ConvertType(type));
-}
-
-Value *TreeToLLVM::EmitXXXXPART_EXPR(tree exp, unsigned Idx) {
-  return Builder.CreateExtractValue(Emit(TREE_OPERAND(exp, 0), 0), Idx);
 }
 
 Value *TreeToLLVM::EmitPAREN_EXPR(tree op) {
