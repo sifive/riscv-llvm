@@ -6249,25 +6249,12 @@ LValue TreeToLLVM::EmitLV_INDIRECT_REF(tree exp) {
 }
 
 LValue TreeToLLVM::EmitLV_VIEW_CONVERT_EXPR(tree exp) {
-  tree Op = TREE_OPERAND(exp, 0);
-
-  if (AGGREGATE_TYPE_P(TREE_TYPE(Op))) {
-    // If the input is an aggregate, the address is the address of the operand.
-    LValue LV = EmitLV(Op);
-    // The type is the type of the expression.
-    LV.Ptr = Builder.CreateBitCast(LV.Ptr,
-                     PointerType::getUnqual(ConvertType(TREE_TYPE(exp))));
-    return LV;
-  } else {
-    // TODO: Check the VCE is being used as an rvalue, see EmitLoadOfLValue.
-    // If the input is a scalar, emit to a temporary.
-    Value *Dest = CreateTemporary(ConvertType(TREE_TYPE(Op)));
-    Builder.CreateStore(EmitGimpleReg(Op), Dest);
-    // The type is the type of the expression.
-    Dest = Builder.CreateBitCast(Dest,
-                           PointerType::getUnqual(ConvertType(TREE_TYPE(exp))));
-    return LValue(Dest, 1);
-  }
+  // The address is the address of the operand.
+  LValue LV = EmitLV(TREE_OPERAND(exp, 0));
+  // The type is the type of the expression.
+  LV.Ptr = Builder.CreateBitCast(LV.Ptr,
+                                 ConvertType(TREE_TYPE(exp))->getPointerTo());
+  return LV;
 }
 
 LValue TreeToLLVM::EmitLV_WITH_SIZE_EXPR(tree exp) {
