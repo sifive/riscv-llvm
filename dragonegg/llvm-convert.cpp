@@ -2206,6 +2206,210 @@ Constant *TreeToLLVM::EmitGimpleConstant(tree reg) {
   return C;
 }
 
+/// EmitLoadOfLValue - When an l-value expression is used in a context that
+/// requires an r-value, this method emits the lvalue computation, then loads
+/// the result.
+Value *TreeToLLVM::EmitLoadOfLValue(tree exp, const MemRef *DestLoc) {
+  if (canEmitRegisterVariable(exp))
+    // If this is a register variable, EmitLV can't handle it (there is no
+    // l-value of a register variable).  Emit an inline asm node that copies the
+    // value out of the specified register.
+    return EmitReadOfRegisterVariable(exp, DestLoc);
+
+  LValue LV = EmitLV(exp);
+  bool isVolatile = TREE_THIS_VOLATILE(exp);
+  const Type *Ty = ConvertType(TREE_TYPE(exp));
+  unsigned Alignment = LV.getAlignment();
+  if (TREE_CODE(exp) == COMPONENT_REF)
+    if (const StructType *STy =
+        dyn_cast<StructType>(ConvertType(TREE_TYPE(TREE_OPERAND(exp, 0)))))
+      if (STy->isPacked())
+        // Packed struct members use 1 byte alignment
+        Alignment = 1;
+
+
+  if (!LV.isBitfield()) {
+    if (!DestLoc) {
+      // Scalar value: emit a load.
+      Value *Ptr = Builder.CreateBitCast(LV.Ptr, Ty->getPointerTo());
+      LoadInst *LI = Builder.CreateLoad(Ptr, isVolatile);
+      LI->setAlignment(Alignment);
+      return LI;
+    } else {
+      EmitAggregateCopy(*DestLoc, MemRef(LV.Ptr, Alignment, isVolatile),
+                        TREE_TYPE(exp));
+      return 0;
+    }
+  } else {
+    // This is a bitfield reference.
+    if (!LV.BitSize)
+      return Constant::getNullValue(Ty);
+
+    const Type *ValTy = cast<PointerType>(LV.Ptr->getType())->getElementType();
+    unsigned ValSizeInBits = ValTy->getPrimitiveSizeInBits();
+
+    // The number of loads needed to read the entire bitfield.
+    unsigned Strides = 1 + (LV.BitStart + LV.BitSize - 1) / ValSizeInBits;
+
+    assert(ValTy->isInteger() && "Invalid bitfield lvalue!");
+    assert(ValSizeInBits > LV.BitStart && "Bad bitfield lvalue!");
+    assert(ValSizeInBits >= LV.BitSize && "Bad bitfield lvalue!");
+    assert(2*ValSizeInBits > LV.BitSize+LV.BitStart && "Bad bitfield lvalue!");
+
+    Value *Result = NULL;
+
+    for (unsigned I = 0; I < Strides; I++) {
+      unsigned Index = BYTES_BIG_ENDIAN ? I : Strides - I - 1; // MSB first
+      unsigned ThisFirstBit = Index * ValSizeInBits;
+      unsigned ThisLastBitPlusOne = ThisFirstBit + ValSizeInBits;
+      if (ThisFirstBit < LV.BitStart)
+        ThisFirstBit = LV.BitStart;
+      if (ThisLastBitPlusOne > LV.BitStart+LV.BitSize)
+        ThisLastBitPlusOne = LV.BitStart+LV.BitSize;
+
+      Value *Ptr = Index ?
+        Builder.CreateGEP(LV.Ptr,
+                          ConstantInt::get(Type::getInt32Ty(Context), Index)) :
+        LV.Ptr;
+      LoadInst *LI = Builder.CreateLoad(Ptr, isVolatile);
+      LI->setAlignment(Alignment);
+      Value *Val = LI;
+
+      unsigned BitsInVal = ThisLastBitPlusOne - ThisFirstBit;
+      unsigned FirstBitInVal = ThisFirstBit % ValSizeInBits;
+
+      if (BYTES_BIG_ENDIAN)
+        FirstBitInVal = ValSizeInBits-FirstBitInVal-BitsInVal;
+
+      // Mask the bits out by shifting left first, then shifting right.  The
+      // LLVM optimizer will turn this into an AND if this is an unsigned
+      // expression.
+
+      if (FirstBitInVal+BitsInVal != ValSizeInBits) {
+        Value *ShAmt = ConstantInt::get(ValTy, ValSizeInBits -
+                                        (FirstBitInVal+BitsInVal));
+        Val = Builder.CreateShl(Val, ShAmt);
+      }
+
+      // Shift right required?
+      if (ValSizeInBits != BitsInVal) {
+        bool AddSignBits = !TYPE_UNSIGNED(TREE_TYPE(exp)) && !Result;
+        Value *ShAmt = ConstantInt::get(ValTy, ValSizeInBits-BitsInVal);
+        Val = AddSignBits ?
+          Builder.CreateAShr(Val, ShAmt) : Builder.CreateLShr(Val, ShAmt);
+      }
+
+      if (Result) {
+        Value *ShAmt = ConstantInt::get(ValTy, BitsInVal);
+        Result = Builder.CreateShl(Result, ShAmt);
+        Result = Builder.CreateOr(Result, Val);
+      } else {
+        Result = Val;
+      }
+    }
+
+    return Builder.CreateIntCast(Result, Ty,
+                                 /*isSigned*/!TYPE_UNSIGNED(TREE_TYPE(exp)));
+  }
+}
+
+Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
+  LValue LV = EmitLV(TREE_OPERAND(exp, 0));
+  assert((!LV.isBitfield() || LV.BitStart == 0) &&
+         "It is illegal to take the address of a bitfield!");
+  // Perform a cast here if necessary.  For example, GCC sometimes forms an
+  // ADDR_EXPR where the operand is an array, and the ADDR_EXPR type is a
+  // pointer to the first element.
+  return Builder.CreateBitCast(LV.Ptr, ConvertType(TREE_TYPE(exp)));
+}
+
+Value *TreeToLLVM::EmitOBJ_TYPE_REF(tree exp) {
+  return Builder.CreateBitCast(EmitGimpleReg(OBJ_TYPE_REF_EXPR(exp)),
+                               ConvertType(TREE_TYPE(exp)));
+}
+
+/// EmitCONSTRUCTOR - emit the constructor into the location specified by
+/// DestLoc.
+Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
+  tree type = TREE_TYPE(exp);
+  const Type *Ty = ConvertType(type);
+  if (const VectorType *VTy = dyn_cast<VectorType>(Ty)) {
+    assert(DestLoc == 0 && "Dest location for vector value?");
+    std::vector<Value *> BuildVecOps;
+    BuildVecOps.reserve(VTy->getNumElements());
+
+    // Insert all of the elements here.
+    unsigned HOST_WIDE_INT idx;
+    tree value;
+    FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, value) {
+      Value *Elt = EmitGimpleReg(value);
+
+      if (const VectorType *EltTy = dyn_cast<VectorType>(Elt->getType())) {
+        // GCC allows vectors to be built up from vectors.  Extract all of the
+        // vector elements and add them to the list of build vector operands.
+        for (unsigned i = 0, e = EltTy->getNumElements(); i != e; ++i) {
+          Value *Index = ConstantInt::get(llvm::Type::getInt32Ty(Context), i);
+          BuildVecOps.push_back(Builder.CreateExtractElement(Elt, Index));
+        }
+      } else {
+        assert(Elt->getType() == VTy->getElementType() &&
+               "Unexpected type for vector constructor!");
+        BuildVecOps.push_back(Elt);
+      }
+    }
+
+    // Insert zero for any unspecified values.
+    while (BuildVecOps.size() < VTy->getNumElements())
+      BuildVecOps.push_back(Constant::getNullValue(VTy->getElementType()));
+    assert(BuildVecOps.size() == VTy->getNumElements() &&
+           "Vector constructor specified too many values!");
+
+    return BuildVector(BuildVecOps);
+  }
+
+  assert(AGGREGATE_TYPE_P(type) && "Constructor for scalar type??");
+
+  // Start out with the value zero'd out.
+  EmitAggregateZero(*DestLoc, type);
+
+  VEC(constructor_elt, gc) *elt = CONSTRUCTOR_ELTS(exp);
+  switch (TREE_CODE(TREE_TYPE(exp))) {
+  case ARRAY_TYPE:
+  case RECORD_TYPE:
+  default:
+    if (elt && VEC_length(constructor_elt, elt)) {
+      // We don't handle elements yet.
+
+      TODO(exp);
+    }
+    return 0;
+  case QUAL_UNION_TYPE:
+  case UNION_TYPE:
+    // Store each element of the constructor into the corresponding field of
+    // DEST.
+    if (!elt || VEC_empty(constructor_elt, elt)) return 0;  // no elements
+    assert(VEC_length(constructor_elt, elt) == 1
+           && "Union CONSTRUCTOR should have one element!");
+    tree tree_purpose = VEC_index(constructor_elt, elt, 0)->index;
+    tree tree_value   = VEC_index(constructor_elt, elt, 0)->value;
+    if (!tree_purpose)
+      return 0;  // Not actually initialized?
+
+    if (AGGREGATE_TYPE_P(TREE_TYPE(tree_purpose))) {
+      EmitAggregate(tree_value, *DestLoc);
+    } else {
+      // Scalar value.  Evaluate to a register, then do the store.
+      Value *V = EmitGimpleReg(tree_value);
+      Value *Ptr = Builder.CreateBitCast(DestLoc->Ptr,
+                                         PointerType::getUnqual(V->getType()));
+      StoreInst *St = Builder.CreateStore(V, Ptr, DestLoc->Volatile);
+      St->setAlignment(DestLoc->getAlignment());
+    }
+    break;
+  }
+  return 0;
+}
+
 Value *TreeToLLVM::EmitGimpleAssignSingleRHS(tree rhs, const MemRef *DestLoc) {
   assert((AGGREGATE_TYPE_P(TREE_TYPE(rhs)) == (DestLoc != 0)) &&
          "DestLoc for aggregate types only!");
@@ -2373,128 +2577,6 @@ Value *TreeToLLVM::EmitGimpleAssignRHS(gimple stmt, const MemRef *DestLoc) {
   case TRUTH_XOR_EXPR:
     return EmitTruthOp(type, rhs1, rhs2, Instruction::Xor);
   }
-}
-
-/// EmitLoadOfLValue - When an l-value expression is used in a context that
-/// requires an r-value, this method emits the lvalue computation, then loads
-/// the result.
-Value *TreeToLLVM::EmitLoadOfLValue(tree exp, const MemRef *DestLoc) {
-  if (canEmitRegisterVariable(exp))
-    // If this is a register variable, EmitLV can't handle it (there is no
-    // l-value of a register variable).  Emit an inline asm node that copies the
-    // value out of the specified register.
-    return EmitReadOfRegisterVariable(exp, DestLoc);
-
-  LValue LV = EmitLV(exp);
-  bool isVolatile = TREE_THIS_VOLATILE(exp);
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
-  unsigned Alignment = LV.getAlignment();
-  if (TREE_CODE(exp) == COMPONENT_REF)
-    if (const StructType *STy =
-        dyn_cast<StructType>(ConvertType(TREE_TYPE(TREE_OPERAND(exp, 0)))))
-      if (STy->isPacked())
-        // Packed struct members use 1 byte alignment
-        Alignment = 1;
-
-
-  if (!LV.isBitfield()) {
-    if (!DestLoc) {
-      // Scalar value: emit a load.
-      Value *Ptr = Builder.CreateBitCast(LV.Ptr, Ty->getPointerTo());
-      LoadInst *LI = Builder.CreateLoad(Ptr, isVolatile);
-      LI->setAlignment(Alignment);
-      return LI;
-    } else {
-      EmitAggregateCopy(*DestLoc, MemRef(LV.Ptr, Alignment, isVolatile),
-                        TREE_TYPE(exp));
-      return 0;
-    }
-  } else {
-    // This is a bitfield reference.
-    if (!LV.BitSize)
-      return Constant::getNullValue(Ty);
-
-    const Type *ValTy = cast<PointerType>(LV.Ptr->getType())->getElementType();
-    unsigned ValSizeInBits = ValTy->getPrimitiveSizeInBits();
-
-    // The number of loads needed to read the entire bitfield.
-    unsigned Strides = 1 + (LV.BitStart + LV.BitSize - 1) / ValSizeInBits;
-
-    assert(ValTy->isInteger() && "Invalid bitfield lvalue!");
-    assert(ValSizeInBits > LV.BitStart && "Bad bitfield lvalue!");
-    assert(ValSizeInBits >= LV.BitSize && "Bad bitfield lvalue!");
-    assert(2*ValSizeInBits > LV.BitSize+LV.BitStart && "Bad bitfield lvalue!");
-
-    Value *Result = NULL;
-
-    for (unsigned I = 0; I < Strides; I++) {
-      unsigned Index = BYTES_BIG_ENDIAN ? I : Strides - I - 1; // MSB first
-      unsigned ThisFirstBit = Index * ValSizeInBits;
-      unsigned ThisLastBitPlusOne = ThisFirstBit + ValSizeInBits;
-      if (ThisFirstBit < LV.BitStart)
-        ThisFirstBit = LV.BitStart;
-      if (ThisLastBitPlusOne > LV.BitStart+LV.BitSize)
-        ThisLastBitPlusOne = LV.BitStart+LV.BitSize;
-
-      Value *Ptr = Index ?
-        Builder.CreateGEP(LV.Ptr,
-                          ConstantInt::get(Type::getInt32Ty(Context), Index)) :
-        LV.Ptr;
-      LoadInst *LI = Builder.CreateLoad(Ptr, isVolatile);
-      LI->setAlignment(Alignment);
-      Value *Val = LI;
-
-      unsigned BitsInVal = ThisLastBitPlusOne - ThisFirstBit;
-      unsigned FirstBitInVal = ThisFirstBit % ValSizeInBits;
-
-      if (BYTES_BIG_ENDIAN)
-        FirstBitInVal = ValSizeInBits-FirstBitInVal-BitsInVal;
-
-      // Mask the bits out by shifting left first, then shifting right.  The
-      // LLVM optimizer will turn this into an AND if this is an unsigned
-      // expression.
-
-      if (FirstBitInVal+BitsInVal != ValSizeInBits) {
-        Value *ShAmt = ConstantInt::get(ValTy, ValSizeInBits -
-                                        (FirstBitInVal+BitsInVal));
-        Val = Builder.CreateShl(Val, ShAmt);
-      }
-
-      // Shift right required?
-      if (ValSizeInBits != BitsInVal) {
-        bool AddSignBits = !TYPE_UNSIGNED(TREE_TYPE(exp)) && !Result;
-        Value *ShAmt = ConstantInt::get(ValTy, ValSizeInBits-BitsInVal);
-        Val = AddSignBits ?
-          Builder.CreateAShr(Val, ShAmt) : Builder.CreateLShr(Val, ShAmt);
-      }
-
-      if (Result) {
-        Value *ShAmt = ConstantInt::get(ValTy, BitsInVal);
-        Result = Builder.CreateShl(Result, ShAmt);
-        Result = Builder.CreateOr(Result, Val);
-      } else {
-        Result = Val;
-      }
-    }
-
-    return Builder.CreateIntCast(Result, Ty,
-                                 /*isSigned*/!TYPE_UNSIGNED(TREE_TYPE(exp)));
-  }
-}
-
-Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
-  LValue LV = EmitLV(TREE_OPERAND(exp, 0));
-  assert((!LV.isBitfield() || LV.BitStart == 0) &&
-         "It is illegal to take the address of a bitfield!");
-  // Perform a cast here if necessary.  For example, GCC sometimes forms an
-  // ADDR_EXPR where the operand is an array, and the ADDR_EXPR type is a
-  // pointer to the first element.
-  return Builder.CreateBitCast(LV.Ptr, ConvertType(TREE_TYPE(exp)));
-}
-
-Value *TreeToLLVM::EmitOBJ_TYPE_REF(tree exp) {
-  return Builder.CreateBitCast(EmitGimpleReg(OBJ_TYPE_REF_EXPR(exp)),
-                               ConvertType(TREE_TYPE(exp)));
 }
 
 Value *TreeToLLVM::EmitGimpleCallRHS(gimple stmt, const MemRef *DestLoc) {
@@ -6912,88 +6994,6 @@ void TreeToLLVM::RenderGIMPLE_SWITCH(gimple stmt) {
 //===----------------------------------------------------------------------===//
 //                       ... Constant Expressions ...
 //===----------------------------------------------------------------------===//
-
-/// EmitCONSTRUCTOR - emit the constructor into the location specified by
-/// DestLoc.
-Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
-  tree type = TREE_TYPE(exp);
-  const Type *Ty = ConvertType(type);
-  if (const VectorType *VTy = dyn_cast<VectorType>(Ty)) {
-    assert(DestLoc == 0 && "Dest location for vector value?");
-    std::vector<Value *> BuildVecOps;
-    BuildVecOps.reserve(VTy->getNumElements());
-
-    // Insert all of the elements here.
-    unsigned HOST_WIDE_INT idx;
-    tree value;
-    FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, value) {
-      Value *Elt = EmitGimpleReg(value);
-
-      if (const VectorType *EltTy = dyn_cast<VectorType>(Elt->getType())) {
-        // GCC allows vectors to be built up from vectors.  Extract all of the
-        // vector elements and add them to the list of build vector operands.
-        for (unsigned i = 0, e = EltTy->getNumElements(); i != e; ++i) {
-          Value *Index = ConstantInt::get(llvm::Type::getInt32Ty(Context), i);
-          BuildVecOps.push_back(Builder.CreateExtractElement(Elt, Index));
-        }
-      } else {
-        assert(Elt->getType() == VTy->getElementType() &&
-               "Unexpected type for vector constructor!");
-        BuildVecOps.push_back(Elt);
-      }
-    }
-
-    // Insert zero for any unspecified values.
-    while (BuildVecOps.size() < VTy->getNumElements())
-      BuildVecOps.push_back(Constant::getNullValue(VTy->getElementType()));
-    assert(BuildVecOps.size() == VTy->getNumElements() &&
-           "Vector constructor specified too many values!");
-
-    return BuildVector(BuildVecOps);
-  }
-
-  assert(AGGREGATE_TYPE_P(type) && "Constructor for scalar type??");
-
-  // Start out with the value zero'd out.
-  EmitAggregateZero(*DestLoc, type);
-
-  VEC(constructor_elt, gc) *elt = CONSTRUCTOR_ELTS(exp);
-  switch (TREE_CODE(TREE_TYPE(exp))) {
-  case ARRAY_TYPE:
-  case RECORD_TYPE:
-  default:
-    if (elt && VEC_length(constructor_elt, elt)) {
-      // We don't handle elements yet.
-
-      TODO(exp);
-    }
-    return 0;
-  case QUAL_UNION_TYPE:
-  case UNION_TYPE:
-    // Store each element of the constructor into the corresponding field of
-    // DEST.
-    if (!elt || VEC_empty(constructor_elt, elt)) return 0;  // no elements
-    assert(VEC_length(constructor_elt, elt) == 1
-           && "Union CONSTRUCTOR should have one element!");
-    tree tree_purpose = VEC_index(constructor_elt, elt, 0)->index;
-    tree tree_value   = VEC_index(constructor_elt, elt, 0)->value;
-    if (!tree_purpose)
-      return 0;  // Not actually initialized?
-
-    if (AGGREGATE_TYPE_P(TREE_TYPE(tree_purpose))) {
-      EmitAggregate(tree_value, *DestLoc);
-    } else {
-      // Scalar value.  Evaluate to a register, then do the store.
-      Value *V = EmitGimpleReg(tree_value);
-      Value *Ptr = Builder.CreateBitCast(DestLoc->Ptr,
-                                         PointerType::getUnqual(V->getType()));
-      StoreInst *St = Builder.CreateStore(V, Ptr, DestLoc->Volatile);
-      St->setAlignment(DestLoc->getAlignment());
-    }
-    break;
-  }
-  return 0;
-}
 
 Constant *TreeConstantToLLVM::Convert(tree exp) {
   assert((TREE_CONSTANT(exp) || TREE_CODE(exp) == STRING_CST) &&
