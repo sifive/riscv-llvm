@@ -4288,7 +4288,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_CONSTANT_P:     return EmitBuiltinConstantP(stmt, Result);
   case BUILT_IN_ALLOCA:         return EmitBuiltinAlloca(stmt, Result);
   case BUILT_IN_EXTEND_POINTER: return EmitBuiltinExtendPointer(stmt, Result);
-  case BUILT_IN_EXPECT:         return EmitBuiltinExpect(stmt, DestLoc, Result);
+  case BUILT_IN_EXPECT:         return EmitBuiltinExpect(stmt, Result);
   case BUILT_IN_MEMCPY:         return EmitBuiltinMemCopy(stmt, Result,
                                                           false, false);
   case BUILT_IN_MEMCPY_CHK:     return EmitBuiltinMemCopy(stmt, Result,
@@ -5503,13 +5503,12 @@ bool TreeToLLVM::EmitBuiltinAlloca(gimple stmt, Value *&Result) {
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinExpect(gimple stmt, const MemRef *DestLoc,
-                                   Value *&Result) {
+bool TreeToLLVM::EmitBuiltinExpect(gimple stmt, Value *&Result) {
   // Ignore the hint for now, just expand the expr.  This is safe, but not
   // optimal.
-  if (gimple_call_num_args(stmt) < 2)
-    return true;
-  Result = Emit(gimple_call_arg(stmt, 0), DestLoc);
+  Result = gimple_call_num_args(stmt) < 2 ?
+    Constant::getNullValue(ConvertType(gimple_call_return_type(stmt))) :
+    EmitGimpleReg(gimple_call_arg(stmt, 0));
   return true;
 }
 

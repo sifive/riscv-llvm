@@ -689,7 +689,7 @@ private:
 
   bool EmitBuiltinConstantP(gimple stmt, Value *&Result);
   bool EmitBuiltinAlloca(gimple stmt, Value *&Result);
-  bool EmitBuiltinExpect(gimple stmt, const MemRef *DestLoc, Value *&Result);
+  bool EmitBuiltinExpect(gimple stmt, Value *&Result);
   bool EmitBuiltinExtendPointer(gimple stmt, Value *&Result);
   bool EmitBuiltinVAStart(gimple stmt);
   bool EmitBuiltinVAEnd(gimple stmt);
