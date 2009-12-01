@@ -2283,8 +2283,6 @@ Value *TreeToLLVM::EmitGimpleAssignRHS(gimple stmt, const MemRef *DestLoc) {
     return EmitCONVERT_EXPR(type, rhs1);
   case NEGATE_EXPR:
     return EmitNEGATE_EXPR(rhs1);
-  case NON_LVALUE_EXPR:
-    return Emit(rhs1, DestLoc);
   case NOP_EXPR:
     return EmitNOP_EXPR(type, rhs1, DestLoc);
   case PAREN_EXPR:
