@@ -6965,7 +6965,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
     return BuildVector(BuildVecOps);
   }
 
-  assert(!Ty->isSingleValueType() && "Constructor for scalar type??");
+  assert(AGGREGATE_TYPE_P(type) && "Constructor for scalar type??");
 
   // Start out with the value zero'd out.
   EmitAggregateZero(*DestLoc, type);
@@ -6993,7 +6993,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
     if (!tree_purpose)
       return 0;  // Not actually initialized?
 
-    if (!ConvertType(TREE_TYPE(tree_purpose))->isSingleValueType()) {
+    if (AGGREGATE_TYPE_P(TREE_TYPE(tree_purpose))) {
       Value *V = Emit(tree_value, DestLoc);
       (void)V;
       assert(V == 0 && "Aggregate value returned in a register?");

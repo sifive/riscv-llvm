@@ -1267,7 +1267,6 @@ void emit_global_to_llvm(tree decl) {
 /// false.
 bool ValidateRegisterVariable(tree decl) {
   int RegNumber = decode_reg_name(extractRegisterName(decl));
-  const Type *Ty = ConvertType(TREE_TYPE(decl));
 
   if (errorcount || sorrycount)
     return true;  // Do not process broken code.
@@ -1286,7 +1285,7 @@ bool ValidateRegisterVariable(tree decl) {
 #endif
   else if (DECL_INITIAL(decl) != 0 && TREE_STATIC(decl))
     error("global register variable has initial value");
-  else if (!Ty->isSingleValueType())
+  else if (AGGREGATE_TYPE_P(TREE_TYPE(decl)))
     sorry("%JLLVM cannot handle register variable %qD, report a bug",
           decl, decl);
   else {
