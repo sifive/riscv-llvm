@@ -626,6 +626,7 @@ private:
   // characteristics.
 
   // Expressions.
+  Value *EmitGimpleAssignSingleRHS(tree_node *rhs, const MemRef *DestLoc);
   Value *EmitGimpleAssignRHS(gimple stmt, const MemRef *DestLoc);
   Value *EmitGimpleCallRHS(gimple stmt, const MemRef *DestLoc);
   Value *EmitLoadOfLValue(tree_node *exp, const MemRef *DestLoc);

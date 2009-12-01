@@ -2256,9 +2256,63 @@ Constant *TreeToLLVM::EmitGimpleConstant(tree reg) {
   return C;
 }
 
+Value *TreeToLLVM::EmitGimpleAssignSingleRHS(tree rhs, const MemRef *DestLoc) {
+  assert((AGGREGATE_TYPE_P(TREE_TYPE(rhs)) == (DestLoc != 0)) &&
+         "DestLoc for aggregate types only!");
+
+  Value *Result = 0;
+
+  switch (TREE_CODE(rhs)) {
+  default: Result = EmitGimpleReg(rhs); break;
+
+  // Exception handling.
+//FIXME  case EXC_PTR_EXPR:   Result = EmitEXC_PTR_EXPR(rhs); break;
+//FIXME  case FILTER_EXPR:    Result = EmitFILTER_EXPR(rhs); break;
+
+  // References (tcc_reference).
+  case ARRAY_REF:
+  case ARRAY_RANGE_REF:
+  case BIT_FIELD_REF:
+  case COMPONENT_REF:
+  case IMAGPART_EXPR:
+  case INDIRECT_REF:
+  case REALPART_EXPR:
+  case VIEW_CONVERT_EXPR:
+    Result = EmitLoadOfLValue(rhs, DestLoc);
+    break;
+
+  // Declarations (tcc_declaration).
+  case PARM_DECL:
+  case RESULT_DECL:
+  case VAR_DECL:
+    Result = EmitLoadOfLValue(rhs, DestLoc);
+    break;
+
+  // Constants (tcc_constant).
+  case STRING_CST:
+    Result = EmitLoadOfLValue(rhs, DestLoc);
+    break;
+
+  // Expressions (tcc_expression).
+  case ADDR_EXPR:    Result = EmitADDR_EXPR(rhs); break;
+  case OBJ_TYPE_REF: Result = EmitOBJ_TYPE_REF(rhs); break;
+
+  // Exceptional (tcc_exceptional).
+  case CONSTRUCTOR: Result = EmitCONSTRUCTOR(rhs, DestLoc); break;
+  }
+
+  assert(((DestLoc && Result == 0) || DestLoc == 0) &&
+         "Expected a scalar or aggregate but got the wrong thing!");
+
+  // Check that the type of the result matches that of the tree node.
+  assert((Result == 0 || Result->getType() == ConvertType(TREE_TYPE(rhs))) &&
+          "Value has wrong type!");
+  return Result;
+}
+
 Value *TreeToLLVM::EmitGimpleAssignRHS(gimple stmt, const MemRef *DestLoc) {
   if (get_gimple_rhs_class(gimple_expr_code(stmt)) == GIMPLE_SINGLE_RHS)
-    return Emit(gimple_assign_rhs1 (stmt), DestLoc);
+    return EmitGimpleAssignSingleRHS(gimple_assign_rhs1 (stmt), DestLoc);
 
   tree type = TREE_TYPE(gimple_assign_lhs(stmt));
   tree_code code = gimple_assign_rhs_code(stmt);
