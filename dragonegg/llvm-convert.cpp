@@ -1190,7 +1190,7 @@ Value *TreeToLLVM::Emit(tree exp, const MemRef *DestLoc) {
     Result = EmitLoadOfLValue(exp, DestLoc);
     break;
 
-  case REALPART_EXPR: Result = EmitXXXXPART_EXPR(exp, 0); break
+  case REALPART_EXPR: Result = EmitXXXXPART_EXPR(exp, 0); break;
   case IMAGPART_EXPR: Result = EmitXXXXPART_EXPR(exp, 1); break;
 
   // Declarations (tcc_declaration).
