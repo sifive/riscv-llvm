@@ -1172,9 +1172,7 @@ Value *TreeToLLVM::Emit(tree exp, const MemRef *DestLoc) {
   Value *Result = 0;
 
   switch (TREE_CODE(exp)) {
-  default:
-    debug_tree(exp);
-    llvm_unreachable("Unhandled expression!");
+  default: Result = EmitGimpleReg(exp); break;
 
   // Exception handling.
 //FIXME  case EXC_PTR_EXPR:   Result = EmitEXC_PTR_EXPR(exp); break;
@@ -1210,21 +1208,6 @@ Value *TreeToLLVM::Emit(tree exp, const MemRef *DestLoc) {
 
   // Exceptional (tcc_exceptional).
   case CONSTRUCTOR: Result = EmitCONSTRUCTOR(exp, DestLoc); break;
-  case SSA_NAME:    Result = EmitSSA_NAME(exp); break;
-
-  // Constants (tcc_constant).
-  case COMPLEX_CST:
-    Result = TreeConstantToLLVM::ConvertCOMPLEX_CST(exp);
-    break;
-  case INTEGER_CST:
-    Result = TreeConstantToLLVM::ConvertINTEGER_CST(exp);
-    break;
-  case REAL_CST:
-    Result = TreeConstantToLLVM::ConvertREAL_CST(exp);
-    break;
-  case VECTOR_CST:
-    Result = TreeConstantToLLVM::ConvertVECTOR_CST(exp);
-    break;
   }
 
   assert(((DestLoc && Result == 0) || DestLoc == 0) &&
@@ -2238,7 +2221,12 @@ Value *TreeToLLVM::EmitGimpleInvariantAddress(tree addr) {
 
 /// EmitGimpleConstant - Return the LLVM constant for this global constant.
 Constant *TreeToLLVM::EmitGimpleConstant(tree reg) {
-  assert(is_gimple_constant(reg) && "Not a gimple constant!");
+#ifndef NDEBUG
+  if (!is_gimple_constant(reg)) {
+    debug_tree(reg);
+    llvm_unreachable("Not a gimple constant!");
+  }
+#endif
   assert(is_gimple_reg_type(TREE_TYPE(reg)) && "Not of register type!");
 
   Constant *C;
