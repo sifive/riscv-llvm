@@ -525,7 +525,7 @@ private: // Helper functions.
   /// EmitGimpleInvariantAddress - The given address is constant in this
   /// function.  Return the corresponding LLVM value.  Only creates code in
   /// the entry block.
-  Value *EmitGimpleInvariantAddress(tree_node *reg);
+  Value *EmitGimpleInvariantAddress(tree_node *addr);
 
   /// EmitGimpleConstant - Convert the given global constant of register type to
   /// an LLVM constant.  Creates no code, only constants.

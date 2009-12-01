@@ -2196,10 +2196,10 @@ Value *TreeToLLVM::EmitSSA_NAME(tree reg) {
 
 /// EmitGimpleInvariantAddress - The given address is constant in this function.
 /// Return the corresponding LLVM value.  Only creates code in the entry block.
-Value *TreeToLLVM::EmitGimpleInvariantAddress(tree reg) {
-  assert(is_gimple_invariant_address(reg) &&
+Value *TreeToLLVM::EmitGimpleInvariantAddress(tree addr) {
+  assert(is_gimple_invariant_address(addr) &&
          "Expected a locally constant address!");
-  assert(is_gimple_reg_type(TREE_TYPE(reg)) && "Not of register type!");
+  assert(is_gimple_reg_type(TREE_TYPE(addr)) && "Not of register type!");
 
   // Any generated code goes in the entry block.
   BasicBlock *EntryBlock = SSAInsertionPoint->getParent();
@@ -2221,7 +2221,8 @@ Value *TreeToLLVM::EmitGimpleInvariantAddress(tree reg) {
   Builder.SetInsertPoint(EntryBlock);
 
   // Calculate the address.
-  Value *Address = Emit(reg, 0);
+  assert(TREE_CODE(addr) == ADDR_EXPR && "Invariant address not ADDR_EXPR!");
+  Value *Address = EmitADDR_EXPR(addr);
 
   // Restore the entry block terminator.
   if (Terminator)
@@ -2231,7 +2232,7 @@ Value *TreeToLLVM::EmitGimpleInvariantAddress(tree reg) {
   if (SavedInsertBB != EntryBlock)
     Builder.SetInsertPoint(SavedInsertBB, SavedInsertPoint);
 
-  assert(Address->getType() == ConvertType(TREE_TYPE(reg)) &&
+  assert(Address->getType() == ConvertType(TREE_TYPE(addr)) &&
          "Invariant address has wrong type!");
   return Address;
 }
@@ -2495,7 +2496,7 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp, const MemRef *DestLoc) {
 Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
   LValue LV = EmitLV(TREE_OPERAND(exp, 0));
   assert((!LV.isBitfield() || LV.BitStart == 0) &&
-         "It is illegal to take the address of a bitfield");
+         "It is illegal to take the address of a bitfield!");
   // Perform a cast here if necessary.  For example, GCC sometimes forms an
   // ADDR_EXPR where the operand is an array, and the ADDR_EXPR type is a
   // pointer to the first element.
