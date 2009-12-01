@@ -494,6 +494,10 @@ public:
   /// GCC type specified by GCCType to know which elements to copy.
   void EmitAggregateCopy(MemRef DestLoc, MemRef SrcLoc, tree_node *GCCType);
 
+  /// EmitAggregate - Store the specified tree node into the location given by
+  /// DestLoc.
+  void EmitAggregate(tree_node *exp, const MemRef &DestLoc);
+
 private: // Helper functions.
 
   /// StartFunctionBody - Start the emission of 'fndecl', outputing all
@@ -551,12 +555,6 @@ private: // Helper functions.
     return V;
   }
 
-  /// Emit - Convert the specified tree node to LLVM code.  If the node is an
-  /// expression that fits into an LLVM scalar value, the result is returned. If
-  /// the result is an aggregate, it is stored into the location specified by
-  /// DestLoc.
-  Value *Emit(tree_node *exp, const MemRef *DestLoc);
-
   /// EmitBlock - Add the specified basic block to the end of the function.  If
   /// the previous block falls through into it, add an explicit branch.
   void EmitBlock(BasicBlock *BB);
@@ -564,7 +562,7 @@ private: // Helper functions.
   /// EmitAggregateZero - Zero the elements of DestLoc.
   ///
   void EmitAggregateZero(MemRef DestLoc, tree_node *GCCType);
-                         
+
   /// EmitMemCpy/EmitMemMove/EmitMemSet - Emit an llvm.memcpy/llvm.memmove or
   /// llvm.memset call with the specified operands.  Returns DestPtr bitcast
   /// to i8*.
@@ -621,9 +619,6 @@ private:
   /// EmitTypeGcroot - Emits call to make type a gcroot
   void EmitTypeGcroot(Value *V, tree_node *decl);
 private:
-
-  // Emit* - These are delegates from Emit, and have the same parameter
-  // characteristics.
 
   // Expressions.
   Value *EmitGimpleAssignSingleRHS(tree_node *rhs, const MemRef *DestLoc);

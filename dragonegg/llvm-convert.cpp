@@ -1165,64 +1165,14 @@ Function *TreeToLLVM::EmitFunction() {
   return FinishFunctionBody();
 }
 
-Value *TreeToLLVM::Emit(tree exp, const MemRef *DestLoc) {
-  assert((AGGREGATE_TYPE_P(TREE_TYPE(exp)) == (DestLoc != 0)) &&
-         "Didn't pass DestLoc to an aggregate expr, or passed it to scalar!");
-
-  Value *Result = 0;
-
-  switch (TREE_CODE(exp)) {
-  default: Result = EmitGimpleReg(exp); break;
-
-  // Exception handling.
-//FIXME  case EXC_PTR_EXPR:   Result = EmitEXC_PTR_EXPR(exp); break;
-//FIXME  case FILTER_EXPR:    Result = EmitFILTER_EXPR(exp); break;
-
-  // References (tcc_reference).
-  case ARRAY_REF:
-  case ARRAY_RANGE_REF:
-  case BIT_FIELD_REF:
-  case COMPONENT_REF:
-  case IMAGPART_EXPR:
-  case INDIRECT_REF:
-  case REALPART_EXPR:
-  case VIEW_CONVERT_EXPR:
-    Result = EmitLoadOfLValue(exp, DestLoc);
-    break;
-
-  // Declarations (tcc_declaration).
-  case PARM_DECL:
-  case RESULT_DECL:
-  case VAR_DECL:
-    Result = EmitLoadOfLValue(exp, DestLoc);
-    break;
-
-  // Constants (tcc_constant).
-  case STRING_CST:
-    Result = EmitLoadOfLValue(exp, DestLoc);
-    break;
-
-  // Expressions (tcc_expression).
-  case ADDR_EXPR:    Result = EmitADDR_EXPR(exp); break;
-  case OBJ_TYPE_REF: Result = EmitOBJ_TYPE_REF(exp); break;
-
-  // Exceptional (tcc_exceptional).
-  case CONSTRUCTOR: Result = EmitCONSTRUCTOR(exp, DestLoc); break;
-  }
-
-  assert(((DestLoc && Result == 0) || DestLoc == 0) &&
-         "Expected a scalar or aggregate but got the wrong thing!");
-  // Check that the type of the result matches that of the tree node.  If the
-  // result is not used then GCC sometimes sets the tree type to VOID_TYPE, so
-  // don't take VOID_TYPE too seriously here.
-  assert((Result == 0 || VOID_TYPE_P(TREE_TYPE(exp)) ||
-          // FIXME: The vector stuff isn't straight-forward. Sometimes X86 can
-          // pass it back as a scalar value. Disable checking if it's a
-          // vector. This should be made better, though.
-          isa<VectorType>(ConvertType(TREE_TYPE(exp))) ||
-          Result->getType() == ConvertType(TREE_TYPE(exp))) &&
-          "Value has wrong type!");
-  return Result;
+/// EmitAggregate - Store the specified tree node into the location given by
+/// DestLoc.
+void TreeToLLVM::EmitAggregate(tree exp, const MemRef &DestLoc) {
+  assert(AGGREGATE_TYPE_P(TREE_TYPE(exp)) && "Expected an aggregate type!");
+  LValue LV = EmitLV(exp);
+  assert(!LV.isBitfield() && "Bitfields containing aggregates not supported!");
+  EmitAggregateCopy(DestLoc, MemRef(LV.Ptr, LV.getAlignment(),
+                                    TREE_THIS_VOLATILE(exp)), TREE_TYPE(exp));
 }
 
 /// get_constant_alignment - Return the alignment of constant EXP in bits.
@@ -3055,9 +3005,7 @@ Value *TreeToLLVM::EmitNOP_EXPR(tree type, tree op, const MemRef *DestLoc) {
     // Aggregate to aggregate copy.
     MemRef NewLoc = *DestLoc;
     NewLoc.Ptr = Builder.CreateBitCast(DestLoc->Ptr,Ty->getPointerTo());
-    Value *OpVal = Emit(op, &NewLoc);
-    (void)OpVal;
-    assert(OpVal == 0 && "Shouldn't cast scalar to aggregate!");
+    EmitAggregate(op, NewLoc);
     return 0;
   }
 
@@ -4190,7 +4138,7 @@ bool TreeToLLVM::EmitFrontendExpandedBuiltinCall(gimple stmt, tree fndecl,
     tree OpVal = gimple_call_arg(stmt, i);
     if (AGGREGATE_TYPE_P(TREE_TYPE(OpVal))) {
       MemRef OpLoc = CreateTempLoc(ConvertType(TREE_TYPE(OpVal)));
-      Emit(OpVal, &OpLoc);
+      EmitAggregate(OpVal, OpLoc);
       Operands.push_back(Builder.CreateLoad(OpLoc.Ptr));
     } else {
       Operands.push_back(EmitGimpleReg(OpVal));
@@ -6896,7 +6844,7 @@ void TreeToLLVM::RenderGIMPLE_RETURN(gimple stmt) {
     // Store the return value to the function's DECL_RESULT.
     if (AGGREGATE_TYPE_P(TREE_TYPE(result))) {
       MemRef DestLoc(DECL_LOCAL(result), 1, false); // FIXME: What alignment?
-      Emit(retval, &DestLoc);
+      EmitAggregate(retval, DestLoc);
     } else {
       Value *Val = Builder.CreateBitCast(EmitGimpleReg(retval),
                                          ConvertType(TREE_TYPE(result)));
@@ -7046,9 +6994,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
       return 0;  // Not actually initialized?
 
     if (AGGREGATE_TYPE_P(TREE_TYPE(tree_purpose))) {
-      Value *V = Emit(tree_value, DestLoc);
-      (void)V;
-      assert(V == 0 && "Aggregate value returned in a register?");
+      EmitAggregate(tree_value, *DestLoc);
     } else {
       // Scalar value.  Evaluate to a register, then do the store.
       Value *V = EmitGimpleReg(tree_value);
