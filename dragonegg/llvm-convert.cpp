@@ -2224,11 +2224,10 @@ Value *TreeToLLVM::EmitMinInvariant(tree reg) {
 /// EmitRegister - Convert the specified gimple register or local constant of
 /// register type to an LLVM value.  Only creates code in the entry block.
 Value *TreeToLLVM::EmitRegister(tree reg) {
+  while (TREE_CODE(reg) == OBJ_TYPE_REF) reg = OBJ_TYPE_REF_EXPR(reg);
   Value *V = (TREE_CODE(reg) == SSA_NAME) ?
     EmitSSA_NAME(reg) : EmitMinInvariant(reg);
-  assert(V->getType() == ConvertType(TREE_TYPE(reg)) &&
-         "Gimple register has wrong type!");
-  return V;
+  return Builder.CreateBitCast(V, ConvertType(TREE_TYPE(reg)));
 }
 
 /// EmitLoadOfLValue - When an l-value expression is used in a context that
