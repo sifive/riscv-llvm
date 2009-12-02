@@ -812,8 +812,7 @@ void TreeToLLVM::PopulatePhiNodes() {
       // The incoming GCC basic block.
       basic_block bb = gimple_phi_arg_edge(P.gcc_phi, i)->src;
 
-      // If there is no corresponding LLVM basic block then the GCC basic block
-      // was unreachable - skip this phi argument.
+      // The corresponding LLVM basic block.
       DenseMap<basic_block, BasicBlock*>::iterator BI = BasicBlocks.find(bb);
       assert(BI != BasicBlocks.end() && "GCC basic block not output?");
 
@@ -848,6 +847,17 @@ void TreeToLLVM::PopulatePhiNodes() {
     for (pred_iterator PI = pred_begin(PhiBB), PE = pred_end(PhiBB); PI != PE;
          ++PI, ++Index)
       Predecessors.push_back(std::make_pair(*PI, Index));
+
+    if (Predecessors.empty()) {
+      // FIXME: If this happens then GCC has a control flow edge where LLVM has
+      // none - something has gone wrong.  For the moment be laid back about it
+      // because the fact we don't yet wire up exception handling code means it
+      // happens all the time in Ada and C++.
+      P.PHI->replaceAllUsesWith(UndefValue::get(P.PHI->getType()));
+      P.PHI->eraseFromParent();
+      IncomingValues.clear();
+      continue;
+    }
 
     // Sort the predecessors by basic block.  In GCC, each predecessor occurs
     // exactly once.  However in LLVM a predecessor can occur several times,
