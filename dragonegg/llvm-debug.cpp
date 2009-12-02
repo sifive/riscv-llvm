@@ -531,6 +531,8 @@ DIType DebugInfo::createEnumType(tree type) {
   if (TYPE_SIZE(type)) {
     for (tree Link = TYPE_VALUES(type); Link; Link = TREE_CHAIN(Link)) {
       tree EnumValue = TREE_VALUE(Link);
+      if (TREE_CODE(EnumValue) == CONST_DECL)
+        EnumValue = DECL_INITIAL(EnumValue);
       int64_t Value = getINTEGER_CSTVal(EnumValue);
       const char *EnumName = IDENTIFIER_POINTER(TREE_PURPOSE(Link));
       Elements.push_back(DebugFactory.CreateEnumerator(EnumName, Value));
