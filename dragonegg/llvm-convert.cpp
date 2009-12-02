@@ -1169,6 +1169,10 @@ Function *TreeToLLVM::EmitFunction() {
 /// DestLoc.
 void TreeToLLVM::EmitAggregate(tree exp, const MemRef &DestLoc) {
   assert(AGGREGATE_TYPE_P(TREE_TYPE(exp)) && "Expected an aggregate type!");
+  if (TREE_CODE(exp) == CONSTRUCTOR) {
+    EmitCONSTRUCTOR(exp, &DestLoc);
+    return;
+  }
   LValue LV = EmitLV(exp);
   assert(!LV.isBitfield() && "Bitfields containing aggregates not supported!");
   EmitAggregateCopy(DestLoc, MemRef(LV.Ptr, LV.getAlignment(),
@@ -6810,11 +6814,11 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
 void TreeToLLVM::RenderGIMPLE_ASSIGN(gimple stmt) {
   tree lhs = gimple_assign_lhs(stmt);
   if (AGGREGATE_TYPE_P(TREE_TYPE(lhs))) {
+    assert(get_gimple_rhs_class(gimple_expr_code(stmt)) == GIMPLE_SINGLE_RHS &&
+           "Aggregate type but rhs not simple!");
     LValue LV = EmitLV(lhs);
     MemRef NewLoc(LV.Ptr, LV.getAlignment(), TREE_THIS_VOLATILE(lhs));
-    // TODO: This case can presumably only happen with special gimple
-    // assign right-hand-sides.  Try to simplify by exploiting this.
-    EmitGimpleAssignRHS(stmt, &NewLoc);
+    EmitAggregate(gimple_assign_rhs1 (stmt), NewLoc);
     return;
   }
   WriteScalarToLHS(lhs, EmitGimpleAssignRHS(stmt, 0));
