@@ -526,34 +526,21 @@ private: // Helper functions.
   /// Only creates code in the entry block.
   Value *EmitSSA_NAME(tree_node *reg);
 
-  /// EmitGimpleInvariantAddress - The given address is constant in this
-  /// function.  Return the corresponding LLVM value.  Only creates code in
-  /// the entry block.
-  Value *EmitGimpleInvariantAddress(tree_node *addr);
-
-  /// EmitGimpleConstant - Convert the given global constant of register type to
-  /// an LLVM constant.  Creates no code, only constants.
-  Constant *EmitGimpleConstant(tree_node *reg);
-
-  /// EmitGimpleMinInvariant - The given value is constant in this function.
+  /// EmitInvariantAddress - The given address is constant in this function.
   /// Return the corresponding LLVM value. Only creates code in the entry block.
-  Value *EmitGimpleMinInvariant(tree_node *reg) {
-    Value *V = (TREE_CODE(reg) == ADDR_EXPR) ?
-      EmitGimpleInvariantAddress(reg) : EmitGimpleConstant(reg);
-    assert(V->getType() == ConvertType(TREE_TYPE(reg)) &&
-           "Gimple min invariant has wrong type!");
-    return V;
-  }
+  Value *EmitInvariantAddress(tree_node *addr);
 
-  /// EmitGimpleReg - Convert the specified gimple register or local constant of
+  /// EmitRegisterConstant - Convert the given global constant of register type
+  /// to an LLVM constant.  Creates no code, only constants.
+  Constant *EmitRegisterConstant(tree_node *reg);
+
+  /// EmitMinInvariant - The given value is constant in this function.  Return
+  /// the corresponding LLVM value. Only creates code in the entry block.
+  Value *EmitMinInvariant(tree_node *reg);
+
+  /// EmitRegister - Convert the specified gimple register or local constant of
   /// register type to an LLVM value.  Only creates code in the entry block.
-  Value *EmitGimpleReg(tree_node *reg) {
-    Value *V = (TREE_CODE(reg) == SSA_NAME) ?
-      EmitSSA_NAME(reg) : EmitGimpleMinInvariant(reg);
-    assert(V->getType() == ConvertType(TREE_TYPE(reg)) &&
-           "Gimple register has wrong type!");
-    return V;
-  }
+  Value *EmitRegister(tree_node *reg);
 
   /// EmitBlock - Add the specified basic block to the end of the function.  If
   /// the previous block falls through into it, add an explicit branch.
@@ -611,8 +598,6 @@ private:
   ///
   static bool isNoopCast(Value *V, const Type *Ty);
 
-  void HandleMultiplyDefinedGimpleTemporary(tree_node *var);
-  
   /// EmitAnnotateIntrinsic - Emits call to annotate attr intrinsic
   void EmitAnnotateIntrinsic(Value *V, tree_node *decl);
 
