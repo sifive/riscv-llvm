@@ -2213,12 +2213,12 @@ Constant *TreeToLLVM::EmitGimpleConstant(tree reg) {
 /// EmitLoadOfLValue - When an l-value expression is used in a context that
 /// requires an r-value, this method emits the lvalue computation, then loads
 /// the result.
-Value *TreeToLLVM::EmitLoadOfLValue(tree exp, const MemRef *DestLoc) {
+Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
   if (canEmitRegisterVariable(exp))
     // If this is a register variable, EmitLV can't handle it (there is no
     // l-value of a register variable).  Emit an inline asm node that copies the
     // value out of the specified register.
-    return EmitReadOfRegisterVariable(exp, DestLoc);
+    return EmitReadOfRegisterVariable(exp);
 
   LValue LV = EmitLV(exp);
   bool isVolatile = TREE_THIS_VOLATILE(exp);
@@ -2233,17 +2233,11 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp, const MemRef *DestLoc) {
 
 
   if (!LV.isBitfield()) {
-    if (!DestLoc) {
-      // Scalar value: emit a load.
-      Value *Ptr = Builder.CreateBitCast(LV.Ptr, Ty->getPointerTo());
-      LoadInst *LI = Builder.CreateLoad(Ptr, isVolatile);
-      LI->setAlignment(Alignment);
-      return LI;
-    } else {
-      EmitAggregateCopy(*DestLoc, MemRef(LV.Ptr, Alignment, isVolatile),
-                        TREE_TYPE(exp));
-      return 0;
-    }
+    // Scalar value: emit a load.
+    Value *Ptr = Builder.CreateBitCast(LV.Ptr, Ty->getPointerTo());
+    LoadInst *LI = Builder.CreateLoad(Ptr, isVolatile);
+    LI->setAlignment(Alignment);
+    return LI;
   } else {
     // This is a bitfield reference.
     if (!LV.BitSize)
@@ -2414,9 +2408,8 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
   return 0;
 }
 
-Value *TreeToLLVM::EmitGimpleAssignSingleRHS(tree rhs, const MemRef *DestLoc) {
-  assert((AGGREGATE_TYPE_P(TREE_TYPE(rhs)) == (DestLoc != 0)) &&
-         "DestLoc for aggregate types only!");
+Value *TreeToLLVM::EmitGimpleAssignSingleRHS(tree rhs) {
+  assert(!AGGREGATE_TYPE_P(TREE_TYPE(rhs)) && "Expected a scalar type!");
 
   Value *Result = 0;
 
@@ -2436,19 +2429,13 @@ Value *TreeToLLVM::EmitGimpleAssignSingleRHS(tree rhs, const MemRef *DestLoc) {
   case INDIRECT_REF:
   case REALPART_EXPR:
   case VIEW_CONVERT_EXPR:
-    Result = EmitLoadOfLValue(rhs, DestLoc);
-    break;
-
   // Declarations (tcc_declaration).
   case PARM_DECL:
   case RESULT_DECL:
   case VAR_DECL:
-    Result = EmitLoadOfLValue(rhs, DestLoc);
-    break;
-
   // Constants (tcc_constant).
   case STRING_CST:
-    Result = EmitLoadOfLValue(rhs, DestLoc);
+    Result = EmitLoadOfLValue(rhs);
     break;
 
   // Expressions (tcc_expression).
@@ -2456,21 +2443,19 @@ Value *TreeToLLVM::EmitGimpleAssignSingleRHS(tree rhs, const MemRef *DestLoc) {
   case OBJ_TYPE_REF: Result = EmitOBJ_TYPE_REF(rhs); break;
 
   // Exceptional (tcc_exceptional).
-  case CONSTRUCTOR: Result = EmitCONSTRUCTOR(rhs, DestLoc); break;
+  case CONSTRUCTOR: Result = EmitCONSTRUCTOR(rhs, 0); break;
   }
 
-  assert(((DestLoc && Result == 0) || DestLoc == 0) &&
-         "Expected a scalar or aggregate but got the wrong thing!");
-
   // Check that the type of the result matches that of the tree node.
-  assert((Result == 0 || Result->getType() == ConvertType(TREE_TYPE(rhs))) &&
-          "Value has wrong type!");
+  assert(Result && "Expected a scalar, got an aggregate!");
+  assert(Result->getType() == ConvertType(TREE_TYPE(rhs)) &&
+         "Value has wrong type!");
   return Result;
 }
 
-Value *TreeToLLVM::EmitGimpleAssignRHS(gimple stmt, const MemRef *DestLoc) {
+Value *TreeToLLVM::EmitGimpleAssignRHS(gimple stmt) {
   if (get_gimple_rhs_class(gimple_expr_code(stmt)) == GIMPLE_SINGLE_RHS)
-    return EmitGimpleAssignSingleRHS(gimple_assign_rhs1 (stmt), DestLoc);
+    return EmitGimpleAssignSingleRHS(gimple_assign_rhs1 (stmt));
 
   tree type = TREE_TYPE(gimple_assign_lhs(stmt));
   tree_code code = gimple_assign_rhs_code(stmt);
@@ -2496,7 +2481,7 @@ Value *TreeToLLVM::EmitGimpleAssignRHS(gimple stmt, const MemRef *DestLoc) {
   case NEGATE_EXPR:
     return EmitNEGATE_EXPR(rhs1);
   case NOP_EXPR:
-    return EmitNOP_EXPR(type, rhs1, DestLoc);
+    return EmitNOP_EXPR(type, rhs1);
   case PAREN_EXPR:
     return EmitPAREN_EXPR(rhs1);
   case TRUTH_NOT_EXPR:
@@ -3078,30 +3063,13 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   return 0;
 }
 
-Value *TreeToLLVM::EmitNOP_EXPR(tree type, tree op, const MemRef *DestLoc) {
+Value *TreeToLLVM::EmitNOP_EXPR(tree type, tree op) {
   const Type *Ty = ConvertType(type);
   bool OpIsSigned = !TYPE_UNSIGNED(TREE_TYPE(op));
   bool ExpIsSigned = !TYPE_UNSIGNED(type);
-  if (DestLoc == 0) {
-    // Scalar to scalar copy.
-    assert(!AGGREGATE_TYPE_P(TREE_TYPE(op))
-	   && "Aggregate to scalar nop_expr!");
-    return CastToAnyType(EmitGimpleReg(op), OpIsSigned, Ty, ExpIsSigned);
-  } else if (AGGREGATE_TYPE_P(TREE_TYPE(op))) {
-    // Aggregate to aggregate copy.
-    MemRef NewLoc = *DestLoc;
-    NewLoc.Ptr = Builder.CreateBitCast(DestLoc->Ptr,Ty->getPointerTo());
-    EmitAggregate(op, NewLoc);
-    return 0;
-  }
-
-  // Scalar to aggregate copy.
-  Value *OpVal = EmitGimpleReg(op);
-  Value *Ptr = Builder.CreateBitCast(DestLoc->Ptr,
-                                     PointerType::getUnqual(OpVal->getType()));
-  StoreInst *St = Builder.CreateStore(OpVal, Ptr, DestLoc->Volatile);
-  St->setAlignment(DestLoc->getAlignment());
-  return 0;
+  // Scalar to scalar copy.
+  assert(!AGGREGATE_TYPE_P(TREE_TYPE(op)) && "Aggregate to scalar nop_expr!");
+  return CastToAnyType(EmitGimpleReg(op), OpIsSigned, Ty, ExpIsSigned);
 }
 
 Value *TreeToLLVM::EmitCONVERT_EXPR(tree type, tree op) {
@@ -3699,16 +3667,12 @@ abort();
 
 /// Reads from register variables are handled by emitting an inline asm node
 /// that copies the value out of the specified register.
-Value *TreeToLLVM::EmitReadOfRegisterVariable(tree decl,
-                                              const MemRef *DestLoc) {
+Value *TreeToLLVM::EmitReadOfRegisterVariable(tree decl) {
   const Type *Ty = ConvertType(TREE_TYPE(decl));
 
   // If there was an error, return something bogus.
-  if (ValidateRegisterVariable(decl)) {
-    if (Ty->isSingleValueType())
-      return UndefValue::get(Ty);
-    return 0;   // Just don't copy something into DestLoc.
-  }
+  if (ValidateRegisterVariable(decl))
+    return UndefValue::get(Ty);
 
   // Turn this into a 'tmp = call Ty asm "", "={reg}"()'.
   FunctionType *FTy = FunctionType::get(Ty, std::vector<const Type*>(),false);
@@ -6821,7 +6785,7 @@ void TreeToLLVM::RenderGIMPLE_ASSIGN(gimple stmt) {
     EmitAggregate(gimple_assign_rhs1 (stmt), NewLoc);
     return;
   }
-  WriteScalarToLHS(lhs, EmitGimpleAssignRHS(stmt, 0));
+  WriteScalarToLHS(lhs, EmitGimpleAssignRHS(stmt));
 }
 
 void TreeToLLVM::RenderGIMPLE_CALL(gimple stmt) {

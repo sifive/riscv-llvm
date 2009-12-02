@@ -621,16 +621,15 @@ private:
 private:
 
   // Expressions.
-  Value *EmitGimpleAssignSingleRHS(tree_node *rhs, const MemRef *DestLoc);
-  Value *EmitGimpleAssignRHS(gimple stmt, const MemRef *DestLoc);
+  Value *EmitGimpleAssignSingleRHS(tree_node *rhs);
+  Value *EmitGimpleAssignRHS(gimple stmt);
   Value *EmitGimpleCallRHS(gimple stmt, const MemRef *DestLoc);
-  Value *EmitLoadOfLValue(tree_node *exp, const MemRef *DestLoc);
-  Value *EmitOBJ_TYPE_REF(tree_node *exp, const MemRef *DestLoc);
+  Value *EmitLoadOfLValue(tree_node *exp);
   Value *EmitADDR_EXPR(tree_node *exp);
   Value *EmitOBJ_TYPE_REF(tree_node *exp);
   Value *EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
                     const AttrListPtr &PAL);
-  Value *EmitNOP_EXPR(tree_node *type, tree_node *op, const MemRef *DestLoc);
+  Value *EmitNOP_EXPR(tree_node *type, tree_node *op);
   Value *EmitCONVERT_EXPR(tree_node *type, tree_node *op);
   Value *EmitNEGATE_EXPR(tree_node *op);
   Value *EmitCONJ_EXPR(tree_node *op);
@@ -661,7 +660,7 @@ private:
   Value *EmitFILTER_EXPR(tree_node *exp);
 
   // Inline Assembly and Register Variables.
-  Value *EmitReadOfRegisterVariable(tree_node *vardecl, const MemRef *DestLoc);
+  Value *EmitReadOfRegisterVariable(tree_node *vardecl);
   void EmitModifyOfRegisterVariable(tree_node *vardecl, Value *RHS);
 
   // Helpers for Builtin Function Expansion.
