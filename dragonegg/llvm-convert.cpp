@@ -2148,7 +2148,7 @@ Value *TreeToLLVM::EmitInvariantAddress(tree addr) {
   assert(is_gimple_reg_type(TREE_TYPE(addr)) && "Not of register type!");
 
   // Any generated code goes in the entry block.
-  BasicBlock *EntryBlock = SSAInsertionPoint->getParent();
+  BasicBlock *EntryBlock = Fn->begin();
 
   // Note the current builder position.
   BasicBlock *SavedInsertBB = Builder.GetInsertBlock();
