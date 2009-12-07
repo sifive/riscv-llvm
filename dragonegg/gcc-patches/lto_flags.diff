@@ -1,0 +1,75 @@
+Index: mainline/gcc/cgraphunit.c
+===================================================================
+--- mainline.orig/gcc/cgraphunit.c	2009-12-05 13:39:51.034414478 +0100
++++ mainline/gcc/cgraphunit.c	2009-12-05 13:44:22.576904063 +0100
+@@ -358,8 +358,7 @@
+ 	    && !DECL_DECLARED_INLINE_P (decl)
+ 	    && !node->origin))
+        && !flag_whole_program
+-       && !flag_lto
+-       && !flag_whopr)
++       && !flag_generate_lto)
+       && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
+     return true;
+ 
+Index: mainline/gcc/ipa-cp.c
+===================================================================
+--- mainline.orig/gcc/ipa-cp.c	2009-12-05 13:39:51.074413887 +0100
++++ mainline/gcc/ipa-cp.c	2009-12-05 13:44:22.576904063 +0100
+@@ -628,7 +628,7 @@
+ 	{
+ 	  /* We do not need to bother analyzing calls to unknown
+ 	     functions unless they may become known during lto/whopr.  */
+-	  if (!cs->callee->analyzed && !flag_lto && !flag_whopr)
++	  if (!cs->callee->analyzed && !flag_generate_lto)
+ 	    continue;
+ 	  ipa_count_arguments (cs);
+ 	  if (ipa_get_cs_argument_count (IPA_EDGE_REF (cs))
+Index: mainline/gcc/ipa.c
+===================================================================
+--- mainline.orig/gcc/ipa.c	2009-12-05 13:39:51.094413696 +0100
++++ mainline/gcc/ipa.c	2009-12-05 13:44:22.576904063 +0100
+@@ -27,6 +27,7 @@
+ #include "timevar.h"
+ #include "gimple.h"
+ #include "ggc.h"
++#include "flags.h"
+ 
+ /* Fill array order with all nodes with output flag set in the reverse
+    topological order.  */
+@@ -401,7 +402,7 @@
+ static unsigned int
+ local_function_and_variable_visibility (void)
+ {
+-  return function_and_variable_visibility (flag_whole_program && !flag_lto && !flag_whopr);
++  return function_and_variable_visibility (flag_whole_program && !flag_generate_lto);
+ }
+ 
+ struct simple_ipa_opt_pass pass_ipa_function_and_variable_visibility =
+Index: mainline/gcc/varpool.c
+===================================================================
+--- mainline.orig/gcc/varpool.c	2009-12-05 13:39:51.044386864 +0100
++++ mainline/gcc/varpool.c	2009-12-05 13:44:22.576904063 +0100
+@@ -244,8 +244,7 @@
+      COMDAT variables that must be output only when they are needed.  */
+   if (TREE_PUBLIC (decl)
+       && !flag_whole_program
+-      && !flag_lto
+-      && !flag_whopr
++      && !flag_generate_lto
+       && !DECL_COMDAT (decl)
+       && !DECL_EXTERNAL (decl))
+     return true;
+Index: mainline/gcc/fortran/options.c
+===================================================================
+--- mainline.orig/gcc/fortran/options.c	2009-12-05 13:39:51.064386464 +0100
++++ mainline/gcc/fortran/options.c	2009-12-05 13:44:22.576904063 +0100
+@@ -243,7 +243,7 @@
+     gfc_option.flag_whole_file = 1;
+ 
+   /* Enable whole-file mode if LTO is in effect.  */
+-  if (flag_lto || flag_whopr)
++  if (flag_generate_lto)
+     gfc_option.flag_whole_file = 1;
+ 
+   /* -fbounds-check is equivalent to -fcheck=bounds */
