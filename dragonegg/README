@@ -74,9 +74,6 @@ If you renamed dragonegg.so to something else, for example llvm.so, replace
 -fno-ident
   If the ident global asm in the LLVM IR annoys you, use this to turn it off.
 
--fdump-rtl-all
-  In the dump file, each function is output both as gimple and as LLVM IR.
-
 -fplugin-arg-dragonegg-disable-llvm-optzns
   Do not perform any LLVM IR optimizations even if compiling at -O1, -O2 etc.
 

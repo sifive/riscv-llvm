@@ -832,59 +832,10 @@ static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
 }
 
 /// emit_alias_to_llvm - Given decl and target emit alias to target.
-void emit_alias_to_llvm(tree decl, tree target, tree target_decl) {
-  if (errorcount || sorrycount) {
-    TREE_ASM_WRITTEN(decl) = 1;
-    return;  // Do not process broken code.
-  }
-
-//TODO  timevar_push(TV_LLVM_GLOBALS);
-
+void emit_alias_to_llvm(tree decl, tree target) {
   // Get or create LLVM global for our alias.
   GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
-  
-  GlobalValue *Aliasee = NULL;
-  
-  if (target_decl)
-    Aliasee = cast<GlobalValue>(DECL_LLVM(target_decl));
-  else {
-    // This is something insane. Probably only LTHUNKs can be here
-    // Try to grab decl from IDENTIFIER_NODE
-
-    // Query SymTab for aliasee
-    const char* AliaseeName = IDENTIFIER_POINTER(target);
-    Aliasee =
-      dyn_cast_or_null<GlobalValue>(TheModule->
-                                    getValueSymbolTable().lookup(AliaseeName));
-
-    // Last resort. Query for name set via __asm__
-    if (!Aliasee) {
-      std::string starred = std::string("\001") + AliaseeName;
-      Aliasee =
-        dyn_cast_or_null<GlobalValue>(TheModule->
-                                      getValueSymbolTable().lookup(starred));
-    }
-    
-    if (!Aliasee) {
-      if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl))) {
-        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-          Aliasee = new GlobalVariable(*TheModule, GV->getType(),
-                                       GV->isConstant(),
-                                       GlobalVariable::ExternalWeakLinkage,
-                                       NULL, AliaseeName);
-        else if (Function *F = dyn_cast<Function>(V))
-          Aliasee = Function::Create(F->getFunctionType(),
-                                     Function::ExternalWeakLinkage,
-                                     AliaseeName, TheModule);
-        else
-          assert(0 && "Unsuported global value");
-      } else {
-        error ("%J%qD aliased to undefined symbol %qs", decl, decl, AliaseeName);
-//TODO        timevar_pop(TV_LLVM_GLOBALS);
-        return;
-      }
-    }
-  }
+  GlobalValue *Aliasee = cast<GlobalValue>(DECL_LLVM(target));
 
   GlobalValue::LinkageTypes Linkage;
 
@@ -910,10 +861,9 @@ void emit_alias_to_llvm(tree decl, tree target, tree target_decl) {
     V->replaceAllUsesWith(ConstantExpr::getBitCast(GA, V->getType()));
   else if (!V->use_empty()) {
     error ("%J Alias %qD used with invalid type!", decl, decl);
-//TODO    timevar_pop(TV_LLVM_GLOBALS);
     return;
   }
-    
+
   changeLLVMConstant(V, GA);
   GA->takeName(V);
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
@@ -925,9 +875,9 @@ void emit_alias_to_llvm(tree decl, tree target, tree target_decl) {
   else
     assert(0 && "Unsuported global value");
 
+  // Mark the alias as written so gcc doesn't waste time outputting it.
   TREE_ASM_WRITTEN(decl) = 1;
-  
-//TODO  timevar_pop(TV_LLVM_GLOBALS);
+
   return;
 }
 
@@ -1079,11 +1029,6 @@ void reset_type_and_initializer_llvm(tree decl) {
 /// LLVM as a global variable.  This function implements the end of
 /// assemble_variable.
 void emit_global_to_llvm(tree decl) {
-  if (errorcount || sorrycount) {
-    TREE_ASM_WRITTEN(decl) = 1;
-    return;  // Do not process broken code.
-  }
-
   // FIXME: Support alignment on globals: DECL_ALIGN.
   // FIXME: DECL_PRESERVE_P indicates the var is marked with attribute 'used'.
 
@@ -1257,7 +1202,9 @@ void emit_global_to_llvm(tree decl) {
   if (TheDebugInfo)
     TheDebugInfo->EmitGlobalVariable(GV, decl);
 
+  // Mark the global as written so gcc doesn't waste time outputting it.
   TREE_ASM_WRITTEN(decl) = 1;
+
 //TODO  timevar_pop(TV_LLVM_GLOBALS);
 }
 
@@ -1679,7 +1626,10 @@ static void llvm_start_unit(void *gcc_data, void *user_data) {
 #ifdef ENABLE_LTO
   // Output LLVM IR if the user requested generation of lto data.
   EmitIR |= flag_generate_lto != 0;
-  flag_generate_lto = 0;
+  // We have the same needs as GCC's LTO.  Always claim to be doing LTO.
+  flag_generate_lto = 1;
+#else
+  error ("GCC LTO support required but not enabled");
 #endif
 }
 
@@ -1690,68 +1640,20 @@ static bool gate_emission(void) {
   return !errorcount && !sorrycount;
 }
 
+/// emit_function - Turn a gimple function into LLVM IR.  This is called once
+/// for each function in the compilation unit.
+static void emit_function(struct cgraph_node *node) {
+  tree function = node->decl;
+  struct function *fn = DECL_STRUCT_FUNCTION(function);
+  if (!quiet_flag && DECL_NAME(function))
+    errs() << IDENTIFIER_POINTER(DECL_NAME(function));
 
-/// emit_variables - Output GCC global variables to the LLVM IR.
-static unsigned int emit_variables(void) {
-  LazilyInitializeModule();
-
-  // Output all externally visible global variables, whether they are used in
-  // this compilation unit or not.  Global variables that are not externally
-  // visible will be output when their user is, or discarded if unused.
-  struct varpool_node *vnode;
-  FOR_EACH_STATIC_VARIABLE (vnode) {
-    if (TREE_PUBLIC(vnode->decl))
-      // An externally visible global variable - output it.
-      emit_global_to_llvm(vnode->decl);
-
-    // Mark all variables as written so gcc doesn't waste time outputting them.
-    TREE_ASM_WRITTEN(vnode->decl) = 1;
-  }
-
-  return 0;
-}
-
-/// pass_emit_variables - IPA pass that turns GCC variables into LLVM IR.
-static struct simple_ipa_opt_pass pass_emit_variables =
-{
-    {
-      SIMPLE_IPA_PASS,
-      "emit_variables",	/* name */
-      gate_emission,	/* gate */
-      emit_variables,	/* execute */
-      NULL,		/* sub */
-      NULL,		/* next */
-      0,		/* static_pass_number */
-      TV_NONE,		/* tv_id */
-      0,		/* properties_required */
-      0,		/* properties_provided */
-      0,		/* properties_destroyed */
-      0,            	/* todo_flags_start */
-      0			/* todo_flags_finish */
-    }
-};
-
-
-/// emit_function - Turn a gimple function into LLVM IR.  This is called by
-/// GCC once for each function in the compilation unit.
-static unsigned int emit_function (void) {
-  LazilyInitializeModule();
-
-//TODO Don't want to use sorry at this stage...
-//TODO  if (cfun->nonlocal_goto_save_area)
-//TODO    sorry("%Jnon-local gotos not supported by LLVM", fndecl);
-
-//TODO Do we want to do this?  Will the warning set sorry_count etc?
-//TODO    enum symbol_visibility vis = DECL_VISIBILITY (current_function_decl);
-//TODO
-//TODO    if (vis != VISIBILITY_DEFAULT)
-//TODO      // "asm_out.visibility" emits an important warning if we're using a
-//TODO      // visibility that's not supported by the target.
-//TODO      targetm.asm_out.visibility(current_function_decl, vis);
-
-  // There's no need to defer outputting this function any more; we
-  // know we want to output it.
-  DECL_DEFER_OUTPUT(current_function_decl) = 0;
+  // Set the current function to this one.
+  // TODO: Make it so we don't need to do this.
+  assert(current_function_decl == NULL_TREE && cfun == NULL &&
+         "Current function already set!");
+  current_function_decl = function;
+  push_cfun (fn);
 
   // Convert the AST to raw/ugly LLVM code.
   Function *Fn;
@@ -1760,10 +1662,7 @@ static unsigned int emit_function (void) {
     Fn = Emitter.EmitFunction();
   }
 
-  // Free any data structures.
-  execute_free_datastructures();
-
-//TODO  performLateBackendInitialization();
+  // TODO  performLateBackendInitialization();
   createPerFunctionOptimizationPasses();
 
   if (PerFunctionPasses)
@@ -1772,37 +1671,141 @@ static unsigned int emit_function (void) {
   // TODO: Nuke the .ll code for the function at -O[01] if we don't want to
   // inline it or something else.
 
-  // Finally, we have written out this function!
-  TREE_ASM_WRITTEN(current_function_decl) = 1;
+  // Done with this function.
+  current_function_decl = NULL;
+  pop_cfun ();
+}
 
-  // When debugging, append the LLVM IR to the dump file.
-  if (dump_file) {
-    raw_fd_ostream dump_stream(fileno(dump_file), false);
-    Fn->print(dump_stream);
+/// emit_same_body_alias - Turn a same-body alias or thunk into LLVM IR.  Here
+/// alias is a function which has the some body as node.
+static void emit_same_body_alias(struct cgraph_node *alias,
+                                 struct cgraph_node *node) {
+  // TODO: The cgraph node contains all kinds of interesting information about
+  // linkage and visibility - should maybe make use of it?
+  emit_alias_to_llvm(alias->decl, node->decl);
+}
+
+/// emit_functions - Turn all functions in the compilation unit into LLVM IR.
+static void emit_functions(cgraph_node_set set) {
+  LazilyInitializeModule();
+
+  // Visit each function with a body, outputting it only once (the same function
+  // can appear in multiple cgraph nodes due to cloning).
+  SmallPtrSet<tree, 32> Visited;
+  for (cgraph_node_set_iterator csi = csi_start(set); !csi_end_p(csi);
+       csi_next(&csi)) {
+    struct cgraph_node *node = csi_node(csi);
+    if (node->analyzed && Visited.insert(node->decl))
+      emit_function(node);
+    // Output any same-body aliases or thunks.
+    for (struct cgraph_node *alias = node->same_body; alias;
+         alias = alias->next)
+      emit_same_body_alias(alias, node);
+  }
+}
+
+/// pass_emit_functions - IPA pass that turns gimple functions into LLVM IR.
+static struct ipa_opt_pass_d pass_emit_functions = {
+    {
+      IPA_PASS,
+      "emit_functions",	/* name */
+      gate_emission,	/* gate */
+      NULL,		/* execute */
+      NULL,		/* sub */
+      NULL,		/* next */
+      0,		/* static_pass_number */
+      TV_NONE,		/* tv_id */
+      0,		/* properties_required */
+      0,		/* properties_provided */
+      0,		/* properties_destroyed */
+      0,		/* todo_flags_start */
+      0			/* todo_flags_finish */
+    },
+    NULL,		/* generate_summary */
+    emit_functions,	/* write_summary */
+    NULL,		/* read_summary */
+    NULL,		/* function_read_summary */
+    NULL,		/* TODOs */
+    NULL,		/* function_transform */
+    NULL		/* variable_transform */
+};
+
+/// emit_variables - Output GCC global variables to the LLVM IR.
+static void emit_variables(cgraph_node_set set) {
+  LazilyInitializeModule();
+
+  // Output all externally visible global variables, whether they are used in
+  // this compilation unit or not.  Global variables that are not externally
+  // visible are output when their user is, or discarded if unused.
+  struct varpool_node *vnode;
+  FOR_EACH_STATIC_VARIABLE (vnode) {
+    tree var = vnode->decl;
+    if (TREE_CODE(var) == VAR_DECL && TREE_PUBLIC(var))
+      emit_global_to_llvm(var);
   }
 
+  // Emit any aliases.
+  alias_pair *p;
+  for (unsigned i = 0; VEC_iterate(alias_pair, alias_pairs, i, p); i++)
+    emit_alias_to_llvm(p->decl, p->target);
+}
+
+/// pass_emit_variables - IPA pass that turns GCC variables into LLVM IR.
+static struct ipa_opt_pass_d pass_emit_variables = {
+    {
+      IPA_PASS,
+      "emit_variables",	/* name */
+      gate_emission,	/* gate */
+      NULL,		/* execute */
+      NULL,		/* sub */
+      NULL,		/* next */
+      0,		/* static_pass_number */
+      TV_NONE,		/* tv_id */
+      0,		/* properties_required */
+      0,		/* properties_provided */
+      0,		/* properties_destroyed */
+      0,		/* todo_flags_start */
+      0			/* todo_flags_finish */
+    },
+    NULL,		/* generate_summary */
+    emit_variables,	/* write_summary */
+    NULL,		/* read_summary */
+    NULL,		/* variable_read_summary */
+    NULL,		/* TODOs */
+    NULL,		/* variable_transform */
+    NULL		/* variable_transform */
+};
+
+/// disable_rtl - Mark the current function as having been written to assembly.
+static unsigned int disable_rtl(void) {
+  // Free any data structures.
+  execute_free_datastructures();
+
+  // Mark the function as written.
+  TREE_ASM_WRITTEN(current_function_decl) = 1;
+
+  // That's all folks!
   return 0;
 }
 
-/// pass_emit_functions - RTL pass that turns gimple functions into LLVM IR.
-static struct rtl_opt_pass pass_emit_functions =
+/// pass_disable_rtl - RTL pass that pretends to codegen functions, but actually
+/// only does hoop jumping required by GCC.
+static struct rtl_opt_pass pass_disable_rtl =
 {
     {
       RTL_PASS,
-      "emit_functions",				/* name */
-      gate_emission,				/* gate */
-      emit_function,				/* execute */
-      NULL,					/* sub */
-      NULL,					/* next */
-      0,					/* static_pass_number */
-      TV_NONE,					/* tv_id */
-      PROP_ssa | PROP_gimple_leh
-        | PROP_gimple_lomp | PROP_cfg,		/* properties_required */
-      0,					/* properties_provided */
-      PROP_ssa | PROP_trees,			/* properties_destroyed */
-      TODO_dump_func | TODO_verify_ssa
-        | TODO_verify_flow | TODO_verify_stmts,	/* todo_flags_start */
-      TODO_ggc_collect				/* todo_flags_finish */
+      "disable_rtl",		/* name */
+      NULL,			/* gate */
+      disable_rtl,		/* execute */
+      NULL,			/* sub */
+      NULL,			/* next */
+      0,			/* static_pass_number */
+      TV_NONE,			/* tv_id */
+      0,			/* properties_required */
+      0,			/* properties_provided */
+      PROP_ssa | PROP_trees,	/* properties_destroyed */
+      0,			/* todo_flags_start */
+      0				/* todo_flags_finish */
     }
 };
 
@@ -1997,7 +2000,7 @@ static struct ipa_opt_pass_d pass_ipa_null = {
     NULL,	/* write_summary */
     NULL,	/* read_summary */
     NULL,	/* function_read_summary */
-    0,		/* TODOs */
+    NULL,	/* TODOs */
     NULL,	/* function_transform */
     NULL	/* variable_transform */
 };
@@ -2037,7 +2040,7 @@ static struct simple_ipa_opt_pass pass_simple_ipa_null =
       0,			/* properties_required */
       0,			/* properties_provided */
       0,			/* properties_destroyed */
-      0,            		/* todo_flags_start */
+      0,			/* todo_flags_start */
       0				/* todo_flags_finish */
     }
 };
@@ -2143,14 +2146,6 @@ int plugin_init (struct plugin_name_args *plugin_info,
   // Perform late initialization just before processing the compilation unit.
   register_callback (plugin_name, PLUGIN_START_UNIT, llvm_start_unit, NULL);
 
-  // Add an ipa pass that emits global variables, calling emit_global_to_llvm
-  // for each GCC static variable.
-  pass_info.pass = &pass_emit_variables.pass;
-  pass_info.reference_pass_name = "ipa_struct_reorg";
-  pass_info.ref_pass_instance_number = 0;
-  pass_info.pos_op = PASS_POS_INSERT_AFTER;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-
   // Turn off all gcc optimization passes.
   if (!EnableGCCOptimizations) {
     // TODO: figure out a good way of turning off ipa optimization passes.
@@ -2242,9 +2237,29 @@ int plugin_init (struct plugin_name_args *plugin_info,
     register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
   }
 
-  // Replace rtl expansion with gimple to LLVM conversion.  This results in each
-  // GCC function in the compilation unit being passed to emit_function.
+  // Replace LTO generation with gimple to LLVM conversion.
   pass_info.pass = &pass_emit_functions.pass;
+  pass_info.reference_pass_name = "lto_gimple_out";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  pass_info.pass = &pass_emit_variables.pass;
+  pass_info.reference_pass_name = "lto_decls_out";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // Turn off all LTO passes.
+  pass_info.pass = &pass_ipa_null.pass;
+  pass_info.reference_pass_name = "lto_wpa_fixup";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // Replace rtl expansion with a pass that pretends to codegen functions, but
+  // actually only does the hoop jumping that GCC requires at this point.
+  pass_info.pass = &pass_disable_rtl.pass;
   pass_info.reference_pass_name = "expand";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
