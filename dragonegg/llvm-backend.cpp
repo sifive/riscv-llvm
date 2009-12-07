@@ -1725,7 +1725,8 @@ static struct ipa_opt_pass_d pass_emit_functions = {
     emit_functions,	/* write_summary */
     NULL,		/* read_summary */
     NULL,		/* function_read_summary */
-    NULL,		/* TODOs */
+    NULL,		/* stmt_fixup */
+    0,			/* TODOs */
     NULL,		/* function_transform */
     NULL		/* variable_transform */
 };
@@ -2000,7 +2001,8 @@ static struct ipa_opt_pass_d pass_ipa_null = {
     NULL,	/* write_summary */
     NULL,	/* read_summary */
     NULL,	/* function_read_summary */
-    NULL,	/* TODOs */
+    NULL,	/* stmt_fixup */
+    0,		/* TODOs */
     NULL,	/* function_transform */
     NULL	/* variable_transform */
 };
