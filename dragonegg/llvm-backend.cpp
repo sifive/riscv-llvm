@@ -1734,15 +1734,19 @@ static void emit_functions(cgraph_node_set set) {
     struct cgraph_node *node = csi_node(csi);
     if (node->analyzed && Visited.insert(node->decl))
       emit_function(node);
-    // Output any same-body aliases or thunks.
-    for (struct cgraph_node *alias = node->same_body; alias;
-         alias = alias->next)
+
+    // Output any same-body aliases or thunks in the order they were created.
+    struct cgraph_node *alias, *next;
+    for (alias = node->same_body; alias && alias->next; alias = alias->next);
+    for (; alias; alias = next) {
+      next = alias->previous;
       if (alias->thunk.thunk_p) {
         emit_thunk_to_llvm(alias);
       } else {
         assert(alias->thunk.alias == node->decl && "Unexpected alias target!");
         emit_alias_to_llvm(alias->decl, node->decl);
       }
+    }
   }
 }
 
