@@ -831,97 +831,6 @@ static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
                      Array, Name);
 }
 
-/// emit_alias_to_llvm - Given decl and target emit alias to target.
-void emit_alias_to_llvm(tree decl, tree target) {
-  // Get or create LLVM global for our alias.
-  GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
-
-  GlobalValue *Aliasee;
-
-  if (TREE_CODE(target) == IDENTIFIER_NODE) {
-    // This is something insane. Probably only LTHUNKs can be here
-    // Try to grab decl from IDENTIFIER_NODE
-
-    // Query SymTab for aliasee
-    const char* AliaseeName = IDENTIFIER_POINTER(target);
-    Aliasee =
-      dyn_cast_or_null<GlobalValue>(TheModule->
-                                    getValueSymbolTable().lookup(AliaseeName));
-
-    // Last resort. Query for name set via __asm__
-    if (!Aliasee) {
-      std::string starred = std::string("\001") + AliaseeName;
-      Aliasee =
-        dyn_cast_or_null<GlobalValue>(TheModule->
-                                      getValueSymbolTable().lookup(starred));
-    }
-
-    if (!Aliasee) {
-      if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl))) {
-        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-          Aliasee = new GlobalVariable(*TheModule, GV->getType(),
-                                       GV->isConstant(),
-                                       GlobalVariable::ExternalWeakLinkage,
-                                       NULL, AliaseeName);
-        else if (Function *F = dyn_cast<Function>(V))
-          Aliasee = Function::Create(F->getFunctionType(),
-                                     Function::ExternalWeakLinkage,
-                                     AliaseeName, TheModule);
-        else
-          assert(0 && "Unsuported global value");
-      } else {
-        error ("%J%qD aliased to undefined symbol %qs", decl, decl, AliaseeName);
-        return;
-      }
-    }
-  } else {
-    Aliasee = cast<GlobalValue>(DECL_LLVM(target));
-  }
-
-  GlobalValue::LinkageTypes Linkage;
-
-  // A weak alias has TREE_PUBLIC set but not the other bits.
-  if (false)//FIXME DECL_LLVM_PRIVATE(decl))
-    Linkage = GlobalValue::PrivateLinkage;
-  else if (false)//FIXME DECL_LLVM_LINKER_PRIVATE(decl))
-    Linkage = GlobalValue::LinkerPrivateLinkage;
-  else if (DECL_WEAK(decl))
-    // The user may have explicitly asked for weak linkage - ignore flag_odr.
-    Linkage = GlobalValue::WeakAnyLinkage;
-  else if (!TREE_PUBLIC(decl))
-    Linkage = GlobalValue::InternalLinkage;
-  else
-    Linkage = GlobalValue::ExternalLinkage;
-
-  GlobalAlias* GA = new GlobalAlias(Aliasee->getType(), Linkage, "",
-                                    Aliasee, TheModule);
-
-  handleVisibility(decl, GA);
-
-  if (GA->getType()->canLosslesslyBitCastTo(V->getType()))
-    V->replaceAllUsesWith(ConstantExpr::getBitCast(GA, V->getType()));
-  else if (!V->use_empty()) {
-    error ("%J Alias %qD used with invalid type!", decl, decl);
-    return;
-  }
-
-  changeLLVMConstant(V, GA);
-  GA->takeName(V);
-  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-    GV->eraseFromParent();
-  else if (GlobalAlias *GA = dyn_cast<GlobalAlias>(V))
-    GA->eraseFromParent();
-  else if (Function *F = dyn_cast<Function>(V))
-    F->eraseFromParent();
-  else
-    assert(0 && "Unsuported global value");
-
-  // Mark the alias as written so gcc doesn't waste time outputting it.
-  TREE_ASM_WRITTEN(decl) = 1;
-
-  return;
-}
-
 /// ConvertMetadataStringToGV - Convert string to global value. Use existing
 /// global if possible.
 Constant* ConvertMetadataStringToGV(const char *str) {
@@ -1717,13 +1626,100 @@ static void emit_function(struct cgraph_node *node) {
   pop_cfun ();
 }
 
-/// emit_same_body_alias - Turn a same-body alias or thunk into LLVM IR.  Here
-/// alias is a function which has the some body as node.
-static void emit_same_body_alias(struct cgraph_node *alias,
-                                 struct cgraph_node *node) {
-  // TODO: The cgraph node contains all kinds of interesting information about
-  // linkage and visibility - should maybe make use of it?
-  emit_alias_to_llvm(alias->decl, node->decl);
+/// emit_thunk_to_llvm - Turn a thunk into LLVM IR.
+void emit_thunk_to_llvm(struct cgraph_node *thunk) {
+  abort();
+  // Mark the thunk as written so gcc doesn't waste time outputting it.
+  TREE_ASM_WRITTEN(thunk->decl) = 1;
+}
+
+/// emit_alias_to_llvm - Given decl and target emit alias to target.
+void emit_alias_to_llvm(tree decl, tree target) {
+  // Get or create LLVM global for our alias.
+  GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
+
+  GlobalValue *Aliasee;
+
+  if (TREE_CODE(target) == IDENTIFIER_NODE) {
+    // This is something insane. Probably only LTHUNKs can be here
+    // Try to grab decl from IDENTIFIER_NODE
+
+    // Query SymTab for aliasee
+    const char* AliaseeName = IDENTIFIER_POINTER(target);
+    Aliasee =
+      dyn_cast_or_null<GlobalValue>(TheModule->
+                                    getValueSymbolTable().lookup(AliaseeName));
+
+    // Last resort. Query for name set via __asm__
+    if (!Aliasee) {
+      std::string starred = std::string("\001") + AliaseeName;
+      Aliasee =
+        dyn_cast_or_null<GlobalValue>(TheModule->
+                                      getValueSymbolTable().lookup(starred));
+    }
+
+    if (!Aliasee) {
+      if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl))) {
+        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
+          Aliasee = new GlobalVariable(*TheModule, GV->getType(),
+                                       GV->isConstant(),
+                                       GlobalVariable::ExternalWeakLinkage,
+                                       NULL, AliaseeName);
+        else if (Function *F = dyn_cast<Function>(V))
+          Aliasee = Function::Create(F->getFunctionType(),
+                                     Function::ExternalWeakLinkage,
+                                     AliaseeName, TheModule);
+        else
+          assert(0 && "Unsuported global value");
+      } else {
+        error ("%J%qD aliased to undefined symbol %qs", decl, decl, AliaseeName);
+        return;
+      }
+    }
+  } else {
+    Aliasee = cast<GlobalValue>(DECL_LLVM(target));
+  }
+
+  GlobalValue::LinkageTypes Linkage;
+
+  // A weak alias has TREE_PUBLIC set but not the other bits.
+  if (false)//FIXME DECL_LLVM_PRIVATE(decl))
+    Linkage = GlobalValue::PrivateLinkage;
+  else if (false)//FIXME DECL_LLVM_LINKER_PRIVATE(decl))
+    Linkage = GlobalValue::LinkerPrivateLinkage;
+  else if (DECL_WEAK(decl))
+    // The user may have explicitly asked for weak linkage - ignore flag_odr.
+    Linkage = GlobalValue::WeakAnyLinkage;
+  else if (!TREE_PUBLIC(decl))
+    Linkage = GlobalValue::InternalLinkage;
+  else
+    Linkage = GlobalValue::ExternalLinkage;
+
+  GlobalAlias* GA = new GlobalAlias(Aliasee->getType(), Linkage, "",
+                                    Aliasee, TheModule);
+
+  handleVisibility(decl, GA);
+
+  if (GA->getType()->canLosslesslyBitCastTo(V->getType()))
+    V->replaceAllUsesWith(ConstantExpr::getBitCast(GA, V->getType()));
+  else if (!V->use_empty()) {
+    error ("%J Alias %qD used with invalid type!", decl, decl);
+    return;
+  }
+
+  changeLLVMConstant(V, GA);
+  GA->takeName(V);
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
+    GV->eraseFromParent();
+  else if (GlobalAlias *GA = dyn_cast<GlobalAlias>(V))
+    GA->eraseFromParent();
+  else if (Function *F = dyn_cast<Function>(V))
+    F->eraseFromParent();
+  else
+    assert(0 && "Unsuported global value");
+
+  // Mark the alias as written so gcc doesn't waste time outputting it.
+  TREE_ASM_WRITTEN(decl) = 1;
 }
 
 /// emit_functions - Turn all functions in the compilation unit into LLVM IR.
@@ -1741,7 +1737,12 @@ static void emit_functions(cgraph_node_set set) {
     // Output any same-body aliases or thunks.
     for (struct cgraph_node *alias = node->same_body; alias;
          alias = alias->next)
-      emit_same_body_alias(alias, node);
+      if (alias->thunk.thunk_p) {
+        emit_thunk_to_llvm(alias);
+      } else {
+        assert(alias->thunk.alias == node->decl && "Unexpected alias target!");
+        emit_alias_to_llvm(alias->decl, node->decl);
+      }
   }
 }
 
