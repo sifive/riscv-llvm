@@ -835,7 +835,48 @@ static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
 void emit_alias_to_llvm(tree decl, tree target) {
   // Get or create LLVM global for our alias.
   GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
-  GlobalValue *Aliasee = cast<GlobalValue>(DECL_LLVM(target));
+
+  GlobalValue *Aliasee;
+
+  if (TREE_CODE(target) == IDENTIFIER_NODE) {
+    // This is something insane. Probably only LTHUNKs can be here
+    // Try to grab decl from IDENTIFIER_NODE
+
+    // Query SymTab for aliasee
+    const char* AliaseeName = IDENTIFIER_POINTER(target);
+    Aliasee =
+      dyn_cast_or_null<GlobalValue>(TheModule->
+                                    getValueSymbolTable().lookup(AliaseeName));
+
+    // Last resort. Query for name set via __asm__
+    if (!Aliasee) {
+      std::string starred = std::string("\001") + AliaseeName;
+      Aliasee =
+        dyn_cast_or_null<GlobalValue>(TheModule->
+                                      getValueSymbolTable().lookup(starred));
+    }
+
+    if (!Aliasee) {
+      if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl))) {
+        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
+          Aliasee = new GlobalVariable(*TheModule, GV->getType(),
+                                       GV->isConstant(),
+                                       GlobalVariable::ExternalWeakLinkage,
+                                       NULL, AliaseeName);
+        else if (Function *F = dyn_cast<Function>(V))
+          Aliasee = Function::Create(F->getFunctionType(),
+                                     Function::ExternalWeakLinkage,
+                                     AliaseeName, TheModule);
+        else
+          assert(0 && "Unsuported global value");
+      } else {
+        error ("%J%qD aliased to undefined symbol %qs", decl, decl, AliaseeName);
+        return;
+      }
+    }
+  } else {
+    Aliasee = cast<GlobalValue>(DECL_LLVM(target));
+  }
 
   GlobalValue::LinkageTypes Linkage;
 
