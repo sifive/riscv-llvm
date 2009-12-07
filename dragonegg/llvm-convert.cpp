@@ -1119,6 +1119,10 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
       // TODO: Output debug info rather than just discarding it.
       break;
 
+    case GIMPLE_EH_DISPATCH:
+      // TODO: Implement this.
+      break;
+
     case GIMPLE_GOTO:
       RenderGIMPLE_GOTO(stmt);
       break;
