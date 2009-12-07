@@ -1,0 +1,27 @@
+Index: mainline/gcc/passes.c
+===================================================================
+--- mainline.orig/gcc/passes.c	2009-12-07 11:58:18.483151321 +0100
++++ mainline/gcc/passes.c	2009-12-07 12:10:09.040652447 +0100
+@@ -459,9 +459,20 @@
+   if (pass->static_pass_number)
+     {
+       struct opt_pass *new_pass;
++      size_t pass_size;
+ 
+-      new_pass = XNEW (struct opt_pass);
+-      memcpy (new_pass, pass, sizeof (*new_pass));
++      if (pass->type != IPA_PASS)
++        {
++          new_pass = XNEW (struct opt_pass);
++          pass_size = sizeof(struct opt_pass);
++        }
++      else
++        {
++          new_pass = (struct opt_pass *)XNEW (struct ipa_opt_pass_d);
++          pass_size = sizeof(struct ipa_opt_pass_d);
++        }
++
++      memcpy (new_pass, pass, pass_size);
+       new_pass->next = NULL;
+ 
+       new_pass->todo_flags_start &= ~TODO_mark_first_instance;
