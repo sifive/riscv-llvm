@@ -1639,6 +1639,10 @@ void emit_alias_to_llvm(tree decl, tree target) {
   GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
 
   GlobalValue *Aliasee;
+  bool weakref = lookup_attribute ("weakref", DECL_ATTRIBUTES (decl));
+  if (weakref)
+    while (IDENTIFIER_TRANSPARENT_ALIAS(target))
+      target = TREE_CHAIN (target);
 
   if (TREE_CODE(target) == IDENTIFIER_NODE) {
     // This is something insane. Probably only LTHUNKs can be here
@@ -1659,7 +1663,7 @@ void emit_alias_to_llvm(tree decl, tree target) {
     }
 
     if (!Aliasee) {
-      if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl))) {
+      if (weakref) {
         if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
           Aliasee = new GlobalVariable(*TheModule, GV->getType(),
                                        GV->isConstant(),
