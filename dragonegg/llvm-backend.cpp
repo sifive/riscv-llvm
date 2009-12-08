@@ -1621,7 +1621,7 @@ static void emit_function(struct cgraph_node *node) {
 
 /// emit_thunk - Turn a thunk into LLVM IR.
 void emit_thunk(struct cgraph_node *thunk) {
-  abort();
+  assert(false && "Thunks not yet implemented - come back next week!");
   // Mark the thunk as written so gcc doesn't waste time outputting it.
   TREE_ASM_WRITTEN(thunk->decl) = 1;
 }
