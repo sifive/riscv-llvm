@@ -6279,7 +6279,7 @@ LValue TreeToLLVM::EmitLV_DECL(tree exp) {
       if ((DECL_INITIAL(exp) || !TREE_PUBLIC(exp)) && !DECL_EXTERNAL(exp) &&
           GV->isDeclaration() &&
           !BOGUS_CTOR(exp)) {
-        emit_global_to_llvm(exp);
+        emit_global(exp);
         Decl = DECL_LOCAL(exp);     // Decl could have change if it changed type.
       }
     } else {
@@ -7982,7 +7982,7 @@ Constant *TreeConstantToLLVM::EmitLV_Decl(tree exp) {
     if ((DECL_INITIAL(exp) || !TREE_PUBLIC(exp)) && !DECL_EXTERNAL(exp) &&
         Val->isDeclaration() &&
         !BOGUS_CTOR(exp)) {
-      emit_global_to_llvm(exp);
+      emit_global(exp);
       // Decl could have change if it changed type.
       Val = cast<GlobalValue>(DECL_LLVM(exp));
     }

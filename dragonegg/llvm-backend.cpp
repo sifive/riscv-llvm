@@ -943,7 +943,7 @@ void reset_type_and_initializer_llvm(tree decl) {
   // Visibility may also have changed.
   handleVisibility(decl, GV);
 
-  // Temporary to avoid infinite recursion (see comments emit_global_to_llvm)
+  // Temporary to avoid infinite recursion (see comments emit_global)
   GV->setInitializer(UndefValue::get(GV->getType()->getElementType()));
 
   // Convert the initializer over.
@@ -975,10 +975,9 @@ void reset_type_and_initializer_llvm(tree decl) {
   GV->setInitializer(Init);
 }
   
-/// emit_global_to_llvm - Emit the specified VAR_DECL or aggregate CONST_DECL to
-/// LLVM as a global variable.  This function implements the end of
-/// assemble_variable.
-void emit_global_to_llvm(tree decl) {
+/// emit_global - Emit the specified VAR_DECL or aggregate CONST_DECL to LLVM as
+/// a global variable.  This function implements the end of assemble_variable.
+void emit_global(tree decl) {
   // FIXME: Support alignment on globals: DECL_ALIGN.
   // FIXME: DECL_PRESERVE_P indicates the var is marked with attribute 'used'.
 
@@ -1014,10 +1013,9 @@ void emit_global_to_llvm(tree decl) {
     
     // Temporarily set an initializer for the global, so we don't infinitely
     // recurse.  If we don't do this, we can hit cases where we see "oh a global
-    // with an initializer hasn't been initialized yet, call emit_global_to_llvm
-    // on it".  When constructing the initializer it might refer to itself.
-    // this can happen for things like void *G = &G;
-    //
+    // with an initializer hasn't been initialized yet, call emit_global on it".
+    // When constructing the initializer it might refer to itself.
+    // This can happen for things like void *G = &G;
     GV->setInitializer(UndefValue::get(GV->getType()->getElementType()));
     Init = TreeConstantToLLVM::Convert(DECL_INITIAL(decl));
   }
@@ -1621,15 +1619,15 @@ static void emit_function(struct cgraph_node *node) {
   pop_cfun ();
 }
 
-/// emit_thunk_to_llvm - Turn a thunk into LLVM IR.
-void emit_thunk_to_llvm(struct cgraph_node *thunk) {
+/// emit_thunk - Turn a thunk into LLVM IR.
+void emit_thunk(struct cgraph_node *thunk) {
   abort();
   // Mark the thunk as written so gcc doesn't waste time outputting it.
   TREE_ASM_WRITTEN(thunk->decl) = 1;
 }
 
-/// emit_alias_to_llvm - Given decl and target emit alias to target.
-void emit_alias_to_llvm(tree decl, tree target) {
+/// emit_alias - Given decl and target emit alias to target.
+void emit_alias(tree decl, tree target) {
   // Get or create LLVM global for our alias.
   GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
 
@@ -1720,7 +1718,7 @@ void emit_alias_to_llvm(tree decl, tree target) {
 static void emit_same_body_alias(struct cgraph_node *alias,
                                  struct cgraph_node *target) {
   assert(alias->thunk.alias == target->decl && "Unexpected alias target!");
-  emit_alias_to_llvm(alias->decl, target->decl);
+  emit_alias(alias->decl, target->decl);
 }
 
 /// emit_functions - Turn all functions in the compilation unit into LLVM IR.
@@ -1742,7 +1740,7 @@ static void emit_functions(cgraph_node_set set) {
     for (; alias; alias = next) {
       next = alias->previous;
       if (alias->thunk.thunk_p)
-        emit_thunk_to_llvm(alias);
+        emit_thunk(alias);
       else
         emit_same_body_alias(alias, node);
     }
@@ -1787,13 +1785,13 @@ static void emit_variables(cgraph_node_set set) {
   FOR_EACH_STATIC_VARIABLE (vnode) {
     tree var = vnode->decl;
     if (TREE_CODE(var) == VAR_DECL && TREE_PUBLIC(var))
-      emit_global_to_llvm(var);
+      emit_global(var);
   }
 
   // Emit any aliases.
   alias_pair *p;
   for (unsigned i = 0; VEC_iterate(alias_pair, alias_pairs, i, p); i++)
-    emit_alias_to_llvm(p->decl, p->target);
+    emit_alias(p->decl, p->target);
 }
 
 /// pass_emit_variables - IPA pass that turns GCC variables into LLVM IR.
