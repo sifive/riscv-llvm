@@ -1677,38 +1677,41 @@ void emit_alias(tree decl, tree target) {
     Aliasee = cast<GlobalValue>(DECL_LLVM(target));
   }
 
-  GlobalValue::LinkageTypes Linkage;
+  GlobalValue::LinkageTypes Linkage = GlobalValue::ExternalLinkage;
 
-  if (!TREE_PUBLIC(decl))
+  if (DECL_COMDAT(decl))
+    // Need not be put out unless needed in this translation unit.
     Linkage = GlobalValue::InternalLinkage;
+  else if (DECL_ONE_ONLY(decl))
+    // Copies of this DECL in multiple translation units should be merged.
+    Linkage = GlobalValue::WeakODRLinkage;
   else if (DECL_WEAK(decl))
     // The user may have explicitly asked for weak linkage - ignore flag_odr.
     Linkage = GlobalValue::WeakAnyLinkage;
-  else
-    Linkage = GlobalValue::ExternalLinkage;
+  else if (!TREE_PUBLIC(decl))
+    // Not accessible from outside this translation unit.
+    Linkage = GlobalValue::InternalLinkage;
+  else if (DECL_EXTERNAL(decl))
+    // Do not allocate storage, and refer to a definition elsewhere.
+    Linkage = GlobalValue::InternalLinkage;
 
-  GlobalAlias* GA = new GlobalAlias(Aliasee->getType(), Linkage, "",
-                                    Aliasee, TheModule);
+  if (Linkage != GlobalValue::InternalLinkage) {
+    // Create the LLVM alias.
+    GlobalAlias* GA = new GlobalAlias(Aliasee->getType(), Linkage, "",
+                                      Aliasee, TheModule);
+    handleVisibility(decl, GA);
 
-  handleVisibility(decl, GA);
-
-  if (GA->getType()->canLosslesslyBitCastTo(V->getType()))
+    // Associate it with decl instead of V.
     V->replaceAllUsesWith(ConstantExpr::getBitCast(GA, V->getType()));
-  else if (!V->use_empty()) {
-    error ("%J Alias %qD used with invalid type!", decl, decl);
-    return;
+    changeLLVMConstant(V, GA);
+    GA->takeName(V);
+  } else {
+    // Make all users of the alias directly use the aliasee instead.
+    V->replaceAllUsesWith(ConstantExpr::getBitCast(Aliasee, V->getType()));
+    changeLLVMConstant(V, Aliasee);
   }
 
-  changeLLVMConstant(V, GA);
-  GA->takeName(V);
-  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-    GV->eraseFromParent();
-  else if (GlobalAlias *GA = dyn_cast<GlobalAlias>(V))
-    GA->eraseFromParent();
-  else if (Function *F = dyn_cast<Function>(V))
-    F->eraseFromParent();
-  else
-    assert(0 && "Unsuported global value");
+  V->eraseFromParent();
 
   // Mark the alias as written so gcc doesn't waste time outputting it.
   TREE_ASM_WRITTEN(decl) = 1;
