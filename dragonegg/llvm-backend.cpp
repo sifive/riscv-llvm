@@ -1452,11 +1452,6 @@ void register_ctor_dtor(Function *Fn, int InitPrio, bool isCtor) {
   (isCtor ? &StaticCtors:&StaticDtors)->push_back(std::make_pair(Fn, InitPrio));
 }
 
-void llvm_emit_typedef(tree decl) {
-  // Need hooks for debug info?
-  return;
-}
-
 /// llvm_emit_file_scope_asm - Emit the specified string as a file-scope inline
 /// asm block.
 void llvm_emit_file_scope_asm(const char *string) {
