@@ -1686,16 +1686,11 @@ void emit_alias_to_llvm(tree decl, tree target) {
 
   GlobalValue::LinkageTypes Linkage;
 
-  // A weak alias has TREE_PUBLIC set but not the other bits.
-  if (false)//FIXME DECL_LLVM_PRIVATE(decl))
-    Linkage = GlobalValue::PrivateLinkage;
-  else if (false)//FIXME DECL_LLVM_LINKER_PRIVATE(decl))
-    Linkage = GlobalValue::LinkerPrivateLinkage;
+  if (!TREE_PUBLIC(decl))
+    Linkage = GlobalValue::InternalLinkage;
   else if (DECL_WEAK(decl))
     // The user may have explicitly asked for weak linkage - ignore flag_odr.
     Linkage = GlobalValue::WeakAnyLinkage;
-  else if (!TREE_PUBLIC(decl))
-    Linkage = GlobalValue::InternalLinkage;
   else
     Linkage = GlobalValue::ExternalLinkage;
 
@@ -1726,6 +1721,13 @@ void emit_alias_to_llvm(tree decl, tree target) {
   TREE_ASM_WRITTEN(decl) = 1;
 }
 
+/// emit_same_body_alias - Turn a same-body alias into LLVM IR.
+static void emit_same_body_alias(struct cgraph_node *alias,
+                                 struct cgraph_node *target) {
+  assert(alias->thunk.alias == target->decl && "Unexpected alias target!");
+  emit_alias_to_llvm(alias->decl, target->decl);
+}
+
 /// emit_functions - Turn all functions in the compilation unit into LLVM IR.
 static void emit_functions(cgraph_node_set set) {
   LazilyInitializeModule();
@@ -1744,12 +1746,10 @@ static void emit_functions(cgraph_node_set set) {
     for (alias = node->same_body; alias && alias->next; alias = alias->next);
     for (; alias; alias = next) {
       next = alias->previous;
-      if (alias->thunk.thunk_p) {
+      if (alias->thunk.thunk_p)
         emit_thunk_to_llvm(alias);
-      } else {
-        assert(alias->thunk.alias == node->decl && "Unexpected alias target!");
-        emit_alias_to_llvm(alias->decl, node->decl);
-      }
+      else
+        emit_same_body_alias(alias, node);
     }
   }
 }
