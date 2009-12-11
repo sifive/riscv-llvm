@@ -1620,10 +1620,62 @@ static void emit_function(struct cgraph_node *node) {
 }
 
 /// emit_thunk - Turn a thunk into LLVM IR.
-void emit_thunk(struct cgraph_node *thunk) {
-  assert(false && "Thunks not yet implemented - come back next week!");
+void emit_thunk(struct cgraph_node *node) {
+  Function *Thunk = cast<Function>(DECL_LLVM(node->decl));
+  if (Thunk->isVarArg()) {
+    sorry("thunks to varargs functions not supported");
+    return;
+  }
+
+  bool this_adjusting = node->thunk.this_adjusting;
+  assert(this_adjusting && "covariant return thunks not done yet!");
+  assert(!node->thunk.virtual_offset_p && "virtual offsets not done yet!");
+
+  LLVMContext &Context = getGlobalContext();
+  LLVMBuilder Builder(Context, *TheFolder);
+  Builder.SetInsertPoint(BasicBlock::Create(Context, "entry", Thunk));
+
+  bool FoundThis = false; // Did we find 'this' yet?
+  SmallVector<Value *, 16> Arguments;
+  for (Function::arg_iterator AI = Thunk->arg_begin(), AE = Thunk->arg_end();
+       AI != AE; ++AI) {
+    // While 'this' is always the first GCC argument, we may have introduced
+    // additional artificial arguments for doing struct return or passing a
+    // nested function static chain.  Look for 'this' while passing through
+    // all arguments except for 'this' unchanged.
+    if (FoundThis || AI->hasStructRetAttr() || AI->hasNestAttr()) {
+      Arguments.push_back(AI);
+      continue;
+    }
+
+    FoundThis = true; // The current argument is 'this'.
+    assert(isa<PointerType>(AI->getType()) && "Wrong type for 'this'!");
+
+    // Adjust 'this' according to the thunk offsets.
+    // TODO: support virtual offsets
+    const Type *IntPtrTy = TheTarget->getTargetData()->getIntPtrType(Context);
+    Value *This = Builder.CreatePtrToInt(AI, IntPtrTy);
+    Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
+    This = Builder.CreateNSWAdd(This, Offset);
+    Arguments.push_back(Builder.CreateIntToPtr(This, AI->getType()));
+  }
+
+  CallInst *Call = Builder.CreateCall(DECL_LLVM(node->thunk.alias),
+                                      Arguments.begin(), Arguments.end());
+  Call->setCallingConv(Thunk->getCallingConv());
+  Call->setAttributes(Thunk->getAttributes());
+  // No use is made of the stack - this is a tail call.
+  // FIXME: what if there are byval arguments?  Also, could clear off any
+  // 'byval' attributes on the call since they are simply being passed thru.
+  Call->setTailCall();
+
+  if (Thunk->getReturnType()->isVoidTy())
+    Builder.CreateRetVoid();
+  else
+    Builder.CreateRet(Call);
+
   // Mark the thunk as written so gcc doesn't waste time outputting it.
-  TREE_ASM_WRITTEN(thunk->decl) = 1;
+  TREE_ASM_WRITTEN(node->decl) = 1;
 }
 
 /// emit_alias - Given decl and target emit alias to target.
