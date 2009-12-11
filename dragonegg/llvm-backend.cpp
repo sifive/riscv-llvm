@@ -1168,21 +1168,21 @@ bool ValidateRegisterVariable(tree decl) {
 
   /* Detect errors in declaring global registers.  */
   if (RegNumber == -1)
-    error("%Jregister name not specified for %qD", decl, decl);
+    error("register name not specified for %q+D", decl);
   else if (RegNumber < 0)
-    error("%Jinvalid register name for %qD", decl, decl);
+    error("invalid register name for %q+D", decl);
   else if (TYPE_MODE(TREE_TYPE(decl)) == BLKmode)
-    error("%Jdata type of %qD isn%'t suitable for a register", decl, decl);
+    error("data type of %q+D isn%'t suitable for a register", decl);
 #if 0 // FIXME: enable this.
   else if (!HARD_REGNO_MODE_OK(RegNumber, TYPE_MODE(TREE_TYPE(decl))))
-    error("%Jregister specified for %qD isn%'t suitable for data type",
-          decl, decl);
+    error("register specified for %q+D isn%'t suitable for data type",
+          decl);
 #endif
   else if (DECL_INITIAL(decl) != 0 && TREE_STATIC(decl))
     error("global register variable has initial value");
   else if (AGGREGATE_TYPE_P(TREE_TYPE(decl)))
-    sorry("%JLLVM cannot handle register variable %qD, report a bug",
-          decl, decl);
+    sorry("LLVM cannot handle register variable %q+D, report a bug",
+          decl);
   else {
     if (TREE_THIS_VOLATILE(decl))
       warning(0, "volatile register variables don%'t work as you might wish");
@@ -1247,8 +1247,7 @@ Value *make_decl_llvm(tree decl) {
     if (strlen (REGISTER_PREFIX) != 0) {
       int reg_number = decode_reg_name(Name);
       if (reg_number >= 0 || reg_number == -3)
-        error("%Jregister name given for non-register variable %qD",
-              decl, decl);
+        error("register name given for non-register variable %q+D", decl);
     }
 #endif
   }
@@ -1742,7 +1741,7 @@ void emit_alias(tree decl, tree target) {
         else
           assert(0 && "Unsuported global value");
       } else {
-        error ("%J%qD aliased to undefined symbol %qs", decl, decl, AliaseeName);
+        error ("%q+D aliased to undefined symbol %qs", decl, AliaseeName);
         return;
       }
     }
