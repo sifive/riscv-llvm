@@ -1772,8 +1772,7 @@ void emit_alias(tree decl, tree target) {
 /// emit_same_body_alias - Turn a same-body alias into LLVM IR.
 static void emit_same_body_alias(struct cgraph_node *alias,
                                  struct cgraph_node *target) {
-  assert(alias->thunk.alias == target->decl && "Unexpected alias target!");
-  emit_alias(alias->decl, target->decl);
+  emit_alias(alias->decl, alias->thunk.alias);
 }
 
 /// emit_functions - Turn all functions in the compilation unit into LLVM IR.
