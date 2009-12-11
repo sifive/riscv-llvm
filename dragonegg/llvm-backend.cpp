@@ -1629,7 +1629,6 @@ void emit_thunk(struct cgraph_node *node) {
 
   bool this_adjusting = node->thunk.this_adjusting;
   assert(this_adjusting && "covariant return thunks not done yet!");
-  assert(!node->thunk.virtual_offset_p && "virtual offsets not done yet!");
 
   LLVMContext &Context = getGlobalContext();
   LLVMBuilder Builder(Context, *TheFolder);
@@ -1651,12 +1650,34 @@ void emit_thunk(struct cgraph_node *node) {
     FoundThis = true; // The current argument is 'this'.
     assert(isa<PointerType>(AI->getType()) && "Wrong type for 'this'!");
 
-    // Adjust 'this' according to the thunk offsets.
-    // TODO: support virtual offsets
+    // Adjust 'this' according to the thunk offsets.  First, the fixed offset.
     const Type *IntPtrTy = TheTarget->getTargetData()->getIntPtrType(Context);
     Value *This = Builder.CreatePtrToInt(AI, IntPtrTy);
     Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
     This = Builder.CreateNSWAdd(This, Offset);
+
+    if (node->thunk.virtual_offset_p) {
+      // The vptr is always at offset zero in the object.
+      const Type *HandleTy = Type::getInt8PtrTy(Context)->getPointerTo();
+      Value *VPtr = Builder.CreateIntToPtr(This, HandleTy->getPointerTo());
+
+      // Form the vtable address.
+      Value *VTableAddr = Builder.CreateLoad(VPtr);
+
+      // Find the entry with the vcall offset.
+      VTableAddr = Builder.CreatePtrToInt(VTableAddr, IntPtrTy);
+      Value *VOffset = ConstantInt::get(IntPtrTy, node->thunk.virtual_value);
+      VTableAddr = Builder.CreateNSWAdd(VTableAddr, VOffset);
+      VTableAddr = Builder.CreateIntToPtr(VTableAddr, HandleTy);
+
+      // Get the offset itself.
+      Value *VCallOffset = Builder.CreateLoad(VTableAddr);
+      VCallOffset = Builder.CreatePtrToInt(VCallOffset, IntPtrTy);
+
+      // Adjust the 'this' pointer.
+      This = Builder.CreateNSWAdd(This, VCallOffset);
+    }
+
     Arguments.push_back(Builder.CreateIntToPtr(This, AI->getType()));
   }
 
