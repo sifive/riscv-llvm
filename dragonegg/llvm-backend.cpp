@@ -1569,7 +1569,10 @@ static void llvm_start_unit(void *gcc_data, void *user_data) {
   // Output LLVM IR if the user requested generation of lto data.
   EmitIR |= flag_generate_lto != 0;
   // We have the same needs as GCC's LTO.  Always claim to be doing LTO.
+  flag_lto = 1;
+  flag_whopr = 0;
   flag_generate_lto = 1;
+  flag_whole_program = 0;
 #else
   error ("GCC LTO support required but not enabled");
 #endif
