@@ -417,7 +417,7 @@ static void LazilyInitializeModule(void) {
     IdentString += version_string;
     IdentString += " LLVM: ";
     IdentString += REVISION;
-    IdentString += '"';
+    IdentString += "\"\n";
     TheModule->setModuleInlineAsm(IdentString);
   }
 #endif
@@ -1796,6 +1796,14 @@ static void emit_same_body_alias(struct cgraph_node *alias,
   emit_alias(alias->decl, alias->thunk.alias);
 }
 
+/// emit_file_scope_asm - Emit the specified string as a file-scope inline
+/// asm block.
+static void emit_file_scope_asm(tree string) {
+  if (TREE_CODE(string) == ADDR_EXPR)
+    string = TREE_OPERAND(string, 0);
+  TheModule->appendModuleInlineAsm(TREE_STRING_POINTER (string));
+}
+
 /// emit_functions - Turn all functions in the compilation unit into LLVM IR.
 static void emit_functions(cgraph_node_set set) {
   LazilyInitializeModule();
@@ -1820,6 +1828,13 @@ static void emit_functions(cgraph_node_set set) {
         emit_same_body_alias(alias, node);
     }
   }
+
+  // Emit any file-scope asms.
+  for (struct cgraph_asm_node *can = cgraph_asm_nodes; can; can = can->next)
+    emit_file_scope_asm(can->asm_str);
+
+  // Remove the asms so gcc doesn't waste time outputting them.
+  cgraph_asm_nodes = NULL;
 }
 
 /// pass_emit_functions - IPA pass that turns gimple functions into LLVM IR.
