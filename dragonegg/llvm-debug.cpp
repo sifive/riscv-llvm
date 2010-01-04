@@ -229,6 +229,22 @@ DebugInfo::DebugInfo(Module *m)
 /// "llvm.dbg.func.start."
 void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
                                   BasicBlock *CurBB) {
+
+  DIType FNType = getOrCreateType(TREE_TYPE(FnDecl));
+
+  std::map<tree_node *, WeakVH >::iterator I = SPCache.find(FnDecl);
+  if (I != SPCache.end()) {
+    DISubprogram SPDecl(cast<MDNode>(I->second));
+    DISubprogram SP = 
+      DebugFactory.CreateSubprogramDefinition(SPDecl);
+    SPDecl.getNode()->replaceAllUsesWith(SP.getNode());
+
+    // Push function on region stack.
+    RegionStack.push_back(WeakVH(SP.getNode()));
+    RegionMap[FnDecl] = WeakVH(SP.getNode());
+    return;
+  } 
+
   // Gather location information.
   expanded_location Loc = GetNodeLocation(FnDecl, false);
   StringRef LinkageName = getLinkageName(FnDecl);
@@ -239,9 +255,11 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
                                   lang_hooks.dwarf_name(FnDecl, 0),
                                   LinkageName,
                                   getOrCreateCompileUnit(Loc.file), CurLineNo,
-                                  getOrCreateType(TREE_TYPE(FnDecl)),
+                                  FNType,
                                   Fn->hasInternalLinkage(),
                                   true /*definition*/);
+
+  SPCache[FnDecl] = WeakVH(SP.getNode());
 
   // Push function on region stack.
   RegionStack.push_back(WeakVH(SP.getNode()));
@@ -722,18 +740,23 @@ DIType DebugInfo::createStructType(tree type) {
     // In C++, TEMPLATE_DECLs are marked Ignored, and should be.
     if (DECL_P (Member) && DECL_IGNORED_P (Member)) continue;
 
-    // Get the location of the member.
-    expanded_location MemLoc = GetNodeLocation(Member, false);
-    
-    const char *MemberName = lang_hooks.dwarf_name(Member, 0);        
-    StringRef LinkageName = getLinkageName(Member);
-    DIType SPTy = getOrCreateType(TREE_TYPE(Member));
-    DISubprogram SP = 
-      DebugFactory.CreateSubprogram(findRegion(Member), MemberName, MemberName,
-                                    LinkageName, 
-                                    getOrCreateCompileUnit(MemLoc.file),
-                                    MemLoc.line, SPTy, false, false);
-    EltTys.push_back(SP);
+    std::map<tree_node *, WeakVH >::iterator I = SPCache.find(Member);
+    if (I != SPCache.end())
+      EltTys.push_back(DISubprogram(cast<MDNode>(I->second)));
+    else {
+      // Get the location of the member.
+      expanded_location MemLoc = GetNodeLocation(Member, false);
+      const char *MemberName = lang_hooks.dwarf_name(Member, 0);        
+      StringRef LinkageName = getLinkageName(Member);
+      DIType SPTy = getOrCreateType(TREE_TYPE(Member));
+      DISubprogram SP = 
+        DebugFactory.CreateSubprogram(findRegion(Member), MemberName, MemberName,
+                                      LinkageName, 
+                                      getOrCreateCompileUnit(MemLoc.file),
+                                      MemLoc.line, SPTy, false, false);
+      EltTys.push_back(SP);
+      SPCache[Member] = WeakVH(SP.getNode());
+    }
   }
   
   llvm::DIArray Elements =
