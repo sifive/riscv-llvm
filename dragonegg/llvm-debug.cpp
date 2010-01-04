@@ -249,6 +249,13 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
   expanded_location Loc = GetNodeLocation(FnDecl, false);
   StringRef LinkageName = getLinkageName(FnDecl);
 
+  unsigned Virtuality = 0;
+  unsigned VIndex = 0;
+  DIType ContainingType;
+  if (DECL_VINDEX (FnDecl)) {
+    Virtuality = dwarf::DW_VIRTUALITY_virtual;
+    ContainingType = getOrCreateType(DECL_CONTEXT (FnDecl));
+  }
   DISubprogram SP = 
     DebugFactory.CreateSubprogram(findRegion(FnDecl),
                                   lang_hooks.dwarf_name(FnDecl, 0),
@@ -257,7 +264,9 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
                                   getOrCreateCompileUnit(Loc.file), CurLineNo,
                                   FNType,
                                   Fn->hasInternalLinkage(),
-                                  true /*definition*/);
+                                  true /*definition*/,
+                                  Virtuality, VIndex, ContainingType);
+                          
 
   SPCache[FnDecl] = WeakVH(SP.getNode());
 
@@ -670,18 +679,30 @@ DIType DebugInfo::createStructType(tree type) {
   llvm::SmallVector<llvm::DIDescriptor, 16> EltTys;
   
   if (tree binfo = TYPE_BINFO(type)) {
+    VEC(tree,gc) *accesses = BINFO_BASE_ACCESSES (binfo);
+
     for (unsigned i = 0, e = BINFO_N_BASE_BINFOS(binfo); i != e; ++i) {
       tree BInfo = BINFO_BASE_BINFO(binfo, i);
       tree BInfoType = BINFO_TYPE (BInfo);
       DIType BaseClass = getOrCreateType(BInfoType);
-      
+      unsigned Flags = 0;
+      if (BINFO_VIRTUAL_P (BInfo))
+        Flags = llvm::DIType::FlagVirtual;
+      if (accesses) {
+        tree access = VEC_index (tree, accesses, i);
+        if (access == access_protected_node)
+          Flags |= llvm::DIType::FlagProtected;
+        else if (access == access_private_node)
+          Flags |= llvm::DIType::FlagPrivate;
+      }
+
       // FIXME : name, size, align etc...
       DIType DTy = 
         DebugFactory.CreateDerivedType(DW_TAG_inheritance, 
                                        findRegion(type), StringRef(),
                                        llvm::DICompileUnit(), 0,0,0, 
-                                       getINTEGER_CSTVal(BINFO_OFFSET(BInfo)),
-                                       0, BaseClass);
+                                       getINTEGER_CSTVal(BINFO_OFFSET(BInfo))*8,
+                                       Flags, BaseClass);
       EltTys.push_back(DTy);
     }
   }
@@ -749,11 +770,19 @@ DIType DebugInfo::createStructType(tree type) {
       const char *MemberName = lang_hooks.dwarf_name(Member, 0);        
       StringRef LinkageName = getLinkageName(Member);
       DIType SPTy = getOrCreateType(TREE_TYPE(Member));
+      unsigned Virtuality = 0;
+      unsigned VIndex = 0;
+      DIType ContainingType;
+      if (DECL_VINDEX (Member)) {
+        Virtuality = dwarf::DW_VIRTUALITY_virtual;
+        ContainingType = getOrCreateType(DECL_CONTEXT(Member));
+      }
       DISubprogram SP = 
         DebugFactory.CreateSubprogram(findRegion(Member), MemberName, MemberName,
                                       LinkageName, 
                                       getOrCreateCompileUnit(MemLoc.file),
-                                      MemLoc.line, SPTy, false, false);
+                                      MemLoc.line, SPTy, false, false,
+                                      Virtuality, VIndex, ContainingType);
       EltTys.push_back(SP);
       SPCache[Member] = WeakVH(SP.getNode());
     }
