@@ -349,8 +349,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     //{"__builtin_ia32_paddusw128", &&IX86_BUILTIN_PADDUSW128},
     {"__builtin_ia32_paddw", &&IX86_BUILTIN_PADDW},
     {"__builtin_ia32_paddw128", &&IX86_BUILTIN_PADDW128},
-    //{"__builtin_ia32_palignr", &&IX86_BUILTIN_PALIGNR},
-    //{"__builtin_ia32_palignr128", &&IX86_BUILTIN_PALIGNR128},
+    {"__builtin_ia32_palignr", &&IX86_BUILTIN_PALIGNR},
+    {"__builtin_ia32_palignr128", &&IX86_BUILTIN_PALIGNR128},
     {"__builtin_ia32_pand", &&IX86_BUILTIN_PAND},
     {"__builtin_ia32_pand128", &&IX86_BUILTIN_PAND128},
     {"__builtin_ia32_pandn", &&IX86_BUILTIN_PANDN},
@@ -1247,6 +1247,23 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     
     Result = Builder.CreateLoad(Ptr);
     return true;
+  }
+  IX86_BUILTIN_PALIGNR:
+  IX86_BUILTIN_PALIGNR128: {
+    if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[2])) {
+      Function *palignr =
+       Intrinsic::getDeclaration(TheModule, FnCode == IX86_BUILTIN_PALIGNR ?
+                                 Intrinsic::x86_ssse3_palign_r :
+                                 Intrinsic::x86_ssse3_palign_r_128);
+      Value *Op2 = Builder.CreateTrunc(Ops[2], Type::getInt8Ty(Context));
+      Value *CallOps[3] = { Ops[0], Ops[1], Op2 };
+      Result = Builder.CreateCall(palignr, CallOps, CallOps+3);
+      return true;
+    } else {
+      error_at(gimple_location(stmt), "mask must be an immediate");
+      Result = Ops[0];
+      return true;
+    }
   }
 }
 
