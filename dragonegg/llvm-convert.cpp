@@ -6212,9 +6212,9 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 
     // Okay, everything is good.  Return this as a bitfield if we can't
     // return it as a normal l-value. (e.g. "struct X { int X : 32 };" ).
-    // Conservatively return LValue with alignment 1.
     if (BitfieldSize != LLVMValueBitSize || BitStart != 0)
-      return LValue(FieldPtr, 1, BitStart, BitfieldSize);
+      return LValue(FieldPtr, LVAlign, BitStart, BitfieldSize);
+    
   } else {
     // Make sure we return a pointer to the right type.
     const Type *EltTy = ConvertType(TREE_TYPE(exp));
