@@ -244,8 +244,8 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
                                   true /*definition*/);
 
   // Push function on region stack.
-  RegionStack.push_back(SP);
-  RegionMap[FnDecl] = SP;
+  RegionStack.push_back(WeakVH(SP.getNode()));
+  RegionMap[FnDecl] = WeakVH(SP.getNode());
 }
 
   /// findRegion - Find tree_node N's region.
@@ -253,9 +253,10 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
   if (Node == NULL_TREE)
     return getOrCreateCompileUnit(main_input_filename);
 
-  std::map<tree_node *, DIDescriptor>::iterator I = RegionMap.find(Node);
+  std::map<tree_node *, WeakVH>::iterator I = RegionMap.find(Node);
   if (I != RegionMap.end())
-    return I->second;
+    if (MDNode *R = dyn_cast_or_null<MDNode>(I->second))
+      return DIDescriptor(R);
 
   if (TYPE_P (Node)) {
     if (TYPE_CONTEXT (Node))
@@ -310,20 +311,21 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
   expanded_location Loc = GetNodeLocation(decl, false);
 
   // Construct variable.
+  DIScope VarScope = DIScope(cast<MDNode>(RegionStack.back()));
   llvm::DIVariable D =
-    DebugFactory.CreateVariable(Tag, RegionStack.back(), Name, 
-                                getOrCreateCompileUnit(Loc.file),
+    DebugFactory.CreateVariable(Tag, VarScope,
+                                Name, getOrCreateCompileUnit(Loc.file),
                                 Loc.line, getOrCreateType(type));
 
   // Insert an llvm.dbg.declare into the current block.
   Instruction *Call = DebugFactory.InsertDeclare(AI, D, 
                                                  Builder.GetInsertBlock());
 
-  llvm::DIDescriptor DR = RegionStack.back();
-  llvm::DIScope DS = llvm::DIScope(DR.getNode());
+//  llvm::DIDescriptor DR = RegionStack.back();
+//  llvm::DIScope DS = llvm::DIScope(DR.getNode());
   llvm::DILocation DO(NULL);
   llvm::DILocation DL = 
-    DebugFactory.CreateLocation(CurLineNo, 0 /* column */, DS, DO);
+    DebugFactory.CreateLocation(CurLineNo, 0 /* column */, VarScope, DO);
   Builder.SetDebugLocation(Call, DL.getNode());
 }
 
@@ -345,7 +347,7 @@ void DebugInfo::EmitStopPoint(Function *Fn, BasicBlock *CurBB,
 
     if (RegionStack.empty())
       return;
-    llvm::DIDescriptor DR = RegionStack.back();
+    llvm::DIDescriptor DR(cast<MDNode>(RegionStack.back()));
     llvm::DIScope DS = llvm::DIScope(DR.getNode());
     llvm::DILocation DO(NULL);
     llvm::DILocation DL = 
@@ -641,6 +643,10 @@ DIType DebugInfo::createStructType(tree type) {
   // Insert into the TypeCache so that recursive uses will find it.
   llvm::TrackingVH<llvm::MDNode> FwdDeclNode = FwdDecl.getNode();
   TypeCache[type] =  WeakVH(FwdDecl.getNode());
+
+  // Push the struct on region stack.
+  RegionStack.push_back(WeakVH(FwdDecl.getNode()));
+  RegionMap[type] = WeakVH(FwdDecl.getNode());
   
   // Convert all the elements.
   llvm::SmallVector<llvm::DIDescriptor, 16> EltTys;
@@ -676,7 +682,9 @@ DIType DebugInfo::createStructType(tree type) {
         continue;
       
       /* Ignore nameless fields.  */
-      if (DECL_NAME (Member) == NULL_TREE)
+      if (DECL_NAME (Member) == NULL_TREE
+          && !(TREE_CODE (TREE_TYPE (Member)) == UNION_TYPE
+               || TREE_CODE (TREE_TYPE (Member)) == RECORD_TYPE))
         continue;
       
       // Get the location of the member.
@@ -731,6 +739,11 @@ DIType DebugInfo::createStructType(tree type) {
   llvm::DIArray Elements =
     DebugFactory.GetOrCreateArray(EltTys.data(), EltTys.size());
 
+  RegionStack.pop_back();
+  std::map<tree_node *, WeakVH>::iterator RI = RegionMap.find(type);
+  if (RI != RegionMap.end())
+    RegionMap.erase(RI);
+
   llvm::DICompositeType RealDecl =
     DebugFactory.CreateCompositeType(Tag, findRegion(type),
                                      GetNodeName(type),
@@ -743,6 +756,7 @@ DIType DebugInfo::createStructType(tree type) {
   // Now that we have a real decl for the struct, replace anything using the
   // old decl with the new one.  This will recursively update the debug info.
   llvm::DIDerivedType(FwdDeclNode).replaceAllUsesWith(RealDecl);
+
   return RealDecl;
 }
 

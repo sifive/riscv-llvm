@@ -61,10 +61,10 @@ private:
   std::map<tree_node *, WeakVH > TypeCache;
                                         // Cache of previously constructed 
                                         // Types.
-  std::vector<DIDescriptor> RegionStack;
+  SmallVector<WeakVH, 4> RegionStack;
                                         // Stack to track declarative scopes.
   
-  std::map<tree_node *, DIDescriptor> RegionMap;
+  std::map<tree_node *, WeakVH> RegionMap;
 public:
   DebugInfo(Module *m);
 
