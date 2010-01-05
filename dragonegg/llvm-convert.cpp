@@ -6821,17 +6821,19 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
         LValue LV = EmitLV(Val);
         assert(!LV.isBitfield() && "Inline asm can't have bitfield operand");
 
-        // Structs and unions are permitted here, as long as they're the
-        // same size as a register.
+        // Small structs and unions can be treated as integers.
         uint64_t TySize = TD.getTypeSizeInBits(LLVMTy);
         if (TySize == 1 || TySize == 8 || TySize == 16 ||
-            TySize == 32 || TySize == 64) {
+            TySize == 32 || TySize == 64 || (TySize == 128 && !AllowsMem)) {
           LLVMTy = IntegerType::get(Context, TySize);
           Op = Builder.CreateLoad(Builder.CreateBitCast(LV.Ptr,
-                                                       LLVMTy->getPointerTo()));
+                                                        LLVMTy->getPointerTo()));
         } else {
-          // Otherwise, emit our value as a lvalue and let the codegen deal with
-          // it.
+          // Codegen only supports indirect operands with mem constraints.
+          if (!AllowsMem)
+            error_at(gimple_location(stmt),
+                     "aggregate does not match inline asm register constraint");
+          // Otherwise, emit our value as a lvalue.
           isIndirect = true;
           Op = LV.Ptr;
         }
