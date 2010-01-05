@@ -369,15 +369,11 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
   Instruction *Call = DebugFactory.InsertDeclare(AI, D, 
                                                  Builder.GetInsertBlock());
 
-//  llvm::DIDescriptor DR = RegionStack.back();
-//  llvm::DIScope DS = llvm::DIScope(DR.getNode());
   llvm::DILocation DO(NULL);
   llvm::DILocation DL = 
     DebugFactory.CreateLocation(CurLineNo, 0 /* column */, VarScope, DO);
   
-  llvm::LLVMContext &Context = Call->getContext();
-  unsigned DbgMDKind = Context.getMetadata().getMDKindID("dbg");
-  Context.getMetadata().addMD(DbgMDKind, DL.getNode(), Call);
+  Call->setMetadata("dbg", DL.getNode());
 }
 
 /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of 
