@@ -344,8 +344,7 @@ void DebugInfo::EmitFunctionEnd(BasicBlock *CurBB, bool EndFunction) {
 /// EmitDeclare - Constructs the debug code for allocation of a new variable.
 /// region - "llvm.dbg.declare."
 void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
-                            tree type, Value *AI,
-                            LLVMBuilder &Builder) {
+                            tree type, Value *AI, LLVMBuilder &Builder) {
 
   // Do not emit variable declaration info, for now.
   if (optimize)
@@ -375,7 +374,10 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
   llvm::DILocation DO(NULL);
   llvm::DILocation DL = 
     DebugFactory.CreateLocation(CurLineNo, 0 /* column */, VarScope, DO);
-  Builder.SetDebugLocation(Call, DL.getNode());
+  
+  llvm::LLVMContext &Context = Call->getContext();
+  unsigned DbgMDKind = Context.getMetadata().getMDKindID("dbg");
+  Context.getMetadata().addMD(DbgMDKind, DL.getNode(), Call);
 }
 
 /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of 
