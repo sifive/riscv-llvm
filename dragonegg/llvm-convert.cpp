@@ -3137,7 +3137,8 @@ Value *TreeToLLVM::EmitNEGATE_EXPR(tree op) {
   if (TREE_CODE(TREE_TYPE(op)) != COMPLEX_TYPE) {
     if (V->getType()->isFPOrFPVector())
       return Builder.CreateFNeg(V);
-    return Builder.CreateNeg(V);
+    bool HasNSW = !TYPE_UNSIGNED(TREE_TYPE(op)) && !flag_wrapv;
+    return HasNSW ? Builder.CreateNSWNeg(V) : Builder.CreateNeg(V);
   }
 
   // -(a+ib) = -a + i*-b
