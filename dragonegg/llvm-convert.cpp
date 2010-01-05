@@ -3070,9 +3070,27 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     return 0;
 
   if (Client.isAggrReturn()) {
-    Value *Dest = Builder.CreateBitCast(DestLoc->Ptr,
-                                       PointerType::getUnqual(Call->getType()));
-    LLVM_EXTRACT_MULTIPLE_RETURN_VALUE(Call,Dest,DestLoc->Volatile,Builder);
+    if (TD.getTypeAllocSize(Call->getType()) <= TD.getTypeAllocSize(DestLoc->Ptr->getType())) {
+      Value *Dest = Builder.CreateBitCast(DestLoc->Ptr,
+                                          Call->getType()->getPointerTo());
+      LLVM_EXTRACT_MULTIPLE_RETURN_VALUE(Call,Dest,DestLoc->Volatile,Builder);
+    } else {
+      // The call will return an aggregate value in registers, but
+      // those registers are bigger than DestLoc.  Allocate a
+      // temporary to match the registers, store the registers there,
+      // cast the temporary into the correct (smaller) type, and using
+      // the correct type, copy the value into DestLoc.  Assume the
+      // optimizer will delete the temporary and clean this up.
+      AllocaInst *biggerTmp = CreateTemporary(Call->getType());
+      LLVM_EXTRACT_MULTIPLE_RETURN_VALUE(Call,biggerTmp,/*Volatile=*/false,
+                                       Builder);
+      EmitAggregateCopy(*DestLoc,
+                        MemRef(Builder.CreateBitCast(biggerTmp,Call->getType()->
+                                                     getPointerTo()),
+                               DestLoc->getAlignment(),
+                               DestLoc->Volatile),
+                        gimple_call_return_type(stmt));
+    }
     return 0;
   }
 
