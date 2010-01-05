@@ -649,7 +649,7 @@ private:
   void EmitModifyOfRegisterVariable(tree_node *vardecl, Value *RHS);
 
   // Helpers for Builtin Function Expansion.
-  void EmitMemoryBarrier(bool ll, bool ls, bool sl, bool ss);
+  void EmitMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device);
   Value *BuildVector(const std::vector<Value*> &Elts);
   Value *BuildVector(Value *Elt, ...);
   Value *BuildVectorShuffle(Value *InVec1, Value *InVec2, ...);
