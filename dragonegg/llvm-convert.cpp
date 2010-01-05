@@ -4762,8 +4762,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   }
   case BUILT_IN_FETCH_AND_ADD_8:
 #if defined(TARGET_ARM)
-    if (TARGET_THUMB1 || !arm_arch6)
-      return false;
+    return false;
 #endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
@@ -5050,6 +5049,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     return true;
   }
   case BUILT_IN_AND_AND_FETCH_8:
+#if defined(TARGET_ARM)
+    return false;
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
