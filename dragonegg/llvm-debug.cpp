@@ -249,6 +249,8 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
   expanded_location Loc = GetNodeLocation(FnDecl, false);
   StringRef LinkageName = getLinkageName(FnDecl);
 
+  unsigned lineno = CurLineNo;
+
   unsigned Virtuality = 0;
   unsigned VIndex = 0;
   DIType ContainingType;
@@ -271,7 +273,7 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
                                   (UseModuleContext ? FnName : StringRef()), 
                                   (UseModuleContext ? FnName : StringRef()), 
                                   LinkageName,
-                                  getOrCreateCompileUnit(Loc.file), CurLineNo,
+                                  getOrCreateCompileUnit(Loc.file), lineno,
                                   FNType,
                                   Fn->hasInternalLinkage(),
                                   true /*definition*/,
@@ -508,6 +510,7 @@ DIType DebugInfo::createPointerType(tree type) {
   unsigned Tag = TREE_CODE(type) == POINTER_TYPE ?
     DW_TAG_pointer_type :
     DW_TAG_reference_type;
+  unsigned Flags = 0;
   expanded_location Loc = GetNodeLocation(type);
 
   // Check if this pointer type has a name.
@@ -536,7 +539,7 @@ DIType DebugInfo::createPointerType(tree type) {
                                    NodeSizeInBits(type),
                                    NodeAlignInBits(type),
                                    0 /*offset */, 
-                                   0, 
+                                   Flags, 
                                    FromTy);
   return PTy;
 }
@@ -575,9 +578,9 @@ DIType DebugInfo::createArrayType(tree type) {
       uint64_t Low = 0;
       uint64_t Hi = 0;
       if (MinValue && isInt64(MinValue, 0))
-	Low = getINTEGER_CSTVal(MinValue);
+        Low = getINTEGER_CSTVal(MinValue);
       if (MaxValue && isInt64(MaxValue, 0))
-	Hi = getINTEGER_CSTVal(MaxValue);
+        Hi = getINTEGER_CSTVal(MaxValue);
       Subscripts.push_back(DebugFactory.GetOrCreateSubrange(Low, Hi));
     }
     EltTy = TREE_TYPE(atype);
@@ -858,8 +861,8 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
   if (tree TyDef = TYPE_NAME(type)) {
       std::map<tree_node *, WeakVH >::iterator I = TypeCache.find(TyDef);
       if (I != TypeCache.end())
-	if (Value *M = I->second)
-	  return DIType(cast<MDNode>(M));
+        if (Value *M = I->second)
+          return DIType(cast<MDNode>(M));
     if (TREE_CODE(TyDef) == TYPE_DECL &&  DECL_ORIGINAL_TYPE(TyDef)) {
       expanded_location TypeDefLoc = GetNodeLocation(TyDef);
       Ty = DebugFactory.CreateDerivedType(DW_TAG_typedef, 
@@ -1053,16 +1056,18 @@ DICompileUnit DebugInfo::getOrCreateCompileUnit(const char *FullPath,
   else
     LangTag = DW_LANG_C89;
 
+  StringRef Flags;
+  
   // flag_objc_abi represents Objective-C runtime version number. It is zero
   // for all other language.
   unsigned ObjcRunTimeVer = 0;
 //  if (flag_objc_abi != 0 && flag_objc_abi != -1)
 //    ObjcRunTimeVer = flag_objc_abi;
   DICompileUnit NewCU = DebugFactory.CreateCompileUnit(LangTag, FileName.c_str(), 
-                                                     Directory.c_str(), 
-                                                     version_string, isMain,
-                                                     optimize, StringRef(),
-                                                     ObjcRunTimeVer);
+                                                       Directory.c_str(),
+                                                       version_string, isMain,
+                                                       optimize, Flags,
+                                                       ObjcRunTimeVer);
   CUCache[FullPath] = WeakVH(NewCU.getNode());
   return NewCU;
 }
