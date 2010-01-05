@@ -64,6 +64,9 @@ private:
   std::map<tree_node *, WeakVH > SPCache;
                                         // Cache of previously constructed 
                                         // Subprograms.
+  std::map<tree_node *, WeakVH> NameSpaceCache;
+                                        // Cache of previously constructed name 
+                                        // spaces.
   SmallVector<WeakVH, 4> RegionStack;
                                         // Stack to track declarative scopes.
   
@@ -132,6 +135,9 @@ public:
 
   /// findRegion - Find tree_node N's region.
   DIDescriptor findRegion(tree_node *n);
+  
+  /// getOrCreateNameSpace - Get name space descriptor for the tree node.
+  DINameSpace getOrCreateNameSpace(tree_node *Node, DIDescriptor Context);
 };
 
 } // end namespace llvm

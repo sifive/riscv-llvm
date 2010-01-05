@@ -256,10 +256,20 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
     Virtuality = dwarf::DW_VIRTUALITY_virtual;
     ContainingType = getOrCreateType(DECL_CONTEXT (FnDecl));
   }
+  bool UseModuleContext = false;
+  // If this artificial function has abstract origin then put this function
+  // at module scope. The abstract copy will be placed in appropriate region.
+  if (DECL_ABSTRACT_ORIGIN (FnDecl) != FnDecl
+      && DECL_ARTIFICIAL(FnDecl))
+    UseModuleContext = true;
+  
+  const char *FnName = lang_hooks.dwarf_name(FnDecl, 0);
   DISubprogram SP = 
-    DebugFactory.CreateSubprogram(findRegion(DECL_CONTEXT(FnDecl)),
-                                  lang_hooks.dwarf_name(FnDecl, 0),
-                                  lang_hooks.dwarf_name(FnDecl, 0),
+    DebugFactory.CreateSubprogram((UseModuleContext ?
+                                   getOrCreateCompileUnit(main_input_filename) :
+                                   findRegion(DECL_CONTEXT(FnDecl))),
+                                  (UseModuleContext ? FnName : StringRef()), 
+                                  (UseModuleContext ? FnName : StringRef()), 
                                   LinkageName,
                                   getOrCreateCompileUnit(Loc.file), CurLineNo,
                                   FNType,
@@ -275,7 +285,23 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
   RegionMap[FnDecl] = WeakVH(SP.getNode());
 }
 
-  /// findRegion - Find tree_node N's region.
+/// getOrCreateNameSpace - Get name space descriptor for the tree node.
+DINameSpace DebugInfo::getOrCreateNameSpace(tree Node, DIDescriptor Context) {
+  std::map<tree_node *, WeakVH >::iterator I = 
+    NameSpaceCache.find(Node);
+  if (I != NameSpaceCache.end())
+    return DINameSpace(cast<MDNode>(I->second));
+
+  expanded_location Loc = GetNodeLocation(Node, false);
+  DINameSpace DNS =
+    DebugFactory.CreateNameSpace(Context, GetNodeName(Node),
+                                 getOrCreateCompileUnit(Loc.file), Loc.line);
+
+  NameSpaceCache[Node] = WeakVH(DNS.getNode());
+  return DNS;
+}
+
+/// findRegion - Find tree_node N's region.
 DIDescriptor DebugInfo::findRegion(tree Node) {
   if (Node == NULL_TREE)
     return getOrCreateCompileUnit(main_input_filename);
@@ -288,8 +314,14 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
   if (TYPE_P (Node)) {
     DIType Ty = getOrCreateType(Node);
     return DIDescriptor(Ty.getNode());
-  } else if (DECL_P (Node))
+  } else if (DECL_P (Node)) {
+    if (TREE_CODE (Node) == NAMESPACE_DECL) {
+      DIDescriptor NSContext = findRegion(DECL_CONTEXT(Node));
+      DINameSpace NS = getOrCreateNameSpace(Node, NSContext);
+      return DIDescriptor(NS.getNode());
+    }
     return findRegion (DECL_CONTEXT (Node));
+  }
 
   // Otherwise main compile unit covers everything.
   return getOrCreateCompileUnit(main_input_filename);
