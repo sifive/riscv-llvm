@@ -751,6 +751,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   }
 
   bool flip = false;
+  Intrinsic::ID IntrID;
   unsigned PredCode;
   goto *Handler;
 
@@ -1249,12 +1250,15 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     return true;
   }
   IX86_BUILTIN_PALIGNR:
-  IX86_BUILTIN_PALIGNR128: {
-    if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[2])) {
+    IntrID = Intrinsic::x86_ssse3_palign_r;
+    goto PALIGNR;
+  IX86_BUILTIN_PALIGNR128:
+    IntrID = Intrinsic::x86_ssse3_palign_r_128;
+    goto PALIGNR;
+  PALIGNR:
+    if (isa<ConstantInt>(Ops[2])) {
       Function *palignr =
-       Intrinsic::getDeclaration(TheModule, FnCode == IX86_BUILTIN_PALIGNR ?
-                                 Intrinsic::x86_ssse3_palign_r :
-                                 Intrinsic::x86_ssse3_palign_r_128);
+       Intrinsic::getDeclaration(TheModule, IntrID);
       Value *Op2 = Builder.CreateTrunc(Ops[2], Type::getInt8Ty(Context));
       Value *CallOps[3] = { Ops[0], Ops[1], Op2 };
       Result = Builder.CreateCall(palignr, CallOps, CallOps+3);
@@ -1264,7 +1268,6 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       Result = Ops[0];
       return true;
     }
-  }
 }
 
 /* These are defined in i386.c */
