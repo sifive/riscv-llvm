@@ -67,7 +67,6 @@ extern "C" {
 
 #include "cgraph.h"
 #include "diagnostic.h"
-#include "except.h"
 #include "flags.h"
 #include "function.h"
 #include "gcc-plugin.h"
