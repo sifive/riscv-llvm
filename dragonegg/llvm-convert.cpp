@@ -70,7 +70,7 @@ extern "C" {
 #include "toplev.h"
 #include "flags.h"
 #include "hard-reg-set.h"
-#include "except.h"
+//#include "except.h"
 //#include "libfuncs.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
@@ -1812,7 +1812,7 @@ BasicBlock *TreeToLLVM::getPostPad(unsigned RegionNo) {
 /// EmitLandingPads - Emit EH landing pads.
 void TreeToLLVM::EmitLandingPads() {
   std::vector<Value*> Args;
-  std::vector<eh_region> Handlers;
+//FIXME  std::vector<eh_region> Handlers;
 
   for (unsigned i = 1; i < LandingPads.size(); ++i) {
     BasicBlock *LandingPad = LandingPads[i];
@@ -1918,7 +1918,7 @@ abort();//FIXME
 
 /// EmitPostPads - Emit EH post landing pads.
 void TreeToLLVM::EmitPostPads() {
-  std::vector<eh_region> Handlers;
+//FIXME  std::vector<eh_region> Handlers;
 
   for (unsigned i = 1; i < PostPads.size(); ++i) {
     BasicBlock *PostPad = PostPads[i];
@@ -2027,7 +2027,7 @@ abort();//FIXME
 //FIXME      Builder.CreateBr(UnwindBB);
 //FIXME    }
 
-    Handlers.clear();
+//FIXME    Handlers.clear();
   }
 }
 
