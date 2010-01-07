@@ -511,7 +511,6 @@ DIType DebugInfo::createPointerType(tree type) {
     DW_TAG_pointer_type :
     DW_TAG_reference_type;
   unsigned Flags = 0;
-  expanded_location Loc = GetNodeLocation(type);
 
   // Check if this pointer type has a name.
   if (tree TyName = TYPE_NAME(type)) 
