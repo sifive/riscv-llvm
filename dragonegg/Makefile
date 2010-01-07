@@ -1,12 +1,12 @@
-GCCSOURCE_DIR=$(HOME)/GCC/src/
-GCCOBJECT_DIR=$(HOME)/GCC/objects/
+GCC?=gcc-4.5
+GCCSOURCE_DIR=$(shell $(GCC) -print-file-name=plugin)
 # Point LLVM_CONFIG to the just built llvm-config to use an LLVM build rather
 # than the installed version of LLVM.
 LLVM_CONFIG=llvm-config
 
 # Replace with an informative string when doing a release.
 REVISION:=$(shell svnversion -n .)
-TARGET_TRIPLE:=$(shell $(GCCOBJECT_DIR)/gcc/xgcc -v 2>&1 | grep "^Target:" | sed -e "s/^Target: *//")
+TARGET_TRIPLE:=$(shell $(GCC) -v 2>&1 | grep "^Target:" | sed -e "s/^Target: *//")
 
 PLUGIN=dragonegg.so
 PLUGIN_C=llvm-cache.c
@@ -32,11 +32,9 @@ CXXFLAGS+=$(CFLAGS) $(shell $(LLVM_CONFIG) --cppflags)
 LDFLAGS+=$(shell $(LLVM_CONFIG) --libs analysis core ipo scalaropts target) \
 	 $(shell $(LLVM_CONFIG) --ldflags)
 
-PLUGIN_CFLAGS+=-I$(GCCOBJECT_DIR)/gcc -I$(GCCOBJECT_DIR)/gcc/include \
-	       -I$(GCCSOURCE_DIR)/gcc -I$(GCCSOURCE_DIR)/include \
+PLUGIN_CFLAGS+=-I$(GCCSOURCE_DIR)/gcc -I$(GCCSOURCE_DIR)/include \
 	       -I$(GCCSOURCE_DIR)/libcpp/include -I$(GCCSOURCE_DIR)/libdecnumber \
-	       -I$(GCCOBJECT_DIR)/libdecnumber -I$(shell $(TARGET_UTIL) -p) \
-	       -I$(shell $(TARGET_UTIL) -o)
+              -I$(shell $(TARGET_UTIL) -p) -I$(shell $(TARGET_UTIL) -o)
 PLUGIN_CXXFLAGS+=$(PLUGIN_CFLAGS)
 
 default: $(PLUGIN)
@@ -60,7 +58,7 @@ $(PLUGIN): $(TARGET_UTIL) $(PLUGIN_OBJECTS) $(TARGET_OBJECT)
 llvm-cache.o: gt-llvm-cache.h
 
 gt-llvm-cache.h:
-	cd $(GCCOBJECT_DIR)/gcc && ./build/gengtype \
+	cd $(HOME)/GCC/objects/gcc && ./build/gengtype \
 	  -P $(GENGTYPE_OUTPUT) $(GCCSOURCE_DIR) gtyp-input.list \
 	    $(GENGTYPE_INPUT)
 	sed -i "s/ggc_cache_tab .*\[\]/ggc_cache_tab gt_ggc_rc__gt_llvm_cache_h[]/" $(GENGTYPE_OUTPUT)
