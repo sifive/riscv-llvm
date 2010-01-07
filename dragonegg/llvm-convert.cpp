@@ -3313,7 +3313,7 @@ Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, tree_code code) {
 Value *TreeToLLVM::EmitBinOp(tree type, tree_code code, tree op0, tree op1,
                              unsigned Opc) {
   if (TREE_CODE(type) == COMPLEX_TYPE)
-    return EmitComplexBinOp(type, code, op0, op1);
+    return EmitComplexBinOp(code, op0, op1);
 
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
@@ -5963,8 +5963,7 @@ Value *TreeToLLVM::EmitCOMPLEX_EXPR(tree op0, tree op1) {
 
 // EmitComplexBinOp - Note that this operates on binops like ==/!=, which return
 // a bool, not a complex value.
-Value *TreeToLLVM::EmitComplexBinOp(tree type, tree_code code,
-                                    tree op0, tree op1) {
+Value *TreeToLLVM::EmitComplexBinOp(tree_code code, tree op0, tree op1) {
   Value *LHSr, *LHSi;
   SplitComplex(EmitRegister(op0), LHSr, LHSi);
   Value *RHSr, *RHSi;

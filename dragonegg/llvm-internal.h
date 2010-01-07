@@ -697,8 +697,7 @@ private:
   Value *CreateComplex(Value *Real, Value *Imag);
   void SplitComplex(Value *Complex, Value *&Real, Value *&Imag);
   Value *EmitCOMPLEX_EXPR(tree op0, tree op1);
-  Value *EmitComplexBinOp(tree_node *type, tree_code code, tree_node *op0,
-                          tree_node *op1);
+  Value *EmitComplexBinOp(tree_code code, tree_node *op0, tree_node *op1);
 
   // L-Value Expressions.
   LValue EmitLV_ARRAY_REF(tree_node *exp);
