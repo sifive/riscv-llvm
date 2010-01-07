@@ -825,8 +825,6 @@ public:
                       Attributes *Attributes = NULL) {
     // Eight GPR's are availabe for parameter passing.
     const unsigned NumArgRegs = 8;
-    unsigned Size = 0;
-    bool DontCheckAlignment = false;
     const Type *Ty = ConvertType(type);
     // Figure out if this field is zero bits wide, e.g. {} or [0 x int].  Do
     // not include variable sized fields here.
