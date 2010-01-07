@@ -466,7 +466,8 @@ namespace {
       abort();
     }
 
-    void HandleFCAArgument(const llvm::Type *LLVMTy, tree type) {
+    void HandleFCAArgument(const llvm::Type *LLVMTy,
+                           tree type ATTRIBUTE_UNUSED) {
       // Store the FCA argument into alloca.
       assert(!LocStack.empty());
       Value *Loc = LocStack.back();
@@ -2885,7 +2886,8 @@ namespace {
 
     /// HandleFCAArgument - This callback is invoked if the aggregate function
     /// argument is passed as a first class aggregate.
-    void HandleFCAArgument(const llvm::Type *LLVMTy, tree type) {
+    void HandleFCAArgument(const llvm::Type *LLVMTy,
+                           tree type ATTRIBUTE_UNUSED) {
       Value *Loc = getAddress();
       assert(LLVMTy->getPointerTo() == Loc->getType());
       CallOperands.push_back(Builder.CreateLoad(Loc));
@@ -3960,7 +3962,7 @@ static std::string CanonicalizeConstraint(const char *Constraint) {
 /// See if operand "exp" can use the indicated Constraint (which is
 /// terminated by a null or a comma).
 /// Returns:  -1=no, 0=yes but auxiliary instructions needed, 1=yes and free
-int MatchWeight(const char *Constraint, tree Operand, bool isInput) {
+static int MatchWeight(const char *Constraint, tree Operand) {
   const char *p = Constraint;
   int RetVal = 0;
   // Look for hard register operand.  This matches only a constraint of a
@@ -4020,8 +4022,8 @@ int MatchWeight(const char *Constraint, tree Operand, bool isInput) {
 /// is performed after things like SROA, not before.  At the moment we are
 /// just trying to pick one that will work.  This may get refined.
 static void
-ChooseConstraintTuple(const char **Constraints, gimple stmt, tree outputs,
-                      tree inputs, unsigned NumOutputs, unsigned NumInputs,
+ChooseConstraintTuple(const char **Constraints, tree outputs, tree inputs,
+                      unsigned NumOutputs, unsigned NumInputs,
                       unsigned NumChoices, const char **ReplacementStrings)
 {
   int MaxWeight = -1;
@@ -4046,7 +4048,7 @@ ChooseConstraintTuple(const char **Constraints, gimple stmt, tree outputs,
       while (*p=='*' || *p=='&' || *p=='%')   // skip modifiers
         p++;
       if (Weights[i] != -1) {
-        int w = MatchWeight(p, TREE_VALUE(Output), false);
+        int w = MatchWeight(p, TREE_VALUE(Output));
         // Nonmatch means the entire tuple doesn't match.  However, we
         // keep scanning to set up RunningConstraints correctly for the
         // next tuple.
@@ -4069,7 +4071,7 @@ ChooseConstraintTuple(const char **Constraints, gimple stmt, tree outputs,
          j++, Input = TREE_CHAIN(Input)) {
       const char* p = RunningConstraints[j];
       if (Weights[i] != -1) {
-        int w = MatchWeight(p, TREE_VALUE(Input), true);
+        int w = MatchWeight(p, TREE_VALUE(Input));
         if (w < 0)
           Weights[i] = -1;    // As above.
         else
@@ -4135,6 +4137,7 @@ static void FreeConstTupleStrings(const char **ReplacementStrings,
 static const char* getConstraintRegNameFromGccTables(const char *RegName,
                                                      unsigned int RegNum) {
 #ifdef LLVM_DO_NOT_USE_REG_NAMES
+  (void)RegNum;
   if (*RegName == '%')
     RegName++;
   return RegName;
@@ -5459,7 +5462,8 @@ bool TreeToLLVM::EmitBuiltinMemSet(gimple stmt, Value *&Result, bool SizeCheck){
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinBZero(gimple stmt, Value *&Result) {
+bool TreeToLLVM::EmitBuiltinBZero(gimple stmt,
+                                  Value *&Result ATTRIBUTE_UNUSED) {
   if (!validate_gimple_arglist(stmt, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return false;
 
@@ -5692,7 +5696,8 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&Result) {
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinInitDwarfRegSizes(gimple stmt, Value *&Result) {
+bool TreeToLLVM::EmitBuiltinInitDwarfRegSizes(gimple stmt,
+                                              Value *&Result ATTRIBUTE_UNUSED) {
 #ifdef DWARF2_UNWIND_INFO
   unsigned int i;
   bool wrote_return_column = false;
@@ -5880,7 +5885,8 @@ bool TreeToLLVM::EmitBuiltinAdjustTrampoline(gimple stmt, Value *&Result) {
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt, Value *&Result) {
+bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt,
+                                           Value *&Result ATTRIBUTE_UNUSED) {
   if (!validate_gimple_arglist(stmt, POINTER_TYPE, POINTER_TYPE, POINTER_TYPE,
                          VOID_TYPE))
     return false;
@@ -6688,8 +6694,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   if (NumChoices>1) {
     ReplacementStrings =
       (const char **)alloca((NumOutputs + NumInputs) * sizeof(const char *));
-    ChooseConstraintTuple(Constraints, stmt, outputs, inputs, NumOutputs,
-                          NumInputs, NumChoices, ReplacementStrings);
+    ChooseConstraintTuple(Constraints, outputs, inputs, NumOutputs, NumInputs,
+                          NumChoices, ReplacementStrings);
   }
 
   std::vector<Value*> CallOps;
