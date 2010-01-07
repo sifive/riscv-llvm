@@ -150,19 +150,12 @@ declare i32 @puts(i8* nocapture) nounwind
      <pre>	svn co http://gcc.gnu.org/svn/gcc/trunk gcc</pre>
   <p>Apply all of the patches in <tt>dragonegg/gcc-patches/</tt>, if any, to
      <a href="http://gcc.gnu.org">gcc</a>.
-     Build <a href="http://gcc.gnu.org">gcc</a> in the usual way.  You do not
-     need to install <a href="http://gcc.gnu.org">gcc</a> in order to build
-     <a href="http://dragonegg.llvm.org/">DragonEgg</a>, but you do need to
-     install <a href="http://gcc.gnu.org">gcc</a> in order to use
-     <a href="http://dragonegg.llvm.org/">DragonEgg</a>.</p>
-  <p>Before building <a href="http://dragonegg.llvm.org/">DragonEgg</a> you need to
-     adjust the paths at the start of <tt>dragonegg/Makefile</tt> to point to the
-     versions of <a href="http://llvm.org">LLVM</a> and
-     <a href="http://gcc.gnu.org">gcc</a> you just built.  Doing</p>
-     <pre>	make</pre>
+     Build and install <a href="http://gcc.gnu.org">gcc</a> in the usual way.</p>
+  <p>Doing</p>
+     <pre>	GCC=path_to_just_installed_gcc make</pre>
   <p>in the <tt>dragonegg</tt> directory should then build <tt>dragonegg.so</tt>.
      See the <tt>README</tt> file for more details.</p>
-  <p>To use <tt>dragonegg.so</tt>, compile something with your just-built
+  <p>To use <tt>dragonegg.so</tt>, compile something with your just-installed
      version of <tt>gcc</tt>, adding <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt>
      to the command line.  See the <tt>README</tt> file for more details and useful
      command line options.</p>
