@@ -448,8 +448,7 @@ namespace {
           // If this is just a mismatch between integer types, this is due
           // to K&R prototypes, where the forward proto defines the arg as int
           // and the actual impls is a short or char.
-          assert(ArgVal->getType() == Type::getInt32Ty(Context) &&
-                 LLVMTy->isInteger() &&
+          assert(ArgVal->getType()->isInteger(32) && LLVMTy->isInteger() &&
                  "Lowerings don't match?");
           ArgVal = Builder.CreateTrunc(ArgVal, LLVMTy,NameStack.back().c_str());
         }
@@ -3218,7 +3217,7 @@ Value *TreeToLLVM::EmitBIT_NOT_EXPR(tree op) {
 
 Value *TreeToLLVM::EmitTRUTH_NOT_EXPR(tree type, tree op) {
   Value *V = EmitRegister(op);
-  if (V->getType() != Type::getInt1Ty(Context))
+  if (!V->getType()->isInteger(1))
     V = Builder.CreateICmpNE(V,
           Constant::getNullValue(V->getType()), "toBool");
   V = Builder.CreateNot(V, (V->getNameStr()+"not").c_str());
@@ -5679,8 +5678,8 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&Result) {
   Value *Offset = EmitRegister(gimple_call_arg(stmt, 0));
   Value *Handler = EmitRegister(gimple_call_arg(stmt, 1));
 
-  Intrinsic::ID IID = (IntPtr == Type::getInt32Ty(Context) ?
-		       Intrinsic::eh_return_i32 : Intrinsic::eh_return_i64);
+  Intrinsic::ID IID = IntPtr->isInteger(32) ?
+    Intrinsic::eh_return_i32 : Intrinsic::eh_return_i64;
 
   Offset = Builder.CreateIntCast(Offset, IntPtr, /*isSigned*/true);
   Handler = Builder.CreateBitCast(Handler, Type::getInt8PtrTy(Context));
@@ -7343,11 +7342,11 @@ Constant *TreeConstantToLLVM::ConvertSTRING_CST(tree exp) {
   unsigned Len = (unsigned)TREE_STRING_LENGTH(exp);
 
   std::vector<Constant*> Elts;
-  if (ElTy == Type::getInt8Ty(Context)) {
+  if (ElTy->isInteger(8)) {
     const unsigned char *InStr =(const unsigned char *)TREE_STRING_POINTER(exp);
     for (unsigned i = 0; i != Len; ++i)
       Elts.push_back(ConstantInt::get(Type::getInt8Ty(Context), InStr[i]));
-  } else if (ElTy == Type::getInt16Ty(Context)) {
+  } else if (ElTy->isInteger(16)) {
     assert((Len&1) == 0 &&
            "Length in bytes should be a multiple of element size");
     const uint16_t *InStr =
@@ -7361,7 +7360,7 @@ Constant *TreeConstantToLLVM::ConvertSTRING_CST(tree exp) {
       else
         Elts.push_back(ConstantInt::get(Type::getInt16Ty(Context), ByteSwap_16(InStr[i])));
     }
-  } else if (ElTy == Type::getInt32Ty(Context)) {
+  } else if (ElTy->isInteger(32)) {
     assert((Len&3) == 0 &&
            "Length in bytes should be a multiple of element size");
     const uint32_t *InStr = (const uint32_t *)TREE_STRING_POINTER(exp);
@@ -7825,7 +7824,7 @@ AddBitFieldToRecordConstant(ConstantInt *ValC, uint64_t GCCFieldOffsetInBits) {
   if (GCCFieldOffsetInBits < NextFieldByteStart*8) {
     unsigned ValBitSize = ValC->getBitWidth();
     assert(!ResultElts.empty() && "Bitfield starts before first element?");
-    assert(ResultElts.back()->getType() == Type::getInt8Ty(Context) &&
+    assert(ResultElts.back()->getType()->isInteger(8) &&
            isa<ConstantInt>(ResultElts.back()) &&
            "Merging bitfield with non-bitfield value?");
     assert(NextFieldByteStart*8 - GCCFieldOffsetInBits < 8 &&

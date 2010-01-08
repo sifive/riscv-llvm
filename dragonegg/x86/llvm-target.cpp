@@ -1363,8 +1363,7 @@ bool llvm_x86_should_pass_aggregate_as_fca(tree type, const Type *Ty) {
   return !((TARGET_64BIT && (EltTy->isInteger() ||
                              EltTy == Type::getFloatTy(Context) ||
                              EltTy == Type::getDoubleTy(Context))) ||
-           EltTy == Type::getInt16Ty(Context) ||
-           EltTy == Type::getInt8Ty(Context));
+           EltTy->isInteger(16) || EltTy->isInteger(8));
 }
 
 /* Target hook for llvm-abi.h. It returns true if an aggregate of the
