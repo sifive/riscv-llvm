@@ -51,6 +51,7 @@ If you renamed dragonegg.so to something else, for example llvm.so, replace
 -fplugin-arg-dragonegg with -fplugin-arg-llvm in the options below.
 
 -fplugin-arg-dragonegg-emit-ir
+-flto
   Output LLVM IR rather than target assembler.  You need to use -S with this,
   since otherwise GCC will pass the output to the system assembler (these don't
   usually understand LLVM IR).  It would be nice to fix this and have the option
