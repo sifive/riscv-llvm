@@ -522,32 +522,11 @@ private: // Helper functions.
   /// name.  Returns the provided value as a convenience.
   Value *DefineSSAName(tree_node *reg, Value *Val);
 
-  /// EmitSSA_NAME - Return the defining value of the given SSA_NAME.
-  /// Only creates code in the entry block.
-  Value *EmitSSA_NAME(tree_node *reg);
-
-  /// EmitInvariantAddress - The given address is constant in this function.
-  /// Return the corresponding LLVM value. Only creates code in the entry block.
-  Value *EmitInvariantAddress(tree_node *addr);
-
-  /// EmitRegisterConstant - Convert the given global constant of register type
-  /// to an LLVM constant.  Creates no code, only constants.
-  Constant *EmitRegisterConstant(tree_node *reg);
-
-  /// EmitMinInvariant - The given value is constant in this function.  Return
-  /// the corresponding LLVM value. Only creates code in the entry block.
-  Value *EmitMinInvariant(tree_node *reg);
-
-  /// EmitRegister - Convert the specified gimple register or local constant of
-  /// register type to an LLVM value.  Only creates code in the entry block.
-  Value *EmitRegister(tree_node *reg);
-
-  /// EmitBlock - Add the specified basic block to the end of the function.  If
+  /// BeginBlock - Add the specified basic block to the end of the function.  If
   /// the previous block falls through into it, add an explicit branch.
-  void EmitBlock(BasicBlock *BB);
+  void BeginBlock(BasicBlock *BB);
   
   /// EmitAggregateZero - Zero the elements of DestLoc.
-  ///
   void EmitAggregateZero(MemRef DestLoc, tree_node *GCCType);
 
   /// EmitMemCpy/EmitMemMove/EmitMemSet - Emit an llvm.memcpy/llvm.memmove or
@@ -577,8 +556,18 @@ private: // Helpers for exception handling.
   BasicBlock *getPostPad(unsigned RegionNo);
 
 private:
+  void EmitAutomaticVariableDecl(tree_node *decl);
 
-  // Render* - Convert GIMPLE to LLVM.
+  /// EmitAnnotateIntrinsic - Emits call to annotate attr intrinsic
+  void EmitAnnotateIntrinsic(Value *V, tree_node *decl);
+
+  /// EmitTypeGcroot - Emits call to make type a gcroot
+  void EmitTypeGcroot(Value *V, tree_node *decl);
+
+private:
+
+  //===------------------ Render* - Convert GIMPLE to LLVM ----------------===//
+
   void RenderGIMPLE_ASM(gimple stmt);
   void RenderGIMPLE_ASSIGN(gimple stmt);
   void RenderGIMPLE_CALL(gimple stmt);
@@ -589,56 +578,70 @@ private:
   void RenderGIMPLE_SWITCH(gimple stmt);
 
   // Render helpers.
+
+  /// EmitAssignRHS - Convert the RHS of a scalar GIMPLE_ASSIGN to LLVM.
+  Value *EmitAssignRHS(gimple stmt);
+
+  /// EmitAssignSingleRHS - Helper for EmitAssignRHS.  Handles those RHS that
+  /// are not register expressions.
+  Value *EmitAssignSingleRHS(tree_node *rhs);
+
+  /// OutputCallRHS - Convert the RHS of a GIMPLE_CALL.
+  Value *OutputCallRHS(gimple stmt, const MemRef *DestLoc);
+
+  /// WriteScalarToLHS - Store RHS, a non-aggregate value, into the given LHS.
   void WriteScalarToLHS(tree lhs, Value *Scalar);
 
 private:
-  void EmitAutomaticVariableDecl(tree_node *decl);
 
-  /// isNoopCast - Return true if a cast from V to Ty does not change any bits.
-  ///
-  static bool isNoopCast(Value *V, const Type *Ty);
+  //===------------ Emit* - Convert register expression to LLVM -----------===//
 
-  /// EmitAnnotateIntrinsic - Emits call to annotate attr intrinsic
-  void EmitAnnotateIntrinsic(Value *V, tree_node *decl);
+  /// EmitRegister - Convert the specified gimple register or local constant of
+  /// register type to an LLVM value.  Only creates code in the entry block.
+  Value *EmitRegister(tree_node *reg);
 
-  /// EmitTypeGcroot - Emits call to make type a gcroot
-  void EmitTypeGcroot(Value *V, tree_node *decl);
-private:
+  /// EmitSSA_NAME - Return the defining value of the given SSA_NAME.
+  /// Only creates code in the entry block.
+  Value *EmitSSA_NAME(tree_node *reg);
 
-  // Expressions.
-  Value *EmitGimpleAssignSingleRHS(tree_node *rhs);
-  Value *EmitGimpleAssignRHS(gimple stmt);
-  Value *EmitGimpleCallRHS(gimple stmt, const MemRef *DestLoc);
-  Value *EmitLoadOfLValue(tree_node *exp);
-  Value *EmitADDR_EXPR(tree_node *exp);
-  Value *EmitOBJ_TYPE_REF(tree_node *exp);
-  Value *EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
-                    const AttrListPtr &PAL);
-  Value *EmitNOP_EXPR(tree_node *type, tree_node *op);
-  Value *EmitCONVERT_EXPR(tree_node *type, tree_node *op);
-  Value *EmitNEGATE_EXPR(tree_node *op);
-  Value *EmitCONJ_EXPR(tree_node *op);
+  // Unary expressions.
   Value *EmitABS_EXPR(tree_node *op);
   Value *EmitBIT_NOT_EXPR(tree_node *op);
+  Value *EmitCONJ_EXPR(tree_node *op);
+  Value *EmitCONVERT_EXPR(tree_node *type, tree_node *op);
+  Value *EmitNEGATE_EXPR(tree_node *op);
+  Value *EmitNOP_EXPR(tree_node *type, tree_node *op);
+  Value *EmitPAREN_EXPR(tree_node *exp);
   Value *EmitTRUTH_NOT_EXPR(tree_node *type, tree_node *op);
+
+  // Comparisons.
   Value *EmitCompare(tree_node *lhs, tree_node *rhs, tree_code code);
+
+  // Binary expressions.
   Value *EmitBinOp(tree_node *type, tree_code code, tree_node *op0,
                    tree_node *op1, unsigned Opc);
-  Value *EmitTruthOp(tree_node *type, tree_node *op0, tree_node *op1,
-                     unsigned Opc);
-  Value *EmitShiftOp(tree_node *op0, tree_node* op1, unsigned Opc);
-  Value *EmitRotateOp(tree_node *type, tree_node *op0, tree_node *op1,
-                      unsigned Opc1, unsigned Opc2);
   Value *EmitMinMaxExpr(tree_node *type, tree_node *op0, tree_node* op1,
                         unsigned UIPred, unsigned SIPred, unsigned Opc,
                         bool isMax);
-  Value *EmitFLOOR_MOD_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
+  Value *EmitRotateOp(tree_node *type, tree_node *op0, tree_node *op1,
+                      unsigned Opc1, unsigned Opc2);
+  Value *EmitShiftOp(tree_node *op0, tree_node* op1, unsigned Opc);
+  Value *EmitTruthOp(tree_node *type, tree_node *op0, tree_node *op1,
+                     unsigned Opc);
   Value *EmitCEIL_DIV_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
+  Value *EmitCOMPLEX_EXPR(tree op0, tree op1);
   Value *EmitFLOOR_DIV_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
-  Value *EmitROUND_DIV_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
-  Value *EmitFieldAnnotation(Value *FieldPtr, tree_node *FieldDecl);
+  Value *EmitFLOOR_MOD_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
   Value *EmitPOINTER_PLUS_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
-  Value *EmitPAREN_EXPR(tree_node *exp);
+  Value *EmitROUND_DIV_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
+
+
+  Value *EmitLoadOfLValue(tree_node *exp);
+  Value *EmitOBJ_TYPE_REF(tree_node *exp);
+  Value *EmitADDR_EXPR(tree_node *exp);
+  Value *EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
+                    const AttrListPtr &PAL);
+  Value *EmitFieldAnnotation(Value *FieldPtr, tree_node *FieldDecl);
 
   // Exception Handling.
   Value *EmitEXC_PTR_EXPR(tree_node *exp);
@@ -696,7 +699,6 @@ private:
   // Complex Math Expressions.
   Value *CreateComplex(Value *Real, Value *Imag);
   void SplitComplex(Value *Complex, Value *&Real, Value *&Imag);
-  Value *EmitCOMPLEX_EXPR(tree op0, tree op1);
   Value *EmitComplexBinOp(tree_code code, tree_node *op0, tree_node *op1);
 
   // L-Value Expressions.
@@ -717,6 +719,22 @@ private:
   Value *EmitREAL_CST(tree_node *exp);
   Value *EmitCONSTRUCTOR(tree_node *exp, const MemRef *DestLoc);
 
+
+  // Emit helpers.
+
+  /// EmitMinInvariant - The given value is constant in this function.  Return
+  /// the corresponding LLVM value. Only creates code in the entry block.
+  Value *EmitMinInvariant(tree_node *reg);
+
+  /// EmitInvariantAddress - The given address is constant in this function.
+  /// Return the corresponding LLVM value. Only creates code in the entry block.
+  Value *EmitInvariantAddress(tree_node *addr);
+
+  /// EmitRegisterConstant - Convert the given global constant of register type
+  /// to an LLVM constant.  Creates no code, only constants.
+  Constant *EmitRegisterConstant(tree_node *reg);
+
+private:
   // Optional target defined builtin intrinsic expanding function.
   bool TargetIntrinsicLower(gimple stmt,
                             tree_node *fndecl,
