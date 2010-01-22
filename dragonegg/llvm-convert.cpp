@@ -5908,7 +5908,7 @@ Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
       ICmpInst::ICMP_UGE : ICmpInst::ICMP_SGE;
     Value *Cmp = Builder.CreateICmp(pred, Op,
                     Constant::getNullValue(Op->getType()), "abscond");
-    return Builder.CreateSelect(Cmp, Op, OpN, "abs");
+    return Builder.CreateSelect(Cmp, Op, OpN, Op->getName()+"abs");
   }
 
   // Turn FP abs into fabs/fabsf.
@@ -5933,7 +5933,7 @@ Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
 
 Value *TreeToLLVM::EmitReg_BIT_NOT_EXPR(tree op) {
   Value *Op = EmitRegister(op);
-  return Builder.CreateNot(Op, Op->getName() + "not");
+  return Builder.CreateNot(Op, Op->getName()+"not");
 }
 
 Value *TreeToLLVM::EmitReg_CONJ_EXPR(tree op) {
@@ -5948,10 +5948,8 @@ Value *TreeToLLVM::EmitReg_CONJ_EXPR(tree op) {
 }
 
 Value *TreeToLLVM::EmitReg_CONVERT_EXPR(tree type, tree op) {
-  bool OpIsSigned = !TYPE_UNSIGNED(TREE_TYPE(op));
-  bool ExpIsSigned = !TYPE_UNSIGNED(type);
-  return CastToAnyType(EmitRegister(op), OpIsSigned, GetRegType(type),
-                       ExpIsSigned);
+  return CastToAnyType(EmitRegister(op), !TYPE_UNSIGNED(TREE_TYPE(op)),
+                       GetRegType(type), !TYPE_UNSIGNED(type));
 }
 
 Value *TreeToLLVM::EmitReg_NEGATE_EXPR(tree op) {
@@ -5975,15 +5973,6 @@ Value *TreeToLLVM::EmitReg_NEGATE_EXPR(tree op) {
     I = Builder.CreateNeg(I);
   }
   return CreateComplex(R, I, TREE_TYPE(TREE_TYPE(op)));
-}
-
-Value *TreeToLLVM::EmitReg_NOP_EXPR(tree type, tree op) {
-  const Type *Ty = GetRegType(type);
-  bool OpIsSigned = !TYPE_UNSIGNED(TREE_TYPE(op));
-  bool ExpIsSigned = !TYPE_UNSIGNED(type);
-  // Scalar to scalar copy.
-  assert(!AGGREGATE_TYPE_P(TREE_TYPE(op)) && "Aggregate to scalar nop_expr!");
-  return CastToAnyType(EmitRegister(op), OpIsSigned, Ty, ExpIsSigned);
 }
 
 Value *TreeToLLVM::EmitReg_PAREN_EXPR(tree op) {
@@ -7140,11 +7129,10 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case CONVERT_EXPR:
   case FIX_TRUNC_EXPR:
   case FLOAT_EXPR:
+  case NOP_EXPR:
     RHS = EmitReg_CONVERT_EXPR(type, rhs1); break;
   case NEGATE_EXPR:
     RHS = EmitReg_NEGATE_EXPR(rhs1); break;
-  case NOP_EXPR:
-    RHS = EmitReg_NOP_EXPR(type, rhs1); break;
   case PAREN_EXPR:
     RHS = EmitReg_PAREN_EXPR(rhs1); break;
   case TRUTH_NOT_EXPR:

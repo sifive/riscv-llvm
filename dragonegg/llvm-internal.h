@@ -606,7 +606,6 @@ private:
   Value *EmitReg_CONJ_EXPR(tree_node *op);
   Value *EmitReg_CONVERT_EXPR(tree_node *type, tree_node *op);
   Value *EmitReg_NEGATE_EXPR(tree_node *op);
-  Value *EmitReg_NOP_EXPR(tree_node *type, tree_node *op);
   Value *EmitReg_PAREN_EXPR(tree_node *exp);
   Value *EmitReg_TRUTH_NOT_EXPR(tree_node *type, tree_node *op);
 
