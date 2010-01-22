@@ -155,7 +155,9 @@ class TypeConverter {
   std::map<tree_node *, unsigned int> FieldIndexMap;
 public:
   TypeConverter() : ConvertingStruct(false) {}
-  
+
+  /// ConvertType - Returns the LLVM type to use for memory that holds a value
+  /// of the given GCC type (GetRegType should be used for values in registers).
   const Type *ConvertType(tree_node *type);
 
   /// GetFieldIndex - Returns the index of the LLVM field corresponding to
@@ -197,8 +199,8 @@ private:
 
 extern TypeConverter *TheTypeConverter;
 
-/// ConvertType - Convert the specified tree type to an LLVM type.
-///
+/// ConvertType - Returns the LLVM type to use for memory that holds a value
+/// of the given GCC type (GetRegType should be used for values in registers).
 inline const Type *ConvertType(tree_node *type) {
   return TheTypeConverter->ConvertType(type);
 }
@@ -294,15 +296,15 @@ bool ValidateRegisterVariable(tree_node *decl);
 
 /// MemRef - This struct holds the information needed for a memory access:
 /// a pointer to the memory, its alignment and whether the access is volatile.
-struct MemRef {
+class MemRef {
+public:
   Value *Ptr;
   bool Volatile;
 private:
   unsigned char LogAlign;
-
 public:
-  MemRef() : Ptr(0), Volatile(false), LogAlign(0) {}
-  MemRef(Value *P, uint32_t A, bool V) : Ptr(P), Volatile(V) {
+  explicit MemRef() : Ptr(0), Volatile(false), LogAlign(0) {}
+  explicit MemRef(Value *P, uint32_t A, bool V) : Ptr(P), Volatile(V) {
     // Forbid alignment 0 along with non-power-of-2 alignment values.
     assert(isPowerOf2_32(A) && "Alignment not a power of 2!");
     LogAlign = Log2_32(A);
@@ -320,32 +322,21 @@ public:
 /// and BitSize indicates the extent.
 ///
 /// "LValue" is intended to be a light-weight object passed around by-value.
-struct LValue {
-  Value *Ptr;
+class LValue : public MemRef {
+public:
   unsigned char BitStart;
   unsigned char BitSize;
-private:
-  unsigned char LogAlign;
-
 public:
-  LValue() : Ptr(0), BitStart(255), BitSize(255), LogAlign(0) {}
-  LValue(Value *P, uint32_t A) : Ptr(P), BitStart(255), BitSize(255) {
-    // Forbid alignment 0 along with non-power-of-2 alignment values.
-    assert(isPowerOf2_32(A) && "Alignment not a power of 2!");
-    LogAlign = Log2_32(A);
-  }
-  LValue(Value *P, uint32_t A, unsigned BSt, unsigned BSi)
-  : Ptr(P), BitStart(BSt), BitSize(BSi) {
+  explicit LValue() : BitStart(255), BitSize(255) {}
+  explicit LValue(MemRef &M) : MemRef(M), BitStart(255), BitSize(255) {}
+  LValue(Value *P, uint32_t A, bool V = false) :
+      MemRef(P, A, V), BitStart(255), BitSize(255) {}
+  LValue(Value *P, uint32_t A, unsigned BSt, unsigned BSi, bool V = false) :
+      MemRef(P, A, V), BitStart(BSt), BitSize(BSi) {
     assert(BitStart == BSt && BitSize == BSi &&
            "Bit values larger than 256?");
-    // Forbid alignment 0 along with non-power-of-2 alignment values.
-    assert(isPowerOf2_32(A) && "Alignment not a power of 2!");
-    LogAlign = Log2_32(A);
   }
 
-  uint32_t getAlignment() const {
-    return 1U << LogAlign;
-  }
   bool isBitfield() const { return BitStart != 255; }
 };
 
@@ -385,13 +376,13 @@ class TreeToLLVM {
   DenseMap<basic_block, BasicBlock*> BasicBlocks;
 
   /// LocalDecls - Map from local declarations to their associated LLVM values.
-  DenseMap<tree, AssertingVH<Value> > LocalDecls;
+  DenseMap<tree_node *, AssertingVH<Value> > LocalDecls;
 
   /// PendingPhis - Phi nodes which have not yet been populated with operands.
   SmallVector<PhiRecord, 16> PendingPhis;
 
   // SSANames - Map from GCC ssa names to the defining LLVM value.
-  DenseMap<tree, TrackingVH<Value> > SSANames;
+  DenseMap<tree_node *, TrackingVH<Value> > SSANames;
 
 public:
 
@@ -590,50 +581,62 @@ private:
   Value *OutputCallRHS(gimple stmt, const MemRef *DestLoc);
 
   /// WriteScalarToLHS - Store RHS, a non-aggregate value, into the given LHS.
-  void WriteScalarToLHS(tree lhs, Value *Scalar);
+  void WriteScalarToLHS(tree_node *lhs, Value *Scalar);
 
 private:
 
-  //===------------ Emit* - Convert register expression to LLVM -----------===//
+  //===---------- EmitReg* - Convert register expression to LLVM ----------===//
+
+  /// GetRegType - Returns the LLVM type to use for registers that hold a value
+  /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
+  /// determine the LLVM type to return.
+  const Type *GetRegType(tree_node *type);
 
   /// EmitRegister - Convert the specified gimple register or local constant of
   /// register type to an LLVM value.  Only creates code in the entry block.
   Value *EmitRegister(tree_node *reg);
 
-  /// EmitSSA_NAME - Return the defining value of the given SSA_NAME.
+  /// EmitReg_SSA_NAME - Return the defining value of the given SSA_NAME.
   /// Only creates code in the entry block.
-  Value *EmitSSA_NAME(tree_node *reg);
+  Value *EmitReg_SSA_NAME(tree_node *reg);
 
   // Unary expressions.
-  Value *EmitABS_EXPR(tree_node *op);
-  Value *EmitBIT_NOT_EXPR(tree_node *op);
-  Value *EmitCONJ_EXPR(tree_node *op);
-  Value *EmitCONVERT_EXPR(tree_node *type, tree_node *op);
-  Value *EmitNEGATE_EXPR(tree_node *op);
-  Value *EmitNOP_EXPR(tree_node *type, tree_node *op);
-  Value *EmitPAREN_EXPR(tree_node *exp);
-  Value *EmitTRUTH_NOT_EXPR(tree_node *type, tree_node *op);
+  Value *EmitReg_ABS_EXPR(tree_node *op);
+  Value *EmitReg_BIT_NOT_EXPR(tree_node *op);
+  Value *EmitReg_CONJ_EXPR(tree_node *op);
+  Value *EmitReg_CONVERT_EXPR(tree_node *type, tree_node *op);
+  Value *EmitReg_NEGATE_EXPR(tree_node *op);
+  Value *EmitReg_NOP_EXPR(tree_node *type, tree_node *op);
+  Value *EmitReg_PAREN_EXPR(tree_node *exp);
+  Value *EmitReg_TRUTH_NOT_EXPR(tree_node *type, tree_node *op);
 
   // Comparisons.
+
+  /// EmitCompare - Compare LHS with RHS using the appropriate comparison code.
+  /// The result is an i1 boolean.
   Value *EmitCompare(tree_node *lhs, tree_node *rhs, tree_code code);
 
   // Binary expressions.
-  Value *EmitBinOp(tree_node *type, tree_code code, tree_node *op0,
-                   tree_node *op1, unsigned Opc);
-  Value *EmitMinMaxExpr(tree_node *type, tree_node *op0, tree_node* op1,
-                        unsigned UIPred, unsigned SIPred, unsigned Opc,
-                        bool isMax);
-  Value *EmitRotateOp(tree_node *type, tree_node *op0, tree_node *op1,
-                      unsigned Opc1, unsigned Opc2);
-  Value *EmitShiftOp(tree_node *op0, tree_node* op1, unsigned Opc);
-  Value *EmitTruthOp(tree_node *type, tree_node *op0, tree_node *op1,
-                     unsigned Opc);
-  Value *EmitCEIL_DIV_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
-  Value *EmitCOMPLEX_EXPR(tree op0, tree op1);
-  Value *EmitFLOOR_DIV_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
-  Value *EmitFLOOR_MOD_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
-  Value *EmitPOINTER_PLUS_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
-  Value *EmitROUND_DIV_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
+  Value *EmitReg_BinOp(tree_node *type, tree_code code, tree_node *op0,
+                       tree_node *op1, unsigned Opc);
+  Value *EmitReg_MinMaxExpr(tree_node *type, tree_node *op0, tree_node* op1,
+                            unsigned UIPred, unsigned SIPred, unsigned Opc,
+                            bool isMax);
+  Value *EmitReg_RotateOp(tree_node *type, tree_node *op0, tree_node *op1,
+                          unsigned Opc1, unsigned Opc2);
+  Value *EmitReg_ShiftOp(tree_node *op0, tree_node* op1, unsigned Opc);
+  Value *EmitReg_TruthOp(tree_node *type, tree_node *op0, tree_node *op1,
+                         unsigned Opc);
+  Value *EmitReg_CEIL_DIV_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
+  Value *EmitReg_COMPLEX_EXPR(tree_node *op0, tree_node *op1);
+  Value *EmitReg_FLOOR_DIV_EXPR(tree_node *type, tree_node *op0,
+                                tree_node *op1);
+  Value *EmitReg_FLOOR_MOD_EXPR(tree_node *type, tree_node *op0,
+                                tree_node *op1);
+  Value *EmitReg_POINTER_PLUS_EXPR(tree_node *type, tree_node *op0,
+                                   tree_node *op1);
+  Value *EmitReg_ROUND_DIV_EXPR(tree_node *type, tree_node *op0,
+                                tree_node *op1);
 
 
   Value *EmitLoadOfLValue(tree_node *exp);
@@ -697,8 +700,9 @@ private:
   bool EmitBuiltinInitTrampoline(gimple stmt, Value *&Result);
 
   // Complex Math Expressions.
-  Value *CreateComplex(Value *Real, Value *Imag);
-  void SplitComplex(Value *Complex, Value *&Real, Value *&Imag);
+  Value *CreateComplex(Value *Real, Value *Imag, tree_node *elt_type);
+  void SplitComplex(Value *Complex, Value *&Real, Value *&Imag,
+                    tree_node *elt_type);
   Value *EmitComplexBinOp(tree_code code, tree_node *op0, tree_node *op1);
 
   // L-Value Expressions.
@@ -733,6 +737,34 @@ private:
   /// EmitRegisterConstant - Convert the given global constant of register type
   /// to an LLVM constant.  Creates no code, only constants.
   Constant *EmitRegisterConstant(tree_node *reg);
+
+  /// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
+  /// to in-register type (that given by GetRegType).
+  Value *Mem2Reg(Value *V, tree_node *type, LLVMBuilder &Builder);
+  Constant *Mem2Reg(Constant *C, tree_node *type, TargetFolder &Folder);
+
+  /// Reg2Mem - Convert a value of in-register type (that given by GetRegType)
+  /// to in-memory type (that given by ConvertType).
+  Value *Reg2Mem(Value *V, tree_node *type, LLVMBuilder &Builder);
+
+  /// EmitMemory - Convert the specified gimple register or local constant of
+  /// register type to an LLVM value with in-memory type (given by ConvertType).
+  Value *EmitMemory(tree_node *reg) {
+    return Reg2Mem(EmitRegister(reg), TREE_TYPE(reg), Builder);
+  }
+
+  /// LoadRegisterFromMemory - Loads a value of the given scalar GCC type from
+  /// the memory location pointed to by Loc.  Takes care of adjusting for any
+  /// differences between in-memory and in-register types (the returned value
+  /// is of in-register type, as returned by GetRegType).
+  Value *LoadRegisterFromMemory(MemRef Loc, tree_node *type,
+                                LLVMBuilder &Builder);
+
+  /// StoreRegisterToMemory - Stores the given value to the memory pointed to by
+  /// Loc.  Takes care of adjusting for any differences between the value's type
+  /// (which is the in-register type given by GetRegType) and the in-memory type.
+  void StoreRegisterToMemory(Value *V, MemRef Loc, tree_node *type,
+                             LLVMBuilder &Builder);
 
 private:
   // Optional target defined builtin intrinsic expanding function.

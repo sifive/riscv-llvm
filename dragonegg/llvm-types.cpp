@@ -681,10 +681,8 @@ const Type *TypeConverter::ConvertType(tree orig_type) {
   case BOOLEAN_TYPE:
   case INTEGER_TYPE: {
     if ((Ty = GET_TYPE_LLVM(type))) return Ty;
-    // The ARM port defines __builtin_neon_xi as a 511-bit type because GCC's
-    // type precision field has only 9 bits.  Treat this as a special case.
-    int precision = TYPE_PRECISION(type) == 511 ? 512 : TYPE_PRECISION(type);
-    Ty = SET_TYPE_LLVM(type, IntegerType::get(Context, precision));
+    uint64_t Size = getInt64(TYPE_SIZE(type), true);
+    Ty = SET_TYPE_LLVM(type, IntegerType::get(Context, Size));
     break;
   }
 
