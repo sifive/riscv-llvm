@@ -5903,7 +5903,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
 Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
   Value *Op = EmitRegister(op);
   if (!Op->getType()->isFloatingPoint()) {
-    Value *OpN = Builder.CreateNeg(Op, (Op->getNameStr()+"neg").c_str());
+    Value *OpN = Builder.CreateNeg(Op, Op->getName()+"neg");
     ICmpInst::Predicate pred = TYPE_UNSIGNED(TREE_TYPE(op)) ?
       ICmpInst::ICMP_UGE : ICmpInst::ICMP_SGE;
     Value *Cmp = Builder.CreateICmp(pred, Op,
@@ -5933,7 +5933,7 @@ Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
 
 Value *TreeToLLVM::EmitReg_BIT_NOT_EXPR(tree op) {
   Value *Op = EmitRegister(op);
-  return Builder.CreateNot(Op, (Op->getNameStr()+"not").c_str());
+  return Builder.CreateNot(Op, Op->getName() + "not");
 }
 
 Value *TreeToLLVM::EmitReg_CONJ_EXPR(tree op) {
@@ -5996,7 +5996,7 @@ Value *TreeToLLVM::EmitReg_TRUTH_NOT_EXPR(tree type, tree op) {
   if (!V->getType()->isInteger(1))
     V = Builder.CreateICmpNE(V,
           Constant::getNullValue(V->getType()), "toBool");
-  V = Builder.CreateNot(V, (V->getNameStr()+"not").c_str());
+  V = Builder.CreateNot(V, V->getName()+"not");
   return Builder.CreateIntCast(V, GetRegType(type), /*isSigned*/false);
 }
 
@@ -6177,7 +6177,7 @@ Value *TreeToLLVM::EmitReg_RotateOp(tree type, tree op0, tree op1,
 
   if (Amt->getType() != In->getType())
     Amt = Builder.CreateIntCast(Amt, In->getType(), /*isSigned*/false,
-                                (Amt->getNameStr()+".cast").c_str());
+                                Amt->getName()+".cast");
 
   Value *TypeSize =
     ConstantInt::get(In->getType(),
@@ -6198,7 +6198,7 @@ Value *TreeToLLVM::EmitReg_ShiftOp(tree op0, tree op1, unsigned Opc) {
   Value *RHS = EmitRegister(op1);
   if (RHS->getType() != LHS->getType())
     RHS = Builder.CreateIntCast(RHS, LHS->getType(), /*isSigned*/false,
-                                (RHS->getNameStr()+".cast").c_str());
+                                RHS->getName()+".cast");
 
   return Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
 }
@@ -6423,11 +6423,11 @@ Value *TreeToLLVM::EmitReg_ROUND_DIV_EXPR(tree type, tree op0, tree op1) {
     // Calculate |LHS| ...
     Value *MinusLHS = Builder.CreateNeg(LHS);
     Value *AbsLHS = Builder.CreateSelect(LHSIsPositive, LHS, MinusLHS,
-                                         (LHS->getNameStr()+".abs").c_str());
+                                         LHS->getName()+".abs");
     // ... and |RHS|
     Value *MinusRHS = Builder.CreateNeg(RHS);
     Value *AbsRHS = Builder.CreateSelect(RHSIsPositive, RHS, MinusRHS,
-                                         (RHS->getNameStr()+".abs").c_str());
+                                         RHS->getName()+".abs");
 
     // Calculate AbsRDiv = (|LHS| + (|RHS| UDiv 2)) UDiv |RHS|.
     Value *HalfAbsRHS = Builder.CreateUDiv(AbsRHS, Two);
