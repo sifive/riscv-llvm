@@ -7732,15 +7732,15 @@ Constant *TreeConstantToLLVM::ConvertArrayCONSTRUCTOR(tree exp) {
   // type indirectly.
 
   // If we have a lower bound for the range of the type, get it.
-  tree InitType = TREE_TYPE(exp);
+  tree init_type = TREE_TYPE(exp);
   tree min_element = size_zero_node;
   std::vector<Constant*> ResultElts;
 
-  if (TREE_CODE(InitType) == VECTOR_TYPE) {
-    ResultElts.resize(TYPE_VECTOR_SUBPARTS(InitType));
+  if (TREE_CODE(init_type) == VECTOR_TYPE) {
+    ResultElts.resize(TYPE_VECTOR_SUBPARTS(init_type));
   } else {
-    assert(TREE_CODE(InitType) == ARRAY_TYPE && "Unknown type for init");
-    tree Domain = TYPE_DOMAIN(InitType);
+    assert(TREE_CODE(init_type) == ARRAY_TYPE && "Unknown type for init");
+    tree Domain = TYPE_DOMAIN(init_type);
     if (Domain && TYPE_MIN_VALUE(Domain))
       min_element = fold_convert(sizetype, TYPE_MIN_VALUE(Domain));
 
@@ -7828,7 +7828,7 @@ Constant *TreeConstantToLLVM::ConvertArrayCONSTRUCTOR(tree exp) {
       AllEltsSameType = false;
   }
 
-  if (TREE_CODE(InitType) == VECTOR_TYPE) {
+  if (TREE_CODE(init_type) == VECTOR_TYPE) {
     assert(AllEltsSameType && "Vector of heterogeneous element types?");
     return ConstantVector::get(ResultElts);
   }
@@ -7838,17 +7838,19 @@ Constant *TreeConstantToLLVM::ConvertArrayCONSTRUCTOR(tree exp) {
     ConstantStruct::get(Context, ResultElts, false);
 
   // If the array does not require extra padding, return it.
-  int64_t PadBits = getInt64(TYPE_SIZE(InitType), true) -
-    getTargetData().getTypeAllocSizeInBits(Res->getType());
-  assert(PadBits >= 0 && "Supersized array initializer!");
-  if (PadBits <= 0)
+  const Type *InitType = ConvertType(init_type);
+  uint64_t ExpectedBits = getTargetData().getTypeAllocSizeInBits(InitType);
+  uint64_t FoundBits = getTargetData().getTypeAllocSizeInBits(Res->getType());
+  // The initializer may be bigger than the type if init_type is variable sized
+  // or has no size (in which case the size is determined by the initial value).
+  if (ExpectedBits <= FoundBits)
     return Res;
 
   // Wrap the array in a struct with padding at the end.
   Constant *PadElts[2];
   PadElts[0] = Res;
   PadElts[1] = UndefValue::get(ArrayType::get(Type::getInt8Ty(Context),
-                                              PadBits / 8));
+                                              (ExpectedBits - FoundBits) / 8));
   return ConstantStruct::get(Context, PadElts, 2, false);
 }
 
