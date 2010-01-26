@@ -271,14 +271,29 @@ static unsigned GuessAtInliningThreshold() {
   return 200;
 }
 
-// SizeOfGlobalMatchesDecl - Whether the size of the given global value
-// is the same as that of the given GCC declaration.
+// SizeOfGlobalMatchesDecl - Whether the size of the given global value is the
+// same as that of the given GCC declaration.  Conservatively returns 'true' if
+// the answer is unclear.
 static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
-  const Type *Ty = GV->getType()->getElementType();
-  if (!isInt64(DECL_SIZE(decl), true) || !Ty->isSized())
+  // If the GCC declaration has no size then nothing useful can be said here.
+  if (!DECL_SIZE(decl))
     return true;
+  assert(isInt64(DECL_SIZE(decl), true) && "Global decl with variable size!");
+
+  const Type *Ty = GV->getType()->getElementType();
+  // If the LLVM type has no size then a useful comparison cannot be made.
+  if (!Ty->isSized())
+    return true;
+
+  // DECL_SIZE need not be a multiple of the alignment, while the LLVM size
+  // always is.  Correct for this.
+  // TODO: Change getTypeSizeInBits for aggregate types so it is no longer
+  // rounded up to the alignment.
+  uint64_t gcc_size = getInt64(DECL_SIZE(decl), true);
+  const TargetData *TD = TheTarget->getTargetData();
+  unsigned Align = 8 * TD->getABITypeAlignment(Ty);
   return TheTarget->getTargetData()->getTypeAllocSizeInBits(Ty) ==
-    getInt64(DECL_SIZE(decl), true);
+    ((gcc_size + Align - 1) / Align) * Align;
 }
 
 #ifndef LLVM_TARGET_NAME
@@ -904,76 +919,6 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
   }
 }
 
-/// reset_initializer_llvm - Change the initializer for a global variable.
-void reset_initializer_llvm(tree decl) {
-  // If there were earlier errors we can get here when DECL_LLVM has not
-  // been set.  Don't crash.
-  // We can also get here when DECL_LLVM has not been set for some object
-  // referenced in the initializer.  Don't crash then either.
-  if (errorcount || sorrycount)
-    return;
-
-  // Get or create the global variable now.
-  GlobalVariable *GV = cast<GlobalVariable>(DECL_LLVM(decl));
-  
-  // Visibility may also have changed.
-  handleVisibility(decl, GV);
-
-  // Convert the initializer over.
-  Constant *Init = TreeConstantToLLVM::Convert(DECL_INITIAL(decl));
-
-  // Set the initializer.
-  GV->setInitializer(Init);
-}
-  
-/// reset_type_and_initializer_llvm - Change the type and initializer for 
-/// a global variable.
-void reset_type_and_initializer_llvm(tree decl) {
-  // If there were earlier errors we can get here when DECL_LLVM has not
-  // been set.  Don't crash.
-  // We can also get here when DECL_LLVM has not been set for some object
-  // referenced in the initializer.  Don't crash then either.
-  if (errorcount || sorrycount)
-    return;
-
-  // Get or create the global variable now.
-  GlobalVariable *GV = cast<GlobalVariable>(DECL_LLVM(decl));
-  
-  // Visibility may also have changed.
-  handleVisibility(decl, GV);
-
-  // Temporary to avoid infinite recursion (see comments emit_global)
-  GV->setInitializer(UndefValue::get(GV->getType()->getElementType()));
-
-  // Convert the initializer over.
-  Constant *Init = TreeConstantToLLVM::Convert(DECL_INITIAL(decl));
-
-  // If we had a forward definition that has a type that disagrees with our
-  // initializer, insert a cast now.  This sort of thing occurs when we have a
-  // global union, and the LLVM type followed a union initializer that is
-  // different from the union element used for the type.
-  if (GV->getType()->getElementType() != Init->getType()) {
-    GV->removeFromParent();
-    GlobalVariable *NGV = new GlobalVariable(*TheModule, Init->getType(), 
-                                             GV->isConstant(),
-                                             GV->getLinkage(), 0,
-                                             GV->getName());
-    assert(SizeOfGlobalMatchesDecl(NGV, decl) && "Global has wrong size!");
-    NGV->setVisibility(GV->getVisibility());
-    NGV->setSection(GV->getSection());
-    NGV->setAlignment(GV->getAlignment());
-    NGV->setLinkage(GV->getLinkage());
-    GV->replaceAllUsesWith(TheFolder->CreateBitCast(NGV, GV->getType()));
-    changeLLVMConstant(GV, NGV);
-    delete GV;
-    SET_DECL_LLVM(decl, NGV);
-    GV = NGV;
-  }
-
-  // Set the initializer.
-  GV->setInitializer(Init);
-}
-  
 /// emit_global - Emit the specified VAR_DECL or aggregate CONST_DECL to LLVM as
 /// a global variable.  This function implements the end of assemble_variable.
 void emit_global(tree decl) {
@@ -1029,7 +974,6 @@ void emit_global(tree decl) {
                                              GV->isConstant(),
                                              GlobalValue::ExternalLinkage, 0,
                                              GV->getName());
-    assert(SizeOfGlobalMatchesDecl(NGV, decl) && "Global has wrong size!");
     GV->replaceAllUsesWith(TheFolder->CreateBitCast(NGV, GV->getType()));
     changeLLVMConstant(GV, NGV);
     delete GV;
@@ -1148,6 +1092,9 @@ void emit_global(tree decl) {
 
   if (TheDebugInfo)
     TheDebugInfo->EmitGlobalVariable(GV, decl);
+
+  // Sanity check that the LLVM global has the right size.
+  assert(SizeOfGlobalMatchesDecl(GV, decl) && "Global has wrong size!");
 
   // Mark the global as written so gcc doesn't waste time outputting it.
   TREE_ASM_WRITTEN(decl) = 1;
@@ -1406,7 +1353,12 @@ Value *make_decl_llvm(tree decl) {
     if (TREE_CODE(decl) == VAR_DECL && DECL_THREAD_LOCAL_P(decl))
       GV->setThreadLocal(true);
 
-    assert(SizeOfGlobalMatchesDecl(GV, decl) && "Global has wrong size!");
+    // At this point the global variable is a declaration rather than a
+    // definition, so it may have the wrong size (for example, the GCC
+    // type might have variable size, in which case the size will be set
+    // later by the initial value).  Do not check the size here.
+    assert(GV->isDeclaration() && "Global has unexpected initializer!");
+
     return SET_DECL_LLVM(decl, GV);
   }
 //TODO  timevar_pop(TV_LLVM_GLOBALS);
