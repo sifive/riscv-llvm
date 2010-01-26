@@ -15,8 +15,8 @@ Check out gcc from the gcc subversion repository:
   svn checkout svn://gcc.gnu.org/svn/gcc/trunk SomeLocalDir
 Apply the patches in the gcc-patches subdirectory, if any.  Hopefully one day
 the plugin will work with an unpatched gcc, but for the moment a small patch
-needs to be applied.  Configure gcc with your favorite options.  Build gcc and
-install it somewhere.
+needs to be applied.  Configure gcc with your favorite options and also with
+--enable-lto.  Build gcc and install it somewhere.
 
 Darwin special: the gcc configure script thinks darwin doesn't support dynamic
 libraries and concludes that plugins won't work.  Delete or improve the check.
