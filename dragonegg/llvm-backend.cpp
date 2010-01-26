@@ -431,7 +431,7 @@ static void LazilyInitializeModule(void) {
     IdentString += version_string;
     IdentString += " LLVM: ";
     IdentString += REVISION;
-    IdentString += "\"\n";
+    IdentString += "\"";
     TheModule->setModuleInlineAsm(IdentString);
   }
 #endif
