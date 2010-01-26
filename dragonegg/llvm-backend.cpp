@@ -1525,7 +1525,7 @@ static void llvm_start_unit(void *gcc_data, void *user_data) {
   flag_generate_lto = 1;
   flag_whole_program = 0;
 #else
-  error ("GCC LTO support required but not enabled");
+# error "LTO support required but not enabled in GCC"
 #endif
 }
 
