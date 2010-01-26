@@ -558,7 +558,7 @@ public:
   /// HandleUnion - Handle a UNION_TYPE or QUAL_UNION_TYPE tree.
   ///
   void HandleUnion(tree type, std::vector<const Type*> &ScalarElts) {
-    if (TYPE_TRANSPARENT_UNION(type)) {
+    if (TYPE_TRANSPARENT_AGGR(type)) {
       tree Field = TYPE_FIELDS(type);
       assert(Field && "Transparent union must have some elements!");
       while (TREE_CODE(Field) != FIELD_DECL) {
@@ -999,7 +999,7 @@ public:
   ///
   /// This is the default implementation which was copied from DefaultABI.
   void HandleUnion(tree type, std::vector<const Type*> &ScalarElts) {
-    if (TYPE_TRANSPARENT_UNION(type)) {
+    if (TYPE_TRANSPARENT_AGGR(type)) {
       tree Field = TYPE_FIELDS(type);
       assert(Field && "Transparent union must have some elements!");
       while (TREE_CODE(Field) != FIELD_DECL) {

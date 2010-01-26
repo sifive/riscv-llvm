@@ -557,7 +557,7 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
   case UNION_TYPE: {
     // If this is a union with the transparent_union attribute set, it is
     // treated as if it were just the same as its first type.
-    if (TYPE_TRANSPARENT_UNION(type)) {
+    if (TYPE_TRANSPARENT_AGGR(type)) {
       tree Field = TYPE_FIELDS(type);
       assert(Field && "Transparent union must have some elements!");
       while (TREE_CODE(Field) != FIELD_DECL) {
