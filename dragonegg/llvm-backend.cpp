@@ -274,7 +274,8 @@ static unsigned GuessAtInliningThreshold() {
 // SizeOfGlobalMatchesDecl - Whether the size of the given global value is the
 // same as that of the given GCC declaration.  Conservatively returns 'true' if
 // the answer is unclear.
-static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
+static ATTRIBUTE_UNUSED
+bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
   // If the GCC declaration has no size then nothing useful can be said here.
   if (!DECL_SIZE(decl))
     return true;
@@ -1580,8 +1581,7 @@ void emit_thunk(struct cgraph_node *node) {
     return;
   }
 
-  bool this_adjusting = node->thunk.this_adjusting;
-  assert(this_adjusting && "covariant return thunks not done yet!");
+  assert(node->thunk.this_adjusting && "covariant return thunks not done yet!");
 
   LLVMContext &Context = getGlobalContext();
   LLVMBuilder Builder(Context, *TheFolder);
