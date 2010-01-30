@@ -62,61 +62,62 @@ namespace llvm {
 /// DefaultABIClient - This is a simple implementation of the ABI client
 /// interface that can be subclassed.
 struct DefaultABIClient {
-  bool isShadowReturn() const { return false; }
+  virtual CallingConv::ID& getCallingConv(void) = 0;
+  virtual bool isShadowReturn() const { return false; }
 
   /// HandleScalarResult - This callback is invoked if the function returns a
   /// simple scalar result value, which is of type RetTy.
-  void HandleScalarResult(const Type *RetTy) {}
+  virtual void HandleScalarResult(const Type *RetTy) {}
 
   /// HandleAggregateResultAsScalar - This callback is invoked if the function
   /// returns an aggregate value by bit converting it to the specified scalar
   /// type and returning that.  The bit conversion should start at byte Offset
   /// within the struct, and ScalarTy is not necessarily big enough to cover
   /// the entire struct.
-  void HandleAggregateResultAsScalar(const Type *ScalarTy, unsigned Offset=0) {}
+  virtual void HandleAggregateResultAsScalar(const Type *ScalarTy, unsigned Offset=0) {}
 
   /// HandleAggregateResultAsAggregate - This callback is invoked if the function
   /// returns an aggregate value using multiple return values.
-  void HandleAggregateResultAsAggregate(const Type *AggrTy) {}
+  virtual void HandleAggregateResultAsAggregate(const Type *AggrTy) {}
 
   /// HandleAggregateShadowResult - This callback is invoked if the function
   /// returns an aggregate value by using a "shadow" first parameter, which is
   /// a pointer to the aggregate, of type PtrArgTy.  If RetPtr is set to true,
   /// the pointer argument itself is returned from the function.
-  void HandleAggregateShadowResult(const PointerType *PtrArgTy, bool RetPtr){}
+  virtual void HandleAggregateShadowResult(const PointerType *PtrArgTy, bool RetPtr){}
 
   /// HandleScalarShadowResult - This callback is invoked if the function
   /// returns a scalar value by using a "shadow" first parameter, which is a
   /// pointer to the scalar, of type PtrArgTy.  If RetPtr is set to true,
   /// the pointer argument itself is returned from the function.
-  void HandleScalarShadowResult(const PointerType *PtrArgTy, bool RetPtr) {}
+  virtual void HandleScalarShadowResult(const PointerType *PtrArgTy, bool RetPtr) {}
 
 
   /// HandleScalarArgument - This is the primary callback that specifies an
   /// LLVM argument to pass.  It is only used for first class types.
   /// If RealSize is non Zero then it specifies number of bytes to access
   /// from LLVMTy. 
-  void HandleScalarArgument(const llvm::Type *LLVMTy, tree type,
+  virtual void HandleScalarArgument(const llvm::Type *LLVMTy, tree type,
                             unsigned RealSize = 0) {}
 
   /// HandleByInvisibleReferenceArgument - This callback is invoked if a pointer
   /// (of type PtrTy) to the argument is passed rather than the argument itself.
-  void HandleByInvisibleReferenceArgument(const llvm::Type *PtrTy, tree type) {}
+  virtual void HandleByInvisibleReferenceArgument(const llvm::Type *PtrTy, tree type) {}
 
   /// HandleByValArgument - This callback is invoked if the aggregate function
   /// argument is passed by value.
-  void HandleByValArgument(const llvm::Type *LLVMTy, tree type) {}
+  virtual void HandleByValArgument(const llvm::Type *LLVMTy, tree type) {}
 
   /// HandleFCAArgument - This callback is invoked if the aggregate function
   /// argument is passed by value as a first class aggregate.
-  void HandleFCAArgument(const llvm::Type *LLVMTy,
+  virtual void HandleFCAArgument(const llvm::Type *LLVMTy,
                          tree type ATTRIBUTE_UNUSED) {}
 
   /// EnterField - Called when we're about the enter the field of a struct
   /// or union.  FieldNo is the number of the element we are entering in the
   /// LLVM Struct, StructTy is the LLVM type of the struct we are entering.
-  void EnterField(unsigned FieldNo, const llvm::Type *StructTy) {}
-  void ExitField() {}
+  virtual void EnterField(unsigned FieldNo, const llvm::Type *StructTy) {}
+  virtual void ExitField() {}
 };
 
 // LLVM_SHOULD_NOT_RETURN_COMPLEX_IN_MEMORY - A hook to allow
@@ -376,12 +377,11 @@ void llvm_default_extract_multiple_return_value(Value *Src, Value *Dest,
 /// passed by decimating them into individual components and unions are passed
 /// by passing the largest member of the union.
 ///
-template<typename Client>
 class DefaultABI {
 protected:
-  Client &C;
+  DefaultABIClient &C;
 public:
-  DefaultABI(Client &c) : C(c) {}
+  DefaultABI(DefaultABIClient &c) : C(c) {}
 
   bool isShadowReturn() const { return C.isShadowReturn(); }
   
@@ -738,15 +738,14 @@ public:
 /// SVR4ABI - This class implements the System V Release 4 ABI for PowerPC. The
 /// SVR4 ABI is the ABI used on 32-bit PowerPC Linux.
 ///
-template<typename Client>
 class SVR4ABI {
   // Number of general purpose argument registers which have already been
   // assigned.
   unsigned NumGPR;
 protected:
-  Client &C;
+  DefaultABIClient &C;
 public:
-  SVR4ABI(Client &c) : NumGPR(0), C(c) {}
+  SVR4ABI(DefaultABIClient &c) : NumGPR(0), C(c) {}
 
   bool isShadowReturn() const { return C.isShadowReturn(); }
   
