@@ -223,6 +223,7 @@ DebugInfo::DebugInfo(Module *m)
 , PrevFullPath("")
 , PrevLineNo(0)
 , PrevBB(NULL)
+, FwdTypeCount(0)
 , RegionStack()
 {}
 
@@ -501,10 +502,12 @@ DIType DebugInfo::createMethodType(tree type) {
 
   // Create a  place holder type first. The may be used as a context
   // for the argument types.
+  char *FwdTypeName = (char *)alloca(65);
+  sprintf(FwdTypeName, "fwd.type.%d", FwdTypeCount++);
   llvm::DIType FwdType = 
     DebugFactory.CreateCompositeType(llvm::dwarf::DW_TAG_subroutine_type,
                                      getOrCreateCompileUnit(NULL), 
-                                     StringRef(),
+                                     FwdTypeName,
                                      getOrCreateCompileUnit(NULL), 
                                      0, 0, 0, 0, 0,
                                      llvm::DIType(), llvm::DIArray());
