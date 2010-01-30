@@ -389,9 +389,12 @@ static void LazilyConfigureLLVM(void) {
 
 //TODO  std::vector<std::string> LLVM_Optns; // Avoid deallocation before opts parsed!
 //TODO  if (llvm_optns) {
-//TODO    SplitString(llvm_optns, LLVM_Optns);
-//TODO    for(unsigned i = 0, e = LLVM_Optns.size(); i != e; ++i)
-//TODO      Args.push_back(LLVM_Optns[i].c_str());
+//TODO    llvm::SmallVector<llvm::StringRef, 16> Buf;
+//TODO    SplitString(llvm_optns, Buf);
+//TODO    for(unsigned i = 0, e = Buf.size(); i != e; ++i) {
+//TODO      LLVM_Optns.push_back(Buf[i]);
+//TODO      Args.push_back(LLVM_Optns.back().c_str());
+//TODO    }
 //TODO  }
 
   Args.push_back(0);  // Null terminator.
