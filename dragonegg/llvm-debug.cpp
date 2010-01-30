@@ -809,6 +809,9 @@ DIType DebugInfo::createStructType(tree type) {
     // Should we skip.
     if (DECL_P(Member) && DECL_IGNORED_P(Member)) continue;
 
+    // Get the location of the member.
+    expanded_location MemLoc = GetNodeLocation(Member, false);
+
     if (TREE_CODE(Member) == FIELD_DECL) {
       
       if (!OffsetIsLLVMCompatible(Member))
@@ -821,9 +824,6 @@ DIType DebugInfo::createStructType(tree type) {
           && !(TREE_CODE (TREE_TYPE (Member)) == UNION_TYPE
                || TREE_CODE (TREE_TYPE (Member)) == RECORD_TYPE))
         continue;
-      
-      // Get the location of the member.
-      expanded_location MemLoc = GetNodeLocation(Member, false);
       
       // Field type is the declared type of the field.
       tree FieldNodeType = FieldType(Member);
@@ -845,8 +845,14 @@ DIType DebugInfo::createStructType(tree type) {
                                        int_bit_position(Member), 
                                        MFlags, MemberType);
       EltTys.push_back(DTy);
-    } else {
-      DEBUGASSERT(0 && "Unsupported member tree code!");
+    } if (TREE_CODE(Member) == VAR_DECL) {
+      EltTys.push_back(DebugFactory.
+                       CreateVariable(DW_TAG_auto_variable,
+                                      findRegion(DECL_CONTEXT(Member)),
+                                      GetNodeName(Member), 
+                                      getOrCreateCompileUnit(MemLoc.file),
+                                      MemLoc.line, 
+                                      getOrCreateType(TREE_TYPE(Member))));
     }
   }
   
