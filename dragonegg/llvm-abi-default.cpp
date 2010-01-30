@@ -235,8 +235,7 @@ void DefaultABI::PassInIntegerRegisters(tree type,
   unsigned Align = TYPE_ALIGN(type)/8;
   unsigned Int64Align =
     getTargetData().getABITypeAlignment(Type::getInt64Ty(getGlobalContext()));
-  bool UseInt64 = (getTargetData().isLegalInteger(64) &&
-                   (DontCheckAlignment || Align >= Int64Align));
+  bool UseInt64 = (DontCheckAlignment || Align >= Int64Align);
 
   unsigned ElementSize = UseInt64 ? 8:4;
   unsigned ArraySize = Size / ElementSize;
