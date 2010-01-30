@@ -11,7 +11,7 @@ TARGET_TRIPLE:=$(shell $(GCC) -v 2>&1 | grep "^Target:" | sed -e "s/^Target: *//
 PLUGIN=dragonegg.so
 PLUGIN_C=llvm-cache.c
 PLUGIN_CPP=llvm-convert.cpp llvm-backend.cpp llvm-debug.cpp llvm-types.cpp \
-	   bits_and_bobs.cpp
+	   bits_and_bobs.cpp llvm-abi-default.cpp
 PLUGIN_C_OBJECTS=$(PLUGIN_C:.c=.o)
 PLUGIN_CPP_OBJECTS=$(PLUGIN_CPP:.cpp=.o)
 PLUGIN_OBJECTS=$(PLUGIN_C_OBJECTS) $(PLUGIN_CPP_OBJECTS)
