@@ -372,7 +372,7 @@ namespace {
     /// getCallingConv - This provides the desired CallingConv for the function.
     CallingConv::ID& getCallingConv(void) { return CallingConv; }
 
-    bool isShadowReturn() {
+    bool isShadowReturn() const {
       return isShadowRet;
     }
     void setName(const std::string &Name) {
@@ -2375,7 +2375,7 @@ namespace {
       LocStack.clear();
     }
 
-    bool isShadowReturn() { return isShadowRet; }
+    bool isShadowReturn() const { return isShadowRet; }
     bool isAggrReturn() { return isAggrRet; }
 
     // EmitShadowResult - If the return result was redirected to a buffer,
