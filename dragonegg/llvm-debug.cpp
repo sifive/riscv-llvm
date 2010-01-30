@@ -258,20 +258,21 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
     Virtuality = dwarf::DW_VIRTUALITY_virtual;
     ContainingType = getOrCreateType(DECL_CONTEXT (FnDecl));
   }
-  bool UseModuleContext = false;
+
+  bool ArtificialFnWithAbstractOrigin = false;
   // If this artificial function has abstract origin then put this function
   // at module scope. The abstract copy will be placed in appropriate region.
-  if (DECL_ABSTRACT_ORIGIN (FnDecl) != FnDecl
-      && DECL_ARTIFICIAL(FnDecl))
-    UseModuleContext = true;
-  
+  if (DECL_ARTIFICIAL (FnDecl)
+      && DECL_ABSTRACT_ORIGIN (FnDecl)
+      && DECL_ABSTRACT_ORIGIN (FnDecl) != FnDecl)
+    ArtificialFnWithAbstractOrigin = true;
+
   const char *FnName = lang_hooks.dwarf_name(FnDecl, 0);
   DISubprogram SP = 
-    DebugFactory.CreateSubprogram((UseModuleContext ?
-                                   getOrCreateCompileUnit(main_input_filename) :
-                                   findRegion(DECL_CONTEXT(FnDecl))),
-                                  (UseModuleContext ? FnName : StringRef()), 
-                                  (UseModuleContext ? FnName : StringRef()), 
+    DebugFactory.CreateSubprogram(ArtificialFnWithAbstractOrigin ?
+                                  getOrCreateCompileUnit(main_input_filename) :
+                                  findRegion (DECL_CONTEXT(FnDecl)),
+                                  FnName, FnName,
                                   LinkageName,
                                   getOrCreateCompileUnit(Loc.file), lineno,
                                   FNType,
