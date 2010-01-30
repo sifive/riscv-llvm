@@ -267,7 +267,7 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
       && DECL_ABSTRACT_ORIGIN (FnDecl) != FnDecl)
     ArtificialFnWithAbstractOrigin = true;
 
-  const char *FnName = lang_hooks.dwarf_name(FnDecl, 0);
+  StringRef FnName = GetNodeName(FnDecl);
   DISubprogram SP = 
     DebugFactory.CreateSubprogram(ArtificialFnWithAbstractOrigin ?
                                   getOrCreateCompileUnit(main_input_filename) :
@@ -834,7 +834,7 @@ DIType DebugInfo::createStructType(tree type) {
     else {
       // Get the location of the member.
       expanded_location MemLoc = GetNodeLocation(Member, false);
-      const char *MemberName = lang_hooks.dwarf_name(Member, 0);        
+      StringRef MemberName = GetNodeName(Member);        
       StringRef LinkageName = getLinkageName(Member);
       DIType SPTy = getOrCreateType(TREE_TYPE(Member));
       unsigned Virtuality = 0;
