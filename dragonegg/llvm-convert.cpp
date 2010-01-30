@@ -3851,6 +3851,10 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_FETCH_AND_ADD_1:
   case BUILT_IN_FETCH_AND_ADD_2:
   case BUILT_IN_FETCH_AND_ADD_4: {
+#if defined(TARGET_ARM)
+    if (TARGET_THUMB1 || !arm_arch6)
+      return false;
+#endif
     Result = BuildBinaryAtomicBuiltin(stmt, Intrinsic::atomic_load_add);
     return true;
   }
