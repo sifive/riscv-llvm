@@ -478,6 +478,21 @@ DIType DebugInfo::createBasicType(tree type) {
 /// createMethodType - Create MethodType.
 DIType DebugInfo::createMethodType(tree type) {
 
+  // Create a  place holder type first. The may be used as a context
+  // for the argument types.
+  llvm::DIType FwdType = 
+    DebugFactory.CreateCompositeType(llvm::dwarf::DW_TAG_subroutine_type,
+                                     getOrCreateCompileUnit(NULL), 
+                                     StringRef(),
+                                     getOrCreateCompileUnit(NULL), 
+                                     0, 0, 0, 0, 0,
+                                     llvm::DIType(), llvm::DIArray());
+  llvm::TrackingVH<llvm::MDNode> FwdTypeNode = FwdType.getNode();
+  TypeCache[type] = WeakVH(FwdType.getNode());
+  // Push the struct on region stack.
+  RegionStack.push_back(WeakVH(FwdType.getNode()));
+  RegionMap[type] = WeakVH(FwdType.getNode());
+  
   llvm::SmallVector<llvm::DIDescriptor, 16> EltTys;
   
   // Add the result type at least.
@@ -493,12 +508,24 @@ DIType DebugInfo::createMethodType(tree type) {
   llvm::DIArray EltTypeArray =
     DebugFactory.GetOrCreateArray(EltTys.data(), EltTys.size());
 
-  return DebugFactory.CreateCompositeType(llvm::dwarf::DW_TAG_subroutine_type,
-                                          findRegion(TYPE_CONTEXT(type)), 
-                                          StringRef(),
-                                          getOrCreateCompileUnit(NULL), 
-                                          0, 0, 0, 0, 0,
-                                          llvm::DIType(), EltTypeArray);
+  RegionStack.pop_back();
+  std::map<tree_node *, WeakVH>::iterator RI = RegionMap.find(type);
+  if (RI != RegionMap.end())
+    RegionMap.erase(RI);
+
+  llvm::DIType RealType =
+    DebugFactory.CreateCompositeType(llvm::dwarf::DW_TAG_subroutine_type,
+                                     findRegion(TYPE_CONTEXT(type)), 
+                                     StringRef(),
+                                     getOrCreateCompileUnit(NULL), 
+                                     0, 0, 0, 0, 0,
+                                     llvm::DIType(), EltTypeArray);
+
+  // Now that we have a real decl for the struct, replace anything using the
+  // old decl with the new one.  This will recursively update the debug info.
+  llvm::DIDerivedType(FwdTypeNode).replaceAllUsesWith(RealType);
+
+  return RealType;
 }
 
 /// createPointerType - Create PointerType.
