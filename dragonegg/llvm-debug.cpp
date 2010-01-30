@@ -420,8 +420,7 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
   }
     
   DebugFactory.CreateGlobalVariable(findRegion(DECL_CONTEXT(decl)),
-                                    DispName, DispName,
-                                    getLinkageName(decl), 
+                                    DispName, DispName, StringRef(),
                                     getOrCreateCompileUnit(Loc.file), Loc.line,
                                     TyD, GV->hasInternalLinkage(),
                                     true/*definition*/, GV);
