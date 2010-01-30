@@ -782,12 +782,17 @@ DIType DebugInfo::createStructType(tree type) {
           BFlags |= llvm::DIType::FlagPrivate;
       }
 
+      // Check for zero BINFO_OFFSET. 
+      // FIXME : Is this correct ?
+      unsigned Offset = BINFO_OFFSET(BInfo) ? 
+	getINTEGER_CSTVal(BINFO_OFFSET(BInfo))*8 : 0;
+
       // FIXME : name, size, align etc...
       DIType DTy = 
         DebugFactory.CreateDerivedType(DW_TAG_inheritance, 
                                        findRegion(TYPE_CONTEXT(type)), StringRef(),
                                        llvm::DICompileUnit(), 0,0,0, 
-                                       getINTEGER_CSTVal(BINFO_OFFSET(BInfo))*8,
+                                       Offset,
                                        BFlags, BaseClass);
       EltTys.push_back(DTy);
     }
