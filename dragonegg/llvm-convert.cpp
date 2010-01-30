@@ -3773,6 +3773,10 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 //TODO  }
 
   case BUILT_IN_SYNCHRONIZE: {
+#if defined(TARGET_ARM)
+    if (TARGET_THUMB1 || !arm_arch6)
+      return false;
+#endif
     // We assume like gcc appears to, that this only applies to cached memory.
     Value* C[5];
     C[0] = C[1] = C[2] = C[3] = ConstantInt::get(Type::getInt1Ty(Context), 1);
