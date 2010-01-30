@@ -1566,7 +1566,8 @@ void StructTypeConversionInfo::addNewBitField(uint64_t Size,
 
   // Check that the alignment of NewFieldTy won't cause a gap in the structure!
   unsigned ByteAlignment = getTypeAlignment(NewFieldTy);
-  if (FirstUnallocatedByte & (ByteAlignment-1)) {
+  if (FirstUnallocatedByte & (ByteAlignment-1) ||
+      ByteAlignment > getGCCStructAlignmentInBytes()) {
     // Instead of inserting a nice whole field, insert a small array of ubytes.
     NewFieldTy = ArrayType::get(Type::getInt8Ty(Context), (Size+7)/8);
   }
