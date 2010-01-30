@@ -744,8 +744,8 @@ void TreeToLLVM::StartFunctionBody() {
 
       // Emit gcroot intrinsic if arg has attribute
       if (POINTER_TYPE_P(TREE_TYPE(Args))
-	  && lookup_attribute ("gcroot", TYPE_ATTRIBUTES(TREE_TYPE(Args))))
-      	EmitTypeGcroot(Tmp, Args);
+          && lookup_attribute ("gcroot", TYPE_ATTRIBUTES(TREE_TYPE(Args))))
+        EmitTypeGcroot(Tmp, Args);
 
       Client.setName(Name);
       Client.setLocation(Tmp);
@@ -1607,7 +1607,7 @@ void TreeToLLVM::EmitTypeGcroot(Value *V, tree decl) {
   Fn->setGC("shadow-stack");
 
   Function *gcrootFun = Intrinsic::getDeclaration(TheModule,
-						  Intrinsic::gcroot);
+                                                  Intrinsic::gcroot);
 
   // The idea is that it's a pointer to type "Value"
   // which is opaque* but the routine expects i8** and i8*.
@@ -4572,7 +4572,7 @@ bool TreeToLLVM::EmitBuiltinPrefetch(gimple stmt) {
       ReadWrite = 0;
     } else if (cast<ConstantInt>(ReadWrite)->getZExtValue() > 1) {
       warning (0, "invalid second argument to %<__builtin_prefetch%>;"
-	       " using zero");
+               " using zero");
       ReadWrite = 0;
     } else {
       ReadWrite = Builder.getFolder().CreateIntCast(cast<Constant>(ReadWrite),
@@ -4708,8 +4708,8 @@ bool TreeToLLVM::EmitBuiltinDwarfCFA(gimple stmt, Value *&Result) {
 
   // FIXME: is i32 always enough here?
   Result = Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
-							Intrinsic::eh_dwarf_cfa),
-			      ConstantInt::get(Type::getInt32Ty(Context), cfa_offset));
+                                                        Intrinsic::eh_dwarf_cfa),
+                              ConstantInt::get(Type::getInt32Ty(Context), cfa_offset));
 
   return true;
 }
@@ -4769,7 +4769,7 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&Result) {
   Args.push_back(Offset);
   Args.push_back(Handler);
   Builder.CreateCall(Intrinsic::getDeclaration(TheModule, IID),
-		     Args.begin(), Args.end());
+                     Args.begin(), Args.end());
   Result = Builder.CreateUnreachable();
   BeginBlock(BasicBlock::Create(Context));
 
