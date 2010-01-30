@@ -276,6 +276,8 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
   unsigned VIndex = 0;
   DIType ContainingType;
   if (DECL_VINDEX (FnDecl)) {
+    if (host_integerp (DECL_VINDEX (FnDecl), 0))
+      VIndex = tree_low_cst (DECL_VINDEX (FnDecl), 0);
     Virtuality = dwarf::DW_VIRTUALITY_virtual;
     ContainingType = getOrCreateType(DECL_CONTEXT (FnDecl));
   }
@@ -869,6 +871,8 @@ DIType DebugInfo::createStructType(tree type) {
       unsigned VIndex = 0;
       DIType ContainingType;
       if (DECL_VINDEX (Member)) {
+        if (host_integerp (DECL_VINDEX (Member), 0))
+          VIndex = tree_low_cst (DECL_VINDEX (Member), 0);
         Virtuality = dwarf::DW_VIRTUALITY_virtual;
         ContainingType = getOrCreateType(DECL_CONTEXT(Member));
       }
@@ -892,6 +896,11 @@ DIType DebugInfo::createStructType(tree type) {
   if (RI != RegionMap.end())
     RegionMap.erase(RI);
 
+  llvm::DIType ContainingType;
+  if (TYPE_VFIELD (type)) {
+    tree vtype = DECL_FCONTEXT (TYPE_VFIELD (type));
+    ContainingType = getOrCreateType(vtype);
+  }
   llvm::DICompositeType RealDecl =
     DebugFactory.CreateCompositeType(Tag, findRegion(TYPE_CONTEXT(type)),
                                      GetNodeName(type),
@@ -899,7 +908,7 @@ DIType DebugInfo::createStructType(tree type) {
                                      Loc.line, 
                                      NodeSizeInBits(type), NodeAlignInBits(type),
                                      0, SFlags, llvm::DIType(), Elements,
-                                     RunTimeLang);
+                                     RunTimeLang, ContainingType.getNode());
   RegionMap[type] = WeakVH(RealDecl.getNode());
 
   // Now that we have a real decl for the struct, replace anything using the
