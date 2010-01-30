@@ -614,8 +614,9 @@ public:
     // from Int64 alignment. ARM backend needs this.
     unsigned Align = TYPE_ALIGN(type)/8;
     unsigned Int64Align =
-        getTargetData().getABITypeAlignment(Type::getInt64Ty(getGlobalContext()));
-    bool UseInt64 = DontCheckAlignment ? true : (Align >= Int64Align);
+      getTargetData().getABITypeAlignment(Type::getInt64Ty(getGlobalContext()));
+    bool UseInt64 = (getTargetData().isLegalInteger(64) &&
+                     (DontCheckAlignment || Align >= Int64Align));
 
     // FIXME: In cases where we can, we should use the original struct.
     // Consider cases like { int, int } and {int, short} for example!  This will
@@ -625,29 +626,36 @@ public:
     unsigned ElementSize = UseInt64 ? 8:4;
     unsigned ArraySize = Size / ElementSize;
 
+    // Put as much of the aggregate as possible into an array. 
     const Type *ATy = NULL;
     const Type *ArrayElementType = NULL;
     if (ArraySize) {
       Size = Size % ElementSize;
-      ArrayElementType = (UseInt64) ?
-          Type::getInt64Ty(getGlobalContext()) : Type::getInt32Ty(getGlobalContext());
+      ArrayElementType = (UseInt64 ?
+                          Type::getInt64Ty(getGlobalContext()) :
+                          Type::getInt32Ty(getGlobalContext()));
       ATy = ArrayType::get(ArrayElementType, ArraySize);
       Elts.push_back(ATy);
     }
 
-    if (Size >= 4) {
-      Elts.push_back(Type::getInt32Ty(getGlobalContext()));
-      Size -= 4;
+    // Pass any leftover bytes as a separate element following the array.
+    unsigned LastEltRealSize = 0;
+    const llvm::Type *LastEltTy = 0;
+    if (Size > 4) {
+      LastEltTy = Type::getInt64Ty(getGlobalContext());
+    } else if (Size > 2) {
+      LastEltTy = Type::getInt32Ty(getGlobalContext());
+    } else if (Size > 1) {
+      LastEltTy = Type::getInt16Ty(getGlobalContext());
+    } else if (Size > 0) {
+      LastEltTy = Type::getInt8Ty(getGlobalContext());
     }
-    if (Size >= 2) {
-      Elts.push_back(Type::getInt16Ty(getGlobalContext()));
-      Size -= 2;
+    if (LastEltTy) {
+      Elts.push_back(LastEltTy);
+      if (Size != getTargetData().getTypeAllocSize(LastEltTy))
+        LastEltRealSize = Size;
     }
-    if (Size >= 1) {
-      Elts.push_back(Type::getInt8Ty(getGlobalContext()));
-      Size -= 1;
-    }
-    assert(Size == 0 && "Didn't cover value?");
+    
     const StructType *STy = StructType::get(getGlobalContext(), Elts, false);
 
     unsigned i = 0;
@@ -662,10 +670,10 @@ public:
       C.ExitField();
       ++i;
     }
-    for (unsigned e = Elts.size(); i != e; ++i) {
+    if (LastEltTy) {
       C.EnterField(i, STy);
-      C.HandleScalarArgument(Elts[i], 0);
-      ScalarElts.push_back(Elts[i]);
+      C.HandleScalarArgument(LastEltTy, 0, LastEltRealSize);
+      ScalarElts.push_back(LastEltTy);
       C.ExitField();
     }
   }
