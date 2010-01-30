@@ -3362,10 +3362,20 @@ TreeToLLVM::BuildBinaryAtomicBuiltin(gimple stmt, Intrinsic::ID id) {
 #else
   EmitMemoryBarrier(true, true, true, true, true);
 #endif
+
   Value *Result =
     Builder.CreateCall(Intrinsic::getDeclaration(TheModule,  id,
                                                  Ty, 2),
     C, C + 2);
+
+  // The gcc builtins are also full memory barriers.
+  // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
+#if defined(TARGET_ARM) && defined(CONFIG_DARWIN_H)
+  EmitMemoryBarrier(true, true, true, true, false);
+#else
+  EmitMemoryBarrier(true, true, true, true, true);
+#endif
+
   Result = Builder.CreateIntToPtr(Result, ResultTy);
   return Result;
 }
