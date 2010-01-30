@@ -67,10 +67,16 @@ private:
   std::map<tree_node *, WeakVH> NameSpaceCache;
                                         // Cache of previously constructed name 
                                         // spaces.
+
   SmallVector<WeakVH, 4> RegionStack;
                                         // Stack to track declarative scopes.
   
   std::map<tree_node *, WeakVH> RegionMap;
+
+  /// FunctionNames - This is a storage for function names that are
+  /// constructed on demand. For example, C++ destructors, C++ operators etc..
+  llvm::BumpPtrAllocator FunctionNames;
+
 public:
   DebugInfo(Module *m);
 
@@ -138,6 +144,11 @@ public:
   
   /// getOrCreateNameSpace - Get name space descriptor for the tree node.
   DINameSpace getOrCreateNameSpace(tree_node *Node, DIDescriptor Context);
+
+  /// getFunctionName - Get function name for the given FnDecl. If the
+  /// name is constructred on demand (e.g. C++ destructor) then the name
+  /// is stored on the side.
+  StringRef getFunctionName(tree_node *FnDecl);
 };
 
 } // end namespace llvm
