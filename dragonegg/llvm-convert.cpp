@@ -5614,8 +5614,8 @@ LValue TreeToLLVM::EmitLV_INDIRECT_REF(tree exp) {
   LValue LV = LValue(EmitRegister(TREE_OPERAND(exp, 0)), expr_align(exp) / 8);
   // May need a useless type conversion (useless_type_conversion_p), for example
   // when INDIRECT_REF is applied to a void*, resulting in a non-void type.
-  LV.Ptr = Builder.CreateBitCast(LV.Ptr,
-                                 ConvertType(TREE_TYPE(exp))->getPointerTo());
+  LV.Ptr = UselesslyTypeConvert(LV.Ptr,
+                                ConvertType(TREE_TYPE(exp))->getPointerTo());
   return LV;
 }
 
@@ -5847,13 +5847,9 @@ const Type *TreeToLLVM::GetRegType(tree type) {
 /// EmitRegister - Convert the specified gimple register or local constant of
 /// register type to an LLVM value.  Only creates code in the entry block.
 Value *TreeToLLVM::EmitRegister(tree reg) {
-  tree original_type = TREE_TYPE(reg);
   while (TREE_CODE(reg) == OBJ_TYPE_REF) reg = OBJ_TYPE_REF_EXPR(reg);
-  Value *V = (TREE_CODE(reg) == SSA_NAME) ?
+  return (TREE_CODE(reg) == SSA_NAME) ?
     EmitReg_SSA_NAME(reg) : EmitMinInvariant(reg);
-  // May need a useless type conversion (useless_type_conversion_p) to the
-  // original type.
-  return Builder.CreateBitCast(V, GetRegType(original_type));
 }
 
 /// EmitReg_SSA_NAME - Return the defining value of the given SSA_NAME.
@@ -6015,7 +6011,7 @@ Value *TreeToLLVM::EmitReg_TRUTH_NOT_EXPR(tree type, tree op) {
 /// The result is an i1 boolean.
 Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, tree_code code) {
   Value *LHS = EmitRegister(lhs);
-  Value *RHS = Builder.CreateBitCast(EmitRegister(rhs), LHS->getType());
+  Value *RHS = UselesslyTypeConvert(EmitRegister(rhs), LHS->getType());
 
   // Compute the LLVM opcodes corresponding to the GCC comparison.
   CmpInst::Predicate UIPred = CmpInst::BAD_ICMP_PREDICATE;
@@ -6128,8 +6124,8 @@ Value *TreeToLLVM::EmitReg_BinOp(tree type, tree_code code, tree op0, tree op1,
        (isa<VectorType>(Ty) &&
         cast<VectorType>(Ty)->getElementType()->isFloatingPoint()))) {
     Ty = getSuitableBitCastIntType(Ty);
-    LHS = Builder.CreateBitCast(LHS, Ty);
-    RHS = Builder.CreateBitCast(RHS, Ty);
+    LHS = UselesslyTypeConvert(LHS, Ty);
+    RHS = UselesslyTypeConvert(RHS, Ty);
   }
 
   Value *V;
@@ -6143,9 +6139,8 @@ Value *TreeToLLVM::EmitReg_BinOp(tree type, tree_code code, tree op0, tree op1,
     V = Builder.CreateNSWMul(LHS, RHS);
   else
     V = Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
-  if (ResTy != Ty)
-    V = Builder.CreateBitCast(V, ResTy);
-  return V;
+
+  return UselesslyTypeConvert(V, ResTy);
 }
 
 Value *TreeToLLVM::EmitReg_MinMaxExpr(tree type, tree op0, tree op1,
@@ -6390,7 +6385,7 @@ Value *TreeToLLVM::EmitReg_POINTER_PLUS_EXPR(tree type, tree op0, tree op1) {
     Builder.CreateInBoundsGEP(Ptr, Idx) : Builder.CreateGEP(Ptr, Idx);
 
   // The result may be of a different pointer type.
-  return Builder.CreateBitCast(GEP, GetRegType(type));
+  return UselesslyTypeConvert(GEP, GetRegType(type));
 }
 
 Value *TreeToLLVM::EmitReg_ROUND_DIV_EXPR(tree type, tree op0, tree op1) {
@@ -7345,7 +7340,7 @@ Value *TreeToLLVM::OutputCallRHS(gimple stmt, const MemRef *DestLoc) {
 /// WriteScalarToLHS - Store RHS, a non-aggregate value, into the given LHS.
 void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
   // Perform a useless type conversion (useless_type_conversion_p).
-  RHS = Builder.CreateBitCast(RHS, GetRegType(TREE_TYPE(lhs)));
+  RHS = UselesslyTypeConvert(RHS, GetRegType(TREE_TYPE(lhs)));
 
   // If this is the definition of an ssa name, record it in the SSANames map.
   if (TREE_CODE(lhs) == SSA_NAME) {

@@ -592,6 +592,18 @@ private:
   /// determine the LLVM type to return.
   const Type *GetRegType(tree_node *type);
 
+  /// UselesslyTypeConvert - The useless_type_conversion_p predicate implicitly
+  /// defines the GCC middle-end type system.  For scalar GCC types inner_type
+  /// and outer_type, if 'useless_type_conversion_p(outer_type, inner_type)' is
+  /// true then the corresponding LLVM inner and outer types (see GetRegType)
+  /// are equal except possibly if they are both pointer types (casts to 'void*'
+  /// are considered useless for example) or types derived from pointer types
+  /// (vector types with pointer element type are the only possibility here).
+  /// This method converts LLVM values of the inner type to the outer type.
+  Value *UselesslyTypeConvert(Value *V, const Type *Ty) {
+    return Builder.CreateBitCast(V, Ty);
+  }
+
   /// EmitRegister - Convert the specified gimple register or local constant of
   /// register type to an LLVM value.  Only creates code in the entry block.
   Value *EmitRegister(tree_node *reg);
