@@ -5057,26 +5057,6 @@ Value *TreeToLLVM::EmitComplexBinOp(tree_code code, tree op0, tree op1) {
   Value *DSTr, *DSTi;
   switch (code) {
   default: llvm_unreachable("Unhandled complex binop!");
-  case MULT_EXPR: { // (a+ib) * (c+id) = (ac-bd) + i(ad+cb)
-    if (LHSr->getType()->isFloatingPoint()) {
-      Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
-      Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
-      DSTr = Builder.CreateFSub(Tmp1, Tmp2);        // ac-bd
-
-      Value *Tmp3 = Builder.CreateFMul(LHSr, RHSi); // a*d
-      Value *Tmp4 = Builder.CreateFMul(RHSr, LHSi); // c*b
-      DSTi = Builder.CreateFAdd(Tmp3, Tmp4);        // ad+cb
-    } else {
-      Value *Tmp1 = Builder.CreateMul(LHSr, RHSr); // a*c
-      Value *Tmp2 = Builder.CreateMul(LHSi, RHSi); // b*d
-      DSTr = Builder.CreateSub(Tmp1, Tmp2);        // ac-bd
-
-      Value *Tmp3 = Builder.CreateMul(LHSr, RHSi); // a*d
-      Value *Tmp4 = Builder.CreateMul(RHSr, LHSi); // c*b
-      DSTi = Builder.CreateAdd(Tmp3, Tmp4);        // ad+cb
-    }
-    break;
-  }
   case RDIV_EXPR: { // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
     // RDIV_EXPR should always be floating point.
     assert (LHSr->getType()->isFloatingPoint());
@@ -6113,8 +6093,6 @@ Value *TreeToLLVM::EmitReg_BinOp(tree type, tree_code code, tree op0, tree op1,
   Value *V;
   if (Opc == Instruction::SDiv && IsExactDiv)
     V = Builder.CreateExactSDiv(LHS, RHS);
-  else if (Opc == Instruction::Mul && !TYPE_OVERFLOW_WRAPS(type))
-    V = Builder.CreateNSWMul(LHS, RHS);
   else
     V = Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
 
@@ -6384,6 +6362,51 @@ Value *TreeToLLVM::EmitReg_MINUS_EXPR(tree op0, tree op1) {
     return Builder.CreateSub(LHS, RHS);
   else
     return Builder.CreateNSWSub(LHS, RHS);
+}
+
+Value *TreeToLLVM::EmitReg_MULT_EXPR(tree op0, tree op1) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  tree type = TREE_TYPE(op0);
+
+  if (TREE_CODE(type) == COMPLEX_TYPE) {
+    tree elt_type = TREE_TYPE(type);
+    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi, elt_type);
+    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
+    Value *DSTr, *DSTi;
+
+    // (a+ib) * (c+id) = (ac-bd) + i(ad+cb)
+    if (LHSr->getType()->isFloatingPoint()) {
+      Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
+      Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
+      DSTr = Builder.CreateFSub(Tmp1, Tmp2);        // ac-bd
+
+      Value *Tmp3 = Builder.CreateFMul(LHSr, RHSi); // a*d
+      Value *Tmp4 = Builder.CreateFMul(RHSr, LHSi); // c*b
+      DSTi = Builder.CreateFAdd(Tmp3, Tmp4);        // ad+cb
+    } else {
+      // If overflow does not wrap in the element type then it is tempting to
+      // use NSW operations here.  However that would be wrong since overflow
+      // of an intermediate value calculated here does not necessarily imply
+      // that the final result overflows.
+      Value *Tmp1 = Builder.CreateMul(LHSr, RHSr); // a*c
+      Value *Tmp2 = Builder.CreateMul(LHSi, RHSi); // b*d
+      DSTr = Builder.CreateSub(Tmp1, Tmp2);        // ac-bd
+
+      Value *Tmp3 = Builder.CreateMul(LHSr, RHSi); // a*d
+      Value *Tmp4 = Builder.CreateMul(RHSr, LHSi); // c*b
+      DSTi = Builder.CreateAdd(Tmp3, Tmp4);        // ad+cb
+    }
+
+    return CreateComplex(DSTr, DSTi, elt_type);
+  }
+
+  if (LHS->getType()->isFPOrFPVector())
+    return Builder.CreateFMul(LHS, RHS);
+  else if (TYPE_OVERFLOW_WRAPS(type))
+    return Builder.CreateMul(LHS, RHS);
+  else
+    return Builder.CreateNSWMul(LHS, RHS);
 }
 
 Value *TreeToLLVM::EmitReg_PLUS_EXPR(tree op0, tree op1) {
@@ -7253,8 +7276,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_MINUS_EXPR(rhs1, rhs2);
     break;
   case MULT_EXPR:
-    RHS = EmitReg_BinOp(type, code, rhs1, rhs2, FLOAT_TYPE_P(type) ?
-                        Instruction::FMul : Instruction::Mul);
+    RHS = EmitReg_MULT_EXPR(rhs1, rhs2);
     break;
   case PLUS_EXPR:
     RHS = EmitReg_PLUS_EXPR(rhs1, rhs2);

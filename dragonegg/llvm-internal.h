@@ -645,6 +645,7 @@ private:
   Value *EmitReg_FLOOR_MOD_EXPR(tree_node *type, tree_node *op0,
                                 tree_node *op1);
   Value *EmitReg_MINUS_EXPR(tree_node *op0, tree_node *op1);
+  Value *EmitReg_MULT_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_PLUS_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_POINTER_PLUS_EXPR(tree_node *type, tree_node *op0,
                                    tree_node *op1);
