@@ -652,6 +652,7 @@ private:
   Value *EmitReg_RDIV_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_ROUND_DIV_EXPR(tree_node *type, tree_node *op0,
                                 tree_node *op1);
+  Value *EmitReg_TRUNC_DIV_EXPR(tree_node *op0, tree_node *op1, bool isExact);
 
 
   Value *EmitLoadOfLValue(tree_node *exp);

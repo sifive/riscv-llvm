@@ -6035,7 +6035,6 @@ Value *TreeToLLVM::EmitReg_BinOp(tree type, tree_code code, tree op0, tree op1,
   bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(op0));
   bool RHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(op1));
   bool TyIsSigned  = !TYPE_UNSIGNED(type);
-  bool IsExactDiv  = code == EXACT_DIV_EXPR;
 
   const Type *Ty = GetRegType(type);
   LHS = CastToAnyType(LHS, LHSIsSigned, Ty, TyIsSigned);
@@ -6055,11 +6054,7 @@ Value *TreeToLLVM::EmitReg_BinOp(tree type, tree_code code, tree op0, tree op1,
     RHS = UselesslyTypeConvert(RHS, Ty);
   }
 
-  Value *V;
-  if (Opc == Instruction::SDiv && IsExactDiv)
-    V = Builder.CreateExactSDiv(LHS, RHS);
-  else
-    V = Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
+  Value *V = Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
 
   return UselesslyTypeConvert(V, ResTy);
 }
@@ -6538,6 +6533,53 @@ Value *TreeToLLVM::EmitReg_ROUND_DIV_EXPR(tree type, tree op0, tree op1) {
   return Builder.CreateAdd(Quotient, Builder.CreateIntCast(Overflowed, Ty,
                                                            /*isSigned*/false),
                            "rdiv");
+}
+
+Value *TreeToLLVM::EmitReg_TRUNC_DIV_EXPR(tree op0, tree op1, bool isExact) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  tree type = TREE_TYPE(op0);
+
+  if (TREE_CODE(type) == COMPLEX_TYPE) {
+    tree elt_type = TREE_TYPE(type);
+    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi, elt_type);
+    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
+    Value *DSTr, *DSTi;
+
+    // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
+    assert (LHSr->getType()->isInteger() &&
+            "TRUNC_DIV_EXPR not integer!");
+    Value *Tmp1 = Builder.CreateMul(LHSr, RHSr); // a*c
+    Value *Tmp2 = Builder.CreateMul(LHSi, RHSi); // b*d
+    Value *Tmp3 = Builder.CreateAdd(Tmp1, Tmp2); // ac+bd
+
+    Value *Tmp4 = Builder.CreateMul(RHSr, RHSr); // c*c
+    Value *Tmp5 = Builder.CreateMul(RHSi, RHSi); // d*d
+    Value *Tmp6 = Builder.CreateAdd(Tmp4, Tmp5); // cc+dd
+    DSTr = TYPE_UNSIGNED(elt_type) ?
+      Builder.CreateUDiv(Tmp3, Tmp6) : Builder.CreateSDiv(Tmp3, Tmp6);
+
+    Value *Tmp7 = Builder.CreateMul(LHSi, RHSr); // b*c
+    Value *Tmp8 = Builder.CreateMul(LHSr, RHSi); // a*d
+    Value *Tmp9 = Builder.CreateSub(Tmp7, Tmp8); // bc-ad
+    DSTi = TYPE_UNSIGNED(elt_type) ?
+      Builder.CreateUDiv(Tmp9, Tmp6) : Builder.CreateSDiv(Tmp9, Tmp6);
+
+    return CreateComplex(DSTr, DSTi, elt_type);
+  }
+
+  assert(LHS->getType()->isIntOrIntVector() && "TRUNC_DIV_EXPR not integer!");
+  if (TYPE_UNSIGNED(type)) {
+//    if (isExact)
+//      return Builder.CreateExactUDiv(LHS, RHS);
+//    else
+      return Builder.CreateUDiv(LHS, RHS);
+  } else {
+    if (isExact)
+      return Builder.CreateExactSDiv(LHS, RHS);
+    else
+      return Builder.CreateSDiv(LHS, RHS);
+  }
 }
 
 
@@ -7251,9 +7293,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case COMPLEX_EXPR:
     RHS = EmitReg_COMPLEX_EXPR(rhs1, rhs2); break;
   case EXACT_DIV_EXPR:
-    RHS = EmitReg_BinOp(type, code, rhs1, rhs2, TYPE_UNSIGNED(type) ?
-                        Instruction::UDiv : Instruction::SDiv);
-    break;
+    RHS = EmitReg_TRUNC_DIV_EXPR(rhs1, rhs2, /*isExact*/true); break;
   case FLOOR_DIV_EXPR:
     RHS = EmitReg_FLOOR_DIV_EXPR(type, rhs1, rhs2); break;
   case FLOOR_MOD_EXPR:
@@ -7293,9 +7333,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
                           Instruction::LShr : Instruction::AShr);
     break;
   case TRUNC_DIV_EXPR:
-    RHS = EmitReg_BinOp(type, code, rhs1, rhs2, TYPE_UNSIGNED(type) ?
-                        Instruction::UDiv : Instruction::SDiv);
-    break;
+    RHS = EmitReg_TRUNC_DIV_EXPR(rhs1, rhs2, /*isExact*/false); break;
   case TRUNC_MOD_EXPR:
     RHS = EmitReg_BinOp(type, code, rhs1, rhs2, TYPE_UNSIGNED(type) ?
                         Instruction::URem : Instruction::SRem);
