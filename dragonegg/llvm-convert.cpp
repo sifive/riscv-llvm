@@ -5057,24 +5057,6 @@ Value *TreeToLLVM::EmitComplexBinOp(tree_code code, tree op0, tree op1) {
   Value *DSTr, *DSTi;
   switch (code) {
   default: llvm_unreachable("Unhandled complex binop!");
-  case PLUS_EXPR: // (a+ib) + (c+id) = (a+c) + i(b+d)
-    if (LHSr->getType()->isFloatingPoint()) {
-      DSTr = Builder.CreateFAdd(LHSr, RHSr);
-      DSTi = Builder.CreateFAdd(LHSi, RHSi);
-    } else {
-      DSTr = Builder.CreateAdd(LHSr, RHSr);
-      DSTi = Builder.CreateAdd(LHSi, RHSi);
-    }
-    break;
-  case MINUS_EXPR: // (a+ib) - (c+id) = (a-c) + i(b-d)
-    if (LHSr->getType()->isFloatingPoint()) {
-      DSTr = Builder.CreateFSub(LHSr, RHSr);
-      DSTi = Builder.CreateFSub(LHSi, RHSi);
-    } else {
-      DSTr = Builder.CreateSub(LHSr, RHSr);
-      DSTi = Builder.CreateSub(LHSi, RHSi);
-    }
-    break;
   case MULT_EXPR: { // (a+ib) * (c+id) = (ac-bd) + i(ad+cb)
     if (LHSr->getType()->isFloatingPoint()) {
       Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
@@ -6131,10 +6113,6 @@ Value *TreeToLLVM::EmitReg_BinOp(tree type, tree_code code, tree op0, tree op1,
   Value *V;
   if (Opc == Instruction::SDiv && IsExactDiv)
     V = Builder.CreateExactSDiv(LHS, RHS);
-  else if (Opc == Instruction::Add && !TYPE_OVERFLOW_WRAPS(type))
-    V = Builder.CreateNSWAdd(LHS, RHS);
-  else if (Opc == Instruction::Sub && !TYPE_OVERFLOW_WRAPS(type))
-    V = Builder.CreateNSWSub(LHS, RHS);
   else if (Opc == Instruction::Mul && !TYPE_OVERFLOW_WRAPS(type))
     V = Builder.CreateNSWMul(LHS, RHS);
   else
@@ -6373,6 +6351,72 @@ Value *TreeToLLVM::EmitReg_FLOOR_MOD_EXPR(tree type, tree op0, tree op1) {
 
   Value *SameAsRem = Builder.CreateOr(HaveSameSign, RemIsZero);
   return Builder.CreateSelect(SameAsRem, Rem, RemPlusRHS, "mod");
+}
+
+Value *TreeToLLVM::EmitReg_MINUS_EXPR(tree op0, tree op1) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  tree type = TREE_TYPE(op0);
+
+  if (TREE_CODE(type) == COMPLEX_TYPE) {
+    tree elt_type = TREE_TYPE(type);
+    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi, elt_type);
+    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
+
+    // (a+ib) - (c+id) = (a-c) + i(b-d)
+    if (LHSr->getType()->isFloatingPoint()) {
+      LHSr = Builder.CreateFSub(LHSr, RHSr);
+      LHSi = Builder.CreateFSub(LHSi, RHSi);
+    } else if (TYPE_OVERFLOW_WRAPS(elt_type)) {
+      LHSr = Builder.CreateSub(LHSr, RHSr);
+      LHSi = Builder.CreateSub(LHSi, RHSi);
+    } else {
+      LHSr = Builder.CreateNSWSub(LHSr, RHSr);
+      LHSi = Builder.CreateNSWSub(LHSi, RHSi);
+    }
+
+    return CreateComplex(LHSr, LHSi, elt_type);
+  }
+
+  if (LHS->getType()->isFPOrFPVector())
+    return Builder.CreateFSub(LHS, RHS);
+  else if (TYPE_OVERFLOW_WRAPS(type))
+    return Builder.CreateSub(LHS, RHS);
+  else
+    return Builder.CreateNSWSub(LHS, RHS);
+}
+
+Value *TreeToLLVM::EmitReg_PLUS_EXPR(tree op0, tree op1) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  tree type = TREE_TYPE(op0);
+
+  if (TREE_CODE(type) == COMPLEX_TYPE) {
+    tree elt_type = TREE_TYPE(type);
+    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi, elt_type);
+    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
+
+    // (a+ib) + (c+id) = (a+c) + i(b+d)
+    if (LHSr->getType()->isFloatingPoint()) {
+      LHSr = Builder.CreateFAdd(LHSr, RHSr);
+      LHSi = Builder.CreateFAdd(LHSi, RHSi);
+    } else if (TYPE_OVERFLOW_WRAPS(elt_type)) {
+      LHSr = Builder.CreateAdd(LHSr, RHSr);
+      LHSi = Builder.CreateAdd(LHSi, RHSi);
+    } else {
+      LHSr = Builder.CreateNSWAdd(LHSr, RHSr);
+      LHSi = Builder.CreateNSWAdd(LHSi, RHSi);
+    }
+
+    return CreateComplex(LHSr, LHSi, elt_type);
+  }
+
+  if (LHS->getType()->isFPOrFPVector())
+    return Builder.CreateFAdd(LHS, RHS);
+  else if (TYPE_OVERFLOW_WRAPS(type))
+    return Builder.CreateAdd(LHS, RHS);
+  else
+    return Builder.CreateNSWAdd(LHS, RHS);
 }
 
 Value *TreeToLLVM::EmitReg_POINTER_PLUS_EXPR(tree type, tree op0, tree op1) {
@@ -7206,16 +7250,14 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
                              ICmpInst::ICMP_SLE, FCmpInst::FCMP_OLE, false);
     break;
   case MINUS_EXPR:
-    RHS = EmitReg_BinOp(type, code, rhs1, rhs2, FLOAT_TYPE_P(type) ?
-                        Instruction::FSub : Instruction::Sub);
+    RHS = EmitReg_MINUS_EXPR(rhs1, rhs2);
     break;
   case MULT_EXPR:
     RHS = EmitReg_BinOp(type, code, rhs1, rhs2, FLOAT_TYPE_P(type) ?
                         Instruction::FMul : Instruction::Mul);
     break;
   case PLUS_EXPR:
-    RHS = EmitReg_BinOp(type, code, rhs1, rhs2, FLOAT_TYPE_P(type) ?
-                        Instruction::FAdd : Instruction::Add);
+    RHS = EmitReg_PLUS_EXPR(rhs1, rhs2);
     break;
   case POINTER_PLUS_EXPR:
     RHS = EmitReg_POINTER_PLUS_EXPR(type, rhs1, rhs2); break;
