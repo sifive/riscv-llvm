@@ -649,6 +649,7 @@ private:
   Value *EmitReg_PLUS_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_POINTER_PLUS_EXPR(tree_node *type, tree_node *op0,
                                    tree_node *op1);
+  Value *EmitReg_RDIV_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_ROUND_DIV_EXPR(tree_node *type, tree_node *op0,
                                 tree_node *op1);
 
@@ -717,7 +718,6 @@ private:
   Value *CreateComplex(Value *Real, Value *Imag, tree_node *elt_type);
   void SplitComplex(Value *Complex, Value *&Real, Value *&Imag,
                     tree_node *elt_type);
-  Value *EmitComplexBinOp(tree_code code, tree_node *op0, tree_node *op1);
 
   // L-Value Expressions.
   LValue EmitLV_ARRAY_REF(tree_node *exp);

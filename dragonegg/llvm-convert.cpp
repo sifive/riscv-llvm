@@ -5046,40 +5046,6 @@ void TreeToLLVM::SplitComplex(Value *Complex, Value *&Real, Value *&Imag,
   Imag = Mem2Reg(Builder.CreateExtractValue(Complex, 1), elt_type, Builder);
 }
 
-// EmitComplexBinOp - Note that this operates on binops like ==/!=, which return
-// a bool, not a complex value.
-Value *TreeToLLVM::EmitComplexBinOp(tree_code code, tree op0, tree op1) {
-  Value *LHSr, *LHSi;
-  SplitComplex(EmitRegister(op0), LHSr, LHSi, TREE_TYPE(TREE_TYPE(op0)));
-  Value *RHSr, *RHSi;
-  SplitComplex(EmitRegister(op1), RHSr, RHSi, TREE_TYPE(TREE_TYPE(op1)));
-
-  Value *DSTr, *DSTi;
-  switch (code) {
-  default: llvm_unreachable("Unhandled complex binop!");
-  case RDIV_EXPR: { // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
-    // RDIV_EXPR should always be floating point.
-    assert (LHSr->getType()->isFloatingPoint());
-    Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
-    Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
-    Value *Tmp3 = Builder.CreateFAdd(Tmp1, Tmp2); // ac+bd
-
-    Value *Tmp4 = Builder.CreateFMul(RHSr, RHSr); // c*c
-    Value *Tmp5 = Builder.CreateFMul(RHSi, RHSi); // d*d
-    Value *Tmp6 = Builder.CreateFAdd(Tmp4, Tmp5); // cc+dd
-    DSTr = Builder.CreateFDiv(Tmp3, Tmp6);
-
-    Value *Tmp7 = Builder.CreateFMul(LHSi, RHSr); // b*c
-    Value *Tmp8 = Builder.CreateFMul(LHSr, RHSi); // a*d
-    Value *Tmp9 = Builder.CreateFSub(Tmp7, Tmp8); // bc-ad
-    DSTi = Builder.CreateFDiv(Tmp9, Tmp6);
-    break;
-  }
-  }
-
-  return CreateComplex(DSTr, DSTi, TREE_TYPE(TREE_TYPE(op1)));
-}
-
 
 //===----------------------------------------------------------------------===//
 //                         ... L-Value Expressions ...
@@ -6058,8 +6024,7 @@ Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, tree_code code) {
 /// EmitReg_BinOp - 'exp' is a binary operator.
 Value *TreeToLLVM::EmitReg_BinOp(tree type, tree_code code, tree op0, tree op1,
                                  unsigned Opc) {
-  if (TREE_CODE(type) == COMPLEX_TYPE)
-    return EmitComplexBinOp(code, op0, op1);
+  assert(TREE_CODE(type) != COMPLEX_TYPE && "Unexpected complex binop!");
 
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
@@ -6453,6 +6418,41 @@ Value *TreeToLLVM::EmitReg_POINTER_PLUS_EXPR(tree type, tree op0, tree op1) {
 
   // The result may be of a different pointer type.
   return UselesslyTypeConvert(GEP, GetRegType(type));
+}
+
+Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  tree type = TREE_TYPE(op0);
+
+  if (TREE_CODE(type) == COMPLEX_TYPE) {
+    tree elt_type = TREE_TYPE(type);
+    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi, elt_type);
+    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
+    Value *DSTr, *DSTi;
+
+    // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
+    assert (LHSr->getType()->isFloatingPoint() &&
+            "RDIV_EXPR not floating point!");
+    Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
+    Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
+    Value *Tmp3 = Builder.CreateFAdd(Tmp1, Tmp2); // ac+bd
+
+    Value *Tmp4 = Builder.CreateFMul(RHSr, RHSr); // c*c
+    Value *Tmp5 = Builder.CreateFMul(RHSi, RHSi); // d*d
+    Value *Tmp6 = Builder.CreateFAdd(Tmp4, Tmp5); // cc+dd
+    DSTr = Builder.CreateFDiv(Tmp3, Tmp6);
+
+    Value *Tmp7 = Builder.CreateFMul(LHSi, RHSr); // b*c
+    Value *Tmp8 = Builder.CreateFMul(LHSr, RHSi); // a*d
+    Value *Tmp9 = Builder.CreateFSub(Tmp7, Tmp8); // bc-ad
+    DSTi = Builder.CreateFDiv(Tmp9, Tmp6);
+
+    return CreateComplex(DSTr, DSTi, elt_type);
+  }
+
+  assert(LHS->getType()->isFPOrFPVector() && "RDIV_EXPR not floating point!");
+  return Builder.CreateFDiv(LHS, RHS);
 }
 
 Value *TreeToLLVM::EmitReg_ROUND_DIV_EXPR(tree type, tree op0, tree op1) {
@@ -7273,18 +7273,15 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
                              ICmpInst::ICMP_SLE, FCmpInst::FCMP_OLE, false);
     break;
   case MINUS_EXPR:
-    RHS = EmitReg_MINUS_EXPR(rhs1, rhs2);
-    break;
+    RHS = EmitReg_MINUS_EXPR(rhs1, rhs2); break;
   case MULT_EXPR:
-    RHS = EmitReg_MULT_EXPR(rhs1, rhs2);
-    break;
+    RHS = EmitReg_MULT_EXPR(rhs1, rhs2); break;
   case PLUS_EXPR:
-    RHS = EmitReg_PLUS_EXPR(rhs1, rhs2);
-    break;
+    RHS = EmitReg_PLUS_EXPR(rhs1, rhs2); break;
   case POINTER_PLUS_EXPR:
     RHS = EmitReg_POINTER_PLUS_EXPR(type, rhs1, rhs2); break;
   case RDIV_EXPR:
-    RHS = EmitReg_BinOp(type, code, rhs1, rhs2, Instruction::FDiv); break;
+    RHS = EmitReg_RDIV_EXPR(rhs1, rhs2); break;
   case ROUND_DIV_EXPR:
     RHS = EmitReg_ROUND_DIV_EXPR(type, rhs1, rhs2); break;
   case RROTATE_EXPR:
