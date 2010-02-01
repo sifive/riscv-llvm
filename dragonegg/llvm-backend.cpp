@@ -1171,11 +1171,11 @@ Value *make_decl_llvm(tree decl) {
     abort ();
 #endif
 
-  LLVMContext &Context = getGlobalContext();
-  
   if (errorcount || sorrycount)
     return NULL;  // Do not process broken code.
   
+  LLVMContext &Context = getGlobalContext();
+
   // Global register variable with asm name, e.g.:
   // register unsigned long esp __asm__("ebp");
   if (TREE_CODE(decl) != FUNCTION_DECL && DECL_REGISTER(decl)) {
@@ -1538,12 +1538,15 @@ static void llvm_start_unit(void *gcc_data, void *user_data) {
 /// gate_emission - Whether to turn gimple into LLVM IR.
 static bool gate_emission(void) {
   // Don't bother doing anything if the program has errors.
-  return !errorcount && !sorrycount;
+  return !errorcount && !sorrycount; // Do not process broken code.
 }
 
 /// emit_function - Turn a gimple function into LLVM IR.  This is called once
 /// for each function in the compilation unit.
 static void emit_function(struct cgraph_node *node) {
+  if (errorcount || sorrycount)
+    return; // Do not process broken code.
+
   tree function = node->decl;
   struct function *fn = DECL_STRUCT_FUNCTION(function);
   if (!quiet_flag && DECL_NAME(function))
@@ -1563,7 +1566,7 @@ static void emit_function(struct cgraph_node *node) {
     Fn = Emitter.EmitFunction();
   }
 
-  if (!errorcount && !sorrycount) {
+  if (!errorcount && !sorrycount) { // Do not process broken code.
     // TODO  performLateBackendInitialization();
     createPerFunctionOptimizationPasses();
 
@@ -1581,6 +1584,9 @@ static void emit_function(struct cgraph_node *node) {
 
 /// emit_thunk - Turn a thunk into LLVM IR.
 void emit_thunk(struct cgraph_node *node) {
+  if (errorcount || sorrycount)
+    return; // Do not process broken code.
+
   Function *Thunk = cast<Function>(DECL_LLVM(node->decl));
   if (Thunk->isVarArg()) {
     sorry("thunks to varargs functions not supported");
@@ -1660,6 +1666,9 @@ void emit_thunk(struct cgraph_node *node) {
 
 /// emit_alias - Given decl and target emit alias to target.
 void emit_alias(tree decl, tree target) {
+  if (errorcount || sorrycount)
+    return; // Do not process broken code.
+
   // Get or create LLVM global for our alias.
   GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
 
@@ -1752,12 +1761,18 @@ void emit_alias(tree decl, tree target) {
 /// emit_same_body_alias - Turn a same-body alias into LLVM IR.
 static void emit_same_body_alias(struct cgraph_node *alias,
                                  struct cgraph_node *target) {
+  if (errorcount || sorrycount)
+    return; // Do not process broken code.
+
   emit_alias(alias->decl, alias->thunk.alias);
 }
 
 /// emit_file_scope_asm - Emit the specified string as a file-scope inline
 /// asm block.
 static void emit_file_scope_asm(tree string) {
+  if (errorcount || sorrycount)
+    return; // Do not process broken code.
+
   if (TREE_CODE(string) == ADDR_EXPR)
     string = TREE_OPERAND(string, 0);
   TheModule->appendModuleInlineAsm(TREE_STRING_POINTER (string));
@@ -1765,6 +1780,9 @@ static void emit_file_scope_asm(tree string) {
 
 /// emit_functions - Turn all functions in the compilation unit into LLVM IR.
 static void emit_functions(cgraph_node_set set) {
+  if (errorcount || sorrycount)
+    return; // Do not process broken code.
+
   LazilyInitializeModule();
 
   // Visit each function with a body, outputting it only once (the same function
@@ -1825,6 +1843,9 @@ static struct ipa_opt_pass_d pass_emit_functions = {
 
 /// emit_variables - Output GCC global variables to the LLVM IR.
 static void emit_variables(cgraph_node_set set) {
+  if (errorcount || sorrycount)
+    return; // Do not process broken code.
+
   LazilyInitializeModule();
 
   // Output all externally visible global variables, whether they are used in
@@ -1912,7 +1933,7 @@ static void llvm_finish(void *gcc_data, void *user_data) {
 /// compilation unit has been completely processed.
 static void llvm_finish_unit(void *gcc_data, void *user_data) {
   if (errorcount || sorrycount)
-    return;
+    return; // Do not process broken code.
 
   if (!quiet_flag)
     errs() << "Finishing compilation unit\n";
