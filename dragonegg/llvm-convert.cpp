@@ -1329,6 +1329,42 @@ Value *TreeToLLVM::CastToFPType(Value *V, const Type* Ty) {
   return Builder.CreateCast(opcode, V, Ty);
 }
 
+/// CreateAnyAdd - Add two LLVM scalar values with the given GCC type.  Does not
+/// support complex numbers.  The type is used to set overflow flags.
+Value *TreeToLLVM::CreateAnyAdd(Value *LHS, Value *RHS, tree_node *type) {
+  if (FLOAT_TYPE_P(type))
+    return Builder.CreateFAdd(LHS, RHS);
+  if (TYPE_OVERFLOW_WRAPS(type))
+    return Builder.CreateAdd(LHS, RHS);
+//  if (TYPE_UNSIGNED(type))
+//    return Builder.CreateNUWAdd(LHS, RHS);
+  return Builder.CreateNSWAdd(LHS, RHS);
+}
+
+/// CreateAnyMul - Multiply two LLVM scalar values with the given GCC type.
+/// Does not support complex numbers.  The type is used to set overflow flags.
+Value *TreeToLLVM::CreateAnyMul(Value *LHS, Value *RHS, tree_node *type) {
+  if (FLOAT_TYPE_P(type))
+    return Builder.CreateFMul(LHS, RHS);
+  if (TYPE_OVERFLOW_WRAPS(type))
+    return Builder.CreateMul(LHS, RHS);
+//  if (TYPE_UNSIGNED(type))
+//    return Builder.CreateNUWMul(LHS, RHS);
+  return Builder.CreateNSWMul(LHS, RHS);
+}
+
+/// CreateAnySub - Subtract two LLVM scalar values with the given GCC type.
+/// Does not support complex numbers.  The type is used to set overflow flags.
+Value *TreeToLLVM::CreateAnySub(Value *LHS, Value *RHS, tree_node *type) {
+  if (FLOAT_TYPE_P(type))
+    return Builder.CreateFSub(LHS, RHS);
+  if (TYPE_OVERFLOW_WRAPS(type))
+    return Builder.CreateSub(LHS, RHS);
+//  if (TYPE_UNSIGNED(type))
+//    return Builder.CreateNUWSub(LHS, RHS);
+  return Builder.CreateNSWSub(LHS, RHS);
+}
+
 /// CreateTemporary - Create a new alloca instruction of the specified type,
 /// inserting it into the entry block and returning it.  The resulting
 /// instruction's type is a pointer to the specified type.
@@ -6302,26 +6338,13 @@ Value *TreeToLLVM::EmitReg_MINUS_EXPR(tree op0, tree op1) {
     Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
 
     // (a+ib) - (c+id) = (a-c) + i(b-d)
-    if (LHSr->getType()->isFloatingPoint()) {
-      LHSr = Builder.CreateFSub(LHSr, RHSr);
-      LHSi = Builder.CreateFSub(LHSi, RHSi);
-    } else if (TYPE_OVERFLOW_WRAPS(elt_type)) {
-      LHSr = Builder.CreateSub(LHSr, RHSr);
-      LHSi = Builder.CreateSub(LHSi, RHSi);
-    } else {
-      LHSr = Builder.CreateNSWSub(LHSr, RHSr);
-      LHSi = Builder.CreateNSWSub(LHSi, RHSi);
-    }
+    LHSr = CreateAnySub(LHSr, RHSr, elt_type);
+    LHSi = CreateAnySub(LHSi, RHSi, elt_type);
 
     return CreateComplex(LHSr, LHSi, elt_type);
   }
 
-  if (LHS->getType()->isFPOrFPVector())
-    return Builder.CreateFSub(LHS, RHS);
-  else if (TYPE_OVERFLOW_WRAPS(type))
-    return Builder.CreateSub(LHS, RHS);
-  else
-    return Builder.CreateNSWSub(LHS, RHS);
+  return CreateAnySub(LHS, RHS, type);
 }
 
 Value *TreeToLLVM::EmitReg_MULT_EXPR(tree op0, tree op1) {
@@ -6336,7 +6359,7 @@ Value *TreeToLLVM::EmitReg_MULT_EXPR(tree op0, tree op1) {
     Value *DSTr, *DSTi;
 
     // (a+ib) * (c+id) = (ac-bd) + i(ad+cb)
-    if (LHSr->getType()->isFloatingPoint()) {
+    if (SCALAR_FLOAT_TYPE_P(elt_type)) {
       Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
       Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
       DSTr = Builder.CreateFSub(Tmp1, Tmp2);        // ac-bd
@@ -6361,12 +6384,7 @@ Value *TreeToLLVM::EmitReg_MULT_EXPR(tree op0, tree op1) {
     return CreateComplex(DSTr, DSTi, elt_type);
   }
 
-  if (LHS->getType()->isFPOrFPVector())
-    return Builder.CreateFMul(LHS, RHS);
-  else if (TYPE_OVERFLOW_WRAPS(type))
-    return Builder.CreateMul(LHS, RHS);
-  else
-    return Builder.CreateNSWMul(LHS, RHS);
+  return CreateAnyMul(LHS, RHS, type);
 }
 
 Value *TreeToLLVM::EmitReg_PLUS_EXPR(tree op0, tree op1) {
@@ -6380,26 +6398,13 @@ Value *TreeToLLVM::EmitReg_PLUS_EXPR(tree op0, tree op1) {
     Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
 
     // (a+ib) + (c+id) = (a+c) + i(b+d)
-    if (LHSr->getType()->isFloatingPoint()) {
-      LHSr = Builder.CreateFAdd(LHSr, RHSr);
-      LHSi = Builder.CreateFAdd(LHSi, RHSi);
-    } else if (TYPE_OVERFLOW_WRAPS(elt_type)) {
-      LHSr = Builder.CreateAdd(LHSr, RHSr);
-      LHSi = Builder.CreateAdd(LHSi, RHSi);
-    } else {
-      LHSr = Builder.CreateNSWAdd(LHSr, RHSr);
-      LHSi = Builder.CreateNSWAdd(LHSi, RHSi);
-    }
+    LHSr = CreateAnyAdd(LHSr, RHSr, elt_type);
+    LHSi = CreateAnyAdd(LHSi, RHSi, elt_type);
 
     return CreateComplex(LHSr, LHSi, elt_type);
   }
 
-  if (LHS->getType()->isFPOrFPVector())
-    return Builder.CreateFAdd(LHS, RHS);
-  else if (TYPE_OVERFLOW_WRAPS(type))
-    return Builder.CreateAdd(LHS, RHS);
-  else
-    return Builder.CreateNSWAdd(LHS, RHS);
+  return CreateAnyAdd(LHS, RHS, type);
 }
 
 Value *TreeToLLVM::EmitReg_POINTER_PLUS_EXPR(tree type, tree op0, tree op1) {
@@ -6427,8 +6432,7 @@ Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
     Value *DSTr, *DSTi;
 
     // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
-    assert (LHSr->getType()->isFloatingPoint() &&
-            "RDIV_EXPR not floating point!");
+    assert (SCALAR_FLOAT_TYPE_P(elt_type) && "RDIV_EXPR not floating point!");
     Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
     Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
     Value *Tmp3 = Builder.CreateFAdd(Tmp1, Tmp2); // ac+bd
@@ -6446,7 +6450,7 @@ Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
     return CreateComplex(DSTr, DSTi, elt_type);
   }
 
-  assert(LHS->getType()->isFPOrFPVector() && "RDIV_EXPR not floating point!");
+  assert(FLOAT_TYPE_P(type) && "RDIV_EXPR not floating point!");
   return Builder.CreateFDiv(LHS, RHS);
 }
 
@@ -6547,8 +6551,11 @@ Value *TreeToLLVM::EmitReg_TRUNC_DIV_EXPR(tree op0, tree op1, bool isExact) {
     Value *DSTr, *DSTi;
 
     // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
-    assert (LHSr->getType()->isInteger() &&
-            "TRUNC_DIV_EXPR not integer!");
+    assert (LHSr->getType()->isInteger() && "TRUNC_DIV_EXPR not integer!");
+    // If overflow does not wrap in the element type then it is tempting to
+    // use NSW operations here.  However that would be wrong since overflow
+    // of an intermediate value calculated here does not necessarily imply
+    // that the final result overflows.
     Value *Tmp1 = Builder.CreateMul(LHSr, RHSr); // a*c
     Value *Tmp2 = Builder.CreateMul(LHSi, RHSi); // b*d
     Value *Tmp3 = Builder.CreateAdd(Tmp1, Tmp2); // ac+bd

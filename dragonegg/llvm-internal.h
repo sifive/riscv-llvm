@@ -473,6 +473,18 @@ public:
   /// BitCast, FPTrunc and FPExt.
   Value *CastToFPType(Value *V, const Type* Ty);
 
+  /// CreateAnyAdd - Add two LLVM scalar values with the given GCC type.  Does
+  /// not support complex numbers.  The type is used to set overflow flags.
+  Value *CreateAnyAdd(Value *LHS, Value *RHS, tree_node *type);
+
+  /// CreateAnyMul - Multiply two LLVM scalar values with the given GCC type.
+  /// Does not support complex numbers.  The type is used to set overflow flags.
+  Value *CreateAnyMul(Value *LHS, Value *RHS, tree_node *type);
+
+  /// CreateAnySub - Subtract two LLVM scalar values with the given GCC type.
+  /// Does not support complex numbers.
+  Value *CreateAnySub(Value *LHS, Value *RHS, tree_node *type);
+
   /// CreateTemporary - Create a new alloca instruction of the specified type,
   /// inserting it into the entry block and returning it.  The resulting
   /// instruction's type is a pointer to the specified type.
