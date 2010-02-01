@@ -1563,14 +1563,16 @@ static void emit_function(struct cgraph_node *node) {
     Fn = Emitter.EmitFunction();
   }
 
-  // TODO  performLateBackendInitialization();
-  createPerFunctionOptimizationPasses();
+  if (!errorcount && !sorrycount) {
+    // TODO  performLateBackendInitialization();
+    createPerFunctionOptimizationPasses();
 
-  if (PerFunctionPasses)
-    PerFunctionPasses->run(*Fn);
+    if (PerFunctionPasses)
+      PerFunctionPasses->run(*Fn);
 
-  // TODO: Nuke the .ll code for the function at -O[01] if we don't want to
-  // inline it or something else.
+    // TODO: Nuke the .ll code for the function at -O[01] if we don't want to
+    // inline it or something else.
+  }
 
   // Done with this function.
   current_function_decl = NULL;
@@ -1909,6 +1911,9 @@ static void llvm_finish(void *gcc_data, void *user_data) {
 /// llvm_finish_unit - Finish the .s file.  This is called by GCC once the
 /// compilation unit has been completely processed.
 static void llvm_finish_unit(void *gcc_data, void *user_data) {
+  if (errorcount || sorrycount)
+    return;
+
   if (!quiet_flag)
     errs() << "Finishing compilation unit\n";
 

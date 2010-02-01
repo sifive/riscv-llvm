@@ -977,12 +977,13 @@ Function *TreeToLLVM::FinishFunctionBody() {
   PopulatePhiNodes();
 
 #ifndef NDEBUG
-  for (DenseMap<tree, TrackingVH<Value> >::const_iterator I = SSANames.begin(),
-       E = SSANames.end(); I != E; ++I)
-    if (isSSAPlaceholder(I->second)) {
-      debug_tree(I->first);
-      llvm_unreachable("SSA name never defined!");
-    }
+  if (!errorcount && !sorrycount)
+    for (DenseMap<tree, TrackingVH<Value> >::const_iterator I = SSANames.begin(),
+         E = SSANames.end(); I != E; ++I)
+      if (isSSAPlaceholder(I->second)) {
+        debug_tree(I->first);
+        llvm_unreachable("SSA name never defined!");
+      }
 #endif
 
   return Fn;
