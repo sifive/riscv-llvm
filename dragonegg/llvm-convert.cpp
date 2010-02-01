@@ -160,14 +160,20 @@ static unsigned int getPointerAlignment(tree exp) {
 /// output in dominator order).  Replaced with the correct value when the SSA
 /// name's definition is encountered.
 static Value *GetSSAPlaceholder(const Type *Ty) {
-  return new BitCastInst(UndefValue::get(Ty), Ty);
+  // Cannot use a constant, since there is no way to distinguish a fake value
+  // from a real value.  So use an instruction with no parent.  This needs to
+  // be an instruction that can return a struct type, since the SSA name might
+  // be a complex number.  It could be a PHINode, except that the GCC phi node
+  // conversion logic also constructs phi nodes with no parent.  A SelectInst
+  // would work, but a LoadInst seemed neater.
+  return new LoadInst(UndefValue::get(Ty->getPointerTo()), NULL);
 }
 
 /// isSSAPlaceholder - Whether this is a fake value being used as a placeholder
 /// for the definition of an SSA name.
 static bool isSSAPlaceholder(Value *V) {
-  BitCastInst *BC = dyn_cast<BitCastInst>(V);
-  return BC && !BC->getParent();
+  LoadInst *LI = dyn_cast<LoadInst>(V);
+  return LI && !LI->getParent();
 }
 
 /// NameValue - Try to name the given value after the given GCC tree node.  If
