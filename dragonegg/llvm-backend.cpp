@@ -1854,7 +1854,7 @@ static void emit_variables(cgraph_node_set set) {
   struct varpool_node *vnode;
   FOR_EACH_STATIC_VARIABLE (vnode) {
     tree var = vnode->decl;
-    if (TREE_CODE(var) == VAR_DECL && TREE_PUBLIC(var))
+    if (TREE_CODE(var) == VAR_DECL)
       emit_global(var);
   }
 
