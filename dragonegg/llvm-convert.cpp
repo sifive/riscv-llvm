@@ -1343,8 +1343,8 @@ Value *TreeToLLVM::CreateAnyAdd(Value *LHS, Value *RHS, tree_node *type) {
     return Builder.CreateFAdd(LHS, RHS);
   if (TYPE_OVERFLOW_WRAPS(type))
     return Builder.CreateAdd(LHS, RHS);
-//  if (TYPE_UNSIGNED(type))
-//    return Builder.CreateNUWAdd(LHS, RHS);
+  if (TYPE_UNSIGNED(type))
+    return Builder.CreateNUWAdd(LHS, RHS);
   return Builder.CreateNSWAdd(LHS, RHS);
 }
 
@@ -1355,8 +1355,8 @@ Value *TreeToLLVM::CreateAnyMul(Value *LHS, Value *RHS, tree_node *type) {
     return Builder.CreateFMul(LHS, RHS);
   if (TYPE_OVERFLOW_WRAPS(type))
     return Builder.CreateMul(LHS, RHS);
-//  if (TYPE_UNSIGNED(type))
-//    return Builder.CreateNUWMul(LHS, RHS);
+  if (TYPE_UNSIGNED(type))
+    return Builder.CreateNUWMul(LHS, RHS);
   return Builder.CreateNSWMul(LHS, RHS);
 }
 
@@ -1367,8 +1367,8 @@ Value *TreeToLLVM::CreateAnySub(Value *LHS, Value *RHS, tree_node *type) {
     return Builder.CreateFSub(LHS, RHS);
   if (TYPE_OVERFLOW_WRAPS(type))
     return Builder.CreateSub(LHS, RHS);
-//  if (TYPE_UNSIGNED(type))
-//    return Builder.CreateNUWSub(LHS, RHS);
+  if (TYPE_UNSIGNED(type))
+    return Builder.CreateNUWSub(LHS, RHS);
   return Builder.CreateNSWSub(LHS, RHS);
 }
 
