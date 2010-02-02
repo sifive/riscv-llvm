@@ -640,8 +640,6 @@ private:
   Value *EmitCompare(tree_node *lhs, tree_node *rhs, tree_code code);
 
   // Binary expressions.
-  Value *EmitReg_BinOp(tree_node *type, tree_code code, tree_node *op0,
-                       tree_node *op1, unsigned Opc);
   Value *EmitReg_MinMaxExpr(tree_node *type, tree_node *op0, tree_node* op1,
                             unsigned UIPred, unsigned SIPred, unsigned Opc,
                             bool isMax);
@@ -650,6 +648,9 @@ private:
   Value *EmitReg_ShiftOp(tree_node *op0, tree_node* op1, unsigned Opc);
   Value *EmitReg_TruthOp(tree_node *type, tree_node *op0, tree_node *op1,
                          unsigned Opc);
+  Value *EmitReg_BIT_AND_EXPR(tree_node *op0, tree_node *op1);
+  Value *EmitReg_BIT_IOR_EXPR(tree_node *op0, tree_node *op1);
+  Value *EmitReg_BIT_XOR_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_CEIL_DIV_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
   Value *EmitReg_COMPLEX_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_FLOOR_DIV_EXPR(tree_node *type, tree_node *op0,

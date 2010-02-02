@@ -2786,19 +2786,6 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   return 0;
 }
 
-/// getSuitableBitCastIntType - Given Ty is a floating point type or a vector
-/// type with floating point elements, return an integer type to bitcast to.
-/// e.g. 4 x float -> 4 x i32
-static const Type *getSuitableBitCastIntType(const Type *Ty) {
-  if (const VectorType *VTy = dyn_cast<VectorType>(Ty)) {
-    unsigned NumElements = VTy->getNumElements();
-    const Type *EltTy = VTy->getElementType();
-    return VectorType::get(
-      IntegerType::get(Context, EltTy->getPrimitiveSizeInBits()), NumElements);
-  }
-  return IntegerType::get(Context, Ty->getPrimitiveSizeInBits());
-}
-
 /// EmitEXC_PTR_EXPR - Handle EXC_PTR_EXPR.
 Value *TreeToLLVM::EmitEXC_PTR_EXPR(tree exp) {
 abort();
@@ -6063,45 +6050,6 @@ Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, tree_code code) {
   return Builder.CreateICmp(pred, LHS, RHS);
 }
 
-// Binary expressions.
-/// EmitReg_BinOp - 'exp' is a binary operator.
-Value *TreeToLLVM::EmitReg_BinOp(tree type, tree_code code, tree op0, tree op1,
-                                 unsigned Opc) {
-  assert(TREE_CODE(type) != COMPLEX_TYPE && "Unexpected complex binop!");
-
-  Value *LHS = EmitRegister(op0);
-  Value *RHS = EmitRegister(op1);
-
-  // GCC has no problem with things like "xor uint X, int 17", and X-Y, where
-  // X and Y are pointer types, but the result is an integer.  As such, convert
-  // everything to the result type.
-  bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(op0));
-  bool RHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(op1));
-  bool TyIsSigned  = !TYPE_UNSIGNED(type);
-
-  const Type *Ty = GetRegType(type);
-  LHS = CastToAnyType(LHS, LHSIsSigned, Ty, TyIsSigned);
-  RHS = CastToAnyType(RHS, RHSIsSigned, Ty, TyIsSigned);
-
-  // If it's And, Or, or Xor, make sure the operands are casted to the right
-  // integer types first.
-  bool isLogicalOp = Opc == Instruction::And || Opc == Instruction::Or ||
-    Opc == Instruction::Xor;
-  const Type *ResTy = Ty;
-  if (isLogicalOp &&
-      (Ty->isFloatingPoint() ||
-       (isa<VectorType>(Ty) &&
-        cast<VectorType>(Ty)->getElementType()->isFloatingPoint()))) {
-    Ty = getSuitableBitCastIntType(Ty);
-    LHS = UselesslyTypeConvert(LHS, Ty);
-    RHS = UselesslyTypeConvert(RHS, Ty);
-  }
-
-  Value *V = Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
-
-  return UselesslyTypeConvert(V, ResTy);
-}
-
 Value *TreeToLLVM::EmitReg_MinMaxExpr(tree type, tree op0, tree op1,
                                       unsigned UIPred, unsigned SIPred,
                                       unsigned FPPred, bool isMax) {
@@ -6246,6 +6194,18 @@ Value *TreeToLLVM::EmitReg_CEIL_DIV_EXPR(tree type, tree op0, tree op1) {
   Value *CDiv = Builder.CreateSub(LHS, Offset);
   CDiv = Builder.CreateUDiv(CDiv, RHS);
   return Builder.CreateAdd(CDiv, Offset, "cdiv");
+}
+
+Value *TreeToLLVM::EmitReg_BIT_AND_EXPR(tree op0, tree op1) {
+  return Builder.CreateAnd(EmitRegister(op0), EmitRegister(op1));
+}
+
+Value *TreeToLLVM::EmitReg_BIT_IOR_EXPR(tree op0, tree op1) {
+  return Builder.CreateOr(EmitRegister(op0), EmitRegister(op1));
+}
+
+Value *TreeToLLVM::EmitReg_BIT_XOR_EXPR(tree op0, tree op1) {
+  return Builder.CreateXor(EmitRegister(op0), EmitRegister(op1));
 }
 
 Value *TreeToLLVM::EmitReg_COMPLEX_EXPR(tree op0, tree op1) {
@@ -7304,11 +7264,11 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
 
   // Binary expressions.
   case BIT_AND_EXPR:
-    RHS = EmitReg_BinOp(type, code, rhs1, rhs2, Instruction::And); break;
+    RHS = EmitReg_BIT_AND_EXPR(rhs1, rhs2); break;
   case BIT_IOR_EXPR:
-    RHS = EmitReg_BinOp(type, code, rhs1, rhs2, Instruction::Or); break;
+    RHS = EmitReg_BIT_IOR_EXPR(rhs1, rhs2); break;
   case BIT_XOR_EXPR:
-    RHS = EmitReg_BinOp(type, code, rhs1, rhs2, Instruction::Xor); break;
+    RHS = EmitReg_BIT_XOR_EXPR(rhs1, rhs2); break;
   case CEIL_DIV_EXPR:
     RHS = EmitReg_CEIL_DIV_EXPR(type, rhs1, rhs2); break;
   case COMPLEX_EXPR:
