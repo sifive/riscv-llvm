@@ -1358,11 +1358,8 @@ Value *make_decl_llvm(tree decl) {
     if (TREE_CODE(decl) == VAR_DECL && DECL_THREAD_LOCAL_P(decl))
       GV->setThreadLocal(true);
 
-    // At this point the global variable is a declaration rather than a
-    // definition, so it may have the wrong size (for example, the GCC
-    // type might have variable size, in which case the size will be set
-    // later by the initial value).  Do not check the size here.
-    assert(GV->isDeclaration() && "Global has unexpected initializer!");
+    assert((GV->isDeclaration() || SizeOfGlobalMatchesDecl(GV, decl)) &&
+           "Global has unexpected initializer!");
 
     return SET_DECL_LLVM(decl, GV);
   }
