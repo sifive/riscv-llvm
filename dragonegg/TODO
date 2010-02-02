@@ -44,6 +44,10 @@ passing the value around in memory (which would be i32 for this Fortran type),
 and the "register type" used for passing about in register (i1 in this case).
 This should tie in nicely with gimple registers versus references.
 
+Unify the code that determines which LLVM linkage type to use.  Need to do
+a bunch of experimenting to work out how the mapping should really be done.
+
+
 Code quality
 ------------
 
