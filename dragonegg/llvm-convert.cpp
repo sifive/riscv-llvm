@@ -6304,19 +6304,19 @@ Value *TreeToLLVM::EmitReg_FLOOR_DIV_EXPR(tree type, tree op0, tree op1) {
 Value *TreeToLLVM::EmitReg_FLOOR_MOD_EXPR(tree type, tree op0, tree op1) {
   // Notation: FLOOR_MOD_EXPR <-> Mod, TRUNC_MOD_EXPR <-> Rem.
 
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+
   // We express Mod in terms of Rem as follows: if RHS exactly divides LHS,
   // or the values of LHS and RHS have the same sign, then Mod equals Rem.
   // Otherwise Mod equals Rem + RHS.  This means that LHS Mod RHS traps iff
   // LHS Rem RHS traps.
   if (TYPE_UNSIGNED(type))
     // LHS and RHS values must have the same sign if their type is unsigned.
-    return EmitReg_BinOp(type, FLOOR_MOD_EXPR, op0, op1, Instruction::URem);
+    return Builder.CreateURem(LHS, RHS);
 
   const Type *Ty = GetRegType(type);
   Constant *Zero = ConstantInt::get(Ty, 0);
-
-  Value *LHS = EmitRegister(op0);
-  Value *RHS = EmitRegister(op1);
 
   // The two possible values for Mod.
   Value *Rem = Builder.CreateSRem(LHS, RHS, "rem");
@@ -6594,6 +6594,13 @@ Value *TreeToLLVM::EmitReg_TRUNC_DIV_EXPR(tree op0, tree op1, bool isExact) {
     else
       return Builder.CreateSDiv(LHS, RHS);
   }
+}
+
+Value *TreeToLLVM::EmitReg_TRUNC_MOD_EXPR(tree op0, tree op1) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  return TYPE_UNSIGNED(TREE_TYPE(op0)) ?
+    Builder.CreateURem(LHS, RHS) : Builder.CreateSRem(LHS, RHS);
 }
 
 
@@ -7349,9 +7356,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case TRUNC_DIV_EXPR:
     RHS = EmitReg_TRUNC_DIV_EXPR(rhs1, rhs2, /*isExact*/false); break;
   case TRUNC_MOD_EXPR:
-    RHS = EmitReg_BinOp(type, code, rhs1, rhs2, TYPE_UNSIGNED(type) ?
-                        Instruction::URem : Instruction::SRem);
-    break;
+    RHS = EmitReg_TRUNC_MOD_EXPR(rhs1, rhs2); break;
   case TRUTH_AND_EXPR:
     RHS = EmitReg_TruthOp(type, rhs1, rhs2, Instruction::And); break;
   case TRUTH_OR_EXPR:
