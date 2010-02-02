@@ -1669,47 +1669,35 @@ void emit_alias(tree decl, tree target) {
   // Get or create LLVM global for our alias.
   GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
 
-  GlobalValue *Aliasee;
-  bool weakref = lookup_attribute ("weakref", DECL_ATTRIBUTES (decl));
+  bool weakref = lookup_attribute("weakref", DECL_ATTRIBUTES(decl));
   if (weakref)
     while (IDENTIFIER_TRANSPARENT_ALIAS(target))
-      target = TREE_CHAIN (target);
+      target = TREE_CHAIN(target);
 
+  GlobalValue *Aliasee = 0;
   if (TREE_CODE(target) == IDENTIFIER_NODE) {
-    // This is something insane. Probably only LTHUNKs can be here
-    // Try to grab decl from IDENTIFIER_NODE
-
-    // Query SymTab for aliasee
-    const char* AliaseeName = IDENTIFIER_POINTER(target);
-    Aliasee =
-      dyn_cast_or_null<GlobalValue>(TheModule->
-                                    getValueSymbolTable().lookup(AliaseeName));
-
-    // Last resort. Query for name set via __asm__
-    if (!Aliasee) {
-      std::string starred = std::string("\001") + AliaseeName;
-      Aliasee =
-        dyn_cast_or_null<GlobalValue>(TheModule->
-                                      getValueSymbolTable().lookup(starred));
-    }
-
-    if (!Aliasee) {
-      if (weakref) {
-        if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-          Aliasee = new GlobalVariable(*TheModule, GV->getType(),
-                                       GV->isConstant(),
-                                       GlobalVariable::ExternalWeakLinkage,
-                                       NULL, AliaseeName);
-        else if (Function *F = dyn_cast<Function>(V))
-          Aliasee = Function::Create(F->getFunctionType(),
-                                     Function::ExternalWeakLinkage,
-                                     AliaseeName, TheModule);
-        else
-          assert(0 && "Unsuported global value");
-      } else {
-        error ("%q+D aliased to undefined symbol %qs", decl, AliaseeName);
-        return;
-      }
+    if (struct cgraph_node *fnode = cgraph_node_for_asm(target)) {
+      Aliasee = cast<GlobalValue>(DECL_LLVM(fnode->decl));
+    } else if (struct varpool_node *vnode = varpool_node_for_asm(target)) {
+      Aliasee = cast<GlobalValue>(DECL_LLVM(vnode->decl));
+    } else if (weakref) {
+      // weakref to external symbol.
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
+        Aliasee = new GlobalVariable(*TheModule, GV->getType(),
+                                     GV->isConstant(),
+                                     GlobalVariable::ExternalWeakLinkage, NULL,
+                                     IDENTIFIER_POINTER(target));
+      else if (Function *F = dyn_cast<Function>(V))
+        Aliasee = Function::Create(F->getFunctionType(),
+                                   Function::ExternalWeakLinkage,
+                                   IDENTIFIER_POINTER(target),
+                                   TheModule);
+      else
+        assert(0 && "Unsuported global value");
+    } else {
+      error("%q+D aliased to undefined symbol %qs", decl,
+            IDENTIFIER_POINTER(target));
+      return;
     }
   } else {
     Aliasee = cast<GlobalValue>(DECL_LLVM(target));
