@@ -1360,6 +1360,18 @@ Value *TreeToLLVM::CreateAnyMul(Value *LHS, Value *RHS, tree_node *type) {
   return Builder.CreateNSWMul(LHS, RHS);
 }
 
+/// CreateAnyNeg - Negate an LLVM scalar value with the given GCC type.  Does
+/// not support complex numbers.  The type is used to set overflow flags.
+Value *TreeToLLVM::CreateAnyNeg(Value *V, tree_node *type) {
+  if (FLOAT_TYPE_P(type))
+    return Builder.CreateFNeg(V);
+  if (TYPE_OVERFLOW_WRAPS(type))
+    return Builder.CreateNeg(V);
+  if (TYPE_UNSIGNED(type))
+    return Builder.CreateNUWNeg(V);
+  return Builder.CreateNSWNeg(V);
+}
+
 /// CreateAnySub - Subtract two LLVM scalar values with the given GCC type.
 /// Does not support complex numbers.  The type is used to set overflow flags.
 Value *TreeToLLVM::CreateAnySub(Value *LHS, Value *RHS, tree_node *type) {
@@ -5911,14 +5923,14 @@ Value *TreeToLLVM::EmitReg_BIT_NOT_EXPR(tree op) {
 }
 
 Value *TreeToLLVM::EmitReg_CONJ_EXPR(tree op) {
-  // ~(a+ib) = a + i*-b
+  tree elt_type = TREE_TYPE(TREE_TYPE(op));
   Value *R, *I;
-  SplitComplex(EmitRegister(op), R, I, TREE_TYPE(TREE_TYPE(op)));
-  if (I->getType()->isFloatingPoint())
-    I = Builder.CreateFNeg(I);
-  else
-    I = Builder.CreateNeg(I);
-  return CreateComplex(R, I, TREE_TYPE(TREE_TYPE(op)));
+  SplitComplex(EmitRegister(op), R, I, elt_type);
+
+  // ~(a+ib) = a + i*-b
+  I = CreateAnyNeg(I, elt_type);
+
+  return CreateComplex(R, I, elt_type);
 }
 
 Value *TreeToLLVM::EmitReg_CONVERT_EXPR(tree type, tree op) {
@@ -5928,25 +5940,20 @@ Value *TreeToLLVM::EmitReg_CONVERT_EXPR(tree type, tree op) {
 
 Value *TreeToLLVM::EmitReg_NEGATE_EXPR(tree op) {
   Value *V = EmitRegister(op);
+  tree type = TREE_TYPE(op);
 
-  if (TREE_CODE(TREE_TYPE(op)) != COMPLEX_TYPE) {
-    if (V->getType()->isFPOrFPVector())
-      return Builder.CreateFNeg(V);
-    bool HasNSW = !TYPE_OVERFLOW_WRAPS(TREE_TYPE(op));
-    return HasNSW ? Builder.CreateNSWNeg(V) : Builder.CreateNeg(V);
+  if (TREE_CODE(type) == COMPLEX_TYPE) {
+    tree elt_type = TREE_TYPE(type);
+    Value *R, *I; SplitComplex(V, R, I, elt_type);
+
+    // -(a+ib) = -a + i*-b
+    R = CreateAnyNeg(R, elt_type);
+    I = CreateAnyNeg(I, elt_type);
+
+    return CreateComplex(R, I, elt_type);
   }
 
-  // -(a+ib) = -a + i*-b
-  Value *R, *I;
-  SplitComplex(V, R, I, TREE_TYPE(TREE_TYPE(op)));
-  if (R->getType()->isFloatingPoint()) {
-    R = Builder.CreateFNeg(R);
-    I = Builder.CreateFNeg(I);
-  } else {
-    R = Builder.CreateNeg(R);
-    I = Builder.CreateNeg(I);
-  }
-  return CreateComplex(R, I, TREE_TYPE(TREE_TYPE(op)));
+  return CreateAnyNeg(V, type);
 }
 
 Value *TreeToLLVM::EmitReg_PAREN_EXPR(tree op) {

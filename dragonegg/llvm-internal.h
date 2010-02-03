@@ -481,6 +481,10 @@ public:
   /// Does not support complex numbers.  The type is used to set overflow flags.
   Value *CreateAnyMul(Value *LHS, Value *RHS, tree_node *type);
 
+  /// CreateAnyNeg - Negate an LLVM scalar value with the given GCC type.  Does
+  /// not support complex numbers.  The type is used to set overflow flags.
+  Value *CreateAnyNeg(Value *V, tree_node *type);
+
   /// CreateAnySub - Subtract two LLVM scalar values with the given GCC type.
   /// Does not support complex numbers.
   Value *CreateAnySub(Value *LHS, Value *RHS, tree_node *type);
