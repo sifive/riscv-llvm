@@ -672,20 +672,13 @@ static void createPerFunctionOptimizationPasses() {
     // Note, this also adds codegenerator level optimization passes.
     InitializeOutputStreams(false);
     switch (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
-                                           TargetMachine::AssemblyFile,
+                                           TargetMachine::CGFT_AssemblyFile,
                                            OptLevel)) {
     default:
-    case FileModel::Error:
       errs() << "Error interfacing to target machine!\n";
       exit(1);
-    case FileModel::AsmFile:
+    case TargetMachine::CGFT_AssemblyFile:
       break;
-    }
-
-    if (TheTarget->addPassesToEmitFileFinish(*PM, (MachineCodeEmitter *)0,
-                                             OptLevel)) {
-      errs() << "Error interfacing to target machine!\n";
-      exit(1);
     }
   }
   
@@ -771,20 +764,13 @@ static void createPerModuleOptimizationPasses() {
       // Note, this also adds codegenerator level optimization passes.
       InitializeOutputStreams(false);
       switch (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
-                                             TargetMachine::AssemblyFile,
+                                             TargetMachine::CGFT_AssemblyFile,
                                              OptLevel)) {
       default:
-      case FileModel::Error:
         errs() << "Error interfacing to target machine!\n";
         exit(1);
-      case FileModel::AsmFile:
+      case TargetMachine::CGFT_AssemblyFile:
         break;
-      }
-
-      if (TheTarget->addPassesToEmitFileFinish(*PM, (MachineCodeEmitter *)0,
-                                               OptLevel)) {
-        errs() << "Error interfacing to target machine!\n";
-        exit(1);
       }
     }
   }
