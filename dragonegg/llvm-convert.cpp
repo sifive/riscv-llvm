@@ -97,13 +97,6 @@ void dump(gimple stmt) {
   print_gimple_stmt(stderr, stmt, 0, TDF_RAW);
 }
 
-// Check for GCC bug 17347: C++ FE sometimes creates bogus ctor trees
-// which we should throw out
-#define BOGUS_CTOR(exp)                                                \
-  (DECL_INITIAL(exp) &&                                                \
-   TREE_CODE(DECL_INITIAL(exp)) == CONSTRUCTOR &&                      \
-   !TREE_TYPE(DECL_INITIAL(exp)))
-
 /// getINTEGER_CSTVal - Return the specified INTEGER_CST value as a uint64_t.
 ///
 uint64_t getINTEGER_CSTVal(tree exp) {
@@ -5534,8 +5527,7 @@ LValue TreeToLLVM::EmitLV_DECL(tree exp) {
     // get this case right by forcing the initializer into memory.
     if (TREE_CODE(exp) == CONST_DECL || TREE_CODE(exp) == VAR_DECL) {
       if ((DECL_INITIAL(exp) || !TREE_PUBLIC(exp)) && !DECL_EXTERNAL(exp) &&
-          GV->isDeclaration() &&
-          !BOGUS_CTOR(exp)) {
+          GV->isDeclaration()) {
         emit_global(exp);
         Decl = DECL_LOCAL(exp);     // Decl could have change if it changed type.
       }
@@ -8519,8 +8511,7 @@ Constant *TreeConstantToLLVM::EmitLV_Decl(tree exp) {
   // get this case right by forcing the initializer into memory.
   if (TREE_CODE(exp) == CONST_DECL || TREE_CODE(exp) == VAR_DECL) {
     if ((DECL_INITIAL(exp) || !TREE_PUBLIC(exp)) && !DECL_EXTERNAL(exp) &&
-        Val->isDeclaration() &&
-        !BOGUS_CTOR(exp)) {
+        Val->isDeclaration()) {
       emit_global(exp);
       // Decl could have change if it changed type.
       Val = cast<GlobalValue>(DECL_LLVM(exp));
