@@ -1654,33 +1654,46 @@ void emit_alias(tree decl, tree target) {
     while (IDENTIFIER_TRANSPARENT_ALIAS(target))
       target = TREE_CHAIN(target);
 
+  if (TREE_CODE(target) == IDENTIFIER_NODE) {
+    if (struct cgraph_node *fnode = cgraph_node_for_asm(target))
+      target = fnode->decl;
+    else if (struct varpool_node *vnode = varpool_node_for_asm(target))
+      target = vnode->decl;
+  }
+
   GlobalValue *Aliasee = 0;
   if (TREE_CODE(target) == IDENTIFIER_NODE) {
-    if (struct cgraph_node *fnode = cgraph_node_for_asm(target)) {
-      Aliasee = cast<GlobalValue>(DECL_LLVM(fnode->decl));
-    } else if (struct varpool_node *vnode = varpool_node_for_asm(target)) {
-      Aliasee = cast<GlobalValue>(DECL_LLVM(vnode->decl));
-    } else if (weakref) {
-      // weakref to external symbol.
-      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-        Aliasee = new GlobalVariable(*TheModule, GV->getType(),
-                                     GV->isConstant(),
-                                     GlobalVariable::ExternalWeakLinkage, NULL,
-                                     IDENTIFIER_POINTER(target));
-      else if (Function *F = dyn_cast<Function>(V))
-        Aliasee = Function::Create(F->getFunctionType(),
-                                   Function::ExternalWeakLinkage,
-                                   IDENTIFIER_POINTER(target),
-                                   TheModule);
-      else
-        assert(0 && "Unsuported global value");
-    } else {
+    if (!weakref) {
       error("%q+D aliased to undefined symbol %qs", decl,
             IDENTIFIER_POINTER(target));
       return;
     }
+
+    // weakref to external symbol.
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
+      Aliasee = new GlobalVariable(*TheModule, GV->getType(),
+                                   GV->isConstant(),
+                                   GlobalVariable::ExternalWeakLinkage, NULL,
+                                   IDENTIFIER_POINTER(target));
+    else if (Function *F = dyn_cast<Function>(V))
+      Aliasee = Function::Create(F->getFunctionType(),
+                                 Function::ExternalWeakLinkage,
+                                 IDENTIFIER_POINTER(target),
+                                 TheModule);
+    else
+      assert(0 && "Unsuported global value");
   } else {
     Aliasee = cast<GlobalValue>(DECL_LLVM(target));
+
+    // If the target is an aggregate, emit it to LLVM now.
+    if (Aliasee->isDeclaration() && (TREE_CODE(target) == CONST_DECL ||
+                                     TREE_CODE(target) == VAR_DECL) &&
+        (DECL_INITIAL(target) || !TREE_PUBLIC(target)) &&
+        !DECL_EXTERNAL(target)) {
+      emit_global(target);
+      // Aliasee could have change if it changed type.
+      Aliasee = cast<GlobalValue>(DECL_LLVM(target));
+    }
   }
 
   GlobalValue::LinkageTypes Linkage = GlobalValue::ExternalLinkage;
