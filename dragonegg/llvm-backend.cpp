@@ -1653,9 +1653,7 @@ void emit_thunk(struct cgraph_node *node) {
                                       Arguments.begin(), Arguments.end());
   Call->setCallingConv(Thunk->getCallingConv());
   Call->setAttributes(Thunk->getAttributes());
-  // No use is made of the stack - this is a tail call.
-  // FIXME: what if there are byval arguments?  Also, could clear off any
-  // 'byval' attributes on the call since they are simply being passed thru.
+  // All parameters except 'this' are passed on unchanged - this is a tail call.
   Call->setTailCall();
 
   if (Thunk->getReturnType()->isVoidTy())
