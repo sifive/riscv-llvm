@@ -1346,6 +1346,22 @@ Value *make_decl_llvm(tree decl) {
 //TODO  timevar_pop(TV_LLVM_GLOBALS);
 }
 
+/// make_definition_llvm - Ensures that the body or initial value of the given
+/// GCC declaration will be output, and returns a declaration for it.
+Value *make_definition_llvm(tree decl) {
+  // Only need to do something special for global variables.
+  if (TREE_CODE(decl) != CONST_DECL && TREE_CODE(decl) != VAR_DECL)
+    return DECL_LLVM(decl);
+  if ((!DECL_INITIAL(decl) && TREE_PUBLIC(decl)) || DECL_EXTERNAL(decl))
+    return DECL_LLVM(decl);
+  GlobalValue *GV = cast<GlobalValue>(DECL_LLVM(decl));
+  // If we already output a definition for this declaration, then reuse it.
+  if (!GV->isDeclaration())
+    return GV;
+  emit_global(decl);
+  return DECL_LLVM(decl); // Decl could have changed if it changed type.
+}
+
 /// llvm_mark_decl_weak - Used by varasm.c, called when a decl is found to be
 /// weak, but it already had an llvm object created for it. This marks the LLVM
 /// object weak as well.
@@ -1683,17 +1699,7 @@ void emit_alias(tree decl, tree target) {
     else
       assert(0 && "Unsuported global value");
   } else {
-    Aliasee = cast<GlobalValue>(DECL_LLVM(target));
-
-    // If the target is an aggregate, emit it to LLVM now.
-    if (Aliasee->isDeclaration() && (TREE_CODE(target) == CONST_DECL ||
-                                     TREE_CODE(target) == VAR_DECL) &&
-        (DECL_INITIAL(target) || !TREE_PUBLIC(target)) &&
-        !DECL_EXTERNAL(target)) {
-      emit_global(target);
-      // Aliasee could have change if it changed type.
-      Aliasee = cast<GlobalValue>(DECL_LLVM(target));
-    }
+    Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target));
   }
 
   GlobalValue::LinkageTypes Linkage = GlobalValue::ExternalLinkage;

@@ -100,9 +100,7 @@ extern void AddAnnotateAttrsToGlobal(GlobalValue *GV, union tree_node* decl);
 
 // Mapping between GCC declarations and LLVM values.
 
-/// DECL_LLVM - Holds the LLVM expression for the value of a global variable or
-/// function.  This value can be evaluated lazily for functions and variables
-/// with static storage duration.
+/// DECL_LLVM - Returns the LLVM declaration of a global variable or function.
 extern Value *make_decl_llvm(union tree_node *);
 #define DECL_LLVM(NODE) make_decl_llvm(NODE)
 
@@ -118,6 +116,11 @@ extern Value *get_decl_llvm(union tree_node *);
 /// DECL_LLVM_SET_P - Returns nonzero if the DECL_LLVM for NODE has already
 /// been set.
 #define DECL_LLVM_SET_P(NODE) (DECL_LLVM_IF_SET(NODE) != NULL)
+
+/// DEFINITION_LLVM - Ensures that the body or initial value of the given GCC
+/// declaration will be output, and returns a declaration for it.
+Value *make_definition_llvm(union tree_node *decl);
+#define DEFINITION_LLVM(NODE) make_definition_llvm(NODE)
 
 void changeLLVMConstant(Constant *Old, Constant *New);
 void register_ctor_dtor(Function *, int, bool);
@@ -388,11 +391,18 @@ public:
 
   //===---------------------- Local Declarations --------------------------===//
 
-  /// DECL_LOCAL - Like DECL_LLVM, returns the LLVM expression for the value of
-  /// a variable or function.  However DECL_LOCAL can be used with declarations
-  /// local to the current function as well as with global declarations.
+  /// DECL_LOCAL - Like DECL_LLVM, returns the LLVM declaration of a variable or
+  /// function.  However DECL_LOCAL can be used with declarations local to the
+  /// current function as well as with global declarations.
   Value *make_decl_local(union tree_node *);
   #define DECL_LOCAL(NODE) make_decl_local(NODE)
+
+  /// DEFINITION_LOCAL - Like DEFINITION_LLVM, ensures that the initial value or
+  /// body of a variable or function will be output.  However DEFINITION_LOCAL
+  /// can be used with declarations local to the current function as well as
+  /// with global declarations.
+  Value *make_definition_local(union tree_node *);
+  #define DEFINITION_LOCAL(NODE) make_definition_local(NODE)
 
   /// SET_DECL_LOCAL - Set the DECL_LOCAL for NODE to LLVM. 
   Value *set_decl_local(union tree_node *, Value *);

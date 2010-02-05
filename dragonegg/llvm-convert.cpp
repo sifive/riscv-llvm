@@ -317,6 +317,14 @@ Value *TreeToLLVM::make_decl_local(tree decl) {
   }
 }
 
+/// make_definition_local - Ensure that the body or initial value of the given
+/// GCC declaration will be output, and return a declaration for it.
+Value *TreeToLLVM::make_definition_local(tree decl) {
+  if (!isLocalDecl(decl))
+    return make_definition_llvm(decl);
+  return make_decl_local(decl);
+}
+
 /// llvm_store_scalar_argument - Store scalar argument ARGVAL of type
 /// LLVMTY at location LOC.
 static void llvm_store_scalar_argument(Value *Loc, Value *ArgVal,
@@ -5477,32 +5485,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 }
 
 LValue TreeToLLVM::EmitLV_DECL(tree exp) {
-  if (TREE_CODE(exp) == PARM_DECL || TREE_CODE(exp) == VAR_DECL ||
-      TREE_CODE(exp) == CONST_DECL) {
-    // If a static var's type was incomplete when the decl was written,
-    // but the type is complete now, lay out the decl now.
-    if (DECL_SIZE(exp) == 0 && COMPLETE_OR_UNBOUND_ARRAY_TYPE_P(TREE_TYPE(exp))
-        && (TREE_STATIC(exp) || DECL_EXTERNAL(exp))) {
-      layout_decl(exp, 0);
-
-#if 0
-      // This mirrors code in layout_decl for munging the RTL.  Here we actually
-      // emit a NEW declaration for the global variable, now that it has been
-      // laid out.  We then tell the compiler to "forward" any uses of the old
-      // global to this new one.
-      if (Value *Val = DECL_LOCAL_IF_SET(exp)) {
-        //fprintf(stderr, "***\n*** SHOULD HANDLE GLOBAL VARIABLES!\n***\n");
-        //assert(0 && "Reimplement this with replace all uses!");
-        SET_DECL_LOCAL(exp, 0);
-        // Create a new global variable declaration
-        llvm_assemble_external(exp);
-        V2GV(Val)->ForwardedGlobal = V2GV(DECL_LOCAL(exp));
-      }
-#endif
-    }
-  }
-
-  Value *Decl = DECL_LOCAL(exp);
+  Value *Decl = DEFINITION_LOCAL(exp);
   if (Decl == 0) {
     if (errorcount || sorrycount) {
       const Type *Ty = ConvertType(TREE_TYPE(exp));
@@ -5510,33 +5493,7 @@ LValue TreeToLLVM::EmitLV_DECL(tree exp) {
       LValue LV(ConstantPointerNull::get(PTy), 1);
       return LV;
     }
-    assert(0 && "INTERNAL ERROR: Referencing decl that hasn't been laid out");
-    abort();
-  }
-
-  // Ensure variable marked as used even if it doesn't go through a parser.  If
-  // it hasn't been used yet, write out an external definition.
-  if (!TREE_USED(exp)) {
-    assemble_external(exp);
-    TREE_USED(exp) = 1;
-    Decl = DECL_LOCAL(exp);
-  }
-
-  if (GlobalValue *GV = dyn_cast<GlobalValue>(Decl)) {
-    // If this is an aggregate, emit it to LLVM now.  GCC happens to
-    // get this case right by forcing the initializer into memory.
-    if (TREE_CODE(exp) == CONST_DECL || TREE_CODE(exp) == VAR_DECL) {
-      if ((DECL_INITIAL(exp) || !TREE_PUBLIC(exp)) && !DECL_EXTERNAL(exp) &&
-          GV->isDeclaration()) {
-        emit_global(exp);
-        Decl = DECL_LOCAL(exp);     // Decl could have change if it changed type.
-      }
-    } else {
-      // Otherwise, inform cgraph that we used the global.
-      mark_decl_referenced(exp);
-      if (tree ID = DECL_ASSEMBLER_NAME(exp))
-        mark_referenced(ID);
-    }
+    llvm_unreachable("Referencing decl that hasn't been laid out");
   }
 
   const Type *Ty = ConvertType(TREE_TYPE(exp));
@@ -8497,31 +8454,7 @@ Constant *TreeConstantToLLVM::EmitLV(tree exp) {
 }
 
 Constant *TreeConstantToLLVM::EmitLV_Decl(tree exp) {
-  GlobalValue *Val = cast<GlobalValue>(DECL_LLVM(exp));
-
-  // Ensure variable marked as used even if it doesn't go through a parser.  If
-  // it hasn't been used yet, write out an external definition.
-  if (!TREE_USED(exp)) {
-    assemble_external(exp);
-    TREE_USED(exp) = 1;
-    Val = cast<GlobalValue>(DECL_LLVM(exp));
-  }
-
-  // If this is an aggregate, emit it to LLVM now.  GCC happens to
-  // get this case right by forcing the initializer into memory.
-  if (TREE_CODE(exp) == CONST_DECL || TREE_CODE(exp) == VAR_DECL) {
-    if ((DECL_INITIAL(exp) || !TREE_PUBLIC(exp)) && !DECL_EXTERNAL(exp) &&
-        Val->isDeclaration()) {
-      emit_global(exp);
-      // Decl could have change if it changed type.
-      Val = cast<GlobalValue>(DECL_LLVM(exp));
-    }
-  } else {
-    // Otherwise, inform cgraph that we used the global.
-    mark_decl_referenced(exp);
-    if (tree ID = DECL_ASSEMBLER_NAME(exp))
-      mark_referenced(ID);
-  }
+  GlobalValue *Val = cast<GlobalValue>(DEFINITION_LLVM(exp));
 
   // The type of the global value output for exp need not match that of exp.
   // For example if the global's initializer has a different type to the global
