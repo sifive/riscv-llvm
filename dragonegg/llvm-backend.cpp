@@ -1347,12 +1347,22 @@ Value *make_decl_llvm(tree decl) {
 }
 
 /// make_definition_llvm - Ensures that the body or initial value of the given
-/// GCC declaration will be output, and returns a declaration for it.
+/// GCC global will be output, and returns a declaration for it.
 Value *make_definition_llvm(tree decl) {
   // Only need to do something special for global variables.
   if (TREE_CODE(decl) != CONST_DECL && TREE_CODE(decl) != VAR_DECL)
     return DECL_LLVM(decl);
-  if ((!DECL_INITIAL(decl) && TREE_PUBLIC(decl)) || DECL_EXTERNAL(decl))
+  // Do not allocate storage for external references (eg: a "weakref" alias).
+  if (DECL_EXTERNAL(decl))
+    return DECL_LLVM(decl);
+  // Can only assign initial values to global variables in static storage.
+  if (!TREE_STATIC(decl)) {
+    assert(!DECL_INITIAL(decl) && "Non-static global has initial value!");
+    return DECL_LLVM(decl);
+  }
+  // Public static variables will be output later anyway, so there is no point
+  // in outputting them here.
+  if (TREE_CODE(decl) == VAR_DECL && TREE_PUBLIC(decl))
     return DECL_LLVM(decl);
   GlobalValue *GV = cast<GlobalValue>(DECL_LLVM(decl));
   // If we already output a definition for this declaration, then reuse it.

@@ -118,7 +118,7 @@ extern Value *get_decl_llvm(union tree_node *);
 #define DECL_LLVM_SET_P(NODE) (DECL_LLVM_IF_SET(NODE) != NULL)
 
 /// DEFINITION_LLVM - Ensures that the body or initial value of the given GCC
-/// declaration will be output, and returns a declaration for it.
+/// global will be output, and returns a declaration for it.
 Value *make_definition_llvm(union tree_node *decl);
 #define DEFINITION_LLVM(NODE) make_definition_llvm(NODE)
 
