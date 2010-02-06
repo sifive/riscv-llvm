@@ -6589,7 +6589,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     if (NumChoices==0)
       NumChoices = NumInputChoices;
     else if (NumChoices != NumInputChoices)
-      abort();      // invalid constraints
+      llvm_unreachable("invalid constraints");
   }
   for (tree t = outputs; t; t = TREE_CHAIN(t)) {
     unsigned NumOutputChoices = 1;
@@ -6600,7 +6600,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     if (NumChoices==0)
       NumChoices = NumOutputChoices;
     else if (NumChoices != NumOutputChoices)
-      abort();      // invalid constraints
+      llvm_unreachable("invalid constraints");
   }
 
   /// Constraints - The output/input constraints, concatenated together in array
@@ -6767,8 +6767,15 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
           // of an indirect branch.  Having this logic here is a hack; there
           // should be a bit in the label identifying it as in an asm.
           Op = getLabelDeclBlock(TREE_OPERAND(Val, 0));
-        } else
+        } else if (TREE_CODE(Val) == VAR_DECL && DECL_HARD_REGISTER(Val)) {
+          // GCC special cases hard registers used as inputs to asm statements.
+          // Emit an inline asm node that copies the value out of the specified
+          // register.
+          assert(canEmitRegisterVariable(Val) && "Cannot read hard register!");
+          Op = EmitReadOfRegisterVariable(Val);
+        } else {
           Op = EmitMemory(Val);
+        }
       } else {
         LValue LV = EmitLV(Val);
         assert(!LV.isBitfield() && "Inline asm can't have bitfield operand");
@@ -6859,7 +6866,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     if (isIndirect)
       ConstraintStr += '*';
 
-    // If this output register is pinned to a machine register, use that machine
+    // If this input register is pinned to a machine register, use that machine
     // register instead of the specified constraint.
     if (TREE_CODE(Val) == VAR_DECL && DECL_HARD_REGISTER(Val)) {
       const char *RegName = extractRegisterName(Val);
