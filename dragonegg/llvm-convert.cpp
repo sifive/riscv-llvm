@@ -4794,7 +4794,8 @@ bool TreeToLLVM::EmitBuiltinEHReturnDataRegno(gimple stmt, Value *&Result) {
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&Result) {
+bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt,
+                                     Value *&Result ATTRIBUTE_UNUSED) {
   if (!validate_gimple_arglist(stmt, INTEGER_TYPE, POINTER_TYPE, VOID_TYPE))
     return false;
 
@@ -4808,12 +4809,9 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&Result) {
   Offset = Builder.CreateIntCast(Offset, IntPtr, /*isSigned*/true);
   Handler = Builder.CreateBitCast(Handler, Type::getInt8PtrTy(Context));
 
-  SmallVector<Value *, 2> Args;
-  Args.push_back(Offset);
-  Args.push_back(Handler);
-  Builder.CreateCall(Intrinsic::getDeclaration(TheModule, IID),
-                     Args.begin(), Args.end());
-  Result = Builder.CreateUnreachable();
+  Value *Args[2] = { Offset, Handler };
+  Builder.CreateCall(Intrinsic::getDeclaration(TheModule, IID), Args, Args + 2);
+  Builder.CreateUnreachable();
   BeginBlock(BasicBlock::Create(Context));
 
   return true;
@@ -4886,12 +4884,13 @@ bool TreeToLLVM::EmitBuiltinInitDwarfRegSizes(gimple stmt,
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinUnwindInit(gimple stmt, Value *&Result) {
+bool TreeToLLVM::EmitBuiltinUnwindInit(gimple stmt,
+                                       Value *&Result ATTRIBUTE_UNUSED) {
   if (!validate_gimple_arglist(stmt, VOID_TYPE))
     return false;
 
-  Result = Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
-                                                    Intrinsic::eh_unwind_init));
+  Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
+                                               Intrinsic::eh_unwind_init));
 
   return true;
 }
