@@ -1053,7 +1053,7 @@ BasicBlock *TreeToLLVM::getLabelDeclBlock(tree LabelDecl) {
 
   basic_block bb = label_to_block(LabelDecl);
   if (!bb) {
-    sorry("addresses of non-local labels not supported by LLVM");
+    sorry("address of a non-local label");
     bb = ENTRY_BLOCK_PTR; // Do not crash.
   }
 
