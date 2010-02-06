@@ -115,6 +115,8 @@ TypeConverter *TheTypeConverter = 0;
 raw_ostream *OutStream = 0; // Stream to write assembly code to.
 formatted_raw_ostream FormattedOutStream;
 
+static bool DebugPassArguments;
+static bool DebugPassStructure;
 static bool DisableLLVMOptimizations;
 static bool EnableGCCOptimizations;
 static bool EmitIR;
@@ -357,10 +359,10 @@ static void LazilyConfigureLLVM(void) {
     Args.push_back("--nozero-initialized-in-bss");
   if (flag_verbose_asm)
     Args.push_back("--asm-verbose");
-//TODO  if (flag_debug_pass_structure)
-//TODO    Args.push_back("--debug-pass=Structure");
-//TODO  if (flag_debug_pass_arguments)
-//TODO    Args.push_back("--debug-pass=Arguments");
+  if (DebugPassStructure)
+    Args.push_back("--debug-pass=Structure");
+  if (DebugPassArguments)
+    Args.push_back("--debug-pass=Arguments");
   if (flag_unwind_tables)
     Args.push_back("--unwind-tables");
   if (!flag_schedule_insns)
@@ -2168,6 +2170,8 @@ struct FlagDescriptor {
 };
 
 static FlagDescriptor PluginFlags[] = {
+    { "debug-pass-structure", &DebugPassStructure},
+    { "debug-pass-arguments", &DebugPassArguments},
     { "disable-llvm-optzns", &DisableLLVMOptimizations },
     { "enable-gcc-optzns", &EnableGCCOptimizations },
     { "emit-ir", &EmitIR },

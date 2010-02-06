@@ -71,6 +71,10 @@ If you renamed dragonegg.so to something else, for example llvm.so, replace
 -fno-ident
   If the ident global asm in the LLVM IR annoys you, use this to turn it off.
 
+-fplugin-arg-dragonegg-debug-pass-arguments
+-fplugin-arg-dragonegg-debug-pass-structure
+  Output information about the passes being run.
+
 -fplugin-arg-dragonegg-disable-llvm-optzns
   Do not perform any LLVM IR optimizations even if compiling at -O1, -O2 etc.
 
