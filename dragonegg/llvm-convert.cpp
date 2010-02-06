@@ -7305,7 +7305,10 @@ Value *TreeToLLVM::EmitAssignSingleRHS(tree rhs) {
   case OBJ_TYPE_REF: return EmitOBJ_TYPE_REF(rhs);
 
   // Exceptional (tcc_exceptional).
-  case CONSTRUCTOR: return EmitCONSTRUCTOR(rhs, 0);
+  case CONSTRUCTOR:
+    // Vector constant constructors are gimple invariant.
+    return is_gimple_constant(rhs) ?
+      EmitRegisterConstant(rhs) : EmitCONSTRUCTOR(rhs, 0);
 
   // References (tcc_reference).
   case ARRAY_REF:
