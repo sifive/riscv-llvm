@@ -1051,7 +1051,13 @@ BasicBlock *TreeToLLVM::getLabelDeclBlock(tree LabelDecl) {
   if (DECL_LOCAL_SET_P(LabelDecl))
     return cast<BasicBlock>(DECL_LOCAL(LabelDecl));
 
-  BasicBlock *BB = getBasicBlock(label_to_block(LabelDecl));
+  basic_block bb = label_to_block(LabelDecl);
+  if (!bb) {
+    sorry("addresses of non-local labels not supported by LLVM");
+    bb = ENTRY_BLOCK_PTR; // Do not crash.
+  }
+
+  BasicBlock *BB = getBasicBlock(bb);
   SET_DECL_LOCAL(LabelDecl, BB);
   return BB;
 }
