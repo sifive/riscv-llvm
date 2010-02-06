@@ -967,9 +967,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = BuildVectorShuffle(Ops[0], Ops[1], 2, 1);
     return true;
   IX86_BUILTIN_MOVQ128: {
-    Value *Zero = ConstantInt::get(Type::getInt32Ty(Context), 0);
-    Result = BuildVector(Zero, Zero, Zero, Zero, NULL);
-    Result = BuildVectorShuffle(Result, Ops[0], 4, 5, 2, 3);
+    Value *Zero = Constant::getNullValue(Ops[0]->getType());
+    Result = BuildVectorShuffle(Zero, Ops[0], 2, 1);
     return true;
   }
 //TODO  IX86_BUILTIN_LOADQ: {
