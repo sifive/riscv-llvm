@@ -276,7 +276,7 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
   unsigned VIndex = 0;
   DIType ContainingType;
   if (DECL_VINDEX (FnDecl) &&
-      TYPE_P((DECL_CONTEXT (FnDecl)))) { // Workaround GCC PR42653
+      DECL_CONTEXT (FnDecl) && TYPE_P((DECL_CONTEXT (FnDecl)))) { // Workaround GCC PR42653
     if (host_integerp (DECL_VINDEX (FnDecl), 0))
       VIndex = tree_low_cst (DECL_VINDEX (FnDecl), 0);
     Virtuality = dwarf::DW_VIRTUALITY_virtual;
