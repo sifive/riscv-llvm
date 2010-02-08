@@ -1374,50 +1374,11 @@ Value *make_definition_llvm(tree decl) {
   return DECL_LLVM(decl); // Decl could have changed if it changed type.
 }
 
-/// llvm_mark_decl_weak - Used by varasm.c, called when a decl is found to be
-/// weak, but it already had an llvm object created for it. This marks the LLVM
-/// object weak as well.
-void llvm_mark_decl_weak(tree decl) {
-  assert(DECL_LLVM_SET_P(decl) && DECL_WEAK(decl) &&
-         isa<GlobalValue>(DECL_LLVM(decl)) && "Decl isn't marked weak!");
-  GlobalValue *GV = cast<GlobalValue>(DECL_LLVM(decl));
-
-  // Do not mark something that is already known to be linkonce or internal.
-  // The user may have explicitly asked for weak linkage - ignore flag_odr.
-  if (GV->hasExternalLinkage()) {
-    GlobalValue::LinkageTypes Linkage;
-    if (GV->isDeclaration()) {
-      Linkage = GlobalValue::ExternalWeakLinkage;
-    } else {
-      Linkage = GlobalValue::WeakAnyLinkage;
-      // Allow loads from constants to be folded even if the constant has weak
-      // linkage.  Do this by giving the constant weak_odr linkage rather than
-      // weak linkage.  It is not clear whether this optimization is valid (see
-      // gcc bug 36685), but mainline gcc chooses to do it, and fold may already
-      // have done it, so we might as well join in with gusto.
-      if (GlobalVariable *GVar = dyn_cast<GlobalVariable>(GV))
-        if (GVar->isConstant())
-          Linkage = GlobalValue::WeakODRLinkage;
-    }
-    GV->setLinkage(Linkage);
-  }
-}
-
 /// register_ctor_dtor - Called to register static ctors/dtors with LLVM.
 /// Fn is a 'void()' ctor/dtor function to be run, initprio is the init
 /// priority, and isCtor indicates whether this is a ctor or dtor.
 void register_ctor_dtor(Function *Fn, int InitPrio, bool isCtor) {
   (isCtor ? &StaticCtors:&StaticDtors)->push_back(std::make_pair(Fn, InitPrio));
-}
-
-/// llvm_emit_file_scope_asm - Emit the specified string as a file-scope inline
-/// asm block.
-void llvm_emit_file_scope_asm(const char *string) {
-  if (TheModule->getModuleInlineAsm().empty())
-    TheModule->setModuleInlineAsm(string);
-  else
-    TheModule->setModuleInlineAsm(TheModule->getModuleInlineAsm() + "\n" +
-                                  string);
 }
 
 //FIXME/// print_llvm - Print the specified LLVM chunk like an operand, called by
