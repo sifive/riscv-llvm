@@ -1548,8 +1548,37 @@ static void emit_function(struct cgraph_node *node) {
   pop_cfun ();
 }
 
+/// ApplyVirtualOffset - Adjust 'this' by a virtual offset.
+static Value *ApplyVirtualOffset(Value *This, HOST_WIDE_INT virtual_value,
+                                 LLVMBuilder &Builder) {
+  LLVMContext &Context = getGlobalContext();
+  const Type *IntPtrTy = TheTarget->getTargetData()->getIntPtrType(Context);
+
+  // The vptr is always at offset zero in the object.
+  const Type *HandleTy = Type::getInt8PtrTy(Context)->getPointerTo();
+  Value *VPtr = Builder.CreateBitCast(This, HandleTy->getPointerTo());
+
+  // Form the vtable address.
+  Value *VTableAddr = Builder.CreateLoad(VPtr);
+
+  // Find the entry with the vcall offset.
+  VTableAddr = Builder.CreatePtrToInt(VTableAddr, IntPtrTy);
+  Value *VOffset = ConstantInt::get(IntPtrTy, virtual_value);
+  VTableAddr = Builder.CreateNSWAdd(VTableAddr, VOffset);
+  VTableAddr = Builder.CreateIntToPtr(VTableAddr, HandleTy);
+
+  // Get the offset itself.
+  Value *VCallOffset = Builder.CreateLoad(VTableAddr);
+  VCallOffset = Builder.CreatePtrToInt(VCallOffset, IntPtrTy);
+
+  // Adjust the 'this' pointer.
+  Value *Adjusted = Builder.CreatePtrToInt(This, IntPtrTy);
+  Adjusted = Builder.CreateNSWAdd(Adjusted, VCallOffset);
+  return Builder.CreateIntToPtr(Adjusted, This->getType());
+}
+
 /// emit_thunk - Turn a thunk into LLVM IR.
-void emit_thunk(struct cgraph_node *node) {
+static void emit_thunk(struct cgraph_node *node) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
@@ -1559,13 +1588,22 @@ void emit_thunk(struct cgraph_node *node) {
     return;
   }
 
-  assert(node->thunk.this_adjusting && "covariant return thunks not done yet!");
+  // Mark the thunk as written so gcc doesn't waste time outputting it.
+  TREE_ASM_WRITTEN(node->decl) = 1;
+
+  // Whether the thunk adjusts 'this' before calling the thunk alias (otherwise
+  // it is the value returned by the alias that is adjusted).
+  bool ThisAdjusting = node->thunk.this_adjusting;
 
   LLVMContext &Context = getGlobalContext();
+  const Type *IntPtrTy = TheTarget->getTargetData()->getIntPtrType(Context);
   LLVMBuilder Builder(Context, *TheFolder);
   Builder.SetInsertPoint(BasicBlock::Create(Context, "entry", Thunk));
 
-  bool FoundThis = false; // Did we find 'this' yet?
+  // Whether we found 'this' yet.  When not 'this adjusting', setting this to
+  // 'true' means all parameters (including 'this') are passed through as is.
+  bool FoundThis = !ThisAdjusting;
+
   SmallVector<Value *, 16> Arguments;
   for (Function::arg_iterator AI = Thunk->arg_begin(), AE = Thunk->arg_end();
        AI != AE; ++AI) {
@@ -1582,34 +1620,16 @@ void emit_thunk(struct cgraph_node *node) {
     assert(isa<PointerType>(AI->getType()) && "Wrong type for 'this'!");
 
     // Adjust 'this' according to the thunk offsets.  First, the fixed offset.
-    const Type *IntPtrTy = TheTarget->getTargetData()->getIntPtrType(Context);
     Value *This = Builder.CreatePtrToInt(AI, IntPtrTy);
     Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
     This = Builder.CreateNSWAdd(This, Offset);
+    This = Builder.CreateIntToPtr(This, AI->getType());
 
-    if (node->thunk.virtual_offset_p) {
-      // The vptr is always at offset zero in the object.
-      const Type *HandleTy = Type::getInt8PtrTy(Context)->getPointerTo();
-      Value *VPtr = Builder.CreateIntToPtr(This, HandleTy->getPointerTo());
+    // Then by the virtual offset, if any.
+    if (node->thunk.virtual_offset_p)
+      This = ApplyVirtualOffset(This, node->thunk.virtual_value, Builder);
 
-      // Form the vtable address.
-      Value *VTableAddr = Builder.CreateLoad(VPtr);
-
-      // Find the entry with the vcall offset.
-      VTableAddr = Builder.CreatePtrToInt(VTableAddr, IntPtrTy);
-      Value *VOffset = ConstantInt::get(IntPtrTy, node->thunk.virtual_value);
-      VTableAddr = Builder.CreateNSWAdd(VTableAddr, VOffset);
-      VTableAddr = Builder.CreateIntToPtr(VTableAddr, HandleTy);
-
-      // Get the offset itself.
-      Value *VCallOffset = Builder.CreateLoad(VTableAddr);
-      VCallOffset = Builder.CreatePtrToInt(VCallOffset, IntPtrTy);
-
-      // Adjust the 'this' pointer.
-      This = Builder.CreateNSWAdd(This, VCallOffset);
-    }
-
-    Arguments.push_back(Builder.CreateIntToPtr(This, AI->getType()));
+    Arguments.push_back(This);
   }
 
   CallInst *Call = Builder.CreateCall(DECL_LLVM(node->thunk.alias),
@@ -1619,13 +1639,44 @@ void emit_thunk(struct cgraph_node *node) {
   // All parameters except 'this' are passed on unchanged - this is a tail call.
   Call->setTailCall();
 
-  if (Thunk->getReturnType()->isVoidTy())
-    Builder.CreateRetVoid();
-  else
-    Builder.CreateRet(Call);
+  if (ThisAdjusting) {
+    // Return the value unchanged.
+    if (Thunk->getReturnType()->isVoidTy())
+      Builder.CreateRetVoid();
+    else
+      Builder.CreateRet(Call);
+    return;
+  }
 
-  // Mark the thunk as written so gcc doesn't waste time outputting it.
-  TREE_ASM_WRITTEN(node->decl) = 1;
+  // Covariant return thunk - adjust the returned value by the thunk offsets.
+  assert(Call->getType()->isPointer() && "Only know how to adjust pointers!");
+  Value *RetVal = Call;
+
+  // First check if the returned value is NULL.
+  Value *Zero = Constant::getNullValue(RetVal->getType());
+  Value *isNull = Builder.CreateICmpEQ(RetVal, Zero);
+
+  BasicBlock *isNullBB = BasicBlock::Create(Context, "isNull", Thunk);
+  BasicBlock *isNotNullBB = BasicBlock::Create(Context, "isNotNull", Thunk);
+  Builder.CreateCondBr(isNull, isNullBB, isNotNullBB);
+
+  // If it is NULL, return it without any adjustment.
+  Builder.SetInsertPoint(isNullBB);
+  Builder.CreateRet(Zero);
+
+  // Otherwise, first adjust by the virtual offset, if any.
+  Builder.SetInsertPoint(isNotNullBB);
+  if (node->thunk.virtual_offset_p)
+    RetVal = ApplyVirtualOffset(RetVal, node->thunk.virtual_value, Builder);
+
+  // Then move 'this' by the fixed offset.
+  RetVal = Builder.CreatePtrToInt(RetVal, IntPtrTy);
+  Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
+  RetVal = Builder.CreateNSWAdd(RetVal, Offset);
+  RetVal = Builder.CreateIntToPtr(RetVal, Thunk->getType());
+
+  // Return the adjusted value.
+  Builder.CreateRet(RetVal);
 }
 
 /// emit_alias - Given decl and target emit alias to target.
