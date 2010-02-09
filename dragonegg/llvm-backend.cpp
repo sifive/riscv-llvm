@@ -2354,13 +2354,6 @@ int plugin_init (struct plugin_name_args *plugin_info,
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-
-    // Turn off pass_all_optimizations.
-    pass_info.pass = &pass_gimple_null.pass;
-    pass_info.reference_pass_name = "*all_optimizations";
-    pass_info.ref_pass_instance_number = 0;
-    pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
   }
 
   // Replace LTO generation with gimple to LLVM conversion.
@@ -2376,12 +2369,75 @@ int plugin_init (struct plugin_name_args *plugin_info,
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-  // Turn off all LTO passes.
+  // Disable any other LTO passes.
   pass_info.pass = &pass_ipa_null.pass;
   pass_info.reference_pass_name = "lto_wpa_fixup";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // Disable pass_lower_eh_dispatch, which runs after LLVM conversion.
+  pass_info.pass = &pass_gimple_null.pass;
+  pass_info.reference_pass_name = "ehdisp";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // Disable pass_all_optimizations, which runs after LLVM conversion.
+  pass_info.pass = &pass_gimple_null.pass;
+  pass_info.reference_pass_name = "*all_optimizations";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // Disable pass_lower_complex_O0, which runs after LLVM conversion.
+  pass_info.pass = &pass_gimple_null.pass;
+  pass_info.reference_pass_name = "cplxlower0";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // Disable pass_cleanup_eh, which runs after LLVM conversion.
+  // NOTE: This pass is scheduled twice, once before LLVM conversion and once
+  // after.  If GCC optimizations are enabled, then we should only disable the
+  // second instance, but there doesn't seem to be any convenient and reliable
+  // way of doing this.  FIXME: The following code actually only disables the
+  // first instance due to a GCC bug!
+  pass_info.pass = &pass_gimple_null.pass;
+  pass_info.reference_pass_name = "ehcleanup";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // Disable pass_lower_resx, which runs after LLVM conversion.
+  pass_info.pass = &pass_gimple_null.pass;
+  pass_info.reference_pass_name = "resx";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // Disable pass_nrv, which runs after LLVM conversion.
+  pass_info.pass = &pass_gimple_null.pass;
+  pass_info.reference_pass_name = "nrv";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // Disable pass_mudflap_2, which runs after LLVM conversion.
+  pass_info.pass = &pass_gimple_null.pass;
+  pass_info.reference_pass_name = "mudflap2";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // Disable pass_cleanup_cfg_post_optimizing, which runs after LLVM conversion.
+  pass_info.pass = &pass_gimple_null.pass;
+  pass_info.reference_pass_name = "optimized";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+  // TODO: Disable pass_warn_function_noreturn?
 
   // Replace rtl expansion with a pass that pretends to codegen functions, but
   // actually only does the hoop jumping that GCC requires at this point.
