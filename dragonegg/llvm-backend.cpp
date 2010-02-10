@@ -1684,7 +1684,7 @@ static void emit_thunk(struct cgraph_node *node) {
 }
 
 /// emit_alias - Given decl and target emit alias to target.
-void emit_alias(tree decl, tree target) {
+static void emit_alias(tree decl, tree target) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
