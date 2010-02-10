@@ -1552,6 +1552,32 @@ static void emit_function(struct cgraph_node *node) {
   pop_cfun ();
 }
 
+/// GetLinkageForAlias - The given GCC declaration is an alias or thunk.  Return
+/// the appropriate LLVM linkage type for it.
+static GlobalValue::LinkageTypes GetLinkageForAlias(tree decl) {
+  if (DECL_COMDAT(decl))
+    // Need not be put out unless needed in this translation unit.
+    return GlobalValue::InternalLinkage;
+
+  if (DECL_ONE_ONLY(decl))
+    // Copies of this DECL in multiple translation units should be merged.
+    return GlobalValue::WeakODRLinkage;
+
+  if (DECL_WEAK(decl))
+    // The user may have explicitly asked for weak linkage - ignore flag_odr.
+    return GlobalValue::WeakAnyLinkage;
+
+  if (!TREE_PUBLIC(decl))
+    // Not accessible from outside this translation unit.
+    return GlobalValue::InternalLinkage;
+
+  if (DECL_EXTERNAL(decl))
+    // Do not allocate storage, and refer to a definition elsewhere.
+    return GlobalValue::InternalLinkage;
+
+  return GlobalValue::ExternalLinkage;
+}
+
 /// ApplyVirtualOffset - Adjust 'this' by a virtual offset.
 static Value *ApplyVirtualOffset(Value *This, HOST_WIDE_INT virtual_value,
                                  LLVMBuilder &Builder) {
@@ -1594,6 +1620,10 @@ static void emit_thunk(struct cgraph_node *node) {
 
   // Mark the thunk as written so gcc doesn't waste time outputting it.
   TREE_ASM_WRITTEN(node->decl) = 1;
+
+  // Set the linkage and visibility.
+  Thunk->setLinkage(GetLinkageForAlias(node->decl));
+  handleVisibility(node->decl, Thunk);
 
   // Whether the thunk adjusts 'this' before calling the thunk alias (otherwise
   // it is the value returned by the alias that is adjusted).
@@ -1728,23 +1758,7 @@ static void emit_alias(tree decl, tree target) {
     Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target));
   }
 
-  GlobalValue::LinkageTypes Linkage = GlobalValue::ExternalLinkage;
-
-  if (DECL_COMDAT(decl))
-    // Need not be put out unless needed in this translation unit.
-    Linkage = GlobalValue::InternalLinkage;
-  else if (DECL_ONE_ONLY(decl))
-    // Copies of this DECL in multiple translation units should be merged.
-    Linkage = GlobalValue::WeakODRLinkage;
-  else if (DECL_WEAK(decl))
-    // The user may have explicitly asked for weak linkage - ignore flag_odr.
-    Linkage = GlobalValue::WeakAnyLinkage;
-  else if (!TREE_PUBLIC(decl))
-    // Not accessible from outside this translation unit.
-    Linkage = GlobalValue::InternalLinkage;
-  else if (DECL_EXTERNAL(decl))
-    // Do not allocate storage, and refer to a definition elsewhere.
-    Linkage = GlobalValue::InternalLinkage;
+  GlobalValue::LinkageTypes Linkage = GetLinkageForAlias(decl);
 
   if (Linkage != GlobalValue::InternalLinkage) {
     // Create the LLVM alias.
