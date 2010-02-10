@@ -28,10 +28,6 @@ Optimizations
 
 Consider using separate caches for types and globals.
 
-Work out how to stop GCC from outputting debug info for global variables
-when compiling with -g.  The output is all thrown away, so harmless, but it
-would be more efficient not to produce any in the first place.
-
 Correctness
 -----------
 

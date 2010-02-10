@@ -65,6 +65,7 @@ extern "C" {
 #include "tree.h"
 
 #include "cgraph.h"
+#include "debug.h"
 #include "diagnostic.h"
 #include "flags.h"
 #include "function.h"
@@ -1498,6 +1499,9 @@ static void llvm_start_unit(void *gcc_data, void *user_data) {
 #else
 # error "LTO support required but not enabled in GCC"
 #endif
+
+  // Stop GCC outputting serious amounts of debug info.
+  debug_hooks = &do_nothing_debug_hooks;
 }
 
 
