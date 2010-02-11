@@ -1873,12 +1873,14 @@ static void emit_variables(cgraph_node_set set) {
   LazilyInitializeModule();
 
   // Output all externally visible global variables, whether they are used in
-  // this compilation unit or not.  Global variables that are not externally
-  // visible are output when their user is, or discarded if unused.
+  // this compilation unit or not, as well as any internal variables explicitly
+  // marked with the 'used' attribute.  All other internal variables are output
+  // when their user is, or discarded if unused.
   struct varpool_node *vnode;
   FOR_EACH_STATIC_VARIABLE (vnode) {
     tree var = vnode->decl;
-    if (TREE_CODE(var) == VAR_DECL && TREE_PUBLIC(var))
+    if (TREE_CODE(var) == VAR_DECL &&
+        (TREE_PUBLIC(var) || DECL_PRESERVE_P(var)))
       emit_global(var);
   }
 
