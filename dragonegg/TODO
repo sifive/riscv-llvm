@@ -19,10 +19,6 @@ Define LLVM_TARGET_NAME from the Makefile rather than being specified in
 llvm-target.h.  Maybe LLVM_TARGET_INTRINSIC_PREFIX could go too.  An annoyance
 is that the target tool returns "x86" while what is needed is "X86".
 
-Teach the build system that the plugin needs to be rebuilt if any of the bits of
-LLVM/gcc it depends on changes.
-
-
 Optimizations
 -------------
 
@@ -42,7 +38,6 @@ This should tie in nicely with gimple registers versus references.
 
 Unify the code that determines which LLVM linkage type to use.  Need to do
 a bunch of experimenting to work out how the mapping should really be done.
-
 
 Code quality
 ------------
