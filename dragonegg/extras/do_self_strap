@@ -1,0 +1,208 @@
+#!/bin/bash
+
+# This script performs an automated self-hosted build of dragonegg.  In
+# other words it builds dragonegg, then builds GCC and LLVM with dragonegg,
+# then uses those and dragonegg to rebuild dragonegg.  It does this a couple
+# of times until it reckons you must be fed up.  At which point it checks
+# that the dragonegg plugin is not changing at each iteration.
+#
+# This is all extreme overkill if all you want to do is try out dragonegg!  If
+# that's your goal then I suggest you consult the README file one directory up.
+
+DRAGONEGG_DIR=$PWD/dragonegg
+
+GCC_SRC_DIR=$PWD/gcc
+GCC_OBJ_DIR=$PWD/gcc-objects
+GCC_INS_DIR=$PWD/gcc-install
+
+LLVM_SRC_DIR=$PWD/llvm
+LLVM_OBJ_DIR=$PWD/llvm-objects
+
+
+GCC_OPTIONS="--enable-lto --enable-languages=c,c++ --disable-bootstrap --disable-multilib --enable-checking"
+
+LLVM_OPTIONS="--enable-optimized --enable-assertions"
+
+MAKE="nice -n 20 make -j2"
+
+
+shopt -s nullglob
+
+BUILT_GCC=$GCC_INS_DIR/bin/gcc
+BUILT_GXX=$GCC_INS_DIR/bin/g++
+
+
+# Check out or update the dragonegg source
+if [ -a $DRAGONEGG_DIR ] ; then
+  echo "Updating dragonegg"
+  svn update $DRAGONEGG_DIR || exit 1
+else
+  echo "Checking out dragonegg"
+  svn co http://llvm.org/svn/llvm-project/dragonegg/trunk $DRAGONEGG_DIR || exit 1
+fi
+
+
+# Check out or update the LLVM source
+if [ -a $LLVM_SRC_DIR ] ; then
+  echo "Updating LLVM"
+  svn update $LLVM_SRC_DIR || exit 1
+else
+  echo "Checking out LLVM"
+  svn co http://llvm.org/svn/llvm-project/llvm/trunk $LLVM_SRC_DIR || exit 1
+fi
+
+
+# Check out or update the GCC source
+if [ -a $GCC_SRC_DIR ] ; then
+  echo "Reverting any applied patches"
+  svn revert -R $GCC_SRC_DIR/gcc || exit 1
+  echo "Updating GCC"
+  svn update $GCC_SRC_DIR || exit 1
+else
+  echo "Checking out GCC"
+  svn co svn://gcc.gnu.org/svn/gcc/trunk $GCC_SRC_DIR || exit 1
+fi
+
+
+# Apply any needed patches to GCC
+for PATCH in $DRAGONEGG_DIR/gcc-patches/*.diff ; do
+  echo "Applying patch $PATCH"
+  patch -d $GCC_SRC_DIR -p1 < $PATCH || exit 1
+done
+
+
+# Build and install GCC
+echo "Cleaning out old GCC build"
+rm -fr $GCC_OBJ_DIR || exit 1
+mkdir -p $GCC_OBJ_DIR || exit 1
+cd $GCC_OBJ_DIR || exit 1
+
+echo "Configuring GCC"
+$GCC_SRC_DIR/configure --prefix=$GCC_INS_DIR $GCC_OPTIONS || exit 1
+
+echo "Building GCC"
+$MAKE || exit 1
+
+echo "Installing GCC"
+$MAKE install || exit 1
+cd .. || exit 1
+
+
+# Build LLVM using the just built GCC
+# The built libstdc++ and libgcc may be more recent than the system versions.
+# Set the library path so that programs compiled with the just built GCC will
+# start successfully, rather than failing due to shared library dependencies.
+LIBRARY_PATH=`$BUILT_GCC -print-search-dirs | grep "^libraries:" | sed "s/^libraries: *=//"` || exit 1
+export LD_LIBRARY_PATH=$LIBRARY_PATH:$LD_LIBRARY_PATH
+
+echo "Cleaning out old LLVM build"
+rm -fr $LLVM_OBJ_DIR || exit 1
+mkdir -p $LLVM_OBJ_DIR || exit 1
+cd $LLVM_OBJ_DIR || exit 1
+
+echo "Configuring LLVM"
+CC=$BUILT_GCC CXX=$BUILT_GXX $LLVM_SRC_DIR/configure $LLVM_OPTIONS || exit 1
+
+echo "Building LLVM"
+$MAKE || exit 1
+cd .. || exit 1
+
+
+BUILT_LLVM_CONFIG=$LLVM_OBJ_DIR/*/bin/llvm-config
+
+# Build dragonegg using the just built GCC and LLVM.
+cd $DRAGONEGG_DIR || exit 1
+
+echo "Cleaning out old dragonegg build"
+$MAKE clean || exit 1
+
+echo "Building dragonegg"
+GCC=$BUILT_GCC CC=$BUILT_GCC CXX=$BUILT_GXX LLVM_CONFIG=$BUILT_LLVM_CONFIG $MAKE || exit 1
+cd .. || exit 1
+
+
+for STAGE in initial middle ; do
+
+  export GCC=$BUILT_GCC
+  export CC="$BUILT_GCC -fplugin=$DRAGONEGG_DIR/dragonegg.$STAGE.so"
+  export CXX="$BUILT_GXX -fplugin=$DRAGONEGG_DIR/dragonegg.$STAGE.so"
+  export LLVM_CONFIG=$BUILT_LLVM_CONFIG
+
+  # Build dragonegg again using the just built dragonegg
+  echo "Backing up plugin"
+  cd $DRAGONEGG_DIR || exit 1
+  mv dragonegg.so dragonegg.$STAGE.so || exit 1
+
+  echo "Cleaning out previous dragonegg build"
+  $MAKE clean || exit 1
+
+  echo "Rebuilding dragonegg with itself"
+  $MAKE || exit 1
+
+  echo "Self built plugin is dragonegg.$STAGE.so"
+  mv dragonegg.so dragonegg.$STAGE.so || exit 1
+
+  cd .. || exit 1
+
+
+  # Build and install GCC using the just built dragonegg
+  echo "Cleaning out pre-$STAGE GCC build"
+  rm -fr $GCC_OBJ_DIR || exit 1
+  mkdir -p $GCC_OBJ_DIR || exit 1
+  cd $GCC_OBJ_DIR || exit 1
+
+  echo "Configuring GCC"
+  $GCC_SRC_DIR/configure --prefix=$GCC_INS_DIR $GCC_OPTIONS || exit 1
+
+  echo "Building GCC"
+  $MAKE || exit 1
+
+  echo "Installing GCC"
+  $MAKE install || exit 1
+  cd .. || exit 1
+
+
+  # Build LLVM using the just built dragonegg
+  echo "Cleaning out pre-$STAGE LLVM build"
+  rm -fr $LLVM_OBJ_DIR || exit 1
+  mkdir -p $LLVM_OBJ_DIR || exit 1
+  cd $LLVM_OBJ_DIR || exit 1
+
+  echo "Configuring LLVM"
+  LLVM_SRC_DIR/configure $LLVM_OPTIONS || exit 1
+
+  echo "Building LLVM"
+  $MAKE || exit 1
+  cd .. || exit 1
+
+
+  # Build dragonegg using the just built GCC, LLVM and dragonegg.
+  cd $DRAGONEGG_DIR || exit 1
+
+  echo "Cleaning out pre-$STAGE dragonegg build"
+  $MAKE clean || exit 1
+
+  echo "Building dragonegg"
+  $MAKE || exit 1
+  cd .. || exit 1
+
+done
+
+
+# Build dragonegg again using the just built dragonegg
+echo "Backing up plugin"
+cd $DRAGONEGG_DIR || exit 1
+mv dragonegg.so dragonegg.final.so || exit 1
+
+echo "Cleaning out previous dragonegg build"
+$MAKE clean || exit 1
+
+echo "Rebuilding dragonegg with itself"
+CC="$BUILT_GCC -fplugin=$DRAGONEGG_DIR/dragonegg.$STAGE.so" CXX="$BUILT_GXX -fplugin=$DRAGONEGG_DIR/dragonegg.$STAGE.so" $MAKE || exit 1
+
+echo "Self built plugin is dragonegg.final.so"
+mv dragonegg.so dragonegg.final.so || exit 1
+
+cd .. || exit 1
+
+diff dragonegg.middle.so dragonegg.final.so
