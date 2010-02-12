@@ -2,7 +2,7 @@ GCC?=gcc-4.5
 GCCSOURCE_DIR=$(shell $(GCC) -print-file-name=plugin)
 # Point LLVM_CONFIG to the just built llvm-config to use an LLVM build rather
 # than the installed version of LLVM.
-LLVM_CONFIG=llvm-config
+LLVM_CONFIG?=llvm-config
 
 # Replace with an informative string when doing a release.
 REVISION:=$(shell svnversion -n .)
