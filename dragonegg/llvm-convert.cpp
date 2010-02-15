@@ -455,7 +455,7 @@ namespace {
           // If this is just a mismatch between integer types, this is due
           // to K&R prototypes, where the forward proto defines the arg as int
           // and the actual impls is a short or char.
-          assert(ArgVal->getType()->isInteger(32) && LLVMTy->isInteger() &&
+          assert(ArgVal->getType()->isIntegerTy(32) && LLVMTy->isIntegerTy() &&
                  "Lowerings don't match?");
           ArgVal = Builder.CreateTrunc(ArgVal, LLVMTy,NameStack.back().c_str());
         }
@@ -1501,14 +1501,14 @@ static unsigned CountAggregateElements(const Type *Ty) {
 /// contains any floating point elements.
 
 static bool containsFPField(const Type *LLVMTy) {
-  if (LLVMTy->isFloatingPoint())
+  if (LLVMTy->isFloatingPointTy())
     return true;
   const StructType* STy = dyn_cast<StructType>(LLVMTy);
   if (STy) {
     for (StructType::element_iterator I = STy->element_begin(),
                                       E = STy->element_end(); I != E; I++) {
       const Type *Ty = *I;
-      if (Ty->isFloatingPoint())
+      if (Ty->isFloatingPointTy())
         return true;
       if (isa<StructType>(Ty) && containsFPField(Ty))
         return true;
@@ -2178,7 +2178,7 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
     // The number of loads needed to read the entire bitfield.
     unsigned Strides = 1 + (LV.BitStart + LV.BitSize - 1) / ValSizeInBits;
 
-    assert(ValTy->isInteger() && "Invalid bitfield lvalue!");
+    assert(ValTy->isIntegerTy() && "Invalid bitfield lvalue!");
     assert(ValSizeInBits > LV.BitStart && "Bad bitfield lvalue!");
     assert(ValSizeInBits >= LV.BitSize && "Bad bitfield lvalue!");
     assert(2*ValSizeInBits > LV.BitSize+LV.BitStart && "Bad bitfield lvalue!");
@@ -4809,7 +4809,7 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt,
   Value *Offset = EmitMemory(gimple_call_arg(stmt, 0));
   Value *Handler = EmitMemory(gimple_call_arg(stmt, 1));
 
-  Intrinsic::ID IID = IntPtr->isInteger(32) ?
+  Intrinsic::ID IID = IntPtr->isIntegerTy(32) ?
     Intrinsic::eh_return_i32 : Intrinsic::eh_return_i64;
 
   Offset = Builder.CreateIntCast(Offset, IntPtr, /*isSigned*/true);
@@ -5395,7 +5395,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 
   if (isBitfield(FieldDecl)) {
     // If this is a bitfield, the declared type must be an integral type.
-    assert(FieldTy->isInteger() && "Invalid bitfield");
+    assert(FieldTy->isIntegerTy() && "Invalid bitfield");
 
     assert(DECL_SIZE(FieldDecl) &&
            TREE_CODE(DECL_SIZE(FieldDecl)) == INTEGER_CST &&
@@ -5410,7 +5410,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
     // things that are difficult to clean up later.  This occurs in cases like
     // "struct X{ unsigned long long x:50; unsigned y:2; }" when accessing y.
     // We want to access the field as a ulong, not as a uint with an offset.
-    if (LLVMFieldTy->isInteger() &&
+    if (LLVMFieldTy->isIntegerTy() &&
         LLVMFieldTy->getPrimitiveSizeInBits() >= BitStart + BitfieldSize &&
         LLVMFieldTy->getPrimitiveSizeInBits() ==
         TD.getTypeAllocSizeInBits(LLVMFieldTy))
@@ -5689,7 +5689,7 @@ Value *TreeToLLVM::Mem2Reg(Value *V, tree_node *type, LLVMBuilder &Builder) {
   if (MemTy == RegTy)
     return V;
 
-  assert(RegTy->isInteger() && MemTy->isInteger() &&
+  assert(RegTy->isIntegerTy() && MemTy->isIntegerTy() &&
          "Unexpected type mismatch!");
   return Builder.CreateIntCast(V, RegTy, /*isSigned*/!TYPE_UNSIGNED(type));
 }
@@ -5702,7 +5702,7 @@ Constant *TreeToLLVM::Mem2Reg(Constant *C, tree_node *type,
   if (MemTy == RegTy)
     return C;
 
-  assert(RegTy->isInteger() && MemTy->isInteger() &&
+  assert(RegTy->isIntegerTy() && MemTy->isIntegerTy() &&
          "Unexpected type mismatch!");
   return Folder.CreateIntCast(C, RegTy, /*isSigned*/!TYPE_UNSIGNED(type));
 }
@@ -5717,7 +5717,7 @@ Value *TreeToLLVM::Reg2Mem(Value *V, tree_node *type, LLVMBuilder &Builder) {
   if (RegTy == MemTy)
     return V;
 
-  assert(RegTy->isInteger() && MemTy->isInteger() &&
+  assert(RegTy->isIntegerTy() && MemTy->isIntegerTy() &&
          "Unexpected type mismatch!");
   return Builder.CreateIntCast(V, MemTy, /*isSigned*/!TYPE_UNSIGNED(type));
 }
@@ -5842,7 +5842,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
 // Unary expressions.
 Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
   Value *Op = EmitRegister(op);
-  if (!Op->getType()->isFloatingPoint()) {
+  if (!Op->getType()->isFloatingPointTy()) {
     Value *OpN = Builder.CreateNeg(Op, Op->getName()+"neg");
     ICmpInst::Predicate pred = TYPE_UNSIGNED(TREE_TYPE(op)) ?
       ICmpInst::ICMP_UGE : ICmpInst::ICMP_SGE;
@@ -5917,7 +5917,7 @@ Value *TreeToLLVM::EmitReg_PAREN_EXPR(tree op) {
 
 Value *TreeToLLVM::EmitReg_TRUTH_NOT_EXPR(tree type, tree op) {
   Value *V = EmitRegister(op);
-  if (!V->getType()->isInteger(1))
+  if (!V->getType()->isIntegerTy(1))
     V = Builder.CreateICmpNE(V,
           Constant::getNullValue(V->getType()), "toBool");
   V = Builder.CreateNot(V, V->getName()+"not");
@@ -5985,7 +5985,7 @@ Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, tree_code code) {
     SplitComplex(RHS, RHSr, RHSi, TREE_TYPE(TREE_TYPE(lhs)));
 
     Value *DSTr, *DSTi;
-    if (LHSr->getType()->isFloatingPoint()) {
+    if (LHSr->getType()->isFloatingPointTy()) {
       DSTr = Builder.CreateFCmp(FPPred, LHSr, RHSr);
       DSTi = Builder.CreateFCmp(FPPred, LHSi, RHSi);
       if (FPPred == CmpInst::FCMP_OEQ)
@@ -6003,7 +6003,7 @@ Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, tree_code code) {
     return Builder.CreateOr(DSTr, DSTi);
   }
 
-  if (LHS->getType()->isFPOrFPVector())
+  if (LHS->getType()->isFPOrFPVectorTy())
     return Builder.CreateFCmp(FPPred, LHS, RHS);
 
   // Determine which predicate to use based on signedness.
@@ -6032,7 +6032,7 @@ Value *TreeToLLVM::EmitReg_MinMaxExpr(tree type, tree op0, tree op1,
   RHS = Builder.CreateCast(opcode, RHS, Ty);
 
   Value *Compare;
-  if (LHS->getType()->isFloatingPoint())
+  if (LHS->getType()->isFloatingPointTy())
     Compare = Builder.CreateFCmp(FCmpInst::Predicate(FPPred), LHS, RHS);
   else if (TYPE_UNSIGNED(type))
     Compare = Builder.CreateICmp(ICmpInst::Predicate(UIPred), LHS, RHS);
@@ -6479,7 +6479,7 @@ Value *TreeToLLVM::EmitReg_TRUNC_DIV_EXPR(tree op0, tree op1, bool isExact) {
     Value *DSTr, *DSTi;
 
     // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
-    assert (LHSr->getType()->isInteger() && "TRUNC_DIV_EXPR not integer!");
+    assert (LHSr->getType()->isIntegerTy() && "TRUNC_DIV_EXPR not integer!");
     // If overflow does not wrap in the element type then it is tempting to
     // use NSW operations here.  However that would be wrong since overflow
     // of an intermediate value calculated here does not necessarily imply
@@ -6503,7 +6503,7 @@ Value *TreeToLLVM::EmitReg_TRUNC_DIV_EXPR(tree op0, tree op1, bool isExact) {
     return CreateComplex(DSTr, DSTi, elt_type);
   }
 
-  assert(LHS->getType()->isIntOrIntVector() && "TRUNC_DIV_EXPR not integer!");
+  assert(LHS->getType()->isIntOrIntVectorTy() && "TRUNC_DIV_EXPR not integer!");
   if (TYPE_UNSIGNED(type)) {
 //    if (isExact)
 //      return Builder.CreateExactUDiv(LHS, RHS);
@@ -7430,7 +7430,7 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
   // The number of stores needed to write the entire bitfield.
   unsigned Strides = 1 + (LV.BitStart + LV.BitSize - 1) / ValSizeInBits;
 
-  assert(ValTy->isInteger() && "Invalid bitfield lvalue!");
+  assert(ValTy->isIntegerTy() && "Invalid bitfield lvalue!");
   assert(ValSizeInBits > LV.BitStart && "Bad bitfield lvalue!");
   assert(ValSizeInBits >= LV.BitSize && "Bad bitfield lvalue!");
   assert(2*ValSizeInBits > LV.BitSize+LV.BitStart && "Bad bitfield lvalue!");
@@ -7552,7 +7552,7 @@ Constant *TreeConstantToLLVM::ConvertINTEGER_CST(tree exp) {
 
 Constant *TreeConstantToLLVM::ConvertREAL_CST(tree exp) {
   const Type *Ty = ConvertType(TREE_TYPE(exp));
-  assert(Ty->isFloatingPoint() && "Integer REAL_CST?");
+  assert(Ty->isFloatingPointTy() && "Integer REAL_CST?");
   long RealArr[2];
   union {
     int UArr[2];
@@ -7634,11 +7634,11 @@ Constant *TreeConstantToLLVM::ConvertSTRING_CST(tree exp) {
   unsigned Len = (unsigned)TREE_STRING_LENGTH(exp);
 
   std::vector<Constant*> Elts;
-  if (ElTy->isInteger(8)) {
+  if (ElTy->isIntegerTy(8)) {
     const unsigned char *InStr =(const unsigned char *)TREE_STRING_POINTER(exp);
     for (unsigned i = 0; i != Len; ++i)
       Elts.push_back(ConstantInt::get(Type::getInt8Ty(Context), InStr[i]));
-  } else if (ElTy->isInteger(16)) {
+  } else if (ElTy->isIntegerTy(16)) {
     assert((Len&1) == 0 &&
            "Length in bytes should be a multiple of element size");
     const uint16_t *InStr =
@@ -7650,9 +7650,10 @@ Constant *TreeConstantToLLVM::ConvertSTRING_CST(tree exp) {
       if (llvm::sys::isBigEndianHost() == BYTES_BIG_ENDIAN)
         Elts.push_back(ConstantInt::get(Type::getInt16Ty(Context), InStr[i]));
       else
-        Elts.push_back(ConstantInt::get(Type::getInt16Ty(Context), ByteSwap_16(InStr[i])));
+        Elts.push_back(ConstantInt::get(Type::getInt16Ty(Context),
+                                        ByteSwap_16(InStr[i])));
     }
-  } else if (ElTy->isInteger(32)) {
+  } else if (ElTy->isIntegerTy(32)) {
     assert((Len&3) == 0 &&
            "Length in bytes should be a multiple of element size");
     const uint32_t *InStr = (const uint32_t *)TREE_STRING_POINTER(exp);
@@ -7663,7 +7664,8 @@ Constant *TreeConstantToLLVM::ConvertSTRING_CST(tree exp) {
       if (llvm::sys::isBigEndianHost() == BYTES_BIG_ENDIAN)
         Elts.push_back(ConstantInt::get(Type::getInt32Ty(Context), InStr[i]));
       else
-        Elts.push_back(ConstantInt::get(Type::getInt32Ty(Context), ByteSwap_32(InStr[i])));
+        Elts.push_back(ConstantInt::get(Type::getInt32Ty(Context),
+                                        ByteSwap_32(InStr[i])));
     }
   } else {
     assert(0 && "Unknown character type!");
@@ -8118,7 +8120,7 @@ AddBitFieldToRecordConstant(ConstantInt *ValC, uint64_t GCCFieldOffsetInBits) {
   if (GCCFieldOffsetInBits < NextFieldByteStart*8) {
     unsigned ValBitSize = ValC->getBitWidth();
     assert(!ResultElts.empty() && "Bitfield starts before first element?");
-    assert(ResultElts.back()->getType()->isInteger(8) &&
+    assert(ResultElts.back()->getType()->isIntegerTy(8) &&
            isa<ConstantInt>(ResultElts.back()) &&
            "Merging bitfield with non-bitfield value?");
     assert(NextFieldByteStart*8 - GCCFieldOffsetInBits < 8 &&

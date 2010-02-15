@@ -943,8 +943,8 @@ namespace {
       if (KNRPromotion) {
         if (type == float_type_node)
           LLVMTy = ConvertType(double_type_node);
-        else if (LLVMTy->isInteger(16) || LLVMTy->isInteger(8) ||
-                 LLVMTy->isInteger(1))
+        else if (LLVMTy->isIntegerTy(16) || LLVMTy->isIntegerTy(8) ||
+                 LLVMTy->isIntegerTy(1))
           LLVMTy = Type::getInt32Ty(Context);
       }
       ArgTypes.push_back(LLVMTy);
@@ -1345,13 +1345,13 @@ struct StructTypeConversionInfo {
     const Type *LastType = Elements.back();
     unsigned PadBytes = 0;
 
-    if (LastType->isInteger(8))
+    if (LastType->isIntegerTy(8))
       PadBytes = 1 - NoOfBytesToRemove;
-    else if (LastType->isInteger(16))
+    else if (LastType->isIntegerTy(16))
       PadBytes = 2 - NoOfBytesToRemove;
-    else if (LastType->isInteger(32))
+    else if (LastType->isIntegerTy(32))
       PadBytes = 4 - NoOfBytesToRemove;
-    else if (LastType->isInteger(64))
+    else if (LastType->isIntegerTy(64))
       PadBytes = 8 - NoOfBytesToRemove;
     else
       return;

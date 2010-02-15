@@ -324,7 +324,7 @@ void DefaultABI::PassInMixedRegisters(const Type *Ty,
     if (InSize < Size) {
       unsigned N = STy->getNumElements();
       const llvm::Type *LastEltTy = STy->getElementType(N-1);
-      if (LastEltTy->isInteger())
+      if (LastEltTy->isIntegerTy())
         LastEltSizeDiff =
           getTargetData().getTypeAllocSize(LastEltTy) - (Size - InSize);
     }

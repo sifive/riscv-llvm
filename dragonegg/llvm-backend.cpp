@@ -1686,7 +1686,7 @@ static void emit_thunk(struct cgraph_node *node) {
   }
 
   // Covariant return thunk - adjust the returned value by the thunk offsets.
-  assert(Call->getType()->isPointer() && "Only know how to adjust pointers!");
+  assert(Call->getType()->isPointerTy() && "Only know how to adjust pointers!");
   Value *RetVal = Call;
 
   // First check if the returned value is NULL.

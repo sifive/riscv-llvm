@@ -1296,7 +1296,7 @@ static bool llvm_x86_is_all_integer_types(const Type *Ty) {
   for (Type::subtype_iterator I = Ty->subtype_begin(), E = Ty->subtype_end();
        I != E; ++I) {
     const Type *STy = I->get();
-    if (!STy->isIntOrIntVector() && !isa<PointerType>(STy))
+    if (!STy->isIntOrIntVectorTy() && !isa<PointerType>(STy))
       return false;
   }
   return true;
@@ -1359,10 +1359,10 @@ bool llvm_x86_should_pass_aggregate_as_fca(tree type, const Type *Ty) {
   // makes it ABI compatible for x86-64. Same for _Complex char and _Complex
   // short in 32-bit.
   const Type *EltTy = STy->getElementType(0);
-  return !((TARGET_64BIT && (EltTy->isInteger() ||
+  return !((TARGET_64BIT && (EltTy->isIntegerTy() ||
                              EltTy == Type::getFloatTy(Context) ||
                              EltTy == Type::getDoubleTy(Context))) ||
-           EltTy->isInteger(16) || EltTy->isInteger(8));
+           EltTy->isIntegerTy(16) || EltTy->isIntegerTy(8));
 }
 
 /* Target hook for llvm-abi.h. It returns true if an aggregate of the
@@ -1401,14 +1401,14 @@ static void count_num_registers_uses(std::vector<const Type*> &ScalarElts,
       else
         // All other vector scalar values are passed in XMM registers.
         ++NumXMMs;
-    } else if (Ty->isInteger() || isa<PointerType>(Ty)) {
+    } else if (Ty->isIntegerTy() || isa<PointerType>(Ty)) {
       ++NumGPRs;
     } else if (Ty==Type::getVoidTy(Context)) {
       // Padding bytes that are not passed anywhere
       ;
     } else {
       // Floating point scalar argument.
-      assert(Ty->isFloatingPoint() && Ty->isPrimitiveType() &&
+      assert(Ty->isFloatingPointTy() && Ty->isPrimitiveType() &&
              "Expecting a floating point primitive type!");
       if (Ty->getTypeID() == Type::FloatTyID
           || Ty->getTypeID() == Type::DoubleTyID)
@@ -1522,7 +1522,7 @@ llvm_x86_64_should_pass_aggregate_in_mixed_regs(tree TreeType, const Type *Ty,
               Ty = STy->getElementType(0);
           if (const VectorType *VTy = dyn_cast<VectorType>(Ty)) {
             if (VTy->getNumElements() == 2) {
-              if (VTy->getElementType()->isInteger()) {
+              if (VTy->getElementType()->isIntegerTy()) {
                 Elts.push_back(VectorType::get(Type::getInt64Ty(Context), 2));
               } else {
                 Elts.push_back(VectorType::get(Type::getDoubleTy(Context), 2));
@@ -1530,7 +1530,7 @@ llvm_x86_64_should_pass_aggregate_in_mixed_regs(tree TreeType, const Type *Ty,
               Bytes -= 8;
             } else {
               assert(VTy->getNumElements() == 4);
-              if (VTy->getElementType()->isInteger()) {
+              if (VTy->getElementType()->isIntegerTy()) {
                 Elts.push_back(VectorType::get(Type::getInt32Ty(Context), 4));
               } else {
                 Elts.push_back(VectorType::get(Type::getFloatTy(Context), 4));
@@ -1886,14 +1886,14 @@ llvm_x86_64_get_multiple_return_reg_classes(tree TreeType, const Type *Ty,
               Ty = STy->getElementType(0);
           if (const VectorType *VTy = dyn_cast<VectorType>(Ty)) {
             if (VTy->getNumElements() == 2) {
-              if (VTy->getElementType()->isInteger())
+              if (VTy->getElementType()->isIntegerTy())
                 Elts.push_back(VectorType::get(Type::getInt64Ty(Context), 2));
               else
                 Elts.push_back(VectorType::get(Type::getDoubleTy(Context), 2));
               Bytes -= 8;
             } else {
               assert(VTy->getNumElements() == 4);
-              if (VTy->getElementType()->isInteger())
+              if (VTy->getElementType()->isIntegerTy())
                 Elts.push_back(VectorType::get(Type::getInt32Ty(Context), 4));
               else
                 Elts.push_back(VectorType::get(Type::getFloatTy(Context), 4));
