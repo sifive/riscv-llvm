@@ -33,10 +33,10 @@ TARGET_TRIPLE:=$(shell $(GCC) -v 2>&1 | grep "^Target:" | sed -e "s/^Target: *//
 # NOTE: replace with an informative string when doing a release.
 REVISION:=$(shell svnversion -n .)
 
-CFLAGS+=-Wall -Werror -fPIC -g -O2
+CFLAGS+=-Wall -Werror -fPIC -g -O2 -fno-exceptions
 CFLAGS+=-DIN_GCC -DREVISION=\"$(REVISION)\" -DTARGET_NAME=\"$(TARGET_TRIPLE)\"
 CPPFLAGS+=-MD -MP
-CXXFLAGS+=$(CFLAGS) $(shell $(LLVM_CONFIG) --cppflags)
+CXXFLAGS+=$(CFLAGS) -fno-rtti $(shell $(LLVM_CONFIG) --cppflags)
 
 LDFLAGS+=$(shell $(LLVM_CONFIG) --libs analysis core ipo scalaropts target) \
 	 $(shell $(LLVM_CONFIG) --ldflags)
