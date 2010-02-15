@@ -1652,12 +1652,15 @@ static void emit_thunk(struct cgraph_node *node) {
 
     FoundThis = true; // The current argument is 'this'.
     assert(isa<PointerType>(AI->getType()) && "Wrong type for 'this'!");
+    Value *This = AI;
 
     // Adjust 'this' according to the thunk offsets.  First, the fixed offset.
-    Value *This = Builder.CreatePtrToInt(AI, IntPtrTy);
-    Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
-    This = Builder.CreateNSWAdd(This, Offset);
-    This = Builder.CreateIntToPtr(This, AI->getType());
+    if (node->thunk.fixed_offset) {
+      This = Builder.CreatePtrToInt(This, IntPtrTy);
+      Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
+      This = Builder.CreateNSWAdd(This, Offset);
+      This = Builder.CreateIntToPtr(This, AI->getType());
+    }
 
     // Then by the virtual offset, if any.
     if (node->thunk.virtual_offset_p)
@@ -1704,10 +1707,12 @@ static void emit_thunk(struct cgraph_node *node) {
     RetVal = ApplyVirtualOffset(RetVal, node->thunk.virtual_value, Builder);
 
   // Then move 'this' by the fixed offset.
-  RetVal = Builder.CreatePtrToInt(RetVal, IntPtrTy);
-  Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
-  RetVal = Builder.CreateNSWAdd(RetVal, Offset);
-  RetVal = Builder.CreateIntToPtr(RetVal, Thunk->getType());
+  if (node->thunk.fixed_offset) {
+    RetVal = Builder.CreatePtrToInt(RetVal, IntPtrTy);
+    Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
+    RetVal = Builder.CreateNSWAdd(RetVal, Offset);
+    RetVal = Builder.CreateIntToPtr(RetVal, Thunk->getType());
+  }
 
   // Return the adjusted value.
   Builder.CreateRet(RetVal);
