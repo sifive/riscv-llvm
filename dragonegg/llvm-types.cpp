@@ -742,7 +742,7 @@ const Type *TypeConverter::ConvertType(tree orig_type) {
       // of the vector.  Remove this entry from the PointersToReresolve list and
       // get the pointee type.  Note that this order is important in case the
       // pointee type uses this pointer.
-      assert(isa<OpaqueType>(PTy->getElementType()) && "Not a deferred ref!");
+      assert(PTy->getElementType()->isOpaqueTy() && "Not a deferred ref!");
 
       // We are actively resolving this pointer.  We want to pop this value from
       // the stack, as we are no longer resolving it.  However, we don't want to
@@ -1165,7 +1165,7 @@ ConvertFunctionType(tree type, tree decl, tree static_chain,
   for (; Args && TREE_VALUE(Args) != void_type_node; Args = TREE_CHAIN(Args)){
     tree ArgTy = TREE_VALUE(Args);
     if (!isPassedByInvisibleReference(ArgTy) &&
-        isa<OpaqueType>(ConvertType(ArgTy))) {
+        ConvertType(ArgTy)->isOpaqueTy()) {
       // If we are passing an opaque struct by value, we don't know how many
       // arguments it will turn into.  Because we can't handle this yet,
       // codegen the prototype as (...).
@@ -1927,7 +1927,7 @@ const Type *TypeConverter::ConvertRECORD(tree type, tree orig_type) {
   if (const Type *Ty = GET_TYPE_LLVM(type)) {
     // If we already compiled this type, and if it was not a forward
     // definition that is now defined, use the old type.
-    if (!isa<OpaqueType>(Ty) || TYPE_SIZE(type) == 0)
+    if (!Ty->isOpaqueTy() || TYPE_SIZE(type) == 0)
       return Ty;
   }
 
