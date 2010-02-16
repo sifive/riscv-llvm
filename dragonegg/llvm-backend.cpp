@@ -1651,7 +1651,7 @@ static void emit_thunk(struct cgraph_node *node) {
     }
 
     FoundThis = true; // The current argument is 'this'.
-    assert(isa<PointerType>(AI->getType()) && "Wrong type for 'this'!");
+    assert(AI->getType()->isPointerTy() && "Wrong type for 'this'!");
     Value *This = AI;
 
     // Adjust 'this' according to the thunk offsets.  First, the fixed offset.
