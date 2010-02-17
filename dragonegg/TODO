@@ -61,3 +61,7 @@ Add support for exception handling.
 Many x86 specific builtins are not supported, even though it would be easy to
 add support for some of them, for example the 256 bit versions of builtins we
 do support.  Improve this.
+
+The GCC builtin lowering outputs helpful warnings (for example,
+20081109_0.c:3:35: warning: attempt to free a non-heap object ‘bar’,
+see maybe_emit_free_warning), but we don't.  Improve this somehow.
