@@ -1711,7 +1711,7 @@ static void emit_thunk(struct cgraph_node *node) {
     RetVal = Builder.CreatePtrToInt(RetVal, IntPtrTy);
     Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
     RetVal = Builder.CreateNSWAdd(RetVal, Offset);
-    RetVal = Builder.CreateIntToPtr(RetVal, Thunk->getType());
+    RetVal = Builder.CreateIntToPtr(RetVal, Thunk->getReturnType());
   }
 
   // Return the adjusted value.
