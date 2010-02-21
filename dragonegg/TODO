@@ -51,6 +51,9 @@ the rest being mostly references.
 BIT_FIELD_REF is used to extract (and presumably insert) vector elements.
 Consider turning this directly into the corresponding vector operations.
 
+Work in terms of units rather than octets (i8).  For example, if the target
+has a 16 bit byte, then use i16 for byte addressing.
+
 Features
 --------
 
