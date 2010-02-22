@@ -2423,16 +2423,17 @@ int plugin_init (struct plugin_name_args *plugin_info,
   register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
   // Disable pass_cleanup_eh, which runs after LLVM conversion.
-  // NOTE: This pass is scheduled twice, once before LLVM conversion and once
-  // after.  If GCC optimizations are enabled, then we should only disable the
-  // second instance, but there doesn't seem to be any convenient and reliable
-  // way of doing this.  FIXME: The following code actually only disables the
-  // first instance due to a GCC bug!
-  pass_info.pass = &pass_gimple_null.pass;
-  pass_info.reference_pass_name = "ehcleanup";
-  pass_info.ref_pass_instance_number = 0;
-  pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  // This pass is scheduled twice, once before LLVM conversion and once after.
+  // If GCC optimizations are enabled, then we should keep the first instance
+  // and only disable the second.  There does not seem to be a good way to do
+  // this, so just allow both instances to run in this case.
+  if (!EnableGCCOptimizations) {
+    pass_info.pass = &pass_gimple_null.pass;
+    pass_info.reference_pass_name = "ehcleanup";
+    pass_info.ref_pass_instance_number = 0;
+    pass_info.pos_op = PASS_POS_REPLACE;
+    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  }
 
   // Disable pass_lower_resx, which runs after LLVM conversion.
   pass_info.pass = &pass_gimple_null.pass;
