@@ -9,13 +9,16 @@ GCC?=gcc-4.5
 # that was created during the build.
 LLVM_CONFIG?=llvm-config
 
+# Location of the dragonegg source, useful if you want separate source and
+# object directories.
+SRC_DIR?=$(PWD)
 
 PLUGIN=dragonegg.so
 PLUGIN_OBJECTS=llvm-cache.o llvm-convert.o llvm-backend.o llvm-debug.o \
 	       llvm-types.o bits_and_bobs.o llvm-abi-default.o
 
 TARGET_OBJECT=llvm-target.o
-TARGET_SOURCE=$(shell $(TARGET_UTIL) -p)/llvm-target.cpp
+TARGET_SOURCE=$(SRC_DIR)/$(shell $(TARGET_UTIL) -p)/llvm-target.cpp
 
 TARGET_UTIL_OBJECTS=target.o
 TARGET_UTIL=./target
@@ -23,15 +26,15 @@ TARGET_UTIL=./target
 ALL_OBJECTS=$(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL_OBJECTS)
 
 
-GENGTYPE_INPUT=$(PWD)/llvm-cache.c
-GENGTYPE_OUTPUT=$(PWD)/gt-llvm-cache.h
+GENGTYPE_INPUT=$(SRC_DIR)/llvm-cache.c
+GENGTYPE_OUTPUT=$(SRC_DIR)/gt-llvm-cache.h
 
 
 GCCSOURCE_DIR=$(shell $(GCC) -print-file-name=plugin)
 TARGET_TRIPLE:=$(shell $(GCC) -v 2>&1 | grep "^Target:" | sed -e "s/^Target: *//")
 
 # NOTE: replace with an informative string when doing a release.
-REVISION:=$(shell svnversion -n .)
+REVISION:=$(shell svnversion -n $(SRC_DIR))
 
 CFLAGS+=-Wall -Werror -fPIC -g -O2 -fno-exceptions
 CFLAGS+=-DIN_GCC -DREVISION=\"$(REVISION)\" -DTARGET_NAME=\"$(TARGET_TRIPLE)\"
@@ -43,27 +46,28 @@ LDFLAGS+=$(shell $(LLVM_CONFIG) --libs analysis core ipo scalaropts target) \
 
 PLUGIN_CFLAGS+=-I$(GCCSOURCE_DIR)/gcc -I$(GCCSOURCE_DIR)/include \
 	       -I$(GCCSOURCE_DIR)/libcpp/include -I$(GCCSOURCE_DIR)/libdecnumber \
-	       -I$(shell $(TARGET_UTIL) -p) -I$(shell $(TARGET_UTIL) -o)
+	       -I$(SRC_DIR)/$(shell $(TARGET_UTIL) -p) \
+	       -I$(SRC_DIR)/$(shell $(TARGET_UTIL) -o)
 PLUGIN_CXXFLAGS+=$(PLUGIN_CFLAGS)
 
 
 default: $(PLUGIN)
 
-$(TARGET_UTIL_OBJECTS): %.o : utils/%.cpp
+$(TARGET_UTIL_OBJECTS): %.o : $(SRC_DIR)/utils/%.cpp
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
 
 $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
-%.o : %.c $(TARGET_UTIL)
+%.o : $(SRC_DIR)/%.c $(TARGET_UTIL)
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(PLUGIN_CFLAGS) $<
 
-%.o : %.cpp $(TARGET_UTIL)
+%.o : $(SRC_DIR)/%.cpp $(TARGET_UTIL)
 	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $(PLUGIN_CXXFLAGS) $<
 
 $(TARGET_OBJECT): $(TARGET_UTIL)
-	$(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $(PLUGIN_CXXFLAGS) -I. \
-	$(TARGET_SOURCE)
+	$(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $(PLUGIN_CXXFLAGS) \
+	-I$(SRC_DIR) $(TARGET_SOURCE)
 
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 	$(CXX) -shared $(PLUGIN_OBJECTS) $(TARGET_OBJECT) -o $@ $(LDFLAGS) \
