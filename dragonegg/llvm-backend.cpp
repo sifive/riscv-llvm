@@ -1915,9 +1915,10 @@ static struct ipa_opt_pass_d pass_emit_variables = {
     NULL,		/* generate_summary */
     emit_variables,	/* write_summary */
     NULL,		/* read_summary */
-    NULL,		/* variable_read_summary */
-    NULL,		/* TODOs */
-    NULL,		/* variable_transform */
+    NULL,		/* function_read_summary */
+    NULL,		/* stmt_fixup */
+    0,			/* function_transform_todo_flags_start */
+    NULL,		/* function_transform */
     NULL		/* variable_transform */
 };
 
