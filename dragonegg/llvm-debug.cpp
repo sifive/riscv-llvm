@@ -242,7 +242,7 @@ StringRef DebugInfo::getFunctionName(tree FnDecl) {
   // copy first.
   char *StrPtr = FunctionNames.Allocate<char>(FnName.size() + 1);
   strncpy(StrPtr, FnName.data(), FnName.size());
-  StrPtr[FnName.size()] = NULL;
+  StrPtr[FnName.size()] = 0;
   return StringRef(StrPtr);
 }
 
