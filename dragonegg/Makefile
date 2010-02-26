@@ -13,6 +13,15 @@ LLVM_CONFIG?=llvm-config
 # object directories.
 SRC_DIR?=$(PWD)
 
+CFLAGS+=-Wall -Werror $(shell $(LLVM_CONFIG) --cflags)
+CXXFLAGS+=-Wall -Werror $(shell $(LLVM_CONFIG) --cxxflags)
+
+GCC_PLUGIN_DIR=$(shell $(GCC) -print-file-name=plugin)
+TARGET_TRIPLE:=$(shell $(GCC) -v 2>&1 | grep "^Target:" | sed -e "s/^Target: *//")
+
+# NOTE: replace with an informative string when doing a release.
+REVISION:=$(shell svnversion -n $(SRC_DIR))
+
 PLUGIN=dragonegg.so
 PLUGIN_OBJECTS=llvm-cache.o llvm-convert.o llvm-backend.o llvm-debug.o \
 	       llvm-types.o bits_and_bobs.o llvm-abi-default.o
@@ -25,65 +34,55 @@ TARGET_UTIL=./target
 
 ALL_OBJECTS=$(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL_OBJECTS)
 
+PREPROCESSOR+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
+	      -MD -MP \
+	      -DIN_GCC -DREVISION=\"$(REVISION)\" \
+	      -DTARGET_NAME=\"$(TARGET_TRIPLE)\" \
+	      -I$(SRC_DIR) -I$(GCC_PLUGIN_DIR)/include
 
-GENGTYPE_INPUT=$(SRC_DIR)/llvm-cache.c
-GENGTYPE_OUTPUT=$(SRC_DIR)/gt-llvm-cache.h
+LINKER+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) \
+	$(shell $(LLVM_CONFIG) --libs analysis core ipo scalaropts target)
 
-
-GCCSOURCE_DIR=$(shell $(GCC) -print-file-name=plugin)
-TARGET_TRIPLE:=$(shell $(GCC) -v 2>&1 | grep "^Target:" | sed -e "s/^Target: *//")
-
-# NOTE: replace with an informative string when doing a release.
-REVISION:=$(shell svnversion -n $(SRC_DIR))
-
-CFLAGS+=-Wall -Werror -fPIC -g -O2 -fno-exceptions
-CFLAGS+=-DIN_GCC -DREVISION=\"$(REVISION)\" -DTARGET_NAME=\"$(TARGET_TRIPLE)\"
-CPPFLAGS+=-MD -MP
-CXXFLAGS+=$(CFLAGS) -fno-rtti $(shell $(LLVM_CONFIG) --cppflags)
-
-LDFLAGS+=$(shell $(LLVM_CONFIG) --libs analysis core ipo scalaropts target) \
-	 $(shell $(LLVM_CONFIG) --ldflags)
-
-PLUGIN_CFLAGS+=-I$(GCCSOURCE_DIR)/gcc -I$(GCCSOURCE_DIR)/include \
-	       -I$(GCCSOURCE_DIR)/libcpp/include -I$(GCCSOURCE_DIR)/libdecnumber \
-	       -I$(SRC_DIR)/$(shell $(TARGET_UTIL) -p) \
-	       -I$(SRC_DIR)/$(shell $(TARGET_UTIL) -o)
-PLUGIN_CXXFLAGS+=$(PLUGIN_CFLAGS)
+# NOTE: The following flags can only be used after TARGET_UTIL has been built.
+TARGET_HEADERS+=-I$(SRC_DIR)/$(shell $(TARGET_UTIL) -p) \
+		-I$(SRC_DIR)/$(shell $(TARGET_UTIL) -o)
 
 
 default: $(PLUGIN)
 
 $(TARGET_UTIL_OBJECTS): %.o : $(SRC_DIR)/utils/%.cpp
-	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $<
+	$(CXX) -c $(PREPROCESSOR) $(CXXFLAGS) $<
 
 $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
-	$(CXX) -o $@ $^ $(LDFLAGS)
+	$(CXX) -o $@ $^ $(LINKER)
 
 %.o : $(SRC_DIR)/%.c $(TARGET_UTIL)
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(PLUGIN_CFLAGS) $<
+	$(CC) -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CFLAGS) $<
 
 %.o : $(SRC_DIR)/%.cpp $(TARGET_UTIL)
-	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $(PLUGIN_CXXFLAGS) $<
+	$(CXX) -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CXXFLAGS) $<
 
 $(TARGET_OBJECT): $(TARGET_UTIL)
-	$(CXX) -o $@ -c $(CPPFLAGS) $(CXXFLAGS) $(PLUGIN_CXXFLAGS) \
-	-I$(SRC_DIR) $(TARGET_SOURCE)
+	$(CXX) -o $@ -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CXXFLAGS) \
+		$(TARGET_SOURCE)
 
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
-	$(CXX) -shared $(PLUGIN_OBJECTS) $(TARGET_OBJECT) -o $@ $(LDFLAGS) \
-	$(shell $(LLVM_CONFIG) --libs $(shell $(TARGET_UTIL) -p))
-
+	$(CXX) -shared $(PLUGIN_OBJECTS) $(TARGET_OBJECT) -o $@ $(LINKER) \
+		$(shell $(LLVM_CONFIG) --libs $(shell $(TARGET_UTIL) -p))
 
 clean::
 	rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
+
 
 -include $(ALL_OBJECTS:.o=.d)
 
 # The following target exists for the benefit of the dragonegg maintainers, and
 # is not used in a normal build.
-gt-llvm-cache.h:
+GENGTYPE_INPUT=$(SRC_DIR)/llvm-cache.c
+GENGTYPE_OUTPUT=$(SRC_DIR)/gt-llvm-cache.h
+$(GENGTYPE_OUTPUT):
 	cd $(HOME)/GCC/objects/gcc && ./build/gengtype \
-	  -P $(GENGTYPE_OUTPUT) $(GCCSOURCE_DIR) gtyp-input.list \
+	  -P $(GENGTYPE_OUTPUT) $(GCC_PLUGIN_DIR) gtyp-input.list \
 	    $(GENGTYPE_INPUT)
 	sed -i "s/ggc_cache_tab .*\[\]/ggc_cache_tab gt_ggc_rc__gt_llvm_cache_h[]/" $(GENGTYPE_OUTPUT)
 	sed -i "s/ggc_root_tab .*\[\]/ggc_root_tab gt_pch_rc__gt_llvm_cache_h[]/" $(GENGTYPE_OUTPUT)
