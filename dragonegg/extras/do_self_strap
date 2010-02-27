@@ -50,7 +50,6 @@ LLVM_OPTIONS="--enable-optimized --enable-assertions \
 
 COMPARE="cmp --ignore-initial=16"	# How to compare object files
 MAKE="nice -n 20 make -j2"		# How to run make
-STRIP_DEBUG="strip --strip-debug"	# How to remove debug info
 
 
 set -o errexit    # Exit if any command fails
@@ -204,19 +203,10 @@ for STAGE in $STAGES ; do
   # ==> begin: Compare the dragonegg objects with those from the previous stage
   if (( !USE_PER_STAGE_INSTALL_DIRECTORIES )) ; then
 
-     # ==> begin: Strip debug symbols from object files.
-     # There currently seems to something non-deterministic in LLVM's debug info
-     # logic.  For the moment, just strip off debug info.
-     cd $DRAGONEGG_BUILD
-     for O in *.o ; do
-       $STRIP_DEBUG $O -o $O.stripped
-     done
-     # <== end: Strip debug symbols from object files.
-
      if [ "x$PREV_DRAGONEGG_BUILD" != "x" ] ; then
        echo "Comparing $DRAGONEGG_BUILD objects to $PREV_DRAGONEGG_BUILD objects"
        cd $DRAGONEGG_BUILD
-       for O in *.o.stripped ; do
+       for O in *.o ; do
          P=$PREV_DRAGONEGG_BUILD/$O
          $COMPARE $O $P
        done
