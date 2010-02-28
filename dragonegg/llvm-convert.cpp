@@ -227,6 +227,14 @@ const TargetData &getTargetData() {
   return *TheTarget->getTargetData();
 }
 
+/// EmitDebugInfo - Return true if debug info is to be emitted for current 
+/// function.
+bool TreeToLLVM::EmitDebugInfo() {
+  if (TheDebugInfo && !DECL_IGNORED_P(getFUNCTION_DECL()))
+    return true;
+  return false;
+}
+
 TreeToLLVM::TreeToLLVM(tree fndecl) :
     TD(getTargetData()), Builder(Context, *TheFolder) {
   FnDecl = fndecl;
@@ -234,7 +242,7 @@ TreeToLLVM::TreeToLLVM(tree fndecl) :
   ReturnBB = UnwindBB = 0;
   ReturnOffset = 0;
 
-  if (TheDebugInfo) {
+  if (EmitDebugInfo()) {
     expanded_location Location = expand_location(DECL_SOURCE_LOCATION (fndecl));
 
     if (Location.file) {
@@ -420,7 +428,7 @@ namespace {
       Builder.CreateStore(AI, Tmp);
 
       TheTreeToLLVM->set_decl_local(ResultDecl, Tmp);
-      if (TheDebugInfo) {
+      if (TheDebugInfo && !DECL_IGNORED_P(FunctionDecl)) {
         TheDebugInfo->EmitDeclare(ResultDecl,
                                   dwarf::DW_TAG_return_variable,
                                   "agg.result", RetTy, Tmp,
@@ -688,7 +696,7 @@ void TreeToLLVM::StartFunctionBody() {
   BasicBlocks[ENTRY_BLOCK_PTR] = EntryBlock;
   Builder.SetInsertPoint(EntryBlock);
 
-  if (TheDebugInfo)
+  if (EmitDebugInfo())
     TheDebugInfo->EmitFunctionStart(FnDecl, Fn, Builder.GetInsertBlock());
 
   // Loop over all of the arguments to the function, setting Argument names and
@@ -727,7 +735,7 @@ void TreeToLLVM::StartFunctionBody() {
       // the l-value for the argument IS the argument itself.
       AI->setName(Name);
       SET_DECL_LOCAL(Args, AI);
-      if (!isInvRef && TheDebugInfo)
+      if (!isInvRef && EmitDebugInfo())
         TheDebugInfo->EmitDeclare(Args, dwarf::DW_TAG_arg_variable,
                                   Name, TREE_TYPE(Args),
                                   AI, Builder);
@@ -739,7 +747,7 @@ void TreeToLLVM::StartFunctionBody() {
       Value *Tmp = CreateTemporary(ArgTy);
       Tmp->setName(std::string(Name)+"_addr");
       SET_DECL_LOCAL(Args, Tmp);
-      if (TheDebugInfo) {
+      if (EmitDebugInfo()) {
         TheDebugInfo->EmitDeclare(Args, dwarf::DW_TAG_arg_variable,
                                   Name, TREE_TYPE(Args), Tmp,
                                   Builder);
@@ -776,7 +784,7 @@ void TreeToLLVM::StartFunctionBody() {
     // Not supported yet.
   }
 
-  if (TheDebugInfo)
+  if (EmitDebugInfo())
     TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
 
   // Create a new block for the return node, but don't insert it yet.
@@ -961,7 +969,7 @@ Function *TreeToLLVM::FinishFunctionBody() {
       }
     }
   }
-  if (TheDebugInfo) {
+  if (EmitDebugInfo()) {
     TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
     TheDebugInfo->EmitFunctionEnd(Builder.GetInsertBlock(), true);
   }
@@ -1101,7 +1109,7 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
     gimple stmt = gsi_stmt(gsi);
     ++NumStatements;
 
-    if (TheDebugInfo) {
+    if (EmitDebugInfo()) {
       if (gimple_has_location(stmt)) {
         TheDebugInfo->setLocationFile(gimple_filename(stmt));
         TheDebugInfo->setLocationLine(gimple_lineno(stmt));
@@ -1164,7 +1172,7 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
     }
   }
 
-  if (TheDebugInfo) {
+  if (EmitDebugInfo()) {
     TheDebugInfo->setLocationFile("");
     TheDebugInfo->setLocationLine(0);
     TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
@@ -1813,7 +1821,7 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
       Builder.CreateStore(Constant::getNullValue(T), AI);
     }
 
-  if (TheDebugInfo) {
+  if (EmitDebugInfo()) {
     if (DECL_NAME(decl)) {
       TheDebugInfo->EmitDeclare(decl, dwarf::DW_TAG_auto_variable,
                                 AI->getNameStr().c_str(), TREE_TYPE(decl), AI,

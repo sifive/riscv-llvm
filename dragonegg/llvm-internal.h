@@ -562,6 +562,10 @@ private: // Helper functions.
   /// EmitUnwindBlock - Emit the lazily created EH unwind block.
   void EmitUnwindBlock();
 
+  /// EmitDebugInfo - Return true if debug info is to be emitted for current 
+  /// function.
+  bool EmitDebugInfo();
+
 private: // Helpers for exception handling.
 
   /// CreateExceptionValues - Create values used internally by exception
