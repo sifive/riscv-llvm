@@ -119,6 +119,7 @@ struct DefaultABIClient {
   /// LLVM Struct, StructTy is the LLVM type of the struct we are entering.
   virtual void EnterField(unsigned FieldNo, const llvm::Type *StructTy) {}
   virtual void ExitField() {}
+  virtual void HandlePad(const llvm::Type *LLVMTy) {}
 };
 
 // LLVM_SHOULD_NOT_RETURN_COMPLEX_IN_MEMORY - A hook to allow

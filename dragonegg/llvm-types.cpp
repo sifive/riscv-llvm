@@ -938,6 +938,10 @@ namespace {
       HandleShadowResult(PtrArgTy, RetPtr);
     }
 
+    void HandlePad(const llvm::Type *LLVMTy) {
+      HandleScalarArgument(LLVMTy, 0, 0);
+    }
+
     void HandleScalarArgument(const llvm::Type *LLVMTy, tree type,
                               unsigned RealSize = 0) {
       if (KNRPromotion) {
