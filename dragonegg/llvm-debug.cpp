@@ -840,48 +840,42 @@ DIType DebugInfo::createStructType(tree type) {
     // Get the location of the member.
     expanded_location MemLoc = GetNodeLocation(Member, false);
 
-    if (TREE_CODE(Member) == FIELD_DECL) {
+    if (TREE_CODE(Member) != FIELD_DECL)
+      // otherwise is a static variable, whose debug info is emitted
+      // when through EmitGlobalVariable().
+      continue;
       
-      if (!OffsetIsLLVMCompatible(Member))
-        // FIXME: field with variable or humongous offset.
-        // Skip it for now.
-        continue;
+    if (!OffsetIsLLVMCompatible(Member))
+      // FIXME: field with variable or humongous offset.
+      // Skip it for now.
+      continue;
       
-      /* Ignore nameless fields.  */
-      if (DECL_NAME (Member) == NULL_TREE
-          && !(TREE_CODE (TREE_TYPE (Member)) == UNION_TYPE
-               || TREE_CODE (TREE_TYPE (Member)) == RECORD_TYPE))
-        continue;
-      
-      // Field type is the declared type of the field.
-      tree FieldNodeType = FieldType(Member);
-      DIType MemberType = getOrCreateType(FieldNodeType);
-      StringRef MemberName = GetNodeName(Member);
-      unsigned MFlags = 0;
-      if (TREE_PROTECTED(Member))
-        MFlags = llvm::DIType::FlagProtected;
-      else if (TREE_PRIVATE(Member))
-        MFlags = llvm::DIType::FlagPrivate;
-      
-      DIType DTy =
-        DebugFactory.CreateDerivedType(DW_TAG_member, 
-                                       findRegion(DECL_CONTEXT(Member)),
-                                       MemberName, 
-                                       getOrCreateCompileUnit(MemLoc.file),
-                                       MemLoc.line, NodeSizeInBits(Member),
-                                       NodeAlignInBits(FieldNodeType),
-                                       int_bit_position(Member), 
-                                       MFlags, MemberType);
-      EltTys.push_back(DTy);
-    } if (TREE_CODE(Member) == VAR_DECL) {
-      EltTys.push_back(DebugFactory.
-                       CreateVariable(DW_TAG_auto_variable,
-                                      findRegion(DECL_CONTEXT(Member)),
-                                      GetNodeName(Member), 
-                                      getOrCreateCompileUnit(MemLoc.file),
-                                      MemLoc.line, 
-                                      getOrCreateType(TREE_TYPE(Member))));
-    }
+    /* Ignore nameless fields.  */
+    if (DECL_NAME (Member) == NULL_TREE
+        && !(TREE_CODE (TREE_TYPE (Member)) == UNION_TYPE
+             || TREE_CODE (TREE_TYPE (Member)) == RECORD_TYPE))
+      continue;
+    
+    // Field type is the declared type of the field.
+    tree FieldNodeType = FieldType(Member);
+    DIType MemberType = getOrCreateType(FieldNodeType);
+    StringRef MemberName = GetNodeName(Member);
+    unsigned MFlags = 0;
+    if (TREE_PROTECTED(Member))
+      MFlags = llvm::DIType::FlagProtected;
+    else if (TREE_PRIVATE(Member))
+      MFlags = llvm::DIType::FlagPrivate;
+    
+    DIType DTy =
+      DebugFactory.CreateDerivedType(DW_TAG_member, 
+                                     findRegion(DECL_CONTEXT(Member)),
+                                     MemberName, 
+                                     getOrCreateCompileUnit(MemLoc.file),
+                                     MemLoc.line, NodeSizeInBits(Member),
+                                     NodeAlignInBits(FieldNodeType),
+                                     int_bit_position(Member), 
+                                     MFlags, MemberType);
+    EltTys.push_back(DTy);
   }
   
   for (tree Member = TYPE_METHODS(type); Member;
