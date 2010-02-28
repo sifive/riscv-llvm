@@ -423,7 +423,6 @@ class SVR4ABI{
   // Number of general purpose argument registers which have already been
   // assigned.
 protected:
-  unsigned NumGPR;
   DefaultABIClient &C;
 public:
   SVR4ABI(DefaultABIClient &c);
