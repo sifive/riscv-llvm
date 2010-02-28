@@ -266,6 +266,33 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
     return;
   } 
 
+  bool ArtificialFnWithAbstractOrigin = false;
+  // If this artificial function has abstract origin then put this function
+  // at module scope. The abstract copy will be placed in appropriate region.
+  if (DECL_ARTIFICIAL (FnDecl)
+      && DECL_ABSTRACT_ORIGIN (FnDecl)
+      && DECL_ABSTRACT_ORIGIN (FnDecl) != FnDecl)
+    ArtificialFnWithAbstractOrigin = true;
+
+  DIDescriptor SPContext = ArtificialFnWithAbstractOrigin ?
+    getOrCreateCompileUnit(main_input_filename) :
+    findRegion (DECL_CONTEXT(FnDecl));
+
+  // Creating context may have triggered creation of this SP descriptor. So
+  // check the cache again.
+  I = SPCache.find(FnDecl);
+  if (I != SPCache.end()) {
+    DISubprogram SPDecl(cast<MDNode>(I->second));
+    DISubprogram SP = 
+      DebugFactory.CreateSubprogramDefinition(SPDecl);
+    SPDecl.getNode()->replaceAllUsesWith(SP.getNode());
+
+    // Push function on region stack.
+    RegionStack.push_back(WeakVH(SP.getNode()));
+    RegionMap[FnDecl] = WeakVH(SP.getNode());
+    return;
+  } 
+
   // Gather location information.
   expanded_location Loc = GetNodeLocation(FnDecl, false);
   StringRef LinkageName = getLinkageName(FnDecl);
@@ -283,20 +310,10 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
     ContainingType = getOrCreateType(DECL_CONTEXT (FnDecl));
   }
 
-  bool ArtificialFnWithAbstractOrigin = false;
-  // If this artificial function has abstract origin then put this function
-  // at module scope. The abstract copy will be placed in appropriate region.
-  if (DECL_ARTIFICIAL (FnDecl)
-      && DECL_ABSTRACT_ORIGIN (FnDecl)
-      && DECL_ABSTRACT_ORIGIN (FnDecl) != FnDecl)
-    ArtificialFnWithAbstractOrigin = true;
-
   StringRef FnName = getFunctionName(FnDecl);
 
   DISubprogram SP = 
-    DebugFactory.CreateSubprogram(ArtificialFnWithAbstractOrigin ?
-                                  getOrCreateCompileUnit(main_input_filename) :
-                                  findRegion (DECL_CONTEXT(FnDecl)),
+    DebugFactory.CreateSubprogram(SPContext,
                                   FnName, FnName,
                                   LinkageName,
                                   getOrCreateCompileUnit(Loc.file), lineno,
