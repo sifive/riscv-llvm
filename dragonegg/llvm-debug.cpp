@@ -650,15 +650,18 @@ DIType DebugInfo::createPointerType(tree type) {
 DIType DebugInfo::createArrayType(tree type) {
 
   // type[n][m]...[p]
-  if (TYPE_STRING_FLAG(type) && TREE_CODE(TREE_TYPE(type)) == INTEGER_TYPE){
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && TYPE_STRING_FLAG(type) && TREE_CODE(TREE_TYPE(type)) == INTEGER_TYPE){
     DEBUGASSERT(0 && "Don't support pascal strings");
     return DIType();
   }
   
   unsigned Tag = 0;
   
-  if (TREE_CODE(type) == VECTOR_TYPE) 
+  if (TREE_CODE(type) == VECTOR_TYPE) {
     Tag = DW_TAG_vector_type;
+    type = TREE_TYPE (TYPE_FIELDS (TYPE_DEBUG_REPRESENTATION_TYPE (type)));
+  }
   else
     Tag = DW_TAG_array_type;
   
@@ -671,7 +674,8 @@ DIType DebugInfo::createArrayType(tree type) {
   // type.
   tree atype = type;
   tree EltTy = TREE_TYPE(atype);
-  for (; TREE_CODE(atype) == ARRAY_TYPE; atype = TREE_TYPE(atype)) {
+  for (; TREE_CODE(atype) == ARRAY_TYPE; 
+       atype = TREE_TYPE(atype)) {
     tree Domain = TYPE_DOMAIN(atype);
     if (Domain) {
       // FIXME - handle dynamic ranges
