@@ -861,7 +861,8 @@ DIType DebugInfo::createStructType(tree type) {
        Member = TREE_CHAIN(Member)) {
     
     if (DECL_ABSTRACT_ORIGIN (Member)) continue;
-    if (DECL_ARTIFICIAL (Member)) continue;
+    // Ignore unused aritificial members.
+    if (DECL_ARTIFICIAL (Member) && !TREE_USED (Member)) continue;
     // In C++, TEMPLATE_DECLs are marked Ignored, and should be.
     if (DECL_P (Member) && DECL_IGNORED_P (Member)) continue;
 
@@ -889,7 +890,8 @@ DIType DebugInfo::createStructType(tree type) {
                                       LinkageName, 
                                       getOrCreateCompileUnit(MemLoc.file),
                                       MemLoc.line, SPTy, false, false,
-                                      Virtuality, VIndex, ContainingType);
+                                      Virtuality, VIndex, ContainingType,
+                                      DECL_ARTIFICIAL (Member));
       EltTys.push_back(SP);
       SPCache[Member] = WeakVH(SP.getNode());
     }
