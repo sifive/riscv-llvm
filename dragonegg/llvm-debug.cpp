@@ -793,6 +793,8 @@ DIType DebugInfo::createStructType(tree type) {
       unsigned Offset = BINFO_OFFSET(BInfo) ? 
 	getINTEGER_CSTVal(BINFO_OFFSET(BInfo))*8 : 0;
 
+      if (BINFO_VIRTUAL_P (BInfo))
+        Offset = 0 - getINTEGER_CSTVal(BINFO_VPTR_FIELD (BInfo));
       // FIXME : name, size, align etc...
       DIType DTy = 
         DebugFactory.CreateDerivedType(DW_TAG_inheritance, 
