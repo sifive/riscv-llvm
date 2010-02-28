@@ -460,9 +460,13 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
     if (IDENTIFIER_POINTER(DECL_NAME(decl)))
       DispName = IDENTIFIER_POINTER(DECL_NAME(decl));
   }
-    
+  StringRef LinkageName;
+  // The gdb does not expect linkage names for function local statics.
+  if (DECL_CONTEXT (decl))
+    if (TREE_CODE (DECL_CONTEXT (decl)) != FUNCTION_DECL)
+      LinkageName = GV->getName();
   DebugFactory.CreateGlobalVariable(findRegion(DECL_CONTEXT(decl)),
-                                    DispName, DispName, StringRef(),
+                                    DispName, DispName, LinkageName,
                                     getOrCreateCompileUnit(Loc.file), Loc.line,
                                     TyD, GV->hasInternalLinkage(),
                                     true/*definition*/, GV);
