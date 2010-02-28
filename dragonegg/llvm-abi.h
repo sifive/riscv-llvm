@@ -252,6 +252,11 @@ static inline const Type* getLLVMAggregateTypeForStructReturn(tree type) {
   return NULL;
 }
 
+#ifndef LLVM_TRY_PASS_AGGREGATE_CUSTOM
+#define LLVM_TRY_PASS_AGGREGATE_CUSTOM(T, E, CC, C)	\
+  false
+#endif
+
 // LLVM_SHOULD_PASS_VECTOR_IN_INTEGER_REGS - Return true if this vector
 // type should be passed as integer registers.  Generally vectors which are
 // not part of the target architecture should do this.
@@ -417,38 +422,5 @@ public:
   void PassInMixedRegisters(const Type *Ty, std::vector<const Type*> &OrigElts,
                             std::vector<const Type*> &ScalarElts);
 };
-
-// Similar to DefaultABI but for linux ppc 32 bits
-class SVR4ABI{
-  // Number of general purpose argument registers which have already been
-  // assigned.
-protected:
-  DefaultABIClient &C;
-public:
-  SVR4ABI(DefaultABIClient &c);
-
-  bool isShadowReturn() const;
-  void HandleReturnType(tree type, tree fn, bool isBuiltin);
-  void HandleArgument(tree type, std::vector<const Type*> &ScalarElts,
-                      Attributes *Attributes = NULL);
-  void HandleUnion(tree type, std::vector<const Type*> &ScalarElts);
-  void PassInIntegerRegisters(tree type, std::vector<const Type*> &ScalarElts,
-                              unsigned origSize, bool DontCheckAlignment);
-  void PassInMixedRegisters(const Type *Ty, std::vector<const Type*> &OrigElts,
-                            std::vector<const Type*> &ScalarElts);
-
-};
-
-// Make sure the SVR4 ABI is used on 32-bit PowerPC Linux.
-#if defined(POWERPC_LINUX) && (TARGET_64BIT == 0)
-#define TheLLVMABI SVR4ABI
-#endif
-
-/// TheLLVMABI - This can be defined by targets if they want total control over
-/// ABI decisions.
-///
-#ifndef TheLLVMABI
-#define TheLLVMABI DefaultABI
-#endif
 
 #endif /* LLVM_ABI_H */
