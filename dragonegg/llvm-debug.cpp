@@ -546,7 +546,15 @@ DIType DebugInfo::createMethodType(tree type) {
   for (tree arg = TYPE_ARG_TYPES(type); arg; arg = TREE_CHAIN(arg)) {
     tree formal_type = TREE_VALUE(arg);
     if (formal_type == void_type_node) break;
-    EltTys.push_back(getOrCreateType(formal_type));
+    llvm::DIType FormalType = getOrCreateType(formal_type);
+    if (TREE_CODE (type) == METHOD_TYPE
+        && TREE_CODE (formal_type) == POINTER_TYPE
+        && TREE_TYPE (formal_type) == TYPE_METHOD_BASETYPE (type)) {
+      DIType AFormalType = DebugFactory.CreateArtificialType(FormalType);
+      EltTys.push_back(AFormalType);
+      TypeCache[formal_type] = WeakVH(AFormalType.getNode());
+    } else
+      EltTys.push_back(FormalType);
   }
   
   llvm::DIArray EltTypeArray =
