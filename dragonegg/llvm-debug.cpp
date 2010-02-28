@@ -405,10 +405,13 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
 
   // Construct variable.
   DIScope VarScope = DIScope(cast<MDNode>(RegionStack.back()));
+  DIType Ty = getOrCreateType(type);
+  if (DECL_ARTIFICIAL (decl))
+      Ty = DebugFactory.CreateArtificialType(Ty);
   llvm::DIVariable D =
     DebugFactory.CreateVariable(Tag, VarScope,
                                 Name, getOrCreateCompileUnit(Loc.file),
-                                Loc.line, getOrCreateType(type));
+                                Loc.line, Ty);
 
   // Insert an llvm.dbg.declare into the current block.
   Instruction *Call = DebugFactory.InsertDeclare(AI, D, 
@@ -521,6 +524,21 @@ DIType DebugInfo::createBasicType(tree type) {
                                  0, 0, Encoding);
 }
 
+/// isArtificialArgumentType - Return true if arg_type represents artificial,
+/// i.e. "this" in c++, argument.
+static bool isArtificialArgumentType(tree arg_type, tree method_type) {
+  if (TREE_CODE (method_type) != METHOD_TYPE) return false;
+  if (TREE_CODE (arg_type) != POINTER_TYPE) return false;
+  if (TREE_TYPE (arg_type) == TYPE_METHOD_BASETYPE (method_type))
+    return true;
+  if (TYPE_MAIN_VARIANT (TREE_TYPE (arg_type))
+      && TYPE_MAIN_VARIANT (TREE_TYPE (arg_type)) != TREE_TYPE (arg_type)
+      && (TYPE_MAIN_VARIANT (TREE_TYPE (arg_type))
+          == TYPE_METHOD_BASETYPE (method_type)))
+    return true;
+  return false;
+}
+
 /// createMethodType - Create MethodType.
 DIType DebugInfo::createMethodType(tree type) {
 
@@ -547,18 +565,18 @@ DIType DebugInfo::createMethodType(tree type) {
   EltTys.push_back(getOrCreateType(TREE_TYPE(type)));
   
   // Set up remainder of arguments.
+  bool ProcessedFirstArg = false;
   for (tree arg = TYPE_ARG_TYPES(type); arg; arg = TREE_CHAIN(arg)) {
     tree formal_type = TREE_VALUE(arg);
     if (formal_type == void_type_node) break;
     llvm::DIType FormalType = getOrCreateType(formal_type);
-    if (TREE_CODE (type) == METHOD_TYPE
-        && TREE_CODE (formal_type) == POINTER_TYPE
-        && TREE_TYPE (formal_type) == TYPE_METHOD_BASETYPE (type)) {
+    if (!ProcessedFirstArg && isArtificialArgumentType(formal_type, type)) {
       DIType AFormalType = DebugFactory.CreateArtificialType(FormalType);
       EltTys.push_back(AFormalType);
-      TypeCache[formal_type] = WeakVH(AFormalType.getNode());
     } else
       EltTys.push_back(FormalType);
+    if (!ProcessedFirstArg)
+      ProcessedFirstArg = true;
   }
   
   llvm::DIArray EltTypeArray =
