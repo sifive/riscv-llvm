@@ -615,7 +615,9 @@ DIType DebugInfo::createPointerType(tree type) {
   
   StringRef PName = FromTy.getName();
   DIType PTy = 
-    DebugFactory.CreateDerivedType(Tag, findRegion(TYPE_CONTEXT(type)), PName,
+    DebugFactory.CreateDerivedType(Tag, findRegion(TYPE_CONTEXT(type)), 
+                                   Tag == DW_TAG_pointer_type ? 
+                                   StringRef() : PName,
                                    getOrCreateCompileUnit(NULL), 
                                    0 /*line no*/, 
                                    NodeSizeInBits(type),
