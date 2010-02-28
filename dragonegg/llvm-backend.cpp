@@ -266,11 +266,11 @@ void handleVisibility(tree decl, GlobalValue *GV) {
 static unsigned GuessAtInliningThreshold() {
   if (optimize_size)
     // Reduce inline limit.
-    return 50;
+    return 75;
   
   if (optimize >= 3)
-    return 250;
-  return 200;
+    return 275;
+  return 225;
 }
 
 // SizeOfGlobalMatchesDecl - Whether the size of the given global value is the
