@@ -673,6 +673,10 @@ void TreeToLLVM::StartFunctionBody() {
   if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (FnDecl)))
     Fn->addFnAttr(Attribute::AlwaysInline);
 
+  // Pass inline keyword to optimizer.
+  if (DECL_DECLARED_INLINE_P(FnDecl))
+    Fn->addFnAttr(Attribute::InlineHint);
+
   if (optimize_size)
     Fn->addFnAttr(Attribute::OptimizeForSize);
 
