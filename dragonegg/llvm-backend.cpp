@@ -156,6 +156,32 @@ Value *get_decl_llvm(tree t) {
   return (Value *)llvm_get_cached(t);
 }
 
+/// SetFieldIndex - Set the index of the LLVM field that corresponds to the
+/// given FIELD_DECL.  By convention, a value of INT_MAX indicates that there
+/// is no such LLVM field.
+void SetFieldIndex(tree t, int i) {
+  assert(TREE_CODE(t) == FIELD_DECL && "Expected a FIELD_DECL!");
+  assert(!CODE_CONTAINS_STRUCT(FIELD_DECL, TS_DECL_WRTL) &&
+         "FIELD_DECL has RTL!");
+  assert(i >= 0 && "Negative indices not allowed!");
+  // In order to use zero as a special value (see GetFieldIndex), map the range
+  // 0 .. INT_MAX to -1 .. INT_MIN.
+  llvm_set_cached(t, (void *)(intptr_t)(-i - 1));
+}
+
+/// GetFieldIndex - Get the index of the LLVM field that corresponds to the
+/// given FIELD_DECL.  By convention, a value of INT_MAX indicates that there
+/// is no such LLVM field.  Returns a negative number if no index was yet set
+/// for the field.
+int GetFieldIndex(tree t) {
+  assert(TREE_CODE(t) == FIELD_DECL && "Expected a FIELD_DECL!");
+  assert(!CODE_CONTAINS_STRUCT(FIELD_DECL, TS_DECL_WRTL) &&
+         "FIELD_DECL has RTL!");
+  // Map the range -1 .. INT_MIN back to 0 .. INT_MAX (see SetFieldIndex), while
+  // sending 0 (aka void) to -1.
+  return -(1 + (int)(intptr_t)llvm_get_cached(t));
+}
+
 /// changeLLVMConstant - Replace Old with New everywhere, updating all maps
 /// (except for AttributeAnnotateGlobals, which is a different kind of animal).
 /// At this point we know that New is not in any of these maps.

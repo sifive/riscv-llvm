@@ -42,7 +42,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // System headers
 #include <vector>
 #include <cassert>
-#include <map>
 #include <string>
 
 namespace llvm {
@@ -122,6 +121,19 @@ extern Value *get_decl_llvm(union tree_node *);
 Value *make_definition_llvm(union tree_node *decl);
 #define DEFINITION_LLVM(NODE) make_definition_llvm(NODE)
 
+// Mapping between GCC field declarations and LLVM indices.
+
+/// SetFieldIndex - Set the index of the LLVM field that corresponds to the
+/// given FIELD_DECL.  By convention, a value of INT_MAX indicates that there
+/// is no such LLVM field.
+void SetFieldIndex(union tree_node *, int);
+
+/// GetFieldIndex - Get the index of the LLVM field that corresponds to the
+/// given FIELD_DECL.  By convention, a value of INT_MAX indicates that there
+/// is no such LLVM field.  Returns a negative number if no index was yet set
+/// for the field.
+int GetFieldIndex(union tree_node *);
+
 void changeLLVMConstant(Constant *Old, Constant *New);
 void register_ctor_dtor(Function *, int, bool);
 void readLLVMTypesStringTable();
@@ -152,20 +164,12 @@ class TypeConverter {
   /// we add the POINTER_TYPE to this list.
   ///
   std::vector<tree_node*> PointersToReresolve;
-
-  /// FieldIndexMap - Holds the mapping from a FIELD_DECL to the index of the
-  /// corresponding LLVM field.
-  std::map<tree_node *, unsigned int> FieldIndexMap;
 public:
   TypeConverter() : ConvertingStruct(false) {}
 
   /// ConvertType - Returns the LLVM type to use for memory that holds a value
   /// of the given GCC type (GetRegType should be used for values in registers).
   const Type *ConvertType(tree_node *type);
-
-  /// GetFieldIndex - Returns the index of the LLVM field corresponding to
-  /// this FIELD_DECL.
-  unsigned int GetFieldIndex(tree_node *field_decl);
 
   /// GCCTypeOverlapsWithLLVMTypePadding - Return true if the specified GCC type
   /// has any data that overlaps with structure padding in the specified LLVM
@@ -193,7 +197,6 @@ public:
   
 private:
   const Type *ConvertRECORD(tree_node *type);
-  void SetFieldIndex(tree_node *field_decl, unsigned int Index);
   bool DecodeStructFields(tree_node *Field, StructTypeConversionInfo &Info);
   void DecodeStructBitField(tree_node *Field, StructTypeConversionInfo &Info);
   void SelectUnionMember(tree_node *type, StructTypeConversionInfo &Info);
@@ -205,12 +208,6 @@ extern TypeConverter *TheTypeConverter;
 /// of the given GCC type (GetRegType should be used for values in registers).
 inline const Type *ConvertType(tree_node *type) {
   return TheTypeConverter->ConvertType(type);
-}
-
-/// GetFieldIndex - Given FIELD_DECL obtain its index.
-///
-inline unsigned int GetFieldIndex(tree_node *field_decl) {
-  return TheTypeConverter->GetFieldIndex(field_decl);
 }
 
 /// getINTEGER_CSTVal - Return the specified INTEGER_CST value as a uint64_t.

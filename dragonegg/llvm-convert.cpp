@@ -5333,13 +5333,15 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   if (OffsetIsLLVMCompatible(FieldDecl)) {
     BitStart = getFieldOffsetInBits(TREE_OPERAND(exp, 1));
     assert(!TREE_OPERAND(exp, 2) && "Constant not gimple min invariant?");
-    unsigned int MemberIndex = GetFieldIndex(FieldDecl);
+    int MemberIndex = GetFieldIndex(FieldDecl);
+    assert(MemberIndex >= 0 && MemberIndex != INT_MAX &&
+           "Type not laid out for LLVM?");
 
     // If the LLVM struct has zero field, don't try to index into it, just use
     // the current pointer.
     FieldPtr = StructAddrLV.Ptr;
     if (StructTy->getNumContainedTypes() != 0) {
-      assert(MemberIndex < StructTy->getNumContainedTypes() &&
+      assert(MemberIndex < (int)StructTy->getNumContainedTypes() &&
              "Field Idx out of range!");
       FieldPtr = Builder.CreateStructGEP(FieldPtr, MemberIndex);
     }
@@ -8611,7 +8613,9 @@ Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   // If this is a normal field at a fixed offset from the start, handle it.
   if (OffsetIsLLVMCompatible(FieldDecl)) {
     BitStart = getFieldOffsetInBits(TREE_OPERAND(exp, 1));
-    unsigned int MemberIndex = GetFieldIndex(FieldDecl);
+    int MemberIndex = GetFieldIndex(FieldDecl);
+    assert(MemberIndex >= 0 && MemberIndex != INT_MAX &&
+           "Type not laid out for LLVM?");
 
     Constant *Ops[] = {
       StructAddrLV,

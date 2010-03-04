@@ -607,23 +607,6 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
   }
 }
 
-/// GetFieldIndex - Returns the index of the LLVM field corresponding to
-/// this FIELD_DECL, or ~0U if the type the field belongs to has not yet
-/// been converted.
-unsigned int TypeConverter::GetFieldIndex(tree field_decl) {
-  assert(TREE_CODE(field_decl) == FIELD_DECL && "Not a FIELD_DECL!");
-  std::map<tree, unsigned int>::iterator I = FieldIndexMap.find(field_decl);
-  assert(I != FieldIndexMap.end() && "Type not laid out for LLVM?");
-  return I->second;
-}
-
-/// SetFieldIndex - Set the index of the LLVM field corresponding to
-/// this FIELD_DECL.
-void TypeConverter::SetFieldIndex(tree_node *field_decl, unsigned int Index) {
-  assert(TREE_CODE(field_decl) == FIELD_DECL && "Not a FIELD_DECL!");
-  FieldIndexMap[field_decl] = Index;
-}
-
 bool TypeConverter::GCCTypeOverlapsWithLLVMTypePadding(tree type, 
                                                        const Type *Ty) {
   
@@ -1496,8 +1479,8 @@ struct StructTypeConversionInfo {
   ///
   /// This returns the first field that contains the specified bit.
   ///
-  unsigned getLLVMFieldFor(uint64_t FieldOffsetInBits, unsigned &CurFieldNo,
-                           bool isZeroSizeField) {
+  int getLLVMFieldFor(uint64_t FieldOffsetInBits, unsigned &CurFieldNo,
+                      bool isZeroSizeField) {
     if (!isZeroSizeField) {
       // Skip over LLVM fields that start and end before the GCC field starts.
       while (CurFieldNo < ElementOffsetInBytes.size() &&
@@ -1508,7 +1491,7 @@ struct StructTypeConversionInfo {
       // Otherwise, we couldn't find the field!
       // FIXME: this works around a latent bug!
       //assert(0 && "Could not find field!");
-      return ~0U;
+      return INT_MAX;
     }
 
     // Handle zero sized fields now.
@@ -1538,7 +1521,7 @@ struct StructTypeConversionInfo {
     
     // Otherwise, we couldn't find the field!
     assert(0 && "Could not find field!");
-    return ~0U;
+    return INT_MAX;
   }
 
   void addNewBitField(uint64_t Size, uint64_t FirstUnallocatedByte);
@@ -2069,11 +2052,11 @@ const Type *TypeConverter::ConvertRECORD(tree type) {
       bool isZeroSizeField = FieldTy->isSized() &&
         getTargetData().getTypeSizeInBits(FieldTy) == 0;
 
-      unsigned FieldNo =
+      int FieldNo =
         Info->getLLVMFieldFor(FieldOffsetInBits, CurFieldNo, isZeroSizeField);
       SetFieldIndex(Field, FieldNo);
 
-      assert((isBitfield(Field) || FieldNo == ~0U ||
+      assert((isBitfield(Field) || FieldNo == INT_MAX ||
               FieldOffsetInBits == 8*Info->ElementOffsetInBytes[FieldNo]) &&
              "Wrong LLVM field offset!");
     }
