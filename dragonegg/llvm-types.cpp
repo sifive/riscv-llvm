@@ -643,11 +643,11 @@ bool TypeConverter::GCCTypeOverlapsWithLLVMTypePadding(tree type,
 //                      Main Type Conversion Routines
 //===----------------------------------------------------------------------===//
 
-const Type *TypeConverter::ConvertType(tree orig_type) {
-  if (orig_type == error_mark_node) return Type::getInt32Ty(Context);
+const Type *TypeConverter::ConvertType(tree type) {
+  if (type == error_mark_node) return Type::getInt32Ty(Context);
 
   // LLVM doesn't care about variants such as const, volatile, or restrict.
-  tree type = TYPE_MAIN_VARIANT(orig_type);
+  type = TYPE_MAIN_VARIANT(type);
   const Type *Ty;
 
   switch (TREE_CODE(type)) {
@@ -662,22 +662,21 @@ const Type *TypeConverter::ConvertType(tree orig_type) {
   case RECORD_TYPE:
   case QUAL_UNION_TYPE:
   case UNION_TYPE:
-    Ty = ConvertRECORD(type, orig_type);
+    Ty = ConvertRECORD(type);
     break;
 
   case ENUMERAL_TYPE:
     // Use of an enum that is implicitly declared?
-    if (TYPE_SIZE(orig_type) == 0) {
+    if (TYPE_SIZE(type) == 0) {
       // If we already compiled this type, use the old type.
-      if ((Ty = GET_TYPE_LLVM(orig_type)))
+      if ((Ty = GET_TYPE_LLVM(type)))
         return Ty;
 
       Ty = OpaqueType::get(Context);
-      Ty = TypeDB.setType(orig_type, Ty);
+      Ty = TypeDB.setType(type, Ty);
       break;
     }
     // FALL THROUGH.
-    type = orig_type;
   case BOOLEAN_TYPE:
   case INTEGER_TYPE: {
     if ((Ty = GET_TYPE_LLVM(type))) return Ty;
@@ -859,7 +858,7 @@ const Type *TypeConverter::ConvertType(tree orig_type) {
     }
   }
 
-  NameType(Ty, orig_type);
+  NameType(Ty, type);
   return Ty;
 }
 
@@ -1927,7 +1926,7 @@ void TypeConverter::SelectUnionMember(tree type,
 // For LLVM purposes, we build a new type for B-within-D that 
 // has the correct size and layout for that usage.
 
-const Type *TypeConverter::ConvertRECORD(tree type, tree orig_type) {
+const Type *TypeConverter::ConvertRECORD(tree type) {
   if (const Type *Ty = GET_TYPE_LLVM(type)) {
     // If we already compiled this type, and if it was not a forward
     // definition that is now defined, use the old type.

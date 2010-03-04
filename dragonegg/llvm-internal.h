@@ -192,8 +192,7 @@ public:
                                              AttrListPtr &PAL);
   
 private:
-  const Type *ConvertRECORD(tree_node *type, tree_node *orig_type);
-  const Type *ConvertUNION(tree_node *type, tree_node *orig_type);
+  const Type *ConvertRECORD(tree_node *type);
   void SetFieldIndex(tree_node *field_decl, unsigned int Index);
   bool DecodeStructFields(tree_node *Field, StructTypeConversionInfo &Info);
   void DecodeStructBitField(tree_node *Field, StructTypeConversionInfo &Info);
