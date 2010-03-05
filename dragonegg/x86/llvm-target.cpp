@@ -81,7 +81,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
                                       Value *&Result,
                                       const Type *ResultType,
                                       std::vector<Value*> &Ops) {
-  const HandlerEntry Handlers[] = {
+  static const HandlerEntry Handlers[] = {
     // Unsupported builtins are commented out.
     {"__builtin_ia32_addpd", &&IX86_BUILTIN_ADDPD},
     //{"__builtin_ia32_addpd256", &&IX86_BUILTIN_ADDPD256},
