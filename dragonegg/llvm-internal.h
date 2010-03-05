@@ -97,7 +97,8 @@ extern Constant* ConvertMetadataStringToGV(const char* str);
 /// annotate attribute to a vector to be emitted later.
 extern void AddAnnotateAttrsToGlobal(GlobalValue *GV, union tree_node* decl);
 
-// Mapping between GCC declarations and LLVM values.
+// Mapping between GCC declarations and LLVM values.  The GCC declaration must
+// satisfy HAS_RTL_P.
 
 /// DECL_LLVM - Returns the LLVM declaration of a global variable or function.
 extern Value *make_decl_llvm(union tree_node *);
@@ -121,18 +122,16 @@ extern Value *get_decl_llvm(union tree_node *);
 Value *make_definition_llvm(union tree_node *decl);
 #define DEFINITION_LLVM(NODE) make_definition_llvm(NODE)
 
-// Mapping between GCC field declarations and LLVM indices.
+// Mapping between GCC declarations and non-negative integers.  The GCC
+// declaration must not satisfy HAS_RTL_P.
 
-/// SetFieldIndex - Set the index of the LLVM field that corresponds to the
-/// given FIELD_DECL.  By convention, a value of INT_MAX indicates that there
-/// is no such LLVM field.
-void SetFieldIndex(union tree_node *, int);
+/// set_decl_index - Associate a non-negative number with the given GCC
+/// declaration.
+int set_decl_index(union tree_node *, int);
 
-/// GetFieldIndex - Get the index of the LLVM field that corresponds to the
-/// given FIELD_DECL.  By convention, a value of INT_MAX indicates that there
-/// is no such LLVM field.  Returns a negative number if no index was yet set
-/// for the field.
-int GetFieldIndex(union tree_node *);
+/// get_decl_index - Get the non-negative number associated with the given GCC
+/// declaration.  Returns a negative value if no such association has been made.
+int get_decl_index(union tree_node *);
 
 void changeLLVMConstant(Constant *Old, Constant *New);
 void register_ctor_dtor(Function *, int, bool);
@@ -209,6 +208,13 @@ extern TypeConverter *TheTypeConverter;
 inline const Type *ConvertType(tree_node *type) {
   return TheTypeConverter->ConvertType(type);
 }
+
+/// GetFieldIndex - Return the index of the field in the given LLVM type that
+/// corresponds to the GCC field declaration 'decl'.  This means that the LLVM
+/// and GCC fields start in the same byte (if 'decl' is a bitfield, this means
+/// that its first bit is within the byte the LLVM field starts at).  Returns
+/// INT_MAX if there is no such LLVM field.
+int GetFieldIndex(union tree_node *decl, const Type *Ty);
 
 /// getINTEGER_CSTVal - Return the specified INTEGER_CST value as a uint64_t.
 ///

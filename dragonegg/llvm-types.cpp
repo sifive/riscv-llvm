@@ -458,6 +458,54 @@ void TypeRefinementDatabase::dump() const {
 //                              Helper Routines
 //===----------------------------------------------------------------------===//
 
+/// GetFieldIndex - Return the index of the field in the given LLVM type that
+/// corresponds to the GCC field declaration 'decl'.  This means that the LLVM
+/// and GCC fields start in the same byte (if 'decl' is a bitfield, this means
+/// that its first bit is within the byte the LLVM field starts at).  Returns
+/// INT_MAX if there is no such LLVM field.
+int GetFieldIndex(tree decl, const Type *Ty) {
+  assert(TREE_CODE(decl) == FIELD_DECL && "Expected a FIELD_DECL!");
+  assert(Ty == ConvertType(DECL_CONTEXT(decl)) && "Field not for this type!");
+
+  // If we previously cached the field index, return the cached value.
+  unsigned Index = (unsigned)get_decl_index(decl);
+  if (Index <= INT_MAX)
+    return Index;
+
+  // TODO: At this point we could process all fields of DECL_CONTEXT(decl), and
+  // incrementally advance over the StructLayout.  This would make indexing be
+  // O(N) rather than O(N log N) if all N fields are used.  It's not clear if it
+  // would really be a win though.
+
+  const StructType *STy = dyn_cast<StructType>(Ty);
+  // If this is not a struct type, then for sure there is no corresponding LLVM
+  // field (we do not require GCC record types to be converted to LLVM structs).
+  if (!STy)
+    return set_decl_index(decl, INT_MAX);
+
+  // If the field declaration is at a variable or humongous offset then there
+  // can be no corresponding LLVM field.
+  if (!OffsetIsLLVMCompatible(decl))
+    return set_decl_index(decl, INT_MAX);
+
+  // Find the LLVM field that contains the first bit of the GCC field.
+  uint64_t OffsetInBytes = getFieldOffsetInBits(decl) / 8; // Ignore bit in byte
+  const StructLayout *SL = getTargetData().getStructLayout(STy);
+  Index = SL->getElementContainingOffset(OffsetInBytes);
+
+  // The GCC field must start in the first byte of the LLVM field.
+  if (OffsetInBytes != SL->getElementOffset(Index))
+    return set_decl_index(decl, INT_MAX);
+
+  // We are not able to cache values bigger than INT_MAX, so bail out if the
+  // LLVM field index is that huge.
+  if (Index >= INT_MAX)
+    return set_decl_index(decl, INT_MAX);
+
+  // Found an appropriate LLVM field - return it.
+  return set_decl_index(decl, Index);
+}
+
 /// FindLLVMTypePadding - If the specified struct has any inter-element padding,
 /// add it to the Padding array.
 static void FindLLVMTypePadding(const Type *Ty, tree type, uint64_t BitOffset,
@@ -1470,60 +1518,6 @@ struct StructTypeConversionInfo {
     return getFieldEndOffsetInBytes(ElementOffsetInBytes.size()-1);
   }
 
-  /// getLLVMFieldFor - When we are assigning indices to FieldDecls, this
-  /// method determines which struct element to use.  Since the offset of
-  /// the fields cannot go backwards, CurFieldNo retains the last element we
-  /// looked at, to keep this a nice fast linear process.  If isZeroSizeField
-  /// is true, this should return some zero sized field that starts at the
-  /// specified offset.
-  ///
-  /// This returns the first field that contains the specified bit.
-  ///
-  int getLLVMFieldFor(uint64_t FieldOffsetInBits, unsigned &CurFieldNo,
-                      bool isZeroSizeField) {
-    if (!isZeroSizeField) {
-      // Skip over LLVM fields that start and end before the GCC field starts.
-      while (CurFieldNo < ElementOffsetInBytes.size() &&
-             getFieldEndOffsetInBytes(CurFieldNo)*8 <= FieldOffsetInBits)
-        ++CurFieldNo;
-      if (CurFieldNo < ElementOffsetInBytes.size())
-        return CurFieldNo;
-      // Otherwise, we couldn't find the field!
-      // FIXME: this works around a latent bug!
-      //assert(0 && "Could not find field!");
-      return INT_MAX;
-    }
-
-    // Handle zero sized fields now.
-
-    // Skip over LLVM fields that start and end before the GCC field starts.
-    // Such fields are always nonzero sized, and we don't want to skip past
-    // zero sized ones as well, which happens if you use only the Offset
-    // comparison.
-    while (CurFieldNo < ElementOffsetInBytes.size() &&
-           getFieldEndOffsetInBytes(CurFieldNo)*8 <
-           FieldOffsetInBits + (ElementSizeInBytes[CurFieldNo] != 0))
-      ++CurFieldNo;
-
-    // If the next field is zero sized, advance past this one.  This is a nicety
-    // that causes us to assign C fields different LLVM fields in cases like
-    // struct X {}; struct Y { struct X a, b, c };
-    if (CurFieldNo+1 < ElementOffsetInBytes.size() &&
-        ElementSizeInBytes[CurFieldNo+1] == 0) {
-      return CurFieldNo++;
-    }
-
-    // Otherwise, if this is a zero sized field, return it.
-    if (CurFieldNo < ElementOffsetInBytes.size() &&
-        ElementSizeInBytes[CurFieldNo] == 0) {
-      return CurFieldNo;
-    }
-    
-    // Otherwise, we couldn't find the field!
-    assert(0 && "Could not find field!");
-    return INT_MAX;
-  }
-
   void addNewBitField(uint64_t Size, uint64_t FirstUnallocatedByte);
 
   void dump() const;
@@ -2011,56 +2005,6 @@ const Type *TypeConverter::ConvertRECORD(tree type) {
     }
   } else
     Info->RemoveExtraBytes();
-
-  // Now that the LLVM struct is finalized, figure out a safe place to index to
-  // and set index values for each FieldDecl that doesn't start at a variable
-  // offset.
-  unsigned CurFieldNo = 0;
-  for (unsigned i = 0, e = Fields.size(); i < e; i++) {
-    tree Field = Fields[i].first;
-    uint64_t FieldOffsetInBits = Fields[i].second;
-
-    // A field with a non-negative constant offset that fits in 64 bits.
-    if (HasOnlyZeroOffsets) {
-      // Set the field idx to zero for all members of a union.
-      SetFieldIndex(Field, 0);
-    } else {
-      tree FieldType = getDeclaredType(Field);
-      const Type *FieldTy = ConvertType(FieldType);
-
-      // If this is a bitfield, we may want to adjust the FieldOffsetInBits
-      // to produce safe code.  In particular, bitfields will be
-      // loaded/stored as their *declared* type, not the smallest integer
-      // type that contains them.  As such, we need to respect the alignment
-      // of the declared type.
-      if (isBitfield(Field)) {
-        // If this is a bitfield, the declared type must be an integral type.
-        unsigned BitAlignment = Info->getTypeAlignment(FieldTy)*8;
-
-        FieldOffsetInBits &= ~(BitAlignment-1ULL);
-        // When we fix the field alignment, we must restart the FieldNo
-        // search because the FieldOffsetInBits can be lower than it was in
-        // the previous iteration.
-        CurFieldNo = 0;
-
-        // Skip 'int:0', which just affects layout.
-        if (integer_zerop(DECL_SIZE(Field)))
-          continue;
-      }
-
-      // Figure out if this field is zero bits wide, e.g. {} or [0 x int].
-      bool isZeroSizeField = FieldTy->isSized() &&
-        getTargetData().getTypeSizeInBits(FieldTy) == 0;
-
-      int FieldNo =
-        Info->getLLVMFieldFor(FieldOffsetInBits, CurFieldNo, isZeroSizeField);
-      SetFieldIndex(Field, FieldNo);
-
-      assert((isBitfield(Field) || FieldNo == INT_MAX ||
-              FieldOffsetInBits == 8*Info->ElementOffsetInBytes[FieldNo]) &&
-             "Wrong LLVM field offset!");
-    }
-  }
 
   const Type *ResultTy = Info->getLLVMType();
   StructTypeInfoMap[type] = Info;

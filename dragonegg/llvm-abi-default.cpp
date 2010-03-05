@@ -136,8 +136,8 @@ void DefaultABI::HandleArgument(tree type, std::vector<const Type*> &ScalarElts,
       if (TREE_CODE(Field) == FIELD_DECL) {
         const tree Ftype = getDeclaredType(Field);
         const Type *FTy = ConvertType(Ftype);
-        int FNo = GetFieldIndex(Field);
-        assert(FNo >= 0 && FNo != INT_MAX && "Case not handled yet!");
+        unsigned FNo = GetFieldIndex(Field, Ty);
+        assert(FNo < INT_MAX && "Case not handled yet!");
 
         // Currently, a bvyal type inside a non-byval struct is a zero-length
         // object inside a bigger object on x86-64.  This type should be
