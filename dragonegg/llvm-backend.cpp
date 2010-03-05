@@ -1620,29 +1620,30 @@ static GlobalValue::LinkageTypes GetLinkageForAlias(tree decl) {
 static Value *ApplyVirtualOffset(Value *This, HOST_WIDE_INT virtual_value,
                                  LLVMBuilder &Builder) {
   LLVMContext &Context = getGlobalContext();
+  const Type *BytePtrTy = Type::getInt8PtrTy(Context); // i8*
+  const Type *HandleTy = BytePtrTy->getPointerTo(); // i8**
   const Type *IntPtrTy = TheTarget->getTargetData()->getIntPtrType(Context);
 
   // The vptr is always at offset zero in the object.
-  const Type *HandleTy = Type::getInt8PtrTy(Context)->getPointerTo();
-  Value *VPtr = Builder.CreateBitCast(This, HandleTy->getPointerTo());
+  Value *VPtr = Builder.CreateBitCast(This, HandleTy->getPointerTo()); // i8***
 
   // Form the vtable address.
-  Value *VTableAddr = Builder.CreateLoad(VPtr);
+  Value *VTableAddr = Builder.CreateLoad(VPtr); // i8**
 
   // Find the entry with the vcall offset.
-  VTableAddr = Builder.CreatePtrToInt(VTableAddr, IntPtrTy);
   Value *VOffset = ConstantInt::get(IntPtrTy, virtual_value);
-  VTableAddr = Builder.CreateNSWAdd(VTableAddr, VOffset);
-  VTableAddr = Builder.CreateIntToPtr(VTableAddr, HandleTy);
+  VTableAddr = Builder.CreateBitCast(VTableAddr, BytePtrTy);
+  VTableAddr = Builder.CreateInBoundsGEP(VTableAddr, VOffset);
+  VTableAddr = Builder.CreateBitCast(VTableAddr, HandleTy); // i8**
 
   // Get the offset itself.
-  Value *VCallOffset = Builder.CreateLoad(VTableAddr);
+  Value *VCallOffset = Builder.CreateLoad(VTableAddr); // i8*
   VCallOffset = Builder.CreatePtrToInt(VCallOffset, IntPtrTy);
 
   // Adjust the 'this' pointer.
-  Value *Adjusted = Builder.CreatePtrToInt(This, IntPtrTy);
-  Adjusted = Builder.CreateNSWAdd(Adjusted, VCallOffset);
-  return Builder.CreateIntToPtr(Adjusted, This->getType());
+  Value *Adjusted = Builder.CreateBitCast(This, BytePtrTy);
+  Adjusted = Builder.CreateInBoundsGEP(Adjusted, VCallOffset);
+  return Builder.CreateBitCast(Adjusted, This->getType());
 }
 
 /// emit_thunk - Turn a thunk into LLVM IR.
@@ -1668,6 +1669,7 @@ static void emit_thunk(struct cgraph_node *node) {
   bool ThisAdjusting = node->thunk.this_adjusting;
 
   LLVMContext &Context = getGlobalContext();
+  const Type *BytePtrTy = Type::getInt8Ty(Context)->getPointerTo();
   const Type *IntPtrTy = TheTarget->getTargetData()->getIntPtrType(Context);
   LLVMBuilder Builder(Context, *TheFolder);
   Builder.SetInsertPoint(BasicBlock::Create(Context, "entry", Thunk));
@@ -1694,10 +1696,10 @@ static void emit_thunk(struct cgraph_node *node) {
 
     // Adjust 'this' according to the thunk offsets.  First, the fixed offset.
     if (node->thunk.fixed_offset) {
-      This = Builder.CreatePtrToInt(This, IntPtrTy);
       Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
-      This = Builder.CreateNSWAdd(This, Offset);
-      This = Builder.CreateIntToPtr(This, AI->getType());
+      This = Builder.CreateBitCast(This, BytePtrTy);
+      This = Builder.CreateInBoundsGEP(This, Offset);
+      This = Builder.CreateBitCast(This, AI->getType());
     }
 
     // Then by the virtual offset, if any.
@@ -1746,10 +1748,10 @@ static void emit_thunk(struct cgraph_node *node) {
 
   // Then move 'this' by the fixed offset.
   if (node->thunk.fixed_offset) {
-    RetVal = Builder.CreatePtrToInt(RetVal, IntPtrTy);
     Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
-    RetVal = Builder.CreateNSWAdd(RetVal, Offset);
-    RetVal = Builder.CreateIntToPtr(RetVal, Thunk->getReturnType());
+    RetVal = Builder.CreateBitCast(RetVal, BytePtrTy);
+    RetVal = Builder.CreateInBoundsGEP(RetVal, Offset);
+    RetVal = Builder.CreateBitCast(RetVal, Thunk->getReturnType());
   }
 
   // Return the adjusted value.
