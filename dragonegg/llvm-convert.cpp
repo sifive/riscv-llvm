@@ -5311,10 +5311,6 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
           TREE_CODE(DECL_CONTEXT(FieldDecl)) == UNION_TYPE  ||
           TREE_CODE(DECL_CONTEXT(FieldDecl)) == QUAL_UNION_TYPE));
 
-  // Ensure that the struct type has been converted, so that the fielddecls
-  // are laid out.  Note that we convert to the context of the Field, not to the
-  // type of Operand #0, because GCC doesn't always have the field match up with
-  // operand #0's type.
   const Type *StructTy = ConvertType(DECL_CONTEXT(FieldDecl));
 
   assert((!StructAddrLV.isBitfield() ||
@@ -5332,45 +5328,12 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   // If the GCC field directly corresponds to an LLVM field, handle it.
   unsigned MemberIndex = GetFieldIndex(FieldDecl, StructTy);
   if (MemberIndex < INT_MAX) {
-    BitStart = getFieldOffsetInBits(TREE_OPERAND(exp, 1));
     assert(!TREE_OPERAND(exp, 2) && "Constant not gimple min invariant?");
-
-    // If the LLVM struct has zero field, don't try to index into it, just use
-    // the current pointer.
-    FieldPtr = StructAddrLV.Ptr;
-    if (StructTy->getNumContainedTypes() != 0) {
-      assert(MemberIndex < StructTy->getNumContainedTypes() &&
-             "Field Idx out of range!");
-      FieldPtr = Builder.CreateStructGEP(FieldPtr, MemberIndex);
-    }
-
-    // Now that we did an offset from the start of the struct, subtract off
-    // the offset from BitStart.
-    if (MemberIndex) {
-      const StructLayout *SL = TD.getStructLayout(cast<StructType>(StructTy));
-      unsigned Offset = SL->getElementOffset(MemberIndex);
-      BitStart -= Offset * 8;
-
-      // If the base is known to be 8-byte aligned, and we're adding a 4-byte
-      // offset, the field is known to be 4-byte aligned.
-      LVAlign = MinAlign(LVAlign, Offset);
-    }
-
-    // There is debate about whether this is really safe or not, be conservative
-    // in the meantime.
-#if 0
-    // If this field is at a constant offset, if the LLVM pointer really points
-    // to it, then we know that the pointer is at least as aligned as the field
-    // is required to be.  Try to round up our alignment info.
-    if (BitStart == 0 && // llvm pointer points to it.
-        !isBitfield(FieldDecl) &&  // bitfield computation might offset pointer.
-        DECL_ALIGN(FieldDecl))
-      LVAlign = std::max(LVAlign, unsigned(DECL_ALIGN(FieldDecl)) / 8);
-#endif
-
-    // If the FIELD_DECL has an annotate attribute on it, emit it.
-    if (lookup_attribute("annotate", DECL_ATTRIBUTES(FieldDecl)))
-      FieldPtr = EmitFieldAnnotation(FieldPtr, FieldDecl);
+    // Get a pointer to the byte in which the GCC field starts.
+    FieldPtr = Builder.CreateStructGEP(StructAddrLV.Ptr, MemberIndex);
+    // Within that byte, the bit at which the GCC field starts.
+    BitStart = TREE_INT_CST_LOW(DECL_FIELD_BIT_OFFSET(TREE_OPERAND(exp, 1)));
+    BitStart &= 7;
   } else {
     // Offset will hold the field offset in octets.
     Value *Offset;
@@ -5396,115 +5359,123 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 
     // Here BitStart gives the offset of the field in bits from Offset.
     BitStart = getInt64(DECL_FIELD_BIT_OFFSET(FieldDecl), true);
+
     // Incorporate as much of it as possible into the pointer computation.
-    unsigned ByteOffset = BitStart/8;
+    unsigned ByteOffset = BitStart / 8;
     if (ByteOffset > 0) {
       Offset = Builder.CreateAdd(Offset,
         ConstantInt::get(Offset->getType(), ByteOffset));
       BitStart -= ByteOffset*8;
-      // If the base is known to be 8-byte aligned, and we're adding a 4-byte
-      // offset, the field is known to be 4-byte aligned.
-      LVAlign = MinAlign(LVAlign, ByteOffset);
     }
 
-    Value *Ptr = Builder.CreatePtrToInt(StructAddrLV.Ptr, Offset->getType());
-    Ptr = Builder.CreateAdd(Ptr, Offset);
-    FieldPtr = Builder.CreateIntToPtr(Ptr, FieldTy->getPointerTo());
+    const Type *BytePtrTy = Type::getInt8PtrTy(Context);
+    FieldPtr = Builder.CreateBitCast(StructAddrLV.Ptr, BytePtrTy);
+    FieldPtr = Builder.CreateInBoundsGEP(FieldPtr, Offset);
+    FieldPtr = Builder.CreateBitCast(FieldPtr, FieldTy->getPointerTo());
   }
 
-  if (isBitfield(FieldDecl)) {
-    // If this is a bitfield, the declared type must be an integral type.
-    assert(FieldTy->isIntegerTy() && "Invalid bitfield");
+  assert(BitStart < 8 && "Bit offset not properly incorporated in the pointer");
 
-    assert(DECL_SIZE(FieldDecl) &&
-           TREE_CODE(DECL_SIZE(FieldDecl)) == INTEGER_CST &&
-           "Variable sized bitfield?");
-    unsigned BitfieldSize = TREE_INT_CST_LOW(DECL_SIZE(FieldDecl));
+  // The alignment is given by DECL_ALIGN.  Be conservative and don't assume
+  // that the field is properly aligned even if the type is not.
+  LVAlign = MinAlign(LVAlign, DECL_ALIGN(FieldDecl) / 8);
 
-    const Type *LLVMFieldTy =
-      cast<PointerType>(FieldPtr->getType())->getElementType();
+  // If the FIELD_DECL has an annotate attribute on it, emit it.
+  if (lookup_attribute("annotate", DECL_ATTRIBUTES(FieldDecl)))
+    FieldPtr = EmitFieldAnnotation(FieldPtr, FieldDecl);
 
-    // If the LLVM notion of the field type contains the entire bitfield being
-    // accessed, use the LLVM type.  This avoids pointer casts and other bad
-    // things that are difficult to clean up later.  This occurs in cases like
-    // "struct X{ unsigned long long x:50; unsigned y:2; }" when accessing y.
-    // We want to access the field as a ulong, not as a uint with an offset.
-    if (LLVMFieldTy->isIntegerTy() &&
-        LLVMFieldTy->getPrimitiveSizeInBits() >= BitStart + BitfieldSize &&
-        LLVMFieldTy->getPrimitiveSizeInBits() ==
-        TD.getTypeAllocSizeInBits(LLVMFieldTy))
-      FieldTy = LLVMFieldTy;
-    else
-      // If the field result type T is a bool or some other curiously sized
-      // integer type, then not all bits may be accessible by advancing a T*
-      // and loading through it.  For example, if the result type is i1 then
-      // only the first bit in each byte would be loaded.  Even if T is byte
-      // sized like an i24 there may be trouble: incrementing a T* will move
-      // the position by 32 bits not 24, leaving the upper 8 of those 32 bits
-      // inaccessible.  Avoid this by rounding up the size appropriately.
-      FieldTy = IntegerType::get(Context, TD.getTypeAllocSizeInBits(FieldTy));
-
-    assert(FieldTy->getPrimitiveSizeInBits() ==
-           TD.getTypeAllocSizeInBits(FieldTy) && "Field type not sequential!");
-
-    // If this is a bitfield, the field may span multiple fields in the LLVM
-    // type.  As such, cast the pointer to be a pointer to the declared type.
-    FieldPtr = Builder.CreateBitCast(FieldPtr, FieldTy->getPointerTo());
-
-    unsigned LLVMValueBitSize = FieldTy->getPrimitiveSizeInBits();
-    // Finally, because bitfields can span LLVM fields, and because the start
-    // of the first LLVM field (where FieldPtr currently points) may be up to
-    // 63 bits away from the start of the bitfield), it is possible that
-    // *FieldPtr doesn't contain any of the bits for this bitfield. If needed,
-    // adjust FieldPtr so that it is close enough to the bitfield that
-    // *FieldPtr contains the first needed bit.  Be careful to make sure that
-    // the pointer remains appropriately aligned.
-    if (BitStart > LLVMValueBitSize) {
-      // In this case, we know that the alignment of the field is less than
-      // the size of the field.  To get the pointer close enough, add some
-      // number of alignment units to the pointer.
-      unsigned ByteAlignment = TD.getABITypeAlignment(FieldTy);
-      // It is possible that an individual field is Packed. This information is
-      // not reflected in FieldTy. Check DECL_PACKED here.
-      if (DECL_PACKED(FieldDecl))
-        ByteAlignment = 1;
-      assert(ByteAlignment*8 <= LLVMValueBitSize && "Unknown overlap case!");
-      unsigned NumAlignmentUnits = BitStart/(ByteAlignment*8);
-      assert(NumAlignmentUnits && "Not adjusting pointer?");
-
-      // Compute the byte offset, and add it to the pointer.
-      unsigned ByteOffset = NumAlignmentUnits*ByteAlignment;
-      LVAlign = MinAlign(LVAlign, ByteOffset);
-
-      Constant *Offset = ConstantInt::get(TD.getIntPtrType(Context), ByteOffset);
-      FieldPtr = Builder.CreatePtrToInt(FieldPtr, Offset->getType());
-      FieldPtr = Builder.CreateAdd(FieldPtr, Offset);
-      FieldPtr = Builder.CreateIntToPtr(FieldPtr, FieldTy->getPointerTo());
-
-      // Adjust bitstart to account for the pointer movement.
-      BitStart -= ByteOffset*8;
-
-      // Check that this worked.  Note that the bitfield may extend beyond
-      // the end of *FieldPtr, for example because BitfieldSize is the same
-      // as LLVMValueBitSize but BitStart > 0.
-      assert(BitStart < LLVMValueBitSize &&
-             BitStart+BitfieldSize < 2*LLVMValueBitSize &&
-             "Couldn't get bitfield into value!");
-    }
-
-    // Okay, everything is good.  Return this as a bitfield if we can't
-    // return it as a normal l-value. (e.g. "struct X { int X : 32 };" ).
-    if (BitfieldSize != LLVMValueBitSize || BitStart != 0)
-      return LValue(FieldPtr, LVAlign, BitStart, BitfieldSize);
-    
-  } else {
+  if (!isBitfield(FieldDecl)) {
+    assert(BitStart == 0 && "Not a bitfield but not at a byte offset!");
     // Make sure we return a pointer to the right type.
     const Type *EltTy = ConvertType(TREE_TYPE(exp));
     FieldPtr = Builder.CreateBitCast(FieldPtr, EltTy->getPointerTo());
+    return LValue(FieldPtr, LVAlign);
   }
 
-  assert(BitStart == 0 &&
-         "It's a bitfield reference or we didn't get to the field!");
+  // If this is a bitfield, the declared type must be an integral type.
+  assert(FieldTy->isIntegerTy() && "Invalid bitfield");
+
+  assert(DECL_SIZE(FieldDecl) &&
+         TREE_CODE(DECL_SIZE(FieldDecl)) == INTEGER_CST &&
+         "Variable sized bitfield?");
+  unsigned BitfieldSize = TREE_INT_CST_LOW(DECL_SIZE(FieldDecl));
+
+  const Type *LLVMFieldTy =
+    cast<PointerType>(FieldPtr->getType())->getElementType();
+
+  // If the LLVM notion of the field type contains the entire bitfield being
+  // accessed, use the LLVM type.  This avoids pointer casts and other bad
+  // things that are difficult to clean up later.  This occurs in cases like
+  // "struct X{ unsigned long long x:50; unsigned y:2; }" when accessing y.
+  // We want to access the field as a ulong, not as a uint with an offset.
+  if (LLVMFieldTy->isIntegerTy() &&
+      LLVMFieldTy->getPrimitiveSizeInBits() >= BitStart + BitfieldSize &&
+      LLVMFieldTy->getPrimitiveSizeInBits() ==
+      TD.getTypeAllocSizeInBits(LLVMFieldTy))
+    FieldTy = LLVMFieldTy;
+  else
+    // If the field result type T is a bool or some other curiously sized
+    // integer type, then not all bits may be accessible by advancing a T*
+    // and loading through it.  For example, if the result type is i1 then
+    // only the first bit in each byte would be loaded.  Even if T is byte
+    // sized like an i24 there may be trouble: incrementing a T* will move
+    // the position by 32 bits not 24, leaving the upper 8 of those 32 bits
+    // inaccessible.  Avoid this by rounding up the size appropriately.
+    FieldTy = IntegerType::get(Context, TD.getTypeAllocSizeInBits(FieldTy));
+
+  assert(FieldTy->getPrimitiveSizeInBits() ==
+         TD.getTypeAllocSizeInBits(FieldTy) && "Field type not sequential!");
+
+  // If this is a bitfield, the field may span multiple fields in the LLVM
+  // type.  As such, cast the pointer to be a pointer to the declared type.
+  FieldPtr = Builder.CreateBitCast(FieldPtr, FieldTy->getPointerTo());
+
+  unsigned LLVMValueBitSize = FieldTy->getPrimitiveSizeInBits();
+  // Finally, because bitfields can span LLVM fields, and because the start
+  // of the first LLVM field (where FieldPtr currently points) may be up to
+  // 63 bits away from the start of the bitfield), it is possible that
+  // *FieldPtr doesn't contain any of the bits for this bitfield. If needed,
+  // adjust FieldPtr so that it is close enough to the bitfield that
+  // *FieldPtr contains the first needed bit.  Be careful to make sure that
+  // the pointer remains appropriately aligned.
+  if (BitStart > LLVMValueBitSize) {
+    // In this case, we know that the alignment of the field is less than
+    // the size of the field.  To get the pointer close enough, add some
+    // number of alignment units to the pointer.
+    unsigned ByteAlignment = TD.getABITypeAlignment(FieldTy);
+    // It is possible that an individual field is Packed. This information is
+    // not reflected in FieldTy. Check DECL_PACKED here.
+    if (DECL_PACKED(FieldDecl))
+      ByteAlignment = 1;
+    assert(ByteAlignment*8 <= LLVMValueBitSize && "Unknown overlap case!");
+    unsigned NumAlignmentUnits = BitStart/(ByteAlignment*8);
+    assert(NumAlignmentUnits && "Not adjusting pointer?");
+
+    // Compute the byte offset, and add it to the pointer.
+    unsigned ByteOffset = NumAlignmentUnits*ByteAlignment;
+    LVAlign = MinAlign(LVAlign, ByteOffset);
+
+    Constant *Offset = ConstantInt::get(TD.getIntPtrType(Context), ByteOffset);
+    FieldPtr = Builder.CreatePtrToInt(FieldPtr, Offset->getType());
+    FieldPtr = Builder.CreateAdd(FieldPtr, Offset);
+    FieldPtr = Builder.CreateIntToPtr(FieldPtr, FieldTy->getPointerTo());
+
+    // Adjust bitstart to account for the pointer movement.
+    BitStart -= ByteOffset*8;
+
+    // Check that this worked.  Note that the bitfield may extend beyond
+    // the end of *FieldPtr, for example because BitfieldSize is the same
+    // as LLVMValueBitSize but BitStart > 0.
+    assert(BitStart < LLVMValueBitSize &&
+           BitStart+BitfieldSize < 2*LLVMValueBitSize &&
+           "Couldn't get bitfield into value!");
+  }
+
+  // Okay, everything is good.  Return this as a bitfield if we can't
+  // return it as a normal l-value. (e.g. "struct X { int X : 32 };" ).
+  if (BitfieldSize != LLVMValueBitSize || BitStart != 0)
+    return LValue(FieldPtr, LVAlign, BitStart, BitfieldSize);
+
   return LValue(FieldPtr, LVAlign);
 }
 
@@ -8592,11 +8563,8 @@ Constant *TreeConstantToLLVM::EmitLV_ARRAY_REF(tree exp) {
 Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   Constant *StructAddrLV = EmitLV(TREE_OPERAND(exp, 0));
 
-  // Ensure that the struct type has been converted, so that the fielddecls
-  // are laid out.
-  const Type *StructTy = ConvertType(TREE_TYPE(TREE_OPERAND(exp, 0)));
-
   tree FieldDecl = TREE_OPERAND(exp, 1);
+  const Type *StructTy = ConvertType(DECL_CONTEXT(FieldDecl));
 
   StructAddrLV = TheFolder->CreateBitCast(StructAddrLV,
                                           StructTy->getPointerTo());
@@ -8606,27 +8574,19 @@ Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   // struct, in bits.  For bitfields this may be on a non-byte boundary.
   unsigned BitStart;
   Constant *FieldPtr;
-  const TargetData &TD = getTargetData();
 
   // If the GCC field directly corresponds to an LLVM field, handle it.
   unsigned MemberIndex = GetFieldIndex(FieldDecl, StructTy);
   if (MemberIndex < INT_MAX) {
-    BitStart = getFieldOffsetInBits(TREE_OPERAND(exp, 1));
-
+    // Get a pointer to the byte in which the GCC field starts.
     Constant *Ops[] = {
-      StructAddrLV,
       Constant::getNullValue(Type::getInt32Ty(Context)),
       ConstantInt::get(Type::getInt32Ty(Context), MemberIndex)
     };
-    FieldPtr = TheFolder->CreateInBoundsGetElementPtr(StructAddrLV, Ops+1, 2);
-
-    // Now that we did an offset from the start of the struct, subtract off
-    // the offset from BitStart.
-    if (MemberIndex) {
-      const StructLayout *SL = TD.getStructLayout(cast<StructType>(StructTy));
-      BitStart -= SL->getElementOffset(MemberIndex) * 8;
-    }
-
+    FieldPtr = TheFolder->CreateInBoundsGetElementPtr(StructAddrLV, Ops, 2);
+    // Within that byte, the bit at which the GCC field starts.
+    BitStart = TREE_INT_CST_LOW(DECL_FIELD_BIT_OFFSET(TREE_OPERAND(exp, 1)));
+    BitStart &= 7;
   } else {
     // Offset will hold the field offset in octets.
     Constant *Offset;
@@ -8663,14 +8623,15 @@ Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
       BitStart -= ByteOffset*8;
     }
 
-    Constant *Ptr = TheFolder->CreatePtrToInt(StructAddrLV, Offset->getType());
-    Ptr = TheFolder->CreateAdd(Ptr, Offset);
-    FieldPtr = TheFolder->CreateIntToPtr(Ptr, FieldTy->getPointerTo());
+    const Type *BytePtrTy = Type::getInt8PtrTy(Context);
+    FieldPtr = TheFolder->CreateBitCast(StructAddrLV, BytePtrTy);
+    FieldPtr = TheFolder->CreateInBoundsGetElementPtr(FieldPtr, &Offset, 1);
+    FieldPtr = TheFolder->CreateBitCast(FieldPtr, FieldTy->getPointerTo());
   }
 
-  // Make sure we return a result of the right type.
-  if (FieldTy->getPointerTo() != FieldPtr->getType())
-    FieldPtr = TheFolder->CreateBitCast(FieldPtr, FieldTy->getPointerTo());
+  // Make sure we return a pointer to the right type.
+  const Type *EltTy = ConvertType(TREE_TYPE(exp));
+  FieldPtr = TheFolder->CreateBitCast(FieldPtr, EltTy->getPointerTo());
 
   assert(BitStart == 0 &&
          "It's a bitfield reference or we didn't get to the field!");
