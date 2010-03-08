@@ -37,9 +37,9 @@
 
   <ul>
   <li>C works well, for example you can build a working gcc using it</li>
-  <li>C++ works fairly well, for example you can build a working LLVM using it.
-  On the other hand, <a href="http://dragonegg.llvm.org/">DragonEgg</a> crashes
-  while building clang and boost</li>
+  <li>C++ works fairly well, for example you can build LLVM, clang and boost
+  with it (the resulting LLVM and clang work correctly; I did not test whether
+  boost actually works)</li>
   <li>A lot of Fortran compiles, but the compiled code has not been tested for
   correctness</li>
   <li>It can compile quite a lot of Ada, but the compiled code may not work
@@ -153,6 +153,7 @@ declare i32 @puts(i8* nocapture) nounwind
      <pre>	svn co http://gcc.gnu.org/svn/gcc/trunk gcc</pre>
   <p>Apply all of the patches in <tt>dragonegg/gcc-patches/</tt>, if any, to
      <a href="http://gcc.gnu.org">gcc</a>.
+     You need to pass the <tt>-p1</tt> option to <tt>patch</tt>.
      Build and install <a href="http://gcc.gnu.org">gcc</a> in the usual way.</p>
   <p>Doing</p>
      <pre>	GCC=path_to_just_installed_gcc make</pre>
