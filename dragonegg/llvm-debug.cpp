@@ -275,7 +275,7 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
     ArtificialFnWithAbstractOrigin = true;
 
   DIDescriptor SPContext = ArtificialFnWithAbstractOrigin ?
-    getOrCreateCompileUnit(main_input_filename) :
+    getOrCreateFile(main_input_filename) :
     findRegion (DECL_CONTEXT(FnDecl));
 
   // Creating context may have triggered creation of this SP descriptor. So
@@ -316,7 +316,7 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
     DebugFactory.CreateSubprogram(SPContext,
                                   FnName, FnName,
                                   LinkageName,
-                                  getOrCreateCompileUnit(Loc.file), lineno,
+                                  getOrCreateFile(Loc.file), lineno,
                                   FNType,
                                   Fn->hasInternalLinkage(),
                                   true /*definition*/,
@@ -340,7 +340,7 @@ DINameSpace DebugInfo::getOrCreateNameSpace(tree Node, DIDescriptor Context) {
   expanded_location Loc = GetNodeLocation(Node, false);
   DINameSpace DNS =
     DebugFactory.CreateNameSpace(Context, GetNodeName(Node),
-                                 getOrCreateCompileUnit(Loc.file), Loc.line);
+                                 getOrCreateFile(Loc.file), Loc.line);
 
   NameSpaceCache[Node] = WeakVH(DNS.getNode());
   return DNS;
@@ -349,7 +349,7 @@ DINameSpace DebugInfo::getOrCreateNameSpace(tree Node, DIDescriptor Context) {
 /// findRegion - Find tree_node N's region.
 DIDescriptor DebugInfo::findRegion(tree Node) {
   if (Node == NULL_TREE)
-    return getOrCreateCompileUnit(main_input_filename);
+    return getOrCreateFile(main_input_filename);
 
   std::map<tree_node *, WeakVH>::iterator I = RegionMap.find(Node);
   if (I != RegionMap.end())
@@ -369,7 +369,7 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
   }
 
   // Otherwise main compile unit covers everything.
-  return getOrCreateCompileUnit(main_input_filename);
+  return getOrCreateFile(main_input_filename);
 }
 
 /// EmitFunctionEnd - Constructs the debug code for exiting a declarative
@@ -410,7 +410,7 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
       Ty = DebugFactory.CreateArtificialType(Ty);
   llvm::DIVariable D =
     DebugFactory.CreateVariable(Tag, VarScope,
-                                Name, getOrCreateCompileUnit(Loc.file),
+                                Name, getOrCreateFile(Loc.file),
                                 Loc.line, Ty);
 
   // Insert an llvm.dbg.declare into the current block.
@@ -470,7 +470,7 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
       LinkageName = GV->getName();
   DebugFactory.CreateGlobalVariable(findRegion(DECL_CONTEXT(decl)),
                                     DispName, DispName, LinkageName,
-                                    getOrCreateCompileUnit(Loc.file), Loc.line,
+                                    getOrCreateFile(Loc.file), Loc.line,
                                     TyD, GV->hasInternalLinkage(),
                                     true/*definition*/, GV);
 }
@@ -517,9 +517,9 @@ DIType DebugInfo::createBasicType(tree type) {
   }
 
   return 
-    DebugFactory.CreateBasicType(getOrCreateCompileUnit(main_input_filename),
+    DebugFactory.CreateBasicType(getOrCreateFile(main_input_filename),
                                  TypeName, 
-                                 getOrCreateCompileUnit(main_input_filename),
+                                 getOrCreateFile(main_input_filename),
                                  0, Size, Align,
                                  0, 0, Encoding);
 }
@@ -548,9 +548,9 @@ DIType DebugInfo::createMethodType(tree type) {
   sprintf(FwdTypeName, "fwd.type.%d", FwdTypeCount++);
   llvm::DIType FwdType = 
     DebugFactory.CreateCompositeType(llvm::dwarf::DW_TAG_subroutine_type,
-                                     getOrCreateCompileUnit(NULL), 
+                                     getOrCreateFile(main_input_filename),
                                      FwdTypeName,
-                                     getOrCreateCompileUnit(NULL), 
+                                     getOrCreateFile(main_input_filename),
                                      0, 0, 0, 0, 0,
                                      llvm::DIType(), llvm::DIArray());
   llvm::TrackingVH<llvm::MDNode> FwdTypeNode = FwdType.getNode();
@@ -591,7 +591,7 @@ DIType DebugInfo::createMethodType(tree type) {
     DebugFactory.CreateCompositeType(llvm::dwarf::DW_TAG_subroutine_type,
                                      findRegion(TYPE_CONTEXT(type)), 
                                      StringRef(),
-                                     getOrCreateCompileUnit(NULL), 
+                                     getOrCreateFile(main_input_filename),
                                      0, 0, 0, 0, 0,
                                      llvm::DIType(), EltTypeArray);
 
@@ -620,7 +620,7 @@ DIType DebugInfo::createPointerType(tree type) {
       DIType Ty = 
         DebugFactory.CreateDerivedType(Tag, findRegion(DECL_CONTEXT(TyName)),
                                        GetNodeName(TyName), 
-                                       getOrCreateCompileUnit(TypeNameLoc.file),
+                                       getOrCreateFile(TypeNameLoc.file),
                                        TypeNameLoc.line,
                                        0 /*size*/,
                                        0 /*align*/,
@@ -636,7 +636,7 @@ DIType DebugInfo::createPointerType(tree type) {
     DebugFactory.CreateDerivedType(Tag, findRegion(TYPE_CONTEXT(type)), 
                                    Tag == DW_TAG_pointer_type ? 
                                    StringRef() : PName,
-                                   getOrCreateCompileUnit(NULL), 
+                                   getOrCreateFile(main_input_filename),
                                    0 /*line no*/, 
                                    NodeSizeInBits(type),
                                    NodeAlignInBits(type),
@@ -698,7 +698,7 @@ DIType DebugInfo::createArrayType(tree type) {
   return DebugFactory.CreateCompositeType(llvm::dwarf::DW_TAG_array_type,
                                           findRegion(TYPE_CONTEXT(type)), 
                                           StringRef(),
-                                          getOrCreateCompileUnit(Loc.file), 0, 
+                                          getOrCreateFile(Loc.file), 0, 
                                           NodeSizeInBits(type), 
                                           NodeAlignInBits(type), 0, 0,
                                           getOrCreateType(EltTy),
@@ -732,7 +732,7 @@ DIType DebugInfo::createEnumType(tree type) {
   return DebugFactory.CreateCompositeType(llvm::dwarf::DW_TAG_enumeration_type,
                                           findRegion(TYPE_CONTEXT(type)), 
                                           GetNodeName(type), 
-                                          getOrCreateCompileUnit(Loc.file), 
+                                          getOrCreateFile(Loc.file), 
                                           Loc.line,
                                           NodeSizeInBits(type), 
                                           NodeAlignInBits(type), 0, 0,
@@ -750,8 +750,7 @@ DIType DebugInfo::createStructType(tree type) {
 //TODO  if (TYPE_LANG_SPECIFIC (type)
 //TODO      && lang_hooks.types.is_runtime_specific_type (type))
 //TODO    {
-//TODO      DICompileUnit CU = getOrCreateCompileUnit(main_input_filename);
-//TODO      unsigned CULang = CU.getLanguage();
+//TODO      unsigned CULang = TheCU.getLanguage();
 //TODO      switch (CULang) {
 //TODO      case DW_LANG_ObjC_plus_plus :
 //TODO        RunTimeLang = DW_LANG_ObjC_plus_plus;
@@ -802,7 +801,7 @@ DIType DebugInfo::createStructType(tree type) {
     DebugFactory.CreateCompositeType(Tag, 
                                      TyContext,
                                      FwdName.c_str(),
-                                     getOrCreateCompileUnit(Loc.file), 
+                                     getOrCreateFile(Loc.file), 
                                      Loc.line, 
                                      0, 0, 0, SFlags | llvm::DIType::FlagFwdDecl,
                                      llvm::DIType(), llvm::DIArray(),
@@ -852,7 +851,7 @@ DIType DebugInfo::createStructType(tree type) {
       DIType DTy = 
         DebugFactory.CreateDerivedType(DW_TAG_inheritance, 
                                        findRegion(TYPE_CONTEXT(type)), StringRef(),
-                                       llvm::DICompileUnit(), 0,0,0, 
+                                       llvm::DIFile(), 0,0,0, 
                                        Offset,
                                        BFlags, BaseClass);
       EltTys.push_back(DTy);
@@ -898,7 +897,7 @@ DIType DebugInfo::createStructType(tree type) {
       DebugFactory.CreateDerivedType(DW_TAG_member, 
                                      findRegion(DECL_CONTEXT(Member)),
                                      MemberName, 
-                                     getOrCreateCompileUnit(MemLoc.file),
+                                     getOrCreateFile(MemLoc.file),
                                      MemLoc.line, NodeSizeInBits(Member),
                                      NodeAlignInBits(FieldNodeType),
                                      int_bit_position(Member), 
@@ -937,7 +936,7 @@ DIType DebugInfo::createStructType(tree type) {
         DebugFactory.CreateSubprogram(findRegion(DECL_CONTEXT(Member)), 
                                       MemberName, MemberName,
                                       LinkageName, 
-                                      getOrCreateCompileUnit(MemLoc.file),
+                                      getOrCreateFile(MemLoc.file),
                                       MemLoc.line, SPTy, false, false,
                                       Virtuality, VIndex, ContainingType,
                                       DECL_ARTIFICIAL (Member));
@@ -962,7 +961,7 @@ DIType DebugInfo::createStructType(tree type) {
   llvm::DICompositeType RealDecl =
     DebugFactory.CreateCompositeType(Tag, findRegion(TYPE_CONTEXT(type)),
                                      GetNodeName(type),
-                                     getOrCreateCompileUnit(Loc.file),
+                                     getOrCreateFile(Loc.file),
                                      Loc.line, 
                                      NodeSizeInBits(type), NodeAlignInBits(type),
                                      0, SFlags, llvm::DIType(), Elements,
@@ -990,7 +989,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
       Ty = DebugFactory.CreateDerivedType(DW_TAG_typedef, 
                                           findRegion(DECL_CONTEXT(TyDef)),
                                           GetNodeName(TyDef), 
-                                          getOrCreateCompileUnit(TypeDefLoc.file),
+                                          getOrCreateFile(TypeDefLoc.file),
                                           TypeDefLoc.line,
                                           0 /*size*/,
                                           0 /*align*/,
@@ -1006,7 +1005,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
     Ty = DebugFactory.CreateDerivedType(DW_TAG_volatile_type, 
                                         findRegion(TYPE_CONTEXT(type)), 
                                         StringRef(),
-                                        getOrCreateCompileUnit(NULL), 
+                                        getOrCreateFile(main_input_filename),
                                         0 /*line no*/, 
                                         NodeSizeInBits(type),
                                         NodeAlignInBits(type),
@@ -1020,7 +1019,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
     Ty =  DebugFactory.CreateDerivedType(DW_TAG_const_type, 
                                          findRegion(TYPE_CONTEXT(type)), 
                                          StringRef(),
-                                         getOrCreateCompileUnit(NULL), 
+                                         getOrCreateFile(main_input_filename),
                                          0 /*line no*/, 
                                          NodeSizeInBits(type),
                                          NodeAlignInBits(type),
@@ -1131,9 +1130,9 @@ void DebugInfo::Initialize() {
   // module does not contain any main compile unit then the code generator 
   // will emit multiple compile units in the output object file.
   if (!strcmp (main_input_filename, ""))
-    getOrCreateCompileUnit("<stdin>", true);
+    TheCU = getOrCreateCompileUnit("<stdin>", true);
   else
-    getOrCreateCompileUnit(main_input_filename, true);
+    TheCU = getOrCreateCompileUnit(main_input_filename, true);
 }
 
 /// getOrCreateCompileUnit - Get the compile unit from the cache or 
@@ -1146,10 +1145,6 @@ DICompileUnit DebugInfo::getOrCreateCompileUnit(const char *FullPath,
     else
       FullPath = main_input_filename;
   }
-  std::map<std::string, WeakVH >::iterator I = CUCache.find(FullPath);
-  if (I != CUCache.end())
-    if (Value *M = I->second)
-      return DICompileUnit(cast<MDNode>(M));
 
   // Get source file information.
   std::string Directory;
@@ -1185,11 +1180,25 @@ DICompileUnit DebugInfo::getOrCreateCompileUnit(const char *FullPath,
   unsigned ObjcRunTimeVer = 0;
 //  if (flag_objc_abi != 0 && flag_objc_abi != -1)
 //    ObjcRunTimeVer = flag_objc_abi;
-  DICompileUnit NewCU = DebugFactory.CreateCompileUnit(LangTag, FileName.c_str(), 
-                                                       Directory.c_str(),
-                                                       version_string, isMain,
-                                                       optimize, Flags,
-                                                       ObjcRunTimeVer);
-  CUCache[FullPath] = WeakVH(NewCU.getNode());
-  return NewCU;
+  return DebugFactory.CreateCompileUnit(LangTag, FileName.c_str(),
+                                        Directory.c_str(),
+                                        version_string, isMain,
+                                        optimize, Flags,
+                                        ObjcRunTimeVer);
+}
+
+/// getOrCreateFile - Get DIFile descriptor.
+DIFile DebugInfo::getOrCreateFile(const char *FullPath) {
+  if (!FullPath) {
+    if (!strcmp (main_input_filename, ""))
+      FullPath = "<stdin>";
+    else
+      FullPath = main_input_filename;
+  }
+
+  // Get source file information.
+  std::string Directory;
+  std::string FileName;
+  DirectoryAndFile(FullPath, Directory, FileName);
+  return DebugFactory.CreateFile(FileName, Directory, TheCU);
 }
