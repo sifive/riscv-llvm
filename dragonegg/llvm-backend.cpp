@@ -2344,6 +2344,11 @@ int plugin_init (struct plugin_name_args *plugin_info,
     // Could just set optimize to zero (after taking a copy), but this would
     // also impact front-end optimizations.
 
+    // Leave pass_inline_parameters.  Otherwise our vector lowering fails since
+    // immediates have not been propagated into builtin callsites.
+
+    // Leave pass_ipa_function_and_variable_visibility.  Needed for correctness.
+
     // Turn off pass_ipa_early_inline.
     pass_info.pass = &pass_simple_ipa_null.pass;
     pass_info.reference_pass_name = "einline_ipa";
@@ -2351,12 +2356,43 @@ int plugin_init (struct plugin_name_args *plugin_info,
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-    // Turn off pass_all_early_optimizations.
+    // Leave pass_ipa_free_lang_data.
+
+    // Leave pass pass_early_local_passes::pass_fixup_cfg. ???
+
+    // Leave pass pass_early_local_passes::pass_tree_profile.
+
+    // Leave pass_early_local_passes::pass_cleanup_cfg. ???
+
+    // Leave pass_early_local_passes::pass_init_datastructures. ???
+
+    // Leave pass_early_local_passes::pass_expand_omp.
+
+    // Leave pass_early_local_passes::pass_referenced_vars. ???
+
+    // Leave pass_early_local_passes::pass_build_ssa.
+
+    // Leave pass_early_local_passes::pass_early_warn_uninitialized.
+
+    // Leave pass_early_local_passes::pass_rebuild_cgraph_edges. ???
+
+    // Leave pass_early_local_passes::pass_early_inline.  Otherwise our vector
+    // lowering fails since immediates have not been propagated into builtin
+    // callsites.
+
+    // Turn off pass_early_local_passes::pass_all_early_optimizations.
     pass_info.pass = &pass_gimple_null.pass;
     pass_info.reference_pass_name = "early_optimizations";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+    // Leave pass_early_local_passes::pass_release_ssa_names. ???
+
+    // Leave pass_early_local_passes::pass_rebuild_cgraph_edges. ???
+
+    // Leave pass_inline_parameters.  Otherwise our vector lowering fails since
+    // immediates have not been propagated into builtin callsites.
 
     // Turn off pass_ipa_increase_alignment.
     pass_info.pass = &pass_simple_ipa_null.pass;
@@ -2371,6 +2407,8 @@ int plugin_init (struct plugin_name_args *plugin_info,
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+    // Leave pass_ipa_whole_program_visibility. ???
 
     // Turn off pass_ipa_cp.
     pass_info.pass = &pass_ipa_null.pass;
