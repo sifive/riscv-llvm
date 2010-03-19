@@ -1469,7 +1469,10 @@ static void FinalizePlugin(void) {
   if (Finalized)
     return;
 
+#ifndef NDEBUG
+  delete TheModule;
   llvm_shutdown();
+#endif
 
   Finalized = true;
 }
