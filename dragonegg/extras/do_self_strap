@@ -47,6 +47,8 @@ GCC_OPTIONS="--enable-lto --enable-languages=c,c++ --disable-bootstrap \
 LLVM_OPTIONS="--enable-optimized --enable-assertions \
 	      --disable-threads"
 
+# Options to pass to the dragonegg Makefile.
+DRAGONEGG_OPTIONS=""
 
 COMPARE="cmp --ignore-initial=16"	# How to compare object files
 MAKE="nice -n 20 make -j -l3"		# How to run make
@@ -172,7 +174,7 @@ for STAGE in $STAGES ; do
   mkdir -p $DRAGONEGG_BUILD-pre
   cd $DRAGONEGG_BUILD-pre
   $MAKE -f $DRAGONEGG_SOURCE/Makefile clean
-  SRC_DIR=$DRAGONEGG_SOURCE $MAKE -f $DRAGONEGG_SOURCE/Makefile
+  SRC_DIR=$DRAGONEGG_SOURCE $DRAGONEGG_OPTIONS $MAKE -f $DRAGONEGG_SOURCE/Makefile
   # <== end: Build dragonegg using the just built GCC and DRAGONEGG.
 
 
@@ -189,7 +191,7 @@ for STAGE in $STAGES ; do
   mkdir -p $DRAGONEGG_BUILD
   cd $DRAGONEGG_BUILD
   $MAKE -f $DRAGONEGG_SOURCE/Makefile clean
-  SRC_DIR=$DRAGONEGG_SOURCE $MAKE -f $DRAGONEGG_SOURCE/Makefile
+  SRC_DIR=$DRAGONEGG_SOURCE $DRAGONEGG_OPTIONS $MAKE -f $DRAGONEGG_SOURCE/Makefile
   # <== end: Build dragonegg again using the just built dragonegg
 
 
