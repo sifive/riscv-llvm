@@ -21,6 +21,9 @@ GCC_INSTALL_BASE=$PWD/gcc-install		# Where to install GCC
 
 STAGES="0 1 2"	# Determines how many times we build GCC, LLVM and dragonegg
 
+#USE_KNOWN_GOOD_GCC_REVISION=0		# Use the most recent GCC revision
+USE_KNOWN_GOOD_GCC_REVISION=1		# Use a GCC revision known to be good
+
 #USE_PER_STAGE_BUILD_DIRECTORIES=0	# Do not use per-stage build directories
 USE_PER_STAGE_BUILD_DIRECTORIES=1	# Use per-stage build directories, helps
 					# when debugging self-host failures
@@ -82,14 +85,21 @@ fi
 
 
 # Check out or update the GCC source
+if (( USE_KNOWN_GOOD_GCC_REVISION )) ; then
+  GCC_REVISION=`cat $DRAGONEGG_SOURCE/gcc_revision_tested_with`
+  echo "Using GCC revision $GCC_REVISION"
+else
+  GCC_REVISION=head
+fi
+
 if [ -a $GCC_SOURCE ] ; then
   echo "Reverting any applied patches"
   svn revert -R $GCC_SOURCE/gcc
   echo "Updating GCC"
-  svn update $GCC_SOURCE
+  svn update -r $GCC_REVISION $GCC_SOURCE
 else
   echo "Checking out GCC"
-  svn co svn://gcc.gnu.org/svn/gcc/trunk $GCC_SOURCE
+  svn co -r $GCC_REVISION svn://gcc.gnu.org/svn/gcc/trunk $GCC_SOURCE
 fi
 
 
