@@ -1,0 +1,240 @@
+#!/bin/bash
+
+# This script performs an automated self-hosted build of dragonegg.  In
+# other words it builds dragonegg, then builds GCC and LLVM with dragonegg,
+# then uses those and dragonegg to rebuild dragonegg.  It does this a couple
+# of times until it reckons you must be fed up.  At which point it checks
+# that the dragonegg plugin is not changing at each iteration.
+#
+# This is all extreme overkill if all you want to do is try out dragonegg!  If
+# that's your goal then I suggest you consult the README file one directory up.
+
+#DRAGONEGG_SOURCE=$PWD/dragonegg	# Where to check out the dragonegg source
+#GCC_SOURCE=$PWD/gcc		# Where to check out the GCC source
+#LLVM_SOURCE=$PWD/llvm		# Where to check out the LLVM source
+LLVM_SOURCE=$1
+DRAGONEGG_SOURCE=$2
+BUILD_DIR=$3
+GCC_SOURCE=$BUILD_DIR/gcc
+
+#DRAGONEGG_BUILD_BASE=$PWD/dragonegg-build	# Where to build dragonegg
+#GCC_BUILD_BASE=$PWD/gcc-build			# Where to build GCC
+#LLVM_BUILD_BASE=$PWD/llvm-build			# Where to build LLVM
+#GCC_INSTALL_BASE=$PWD/gcc-install		# Where to install GCC
+DRAGONEGG_BUILD_BASE=$BUILD_DIR/dragonegg-build # Where to build dragonegg
+GCC_BUILD_BASE=$BUILD_DIR/gcc-build     # Where to build GCC
+LLVM_BUILD_BASE=$BUILD_DIR/llvm-build     # Where to build LLVM
+GCC_INSTALL_BASE=$BUILD_DIR/gcc-install   # Where to install GCC
+
+
+STAGES="0 1 2"	# Determines how many times we build GCC, LLVM and dragonegg
+
+#USE_KNOWN_GOOD_GCC_REVISION=0		# Use the most recent GCC revision
+USE_KNOWN_GOOD_GCC_REVISION=1		# Use a GCC revision known to be good
+
+#USE_PER_STAGE_BUILD_DIRECTORIES=0	# Do not use per-stage build directories
+USE_PER_STAGE_BUILD_DIRECTORIES=1	# Use per-stage build directories, helps
+					# when debugging self-host failures
+
+USE_PER_STAGE_INSTALL_DIRECTORIES=0	# Do not use per-stage install
+					# directories
+#USE_PER_STAGE_INSTALL_DIRECTORIES=1	# Use per-stage install directories
+# NOTE: turning on per-stage install directories automatically disables testing
+# that dragonegg object files did not change from one stage to the next.  This
+# is because the GCC install directory name gets embedded in the object files
+# due to use of __FILE__ in headers included from the GCC install directory.
+
+
+# How to configure GCC.  As a minimum you need to enable C and C++, but you can
+# also enable other languages if you like.  You must specify --enable-lto.  The
+# other flags are optional.  The reason for --disable-multilib is that GCC fails
+# to build on my machine without it (this is a GCC issue, and has nothing to do
+# with dragonegg or LLVM).
+GCC_OPTIONS="--enable-lto --enable-languages=c,c++ --disable-bootstrap \
+	     --disable-multilib --enable-checking --with-mpfr=/opt/cfarm/mpfr-2.4.1 --with-gmp=/opt/cfarm/gmp-4.2.4 --with-mpc=/opt/cfarm/mpc-0.8 --with-libelf=/opt/cfarm/libelf-0.8.12"
+
+# How to configure LLVM.  These are all optional.  On my machine, the debugger
+# refuses to work with dragonegg unless I build LLVM with --disable-threads.
+LLVM_OPTIONS="--enable-optimized --enable-assertions \
+	      --disable-threads"
+
+# Options to pass to the dragonegg Makefile.
+DRAGONEGG_OPTIONS="CPPFLAGS=-I/opt/cfarm/mpfr-2.4.1/include -I/opt/cfarm/gmp-4.2.4/include/ -I /opt/cfarm/mpc-0.8/include/"
+
+COMPARE="cmp --ignore-initial=16"	# How to compare object files
+MAKE="nice -n 20 make -j -l3"		# How to run make
+
+
+set -o errexit    # Exit if any command fails
+shopt -s nullglob
+
+# Turn off plugin version checking, otherwise the check may fail if all stages
+# are not built on the same day, since the version contains the build date.
+export dragonegg_disable_version_check=yes
+
+## Check out or update the dragonegg source
+#if [ -a $DRAGONEGG_SOURCE ] ; then
+#  echo "Updating dragonegg"
+#  svn update $DRAGONEGG_SOURCE
+#else
+#  echo "Checking out dragonegg"
+#  svn co http://llvm.org/svn/llvm-project/dragonegg/trunk $DRAGONEGG_SOURCE
+#fi
+#
+#
+## Check out or update the LLVM source
+#if [ -a $LLVM_SOURCE ] ; then
+#  echo "Updating LLVM"
+#  svn update $LLVM_SOURCE
+#else
+#  echo "Checking out LLVM"
+#  svn co http://llvm.org/svn/llvm-project/llvm/trunk $LLVM_SOURCE
+#fi
+
+
+# Check out or update the GCC source
+if (( USE_KNOWN_GOOD_GCC_REVISION )) ; then
+  GCC_REVISION=`cat $DRAGONEGG_SOURCE/gcc_revision_tested_with`
+  echo "Using GCC revision $GCC_REVISION"
+else
+  GCC_REVISION=head
+fi
+
+if [ -a $GCC_SOURCE ] ; then
+  echo "Reverting any applied patches"
+  svn revert -R $GCC_SOURCE/gcc
+  echo "Updating GCC"
+  svn update -r $GCC_REVISION $GCC_SOURCE
+else
+  echo "Checking out GCC"
+  svn co -r $GCC_REVISION svn://gcc.gnu.org/svn/gcc/trunk $GCC_SOURCE
+fi
+
+
+# Apply any needed patches to GCC
+for PATCH in $DRAGONEGG_SOURCE/gcc-patches/*.diff ; do
+  echo "Applying patch $PATCH"
+  patch -d $GCC_SOURCE -p1 < $PATCH
+done
+
+PLUGIN_OPTION= # No plugin yet
+PREV_DRAGONEGG_BUILD= # No previous dragonegg
+for STAGE in $STAGES ; do
+
+  if (( USE_PER_STAGE_BUILD_DIRECTORIES )) ; then
+    DRAGONEGG_BUILD=$DRAGONEGG_BUILD_BASE-$STAGE
+    GCC_BUILD=$GCC_BUILD_BASE-$STAGE
+    LLVM_BUILD=$LLVM_BUILD_BASE-$STAGE
+  else
+    DRAGONEGG_BUILD=$DRAGONEGG_BUILD_BASE
+    GCC_BUILD=$GCC_BUILD_BASE
+    LLVM_BUILD=$LLVM_BUILD_BASE
+  fi
+
+  if (( USE_PER_STAGE_INSTALL_DIRECTORIES )) ; then
+    GCC_INSTALL=$GCC_INSTALL_BASE-$STAGE
+  else
+    GCC_INSTALL=$GCC_INSTALL_BASE
+  fi
+
+  # ==> begin: Build and install GCC
+  echo "Building stage $STAGE GCC"
+  rm -fr $GCC_BUILD
+  mkdir -p $GCC_BUILD
+  cd $GCC_BUILD
+  # NOTE: the configure arguments need to be the same at each stage, because
+  # they are recorded in the plugin version information.  If they differed,
+  # then object files from different stages would not compare the same.  This
+  # is the reason for configuring with the same prefix at each stage, even if
+  # we intend to install in a different directory each time.
+  $GCC_SOURCE/configure --prefix=$GCC_INSTALL_BASE $GCC_OPTIONS
+  $MAKE
+
+  echo "Installing stage $STAGE GCC"
+  rm -fr $GCC_INSTALL $GCC_INSTALL_BASE
+  $MAKE install
+  if [ "$GCC_INSTALL_BASE" != "$GCC_INSTALL" ] ; then
+    # Move the just built GCC to its definitive install directory.
+    mv $GCC_INSTALL_BASE $GCC_INSTALL
+  fi
+  # <== end: Build and install GCC
+
+
+  # From now on compile using the newly built GCC
+  export CC="$GCC_INSTALL/bin/gcc $PLUGIN_OPTION"
+  export CXX="$GCC_INSTALL/bin/g++ $PLUGIN_OPTION"
+  export GCC=$CC # Tells dragonegg what to build against
+
+  # The built libstdc++ and libgcc may be more recent than the system versions.
+  # Set the library path so that programs compiled with the just built GCC will
+  # start successfully, rather than failing due to shared library dependencies.
+  export LD_LIBRARY_PATH=`$CC -print-search-dirs | grep "^libraries:" | \
+	sed "s/^libraries: *=//"`:$LD_LIBRARY_PATH
+
+
+  # ==> begin: Build LLVM using the just built GCC
+  echo "Building stage $STAGE LLVM"
+  rm -fr $LLVM_BUILD
+  mkdir -p $LLVM_BUILD
+  cd $LLVM_BUILD
+  $LLVM_SOURCE/configure $LLVM_OPTIONS
+  $MAKE
+  # <== end: Build LLVM using the just built GCC
+
+
+  # From now on 'llvm-config' will be the just built one.
+  export LLVM_CONFIG=$LLVM_BUILD/*/bin/llvm-config
+
+
+  # ==> begin: Build dragonegg using the just built GCC and LLVM.
+  echo "Building pre-stage $STAGE dragonegg"
+  rm -fr $DRAGONEGG_BUILD-pre
+  mkdir -p $DRAGONEGG_BUILD-pre
+  cd $DRAGONEGG_BUILD-pre
+  $MAKE -f $DRAGONEGG_SOURCE/Makefile clean
+  SRC_DIR=$DRAGONEGG_SOURCE $DRAGONEGG_OPTIONS $MAKE -f $DRAGONEGG_SOURCE/Makefile
+  # <== end: Build dragonegg using the just built GCC and DRAGONEGG.
+
+
+  # Compile using the just built dragonegg.
+  PLUGIN_OPTION="-fplugin=$DRAGONEGG_BUILD-pre/dragonegg.so"
+  export CC="$GCC_INSTALL/bin/gcc $PLUGIN_OPTION"
+  export CXX="$GCC_INSTALL/bin/g++ $PLUGIN_OPTION"
+  export GCC=$CC # Tells dragonegg what to build against
+
+
+  # ==> begin: Build dragonegg again using the just built dragonegg
+  echo "Building stage $STAGE dragonegg with itself"
+  rm -fr $DRAGONEGG_BUILD
+  mkdir -p $DRAGONEGG_BUILD
+  cd $DRAGONEGG_BUILD
+  $MAKE -f $DRAGONEGG_SOURCE/Makefile clean
+  SRC_DIR=$DRAGONEGG_SOURCE $DRAGONEGG_OPTIONS $MAKE -f $DRAGONEGG_SOURCE/Makefile
+  # <== end: Build dragonegg again using the just built dragonegg
+
+
+  # Compile using the self-built dragonegg.
+  PLUGIN_OPTION="-fplugin=$DRAGONEGG_BUILD/dragonegg.so"
+  export CC="$GCC_INSTALL/bin/gcc $PLUGIN_OPTION"
+  export CXX="$GCC_INSTALL/bin/g++ $PLUGIN_OPTION"
+  export GCC=$CC # Tells dragonegg what to build against
+
+
+  # ==> begin: Compare the dragonegg objects with those from the previous stage
+  if (( !USE_PER_STAGE_INSTALL_DIRECTORIES )) ; then
+
+     if [ "x$PREV_DRAGONEGG_BUILD" != "x" ] ; then
+       echo "Comparing $DRAGONEGG_BUILD objects to $PREV_DRAGONEGG_BUILD objects"
+       cd $DRAGONEGG_BUILD
+       for O in *.o ; do
+         P=$PREV_DRAGONEGG_BUILD/$O
+         $COMPARE $O $P
+       done
+     fi
+
+  fi
+  # <== end: Compare the dragonegg objects with those from the previous stage
+
+
+  PREV_DRAGONEGG_BUILD=$DRAGONEGG_BUILD
+done
