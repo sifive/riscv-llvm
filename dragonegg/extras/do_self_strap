@@ -184,7 +184,7 @@ for STAGE in $STAGES ; do
   mkdir -p $DRAGONEGG_BUILD-pre
   cd $DRAGONEGG_BUILD-pre
   $MAKE -f $DRAGONEGG_SOURCE/Makefile clean
-  SRC_DIR=$DRAGONEGG_SOURCE $DRAGONEGG_OPTIONS $MAKE -f $DRAGONEGG_SOURCE/Makefile
+  SRC_DIR=$DRAGONEGG_SOURCE $MAKE -f $DRAGONEGG_SOURCE/Makefile $DRAGONEGG_OPTIONS
   # <== end: Build dragonegg using the just built GCC and DRAGONEGG.
 
 
@@ -201,7 +201,7 @@ for STAGE in $STAGES ; do
   mkdir -p $DRAGONEGG_BUILD
   cd $DRAGONEGG_BUILD
   $MAKE -f $DRAGONEGG_SOURCE/Makefile clean
-  SRC_DIR=$DRAGONEGG_SOURCE $DRAGONEGG_OPTIONS $MAKE -f $DRAGONEGG_SOURCE/Makefile
+  SRC_DIR=$DRAGONEGG_SOURCE $MAKE -f $DRAGONEGG_SOURCE/Makefile $DRAGONEGG_OPTIONS
   # <== end: Build dragonegg again using the just built dragonegg
 
 
