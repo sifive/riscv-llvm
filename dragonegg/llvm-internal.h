@@ -104,7 +104,7 @@ extern void AddAnnotateAttrsToGlobal(GlobalValue *GV, union tree_node* decl);
 extern Value *make_decl_llvm(union tree_node *);
 #define DECL_LLVM(NODE) make_decl_llvm(NODE)
 
-/// SET_DECL_LLVM - Set the DECL_LLVM for NODE to LLVM. 
+/// SET_DECL_LLVM - Set the DECL_LLVM for NODE to LLVM.
 extern Value *set_decl_llvm(union tree_node *, Value *);
 #define SET_DECL_LLVM(NODE, LLVM) set_decl_llvm(NODE, LLVM)
 
@@ -156,7 +156,7 @@ class TypeConverter {
   /// ConvertingStruct - If we are converting a RECORD or UNION to an LLVM type
   /// we set this flag to true.
   bool ConvertingStruct;
-  
+
   /// PointersToReresolve - When ConvertingStruct is true, we handling of
   /// POINTER_TYPE and REFERENCE_TYPE is changed to return
   /// opaque*'s instead of recursively calling ConvertType.  When this happens,
@@ -174,8 +174,8 @@ public:
   /// has any data that overlaps with structure padding in the specified LLVM
   /// type.
   static bool GCCTypeOverlapsWithLLVMTypePadding(tree_node *t, const Type *Ty);
-  
-  
+
+
   /// ConvertFunctionType - Convert the specified FUNCTION_TYPE or METHOD_TYPE
   /// tree to an LLVM type.  This does the same thing that ConvertType does, but
   /// it also returns the function's LLVM calling convention and attributes.
@@ -184,7 +184,7 @@ public:
                                           tree_node *static_chain,
                                           CallingConv::ID &CallingConv,
                                           AttrListPtr &PAL);
-  
+
   /// ConvertArgListToFnType - Given a DECL_ARGUMENTS list on an GCC tree,
   /// return the LLVM type corresponding to the function.  This is useful for
   /// turning "T foo(...)" functions into "T foo(void)" functions.
@@ -193,7 +193,7 @@ public:
                                              tree_node *static_chain,
                                              CallingConv::ID &CallingConv,
                                              AttrListPtr &PAL);
-  
+
 private:
   const Type *ConvertRECORD(tree_node *type);
   bool DecodeStructFields(tree_node *Field, StructTypeConversionInfo &Info);
@@ -406,7 +406,7 @@ public:
   Value *make_definition_local(union tree_node *);
   #define DEFINITION_LOCAL(NODE) make_definition_local(NODE)
 
-  /// SET_DECL_LOCAL - Set the DECL_LOCAL for NODE to LLVM. 
+  /// SET_DECL_LOCAL - Set the DECL_LOCAL for NODE to LLVM.
   Value *set_decl_local(union tree_node *, Value *);
   #define SET_DECL_LOCAL(NODE, LLVM) set_decl_local(NODE, LLVM)
 
@@ -449,11 +449,11 @@ private:
 public:
   TreeToLLVM(tree_node *fndecl);
   ~TreeToLLVM();
-  
+
   /// getFUNCTION_DECL - Return the FUNCTION_DECL node for the current function
   /// being compiled.
   tree_node *getFUNCTION_DECL() const { return FnDecl; }
-  
+
   /// EmitFunction - Convert 'fndecl' to LLVM code.
   Function *EmitFunction();
 
@@ -522,7 +522,7 @@ private: // Helper functions.
   /// StartFunctionBody - Start the emission of 'fndecl', outputing all
   /// declarations for parameters and setting things up.
   void StartFunctionBody();
-  
+
   /// FinishFunctionBody - Once the body of the function has been emitted, this
   /// cleans up and returns the result function.
   Function *FinishFunctionBody();
@@ -544,7 +544,7 @@ private: // Helper functions.
   /// BeginBlock - Add the specified basic block to the end of the function.  If
   /// the previous block falls through into it, add an explicit branch.
   void BeginBlock(BasicBlock *BB);
-  
+
   /// EmitAggregateZero - Zero the elements of DestLoc.
   void EmitAggregateZero(MemRef DestLoc, tree_node *GCCType);
 
@@ -564,7 +564,7 @@ private: // Helper functions.
   /// EmitUnwindBlock - Emit the lazily created EH unwind block.
   void EmitUnwindBlock();
 
-  /// EmitDebugInfo - Return true if debug info is to be emitted for current 
+  /// EmitDebugInfo - Return true if debug info is to be emitted for current
   /// function.
   bool EmitDebugInfo();
 
@@ -709,11 +709,11 @@ private:
   Value *BuildVector(Value *Elt, ...);
   Value *BuildVectorShuffle(Value *InVec1, Value *InVec2, ...);
   Value *BuildBinaryAtomicBuiltin(gimple stmt, Intrinsic::ID id);
-  Value *BuildCmpAndSwapAtomicBuiltin(gimple stmt, tree_node *type, 
+  Value *BuildCmpAndSwapAtomicBuiltin(gimple stmt, tree_node *type,
                                       bool isBool);
 
   // Builtin Function Expansion.
-  bool EmitBuiltinCall(gimple stmt, tree_node *fndecl, 
+  bool EmitBuiltinCall(gimple stmt, tree_node *fndecl,
                        const MemRef *DestLoc, Value *&Result);
   bool EmitFrontendExpandedBuiltinCall(gimple stmt, tree_node *fndecl,
                                        const MemRef *DestLoc, Value *&Result);
@@ -828,7 +828,7 @@ public:
   Constant *EmitLV_LABEL_DECL(tree_node *exp);
 };
 
-/// TreeConstantToLLVM - An instance of this class is created and used to 
+/// TreeConstantToLLVM - An instance of this class is created and used to
 /// convert tree constant values to LLVM.  This is primarily for things like
 /// global variable initializers.
 ///
@@ -858,7 +858,7 @@ public:
   static Constant *EmitLV_STRING_CST(tree_node *exp);
   static Constant *EmitLV_COMPONENT_REF(tree_node *exp);
   static Constant *EmitLV_ARRAY_REF(tree_node *exp);
-  
+
 };
 
 #endif /* LLVM_INTERNAL_H */
