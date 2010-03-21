@@ -1,5 +1,9 @@
 #!/bin/bash
 
+set -o errexit	# Exit if any command fails
+#set -x		# Print commands as they are executed
+shopt -s nullglob
+
 # This script performs an automated self-hosted build of dragonegg.  In
 # other words it builds dragonegg, then builds GCC and LLVM with dragonegg,
 # then uses those and dragonegg to rebuild dragonegg.  It does this a couple
@@ -43,44 +47,40 @@ USE_PER_STAGE_INSTALL_DIRECTORIES=0	# Do not use per-stage install
 # to build on my machine without it (this is a GCC issue, and has nothing to do
 # with dragonegg or LLVM).
 GCC_OPTIONS="--enable-lto --enable-languages=c,c++ --disable-bootstrap \
-	     --disable-multilib --enable-checking"
+	     --disable-multilib --enable-checking $GCC_OPTIONS"
 
 # How to configure LLVM.  These are all optional.  On my machine, the debugger
 # refuses to work with dragonegg unless I build LLVM with --disable-threads.
 LLVM_OPTIONS="--enable-optimized --enable-assertions \
-	      --disable-threads"
-
-# Options to pass to the dragonegg Makefile.
-DRAGONEGG_OPTIONS=""
+	      --disable-threads $LLVM_OPTIONS"
 
 COMPARE="cmp --ignore-initial=16"	# How to compare object files
 MAKE="nice -n 20 make -j -l3"		# How to run make
 
-
-set -o errexit    # Exit if any command fails
-shopt -s nullglob
 
 # Turn off plugin version checking, otherwise the check may fail if all stages
 # are not built on the same day, since the version contains the build date.
 export dragonegg_disable_version_check=yes
 
 # Check out or update the dragonegg source
-if [ -a $DRAGONEGG_SOURCE ] ; then
-  echo "Updating dragonegg"
-  svn update $DRAGONEGG_SOURCE
-else
+if [ ! -e $DRAGONEGG_SOURCE ] ; then
   echo "Checking out dragonegg"
   svn co http://llvm.org/svn/llvm-project/dragonegg/trunk $DRAGONEGG_SOURCE
+elif [ ! -L $DRAGONEGG_SOURCE ] ; then	# Do not update symbolic links.  This is
+					# for the benefit of the buildbots.
+  echo "Updating dragonegg"
+  svn update $DRAGONEGG_SOURCE
 fi
 
 
 # Check out or update the LLVM source
-if [ -a $LLVM_SOURCE ] ; then
-  echo "Updating LLVM"
-  svn update $LLVM_SOURCE
-else
+if [ ! -e $LLVM_SOURCE ] ; then
   echo "Checking out LLVM"
   svn co http://llvm.org/svn/llvm-project/llvm/trunk $LLVM_SOURCE
+elif [ ! -L $LLVM_SOURCE ] ; then	# Do not update symbolic links.  This is
+					# for the benefit of the buildbots.
+  echo "Updating LLVM"
+  svn update $LLVM_SOURCE
 fi
 
 
@@ -92,14 +92,15 @@ else
   GCC_REVISION=head
 fi
 
-if [ -a $GCC_SOURCE ] ; then
+if [ ! -e $GCC_SOURCE ] ; then
+  echo "Checking out GCC"
+  svn co -r $GCC_REVISION svn://gcc.gnu.org/svn/gcc/trunk $GCC_SOURCE
+elif [ ! -L $GCC_SOURCE ] ; then	# Do not update symbolic links.  This is
+					# for the benefit of the buildbots.
   echo "Reverting any applied patches"
   svn revert -R $GCC_SOURCE/gcc
   echo "Updating GCC"
   svn update -r $GCC_REVISION $GCC_SOURCE
-else
-  echo "Checking out GCC"
-  svn co -r $GCC_REVISION svn://gcc.gnu.org/svn/gcc/trunk $GCC_SOURCE
 fi
 
 
@@ -184,7 +185,7 @@ for STAGE in $STAGES ; do
   mkdir -p $DRAGONEGG_BUILD-pre
   cd $DRAGONEGG_BUILD-pre
   $MAKE -f $DRAGONEGG_SOURCE/Makefile clean
-  SRC_DIR=$DRAGONEGG_SOURCE $MAKE -f $DRAGONEGG_SOURCE/Makefile $DRAGONEGG_OPTIONS
+  SRC_DIR=$DRAGONEGG_SOURCE $MAKE -f $DRAGONEGG_SOURCE/Makefile
   # <== end: Build dragonegg using the just built GCC and DRAGONEGG.
 
 
@@ -201,7 +202,7 @@ for STAGE in $STAGES ; do
   mkdir -p $DRAGONEGG_BUILD
   cd $DRAGONEGG_BUILD
   $MAKE -f $DRAGONEGG_SOURCE/Makefile clean
-  SRC_DIR=$DRAGONEGG_SOURCE $MAKE -f $DRAGONEGG_SOURCE/Makefile $DRAGONEGG_OPTIONS
+  SRC_DIR=$DRAGONEGG_SOURCE $MAKE -f $DRAGONEGG_SOURCE/Makefile
   # <== end: Build dragonegg again using the just built dragonegg
 
 
