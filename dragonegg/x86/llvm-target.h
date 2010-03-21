@@ -114,7 +114,7 @@ extern tree llvm_x86_should_return_selt_struct_as_scalar(tree);
 #define LLVM_SHOULD_RETURN_SELT_STRUCT_AS_SCALAR(X) \
   llvm_x86_should_return_selt_struct_as_scalar((X))
 
-extern bool llvm_x86_should_pass_aggregate_in_integer_regs(tree, 
+extern bool llvm_x86_should_pass_aggregate_in_integer_regs(tree,
                                                           unsigned*, bool*);
 
 /* LLVM_SHOULD_PASS_AGGREGATE_IN_INTEGER_REGS - Return true if this aggregate
@@ -125,17 +125,17 @@ extern bool llvm_x86_should_pass_aggregate_in_integer_regs(tree,
 #define LLVM_SHOULD_PASS_AGGREGATE_IN_INTEGER_REGS(X, Y, Z)             \
   llvm_x86_should_pass_aggregate_in_integer_regs((X), (Y), (Z))
 
-extern const Type *llvm_x86_scalar_type_for_struct_return(tree type, 
+extern const Type *llvm_x86_scalar_type_for_struct_return(tree type,
                                                           unsigned *Offset);
 
-/* LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be 
+/* LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be
    returned as a scalar, otherwise return NULL. */
 #define LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN(X, Y) \
   llvm_x86_scalar_type_for_struct_return((X), (Y))
 
 extern const Type *llvm_x86_aggr_type_for_struct_return(tree type);
 
-/* LLVM_AGGR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be 
+/* LLVM_AGGR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be
    returned as an aggregate, otherwise return NULL. */
 #define LLVM_AGGR_TYPE_FOR_STRUCT_RETURN(X, CC) \
   llvm_x86_aggr_type_for_struct_return(X)
@@ -165,7 +165,7 @@ extern tree llvm_x86_should_return_vector_as_scalar(tree, bool);
 
 /* The MMX vector v1i64 is returned in EAX and EDX on Darwin.  Communicate
     this by returning i64 here.  Likewise, (generic) vectors such as v2i16
-    are returned in EAX.  
+    are returned in EAX.
     On Darwin x86-64, MMX vectors are returned in XMM0.  Communicate this by
     returning f64.  */
 #define LLVM_SHOULD_RETURN_VECTOR_AS_SCALAR(X,isBuiltin)\
@@ -338,8 +338,8 @@ enum x86_64_reg_class
   if (!TARGET_80387)                                          \
     flag_no_implicit_float = 1;                               \
   else                                                        \
-    flag_no_implicit_float = 0;                               
-    
+    flag_no_implicit_float = 0;
+
 /* LLVM ABI definition macros. */
 
 /* When -m64 is specified, set the architecture to x86_64-os-blah even if the
