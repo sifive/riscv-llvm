@@ -1470,6 +1470,9 @@ static void FinalizePlugin(void) {
     return;
 
 #ifndef NDEBUG
+  delete PerModulePasses;
+  delete PerFunctionPasses;
+  delete CodeGenPasses;
   delete TheModule;
   llvm_shutdown();
 #endif
