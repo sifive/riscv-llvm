@@ -430,12 +430,8 @@ private:
   /// PostPads - The post landing pad for a given EH region.
   IndexedMap<BasicBlock *> PostPads;
 
-  /// ExceptionValue - Is the local to receive the current exception.
-  Value *ExceptionValue;
-
-  /// ExceptionSelectorValue - Is the local to receive the current exception
-  /// selector.
-  Value *ExceptionSelectorValue;
+  /// ExceptionPtrs - The local holding the exception pointer for a EH region.
+  IndexedMap<AllocaInst *> ExceptionPtrs;
 
   /// FuncEHException - Function used to receive the exception.
   Function *FuncEHException;
@@ -574,9 +570,17 @@ private: // Helpers for exception handling.
   /// handling.
   void CreateExceptionValues();
 
+  /// getLandingPad - Return the landing pad for the given exception handling
+  /// region, creating it if necessary.
+  BasicBlock *getLandingPad(unsigned RegionNo);
+
   /// getPostPad - Return the post landing pad for the given exception handling
   /// region, creating it if necessary.
   BasicBlock *getPostPad(unsigned RegionNo);
+
+  /// getExceptionPtr - Return the local holding the exception pointer for the
+  /// given exception handling region, creating it if necessary.
+  AllocaInst *getExceptionPtr(unsigned RegionNo);
 
 private:
   void EmitAutomaticVariableDecl(tree_node *decl);
@@ -695,10 +699,6 @@ private:
                     const AttrListPtr &PAL);
   Value *EmitFieldAnnotation(Value *FieldPtr, tree_node *FieldDecl);
 
-  // Exception Handling.
-  Value *EmitEXC_PTR_EXPR(tree_node *exp);
-  Value *EmitFILTER_EXPR(tree_node *exp);
-
   // Inline Assembly and Register Variables.
   Value *EmitReadOfRegisterVariable(tree_node *vardecl);
   void EmitModifyOfRegisterVariable(tree_node *vardecl, Value *RHS);
@@ -739,6 +739,7 @@ private:
   bool EmitBuiltinFrobReturnAddr(gimple stmt, Value *&Result);
   bool EmitBuiltinStackSave(gimple stmt, Value *&Result);
   bool EmitBuiltinStackRestore(gimple stmt);
+  bool EmitBuiltinEHPointer(gimple stmt, Value *&Result);
   bool EmitBuiltinDwarfCFA(gimple stmt, Value *&Result);
   bool EmitBuiltinDwarfSPColumn(gimple stmt, Value *&Result);
   bool EmitBuiltinEHReturnDataRegno(gimple stmt, Value *&Result);
@@ -758,8 +759,6 @@ private:
   LValue EmitLV_BIT_FIELD_REF(tree_node *exp);
   LValue EmitLV_COMPONENT_REF(tree_node *exp);
   LValue EmitLV_DECL(tree_node *exp);
-  LValue EmitLV_EXC_PTR_EXPR(tree_node *exp);
-  LValue EmitLV_FILTER_EXPR(tree_node *exp);
   LValue EmitLV_INDIRECT_REF(tree_node *exp);
   LValue EmitLV_VIEW_CONVERT_EXPR(tree_node *exp);
   LValue EmitLV_WITH_SIZE_EXPR(tree_node *exp);

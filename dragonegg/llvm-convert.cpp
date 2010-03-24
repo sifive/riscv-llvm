@@ -256,8 +256,6 @@ TreeToLLVM::TreeToLLVM(tree fndecl) :
 
   AllocaInsertionPoint = 0;
 
-  ExceptionValue = 0;
-  ExceptionSelectorValue = 0;
   FuncEHException = 0;
   FuncEHSelector = 0;
   FuncEHGetTypeID = 0;
@@ -1292,14 +1290,6 @@ LValue TreeToLLVM::EmitLV(tree exp) {
     LV = EmitLV_VIEW_CONVERT_EXPR(exp);
     break;
 
-  // Exception Handling.
-//FIXME  case EXC_PTR_EXPR:
-//FIXME    LV = EmitLV_EXC_PTR_EXPR(exp);
-//FIXME    break;
-//FIXME  case FILTER_EXPR:
-//FIXME    LV = EmitLV_FILTER_EXPR(exp);
-//FIXME    break;
-
   // Trivial Cases.
   case WITH_SIZE_EXPR:
     LV = EmitLV_WITH_SIZE_EXPR(exp);
@@ -1849,15 +1839,7 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
 /// CreateExceptionValues - Create values used internally by exception handling.
 void TreeToLLVM::CreateExceptionValues() {
   // Check to see if the exception values have been constructed.
-  if (ExceptionValue) return;
-
-  const Type *IntTy = ConvertType(integer_type_node);
-
-  ExceptionValue = CreateTemporary(Type::getInt8PtrTy(Context));
-  ExceptionValue->setName("eh_exception");
-
-  ExceptionSelectorValue = CreateTemporary(IntTy);
-  ExceptionSelectorValue->setName("eh_selector");
+  if (FuncEHException) return;
 
   FuncEHException = Intrinsic::getDeclaration(TheModule,
                                               Intrinsic::eh_exception);
@@ -1866,6 +1848,19 @@ void TreeToLLVM::CreateExceptionValues() {
   FuncEHGetTypeID = Intrinsic::getDeclaration(TheModule,
                                               Intrinsic::eh_typeid_for);
 }
+
+/// getLandingPad - Return the landing pad for the given exception handling
+/// region, creating it if necessary.
+BasicBlock *TreeToLLVM::getLandingPad(unsigned RegionNo) {
+  LandingPads.grow(RegionNo);
+  BasicBlock *&LandingPad = LandingPads[RegionNo];
+
+  if (!LandingPad)
+    LandingPad = BasicBlock::Create(Context, "lpad");
+
+  return LandingPad;
+}
+
 
 /// getPostPad - Return the post landing pad for the given exception handling
 /// region, creating it if necessary.
@@ -1877,6 +1872,20 @@ BasicBlock *TreeToLLVM::getPostPad(unsigned RegionNo) {
     PostPad = BasicBlock::Create(Context, "ppad");
 
   return PostPad;
+}
+
+/// getExceptionPtr - Return the local holding the exception pointer for the
+/// given exception handling region, creating it if necessary.
+AllocaInst *TreeToLLVM::getExceptionPtr(unsigned RegionNo) {
+  ExceptionPtrs.grow(RegionNo);
+  AllocaInst *&ExceptionPtr = ExceptionPtrs[RegionNo];
+
+  if (!ExceptionPtr) {
+    ExceptionPtr = CreateTemporary(Type::getInt8PtrTy(Context));
+    ExceptionPtr->setName("exc_ptr");
+  }
+
+  return ExceptionPtr;
 }
 
 /// AddHandler - Append the given region to a vector of exception handlers.
@@ -1901,13 +1910,13 @@ void TreeToLLVM::EmitLandingPads() {
     BeginBlock(LandingPad);
 
     // Fetch and store the exception.
-    Value *Ex = Builder.CreateCall(FuncEHException, "eh_ptr");
-    Builder.CreateStore(Ex, ExceptionValue);
+    Value *ExcPtr = Builder.CreateCall(FuncEHException, "exc_ptr");
+    Builder.CreateStore(ExcPtr, getExceptionPtr(i));
 
     // Fetch and store the exception selector.
 
     // The exception and the personality function.
-    Args.push_back(Builder.CreateLoad(ExceptionValue, "eh_ptr"));
+    Args.push_back(ExcPtr);
 abort();//FIXME
 //FIXME    assert(llvm_eh_personality_libfunc
 //FIXME           && "no exception handling personality function!");
@@ -2637,20 +2646,12 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
 //FIXME    // Is the call contained in an exception handling region?
 //FIXME    if (RegionNo > 0) {
 //FIXME      // Are there any exception handlers for this region?
-//FIXME      if (can_throw_internal_1(RegionNo, false, false)) {
+//FIXME      if (can_throw_internal_1(RegionNo, false, false))
 //FIXME        // There are - turn the call into an invoke.
-//FIXME        LandingPads.grow(RegionNo);
-//FIXME        BasicBlock *&ThisPad = LandingPads[RegionNo];
-//FIXME
-//FIXME        // Create a landing pad if one didn't exist already.
-//FIXME        if (!ThisPad)
-//FIXME          ThisPad = BasicBlock::Create(Context, "lpad");
-//FIXME
-//FIXME        LandingPad = ThisPad;
-//FIXME      } else {
+//FIXME        LandingPad = getLandingPad(RegionNo);
+//FIXME      else
 //FIXME        assert(can_throw_external_1(RegionNo, false, false) &&
 //FIXME               "Must-not-throw region handled by runtime?");
-//FIXME      }
 //FIXME    }
   }
 
@@ -2824,23 +2825,6 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   return 0;
 }
 
-/// EmitEXC_PTR_EXPR - Handle EXC_PTR_EXPR.
-Value *TreeToLLVM::EmitEXC_PTR_EXPR(tree exp) {
-abort();
-//TODO  CreateExceptionValues();
-//TODO  // Load exception address.
-//TODO  Value *V = Builder.CreateLoad(ExceptionValue, "eh_value");
-//TODO  // Cast the address to the right pointer type.
-//TODO  return Builder.CreateBitCast(V, ConvertType(TREE_TYPE(exp)));
-}
-
-/// EmitFILTER_EXPR - Handle FILTER_EXPR.
-Value *TreeToLLVM::EmitFILTER_EXPR(tree exp) {
-abort();
-//FIXME  CreateExceptionValues();
-//FIXME  // Load exception selector.
-//FIXME  return Builder.CreateLoad(ExceptionSelectorValue, "eh_select");
-}
 
 //===----------------------------------------------------------------------===//
 //               ... Inline Assembly and Register Variables ...
@@ -3575,6 +3559,10 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     return EmitBuiltinAdjustTrampoline(stmt, Result);
   case BUILT_IN_INIT_TRAMPOLINE:
     return EmitBuiltinInitTrampoline(stmt, Result);
+
+  // Exception handling builtins.
+  case BUILT_IN_EH_POINTER:
+    return EmitBuiltinEHPointer(stmt, Result);
 
   // Builtins used by the exception handling runtime.
   case BUILT_IN_DWARF_CFA:
@@ -4742,6 +4730,21 @@ bool TreeToLLVM::EmitBuiltinStackSave(gimple stmt, Value *&Result) {
 }
 
 
+// Exception handling builtins.
+
+bool TreeToLLVM::EmitBuiltinEHPointer(gimple stmt, Value *&Result) {
+  // Lookup the local that holds the exception pointer for this region.
+  unsigned RegionNo = tree_low_cst(gimple_call_arg(stmt, 0), 0);
+  AllocaInst *ExcPtr = getExceptionPtr(RegionNo);
+  // Load the exception pointer out.
+  Result = Builder.CreateLoad(ExcPtr);
+  // Ensure the returned value has the right pointer type.
+  tree type = gimple_call_return_type(stmt);
+  Result = Builder.CreateBitCast(Result, ConvertType(type));
+  return true;
+}
+
+
 // Builtins used by the exception handling runtime.
 
 // On most machines, the CFA coincides with the first incoming parm.
@@ -5503,24 +5506,6 @@ LValue TreeToLLVM::EmitLV_DECL(tree exp) {
   }
 
   return LValue(Builder.CreateBitCast(Decl, PTy), Alignment);
-}
-
-LValue TreeToLLVM::EmitLV_EXC_PTR_EXPR(tree exp) {
-  CreateExceptionValues();
-  // Cast the address pointer to the expected type.
-  unsigned Alignment = TD.getABITypeAlignment(cast<PointerType>(ExceptionValue->
-                                                  getType())->getElementType());
-  return LValue(Builder.CreateBitCast(ExceptionValue,
-                           PointerType::getUnqual(ConvertType(TREE_TYPE(exp)))),
-                Alignment);
-}
-
-LValue TreeToLLVM::EmitLV_FILTER_EXPR(tree exp) {
-  CreateExceptionValues();
-  unsigned Alignment =
-    TD.getABITypeAlignment(cast<PointerType>(ExceptionSelectorValue->
-                                             getType())->getElementType());
-  return LValue(ExceptionSelectorValue, Alignment);
 }
 
 LValue TreeToLLVM::EmitLV_INDIRECT_REF(tree exp) {
