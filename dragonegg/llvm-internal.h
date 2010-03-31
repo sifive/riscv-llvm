@@ -424,14 +424,11 @@ private:
 
   //===---------------------- Exception Handling --------------------------===//
 
-  /// LandingPads - The landing pad for a given EH region.
-  IndexedMap<BasicBlock *> LandingPads;
-
-  /// PostPads - The post landing pad for a given EH region.
-  IndexedMap<BasicBlock *> PostPads;
+  /// Invokes - The list of invoke instructions for a given EH region.
+  SmallVector<SmallVector<InvokeInst *, 8>, 16> Invokes;
 
   /// ExceptionPtrs - The local holding the exception pointer for a EH region.
-  IndexedMap<AllocaInst *> ExceptionPtrs;
+  SmallVector<AllocaInst *, 16> ExceptionPtrs;
 
   /// FuncEHException - Function used to receive the exception.
   Function *FuncEHException;
@@ -554,9 +551,6 @@ private: // Helper functions.
   /// EmitLandingPads - Emit EH landing pads.
   void EmitLandingPads();
 
-  /// EmitPostPads - Emit EH post landing pads.
-  void EmitPostPads();
-
   /// EmitUnwindBlock - Emit the lazily created EH unwind block.
   void EmitUnwindBlock();
 
@@ -573,10 +567,6 @@ private: // Helpers for exception handling.
   /// getLandingPad - Return the landing pad for the given exception handling
   /// region, creating it if necessary.
   BasicBlock *getLandingPad(unsigned RegionNo);
-
-  /// getPostPad - Return the post landing pad for the given exception handling
-  /// region, creating it if necessary.
-  BasicBlock *getPostPad(unsigned RegionNo);
 
   /// getExceptionPtr - Return the local holding the exception pointer for the
   /// given exception handling region, creating it if necessary.

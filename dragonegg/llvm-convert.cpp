@@ -76,6 +76,7 @@ extern "C" {
 #include "tree-pass.h"
 #include "rtl.h"
 #include "langhooks.h"
+#include "except.h"
 
 extern int get_pointer_alignment (tree exp, unsigned int max_align);
 extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
@@ -987,14 +988,13 @@ Function *TreeToLLVM::FinishFunctionBody() {
     Builder.CreateAggregateRet(RetVals.data(), RetVals.size());
   }
 
-  // Emit pending exception handling code.
-  EmitLandingPads();
-  EmitPostPads();
-  EmitUnwindBlock();
-
   // Populate phi nodes with their operands now that all ssa names have been
   // defined and all basic blocks output.
   PopulatePhiNodes();
+
+  // Now that phi nodes have been output, emit pending exception handling code.
+  EmitLandingPads();
+  EmitUnwindBlock();
 
 #ifndef NDEBUG
   if (!errorcount && !sorrycount)
@@ -1849,40 +1849,17 @@ void TreeToLLVM::CreateExceptionValues() {
                                               Intrinsic::eh_typeid_for);
 }
 
-/// getLandingPad - Return the landing pad for the given exception handling
-/// region, creating it if necessary.
-BasicBlock *TreeToLLVM::getLandingPad(unsigned RegionNo) {
-  LandingPads.grow(RegionNo);
-  BasicBlock *&LandingPad = LandingPads[RegionNo];
-
-  if (!LandingPad)
-    LandingPad = BasicBlock::Create(Context, "lpad");
-
-  return LandingPad;
-}
-
-
-/// getPostPad - Return the post landing pad for the given exception handling
-/// region, creating it if necessary.
-BasicBlock *TreeToLLVM::getPostPad(unsigned RegionNo) {
-  PostPads.grow(RegionNo);
-  BasicBlock *&PostPad = PostPads[RegionNo];
-
-  if (!PostPad)
-    PostPad = BasicBlock::Create(Context, "ppad");
-
-  return PostPad;
-}
-
 /// getExceptionPtr - Return the local holding the exception pointer for the
 /// given exception handling region, creating it if necessary.
 AllocaInst *TreeToLLVM::getExceptionPtr(unsigned RegionNo) {
-  ExceptionPtrs.grow(RegionNo);
+  if (RegionNo >= ExceptionPtrs.size())
+    ExceptionPtrs.resize(RegionNo + 1, 0);
+
   AllocaInst *&ExceptionPtr = ExceptionPtrs[RegionNo];
 
   if (!ExceptionPtr) {
     ExceptionPtr = CreateTemporary(Type::getInt8PtrTy(Context));
-    ExceptionPtr->setName("exc_ptr");
+    ExceptionPtr->setName("exc_tmp");
   }
 
   return ExceptionPtr;
@@ -1896,28 +1873,109 @@ AllocaInst *TreeToLLVM::getExceptionPtr(unsigned RegionNo) {
 
 /// EmitLandingPads - Emit EH landing pads.
 void TreeToLLVM::EmitLandingPads() {
-  std::vector<Value*> Args;
+  // If a GCC landing pad is shared by several exception handling regions, or if
+  // there is a normal edge to it, then create an LLVM landing pad for each eh
+  // region.  Calls to eh.exception and eh.selector will be placed in the LLVM
+  // landing pad, which branches to the GCC landing pad.
+  for (unsigned RegionNo = 1; RegionNo < Invokes.size(); ++RegionNo){
+    // Get the list of invokes for this exception handling region.
+    SmallVector<InvokeInst *, 8> &InvokesForRegion = Invokes[RegionNo];
+
+    if (InvokesForRegion.empty())
+      continue;
+
+    // All of the invokes unwind to the same basic block: the GCC landing pad.
+    BasicBlock *OldDest = InvokesForRegion[0]->getUnwindDest();
+
+    // If the number of invokes is equal to the number of predecessors of the
+    // landing pad then it follows that no other exception handing region has
+    // invokes that unwind to this GCC landing pad, and also that there are no
+    // normal edges to the landing pad.  In this common case there is no need
+    // to create an LLVM specific landing pad.
+    if ((unsigned)std::distance(pred_begin(OldDest), pred_end(OldDest)) ==
+        InvokesForRegion.size())
+      continue;
+
+    // Create the LLVM landing pad right before the GCC landing pad.
+    BasicBlock *NewDest = BasicBlock::Create(Context, "lpad", Fn, OldDest);
+
+    // Redirect invoke unwind edges from the GCC landing pad to NewDest.
+    for (unsigned i = 0, e = InvokesForRegion.size(); i < e; ++i)
+      InvokesForRegion[i]->setSuccessor(1, NewDest);
+
+    // If there are any PHI nodes in OldDest, we need to update them to merge
+    // incoming values from NewDest instead.
+    pred_iterator PB = pred_begin(NewDest), PE = pred_end(NewDest);
+    for (BasicBlock::iterator II = OldDest->begin(); isa<PHINode>(II);) {
+      PHINode *PN = cast<PHINode>(II++);
+
+      // Check to see if all of the values coming in via invoke unwind edges are
+      // the same.  If so, we don't need to create a new PHI node.
+      Value *InVal = PN->getIncomingValueForBlock(*PB);
+      for (pred_iterator PI = PB; PI != PE; ++PI) {
+        if (PI != PB && InVal != PN->getIncomingValueForBlock(*PI)) {
+          InVal = 0;
+          break;
+        }
+      }
+
+      if (InVal == 0) {
+        // Different unwind edges have different values.  Create a new PHI node
+        // in NewDest.
+        PHINode *NewPN = PHINode::Create(PN->getType(), PN->getName()+".lpad",
+                                         NewDest);
+        // Add an entry for each unwind edge, using the value from the old PHI.
+        for (pred_iterator PI = PB; PI != PE; ++PI)
+          NewPN->addIncoming(PN->getIncomingValueForBlock(*PI), *PI);
+
+        // Now use this new PHI as the common incoming value for NewDest in PN.
+        InVal = NewPN;
+      }
+
+      // Revector exactly one entry in the PHI node to come from NewDest and
+      // delete the entries that came from the invoke unwind edges.
+      for (pred_iterator PI = PB; PI != PE; ++PI)
+        PN->removeIncomingValue(*PI);
+      PN->addIncoming(InVal, NewDest);
+    }
+
+    // Add a fallthrough from NewDest to the original landing pad.
+    BranchInst::Create(OldDest, NewDest);
+  }
+
+  // Initialize the exception pointer and selector value for each exception
+  // handling region at the start of the corresponding landing pad.  At this
+  // point each exception handling region has its own landing pad, which is
+  // only reachable via the unwind edges of the region's invokes.
+//FIXME  std::vector<Value*> Args;
 //FIXME  std::vector<eh_region> Handlers;
+  for (unsigned RegionNo = 1; RegionNo < Invokes.size(); ++RegionNo){
+    // Get the list of invokes for this exception handling region.
+    SmallVector<InvokeInst *, 8> &InvokesForRegion = Invokes[RegionNo];
 
-  for (unsigned i = 1; i < LandingPads.size(); ++i) {
-    BasicBlock *LandingPad = LandingPads[i];
-
-    if (!LandingPad)
+    if (InvokesForRegion.empty())
       continue;
 
     CreateExceptionValues();
 
-    BeginBlock(LandingPad);
+    // All of the invokes unwind to the same basic block: the landing pad.
+    BasicBlock *LPad = InvokesForRegion[0]->getUnwindDest();
 
-    // Fetch and store the exception.
+    // Insert instructions at the start of the landing pad, but after any phis.
+    Builder.SetInsertPoint(LPad, LPad->getFirstNonPHI());
+
+    // Fetch the exception pointer.
     Value *ExcPtr = Builder.CreateCall(FuncEHException, "exc_ptr");
-    Builder.CreateStore(ExcPtr, getExceptionPtr(i));
 
-    // Fetch and store the exception selector.
+    // Store it if made use of elsewhere.
+    if (RegionNo < ExceptionPtrs.size() && ExceptionPtrs[RegionNo])
+      Builder.CreateStore(ExcPtr, ExceptionPtrs[RegionNo]);
 
-    // The exception and the personality function.
-    Args.push_back(ExcPtr);
-abort();//FIXME
+//FIXME    // Fetch and store the exception selector.
+//FIXME
+//FIXME    // The exception and the personality function.
+//FIXME    Args.push_back(ExcPtr);
+//FIXME
 //FIXME    assert(llvm_eh_personality_libfunc
 //FIXME           && "no exception handling personality function!");
 //FIXME    Args.push_back(Builder.CreateBitCast(DECL_LOCAL(llvm_eh_personality_libfunc),
@@ -1992,30 +2050,29 @@ abort();//FIXME
 //FIXME    Value *Select = Builder.CreateCall(FuncEHSelector, Args.begin(), Args.end(),
 //FIXME                                       "eh_select");
 //FIXME    Builder.CreateStore(Select, ExceptionSelectorValue);
-//FIXME    // Branch to the post landing pad for the first reachable handler.
-//FIXME    assert(!Handlers.empty() && "Landing pad but no handler?");
-//FIXME    Builder.CreateBr(getPostPad(get_eh_region_number(*Handlers.begin())));
-//FIXME
+
 //FIXME    Handlers.clear();
 //FIXME    Args.clear();
   }
+
+  Invokes.clear();
 }
 
-/// EmitPostPads - Emit EH post landing pads.
-void TreeToLLVM::EmitPostPads() {
+//FIXME/// EmitPostPads - Emit EH post landing pads.
+//FIXMEvoid TreeToLLVM::EmitPostPads() {
 //FIXME  std::vector<eh_region> Handlers;
-
-  for (unsigned i = 1; i < PostPads.size(); ++i) {
-    BasicBlock *PostPad = PostPads[i];
-
-    if (!PostPad)
-      continue;
-
-    CreateExceptionValues();
-
-    BeginBlock(PostPad);
-
-abort();//FIXME
+//FIXME
+//FIXME  for (unsigned i = 1; i < PostPads.size(); ++i) {
+//FIXME    BasicBlock *PostPad = PostPads[i];
+//FIXME
+//FIXME    if (!PostPad)
+//FIXME      continue;
+//FIXME
+//FIXME    CreateExceptionValues();
+//FIXME
+//FIXME    BeginBlock(PostPad);
+//FIXMEBuilder.CreateUnreachable();
+//FIXME
 //FIXME    eh_region region = get_eh_region(i);
 //FIXME    BasicBlock *Dest = getLabelDeclBlock(get_eh_region_tree_label(region));
 //FIXME
@@ -2111,10 +2168,10 @@ abort();//FIXME
 //FIXME        UnwindBB = BasicBlock::Create(Context, "Unwind");
 //FIXME      Builder.CreateBr(UnwindBB);
 //FIXME    }
-
+//FIXME
 //FIXME    Handlers.clear();
-  }
-}
+//FIXME  }
+//FIXME}
 
 /// EmitUnwindBlock - Emit the lazily created EH unwind block.
 void TreeToLLVM::EmitUnwindBlock() {
@@ -2628,6 +2685,7 @@ namespace {
 Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
                               const AttrListPtr &InPAL) {
   BasicBlock *LandingPad = 0; // Non-zero indicates an invoke.
+  int RegionNo = 0; // Non-zero if contained in an exception handling region.
 
   AttrListPtr PAL = InPAL;
   if (PAL.isEmpty() && isa<Function>(Callee))
@@ -2641,18 +2699,18 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   if (!PAL.paramHasAttr(~0, Attribute::NoUnwind)) {
     // This call may throw.  Determine if we need to generate
     // an invoke rather than a simple call.
-//FIXME    int RegionNo = lookup_stmt_eh_region(stmt);
-//FIXME
-//FIXME    // Is the call contained in an exception handling region?
-//FIXME    if (RegionNo > 0) {
-//FIXME      // Are there any exception handlers for this region?
-//FIXME      if (can_throw_internal_1(RegionNo, false, false))
-//FIXME        // There are - turn the call into an invoke.
-//FIXME        LandingPad = getLandingPad(RegionNo);
-//FIXME      else
-//FIXME        assert(can_throw_external_1(RegionNo, false, false) &&
-//FIXME               "Must-not-throw region handled by runtime?");
-//FIXME    }
+    RegionNo = lookup_stmt_eh_lp(stmt);
+
+    // Is the call in an exception handling region with a landing pad?
+    if (RegionNo > 0) {
+      // Generate an invoke, with the GCC landing pad as the unwind destination.
+      // The destination may change to an LLVM only landing pad,  which precedes
+      // the GCC one, after phi nodes have been populated (doing things this way
+      // simplifies the generation of phi nodes).
+      eh_landing_pad lp = get_eh_landing_pad_from_number(RegionNo);
+      assert(lp && "Post landing pad not found!");
+      LandingPad = getLabelDeclBlock(lp->post_landing_pad);
+    }
   }
 
   tree fndecl = gimple_call_fndecl(stmt);
@@ -2768,6 +2826,16 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
                                 CallOperands.begin(), CallOperands.end());
     cast<InvokeInst>(Call)->setCallingConv(CallingConvention);
     cast<InvokeInst>(Call)->setAttributes(PAL);
+
+    // The invoke's destination may change to an LLVM only landing pad, which
+    // precedes the GCC one, after phi nodes have been populated (doing things
+    // this way simplifies the generation of phi nodes).  Record the invoke as
+    // well as the GCC exception handling region.
+    assert(RegionNo > 0 && "Invoke but no GCC landing pad?");
+    if ((unsigned)RegionNo >= Invokes.size())
+      Invokes.resize(RegionNo + 1);
+    Invokes[RegionNo].push_back(cast<InvokeInst>(Call));
+
     BeginBlock(NextBlock);
   }
 
