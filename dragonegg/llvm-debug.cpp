@@ -416,12 +416,7 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
   // Insert an llvm.dbg.declare into the current block.
   Instruction *Call = DebugFactory.InsertDeclare(AI, D, 
                                                  Builder.GetInsertBlock());
-
-  llvm::DILocation DO(NULL);
-  llvm::DILocation DL = 
-    DebugFactory.CreateLocation(CurLineNo, 0 /* column */, VarScope, DO);
-  
-  Call->setMetadata("dbg", DL.getNode());
+  Call->setDebugLoc(NewDebugLoc::get(CurLineNo, 0, VarScope.getNode()));
 }
 
 /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of 
@@ -442,12 +437,8 @@ void DebugInfo::EmitStopPoint(Function *Fn, BasicBlock *CurBB,
 
     if (RegionStack.empty())
       return;
-    llvm::DIDescriptor DR(cast<MDNode>(RegionStack.back()));
-    llvm::DIScope DS = llvm::DIScope(DR.getNode());
-    llvm::DILocation DO(NULL);
-    llvm::DILocation DL = 
-      DebugFactory.CreateLocation(CurLineNo, 0 /* column */, DS, DO);
-    Builder.SetCurrentDebugLocation(DL.getNode());
+    MDNode *Scope = cast<MDNode>(RegionStack.back());
+    Builder.SetCurrentDebugLocation(NewDebugLoc::get(CurLineNo,0/*col*/,Scope));
 }
 
 /// EmitGlobalVariable - Emit information about a global variable.
