@@ -1,8 +1,8 @@
 Index: mainline/gcc/config/i386/i386.c
 ===================================================================
---- mainline.orig/gcc/config/i386/i386.c	2010-02-19 15:06:17.872956905 +0100
-+++ mainline/gcc/config/i386/i386.c	2010-02-19 15:13:17.162961421 +0100
-@@ -4988,7 +4988,8 @@
+--- mainline.orig/gcc/config/i386/i386.c	2010-04-02 09:11:58.733574308 +0200
++++ mainline/gcc/config/i386/i386.c	2010-04-02 09:29:11.276111437 +0200
+@@ -4992,7 +4992,8 @@
     case, we return the original mode and warn ABI change if CUM isn't
     NULL.  */
  
@@ -12,7 +12,7 @@ Index: mainline/gcc/config/i386/i386.c
  type_natural_mode (const_tree type, CUMULATIVE_ARGS *cum)
  {
    enum machine_mode mode = TYPE_MODE (type);
-@@ -5119,7 +5120,9 @@
+@@ -5123,7 +5124,9 @@
     See the x86-64 PS ABI for details.
  */
  
@@ -23,7 +23,7 @@ Index: mainline/gcc/config/i386/i386.c
  classify_argument (enum machine_mode mode, const_tree type,
  		   enum x86_64_reg_class classes[MAX_CLASSES], int bit_offset)
  {
-@@ -5500,7 +5503,9 @@
+@@ -5504,7 +5507,9 @@
  
  /* Examine the argument and return set number of register required in each
     class.  Return 0 iff parameter should be passed in memory.  */
@@ -34,7 +34,7 @@ Index: mainline/gcc/config/i386/i386.c
  examine_argument (enum machine_mode mode, const_tree type, int in_return,
  		  int *int_nregs, int *sse_nregs)
  {
-@@ -6182,7 +6187,8 @@
+@@ -6186,7 +6191,8 @@
  
  /* Return true when TYPE should be 128bit aligned for 32bit argument passing
     ABI.  */
