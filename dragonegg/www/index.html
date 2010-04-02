@@ -67,7 +67,7 @@
   <h2>DragonEgg in action</h2>
   <!--=====================================================================-->
 
-  <p>Here is the result of compiling a simple "hello world" program with gcc-4.5.</p>
+  <p>Here is the result of compiling a simple "hello world" program with gcc-4.5:</p>
   <pre>
 $ gcc hello.c -S -O1 -o -
 	.file	"hello.c"
@@ -90,7 +90,7 @@ main:
   </pre>
 
   <p>Adding <tt>-fplugin=path/dragonegg.so</tt> to the gcc command line causes
-  the program to be optimized and codegened by LLVM instead.</p>
+  the program to be optimized and codegened by LLVM instead:</p>
   <pre>
 $ gcc hello.c -S -O1 -o - -fplugin=./dragonegg.so
 	.file	"hello.c"
@@ -120,7 +120,10 @@ main:
 	.section	.note.GNU-stack,"",@progbits
   </pre>
 
-  <p>Adding <tt>-fplugin-arg-dragonegg-emit-ir</tt> causes LLVM IR to be output.</p>
+  <p>Adding <tt>-fplugin-arg-dragonegg-emit-ir</tt> or <tt>-flto</tt> causes
+     LLVM IR to be output (you need to request assembler output, -S, rather
+     than object code output, -c, since otherwise gcc will pass the LLVM IR
+     to the system assembler, which will doubtless fail to assemble it):</p>
   <pre>
 $ gcc hello.c -S -O1 -o - -fplugin=./dragonegg.so -fplugin-arg-dragonegg-emit-ir
 ; ModuleID = 'hello.c'
