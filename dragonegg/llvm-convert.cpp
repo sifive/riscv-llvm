@@ -2007,7 +2007,7 @@ void TreeToLLVM::EmitLandingPads() {
         // Add the type infos.
         for (; TypeList; TypeList = TREE_CHAIN(TypeList)) {
           tree TType = lookup_type_for_runtime(TREE_VALUE(TypeList));
-          Args.push_back(EmitRegister(TType));
+          Args.push_back(TreeConstantToLLVM::Convert(TType));
         }
       }
       case ERT_CLEANUP:
@@ -2031,7 +2031,7 @@ void TreeToLLVM::EmitLandingPads() {
             // Add the type infos.
             for (; TypeList; TypeList = TREE_CHAIN(TypeList)) {
               tree TType = lookup_type_for_runtime(TREE_VALUE(TypeList));
-              Args.push_back(EmitRegister(TType));
+              Args.push_back(TreeConstantToLLVM::Convert(TType));
             }
         }
       }
@@ -2055,7 +2055,7 @@ void TreeToLLVM::EmitLandingPads() {
 //FIXME                                    Type::getInt8PtrTy(Context));
 //FIXME        else
 //FIXME          // This language has a type that catches all others.
-//FIXME          CatchAll = EmitRegister(catch_all_type);
+//FIXME          CatchAll = TreeConstantToLLVM::Convert(catch_all_type);
 //FIXME      }
 //FIXME      Args.push_back(CatchAll);
 //FIXME    }
