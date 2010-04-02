@@ -7115,7 +7115,7 @@ void TreeToLLVM::RenderGIMPLE_GOTO(gimple stmt) {
 }
 
 void TreeToLLVM::RenderGIMPLE_RESX(gimple stmt) {
-  Builder.CreateUnwind(); // FIXME
+  Builder.CreateUnreachable(); // FIXME
 //FIXME  int RegionNo = gimple_resx_region(stmt);
 //FIXME  std::vector<eh_region> Handlers;
 //FIXME
