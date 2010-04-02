@@ -430,11 +430,8 @@ private:
   /// ExceptionPtrs - The local holding the exception pointer for a EH region.
   SmallVector<AllocaInst *, 16> ExceptionPtrs;
 
-  /// FuncEHException - Function used to receive the exception.
-  Function *FuncEHException;
-
-  /// FuncEHSelector - Function used to receive the exception selector.
-  Function *FuncEHSelector;
+  /// ExceptionFilters - The local holding the filter value for a EH region.
+  SmallVector<AllocaInst *, 16> ExceptionFilters;
 
   /// FuncEHGetTypeID - Function used to return type id for give typeinfo.
   Function *FuncEHGetTypeID;
@@ -571,6 +568,10 @@ private: // Helpers for exception handling.
   /// getExceptionPtr - Return the local holding the exception pointer for the
   /// given exception handling region, creating it if necessary.
   AllocaInst *getExceptionPtr(unsigned RegionNo);
+
+  /// getExceptionFilter - Return the local holding the filter value for the
+  /// given exception handling region, creating it if necessary.
+  AllocaInst *getExceptionFilter(unsigned RegionNo);
 
 private:
   void EmitAutomaticVariableDecl(tree_node *decl);

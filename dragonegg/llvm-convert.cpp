@@ -257,8 +257,6 @@ TreeToLLVM::TreeToLLVM(tree fndecl) :
 
   AllocaInsertionPoint = 0;
 
-  FuncEHException = 0;
-  FuncEHSelector = 0;
   FuncEHGetTypeID = 0;
 
   assert(TheTreeToLLVM == 0 && "Reentering function creation?");
@@ -1839,12 +1837,8 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
 /// CreateExceptionValues - Create values used internally by exception handling.
 void TreeToLLVM::CreateExceptionValues() {
   // Check to see if the exception values have been constructed.
-  if (FuncEHException) return;
+  if (FuncEHGetTypeID) return;
 
-  FuncEHException = Intrinsic::getDeclaration(TheModule,
-                                              Intrinsic::eh_exception);
-  FuncEHSelector  = Intrinsic::getDeclaration(TheModule,
-                                              Intrinsic::eh_selector);
   FuncEHGetTypeID = Intrinsic::getDeclaration(TheModule,
                                               Intrinsic::eh_typeid_for);
 }
@@ -1865,14 +1859,28 @@ AllocaInst *TreeToLLVM::getExceptionPtr(unsigned RegionNo) {
   return ExceptionPtr;
 }
 
-/// AddHandler - Append the given region to a vector of exception handlers.
-/// A callback passed to foreach_reachable_handler.
-//FIXMEstatic void AddHandler (eh_region region, void *data) {
-//FIXME  ((std::vector<eh_region> *)data)->push_back(region);
-//FIXME}
+/// getExceptionFilter - Return the local holding the filter value for the
+/// given exception handling region, creating it if necessary.
+AllocaInst *TreeToLLVM::getExceptionFilter(unsigned RegionNo) {
+  if (RegionNo >= ExceptionFilters.size())
+    ExceptionFilters.resize(RegionNo + 1, 0);
+
+  AllocaInst *&ExceptionFilter = ExceptionFilters[RegionNo];
+
+  if (!ExceptionFilter) {
+    ExceptionFilter = CreateTemporary(Type::getInt32PtrTy(Context));
+    ExceptionFilter->setName("filt_tmp");
+  }
+
+  return ExceptionFilter;
+}
 
 /// EmitLandingPads - Emit EH landing pads.
 void TreeToLLVM::EmitLandingPads() {
+  // If there are no invokes then there is nothing to do.
+  if (Invokes.empty())
+    return;
+
   // If a GCC landing pad is shared by several exception handling regions, or if
   // there is a normal edge to it, then create an LLVM landing pad for each eh
   // region.  Calls to eh.exception and eh.selector will be placed in the LLVM
@@ -1947,16 +1955,17 @@ void TreeToLLVM::EmitLandingPads() {
   // handling region at the start of the corresponding landing pad.  At this
   // point each exception handling region has its own landing pad, which is
   // only reachable via the unwind edges of the region's invokes.
-//FIXME  std::vector<Value*> Args;
-//FIXME  std::vector<eh_region> Handlers;
+  std::vector<Value*> Args;
+  Function *EHException = Intrinsic::getDeclaration(TheModule,
+                                                    Intrinsic::eh_exception);
+  Function *EHSelector = Intrinsic::getDeclaration(TheModule,
+                                                   Intrinsic::eh_selector);
   for (unsigned RegionNo = 1; RegionNo < Invokes.size(); ++RegionNo){
     // Get the list of invokes for this exception handling region.
     SmallVector<InvokeInst *, 8> &InvokesForRegion = Invokes[RegionNo];
 
     if (InvokesForRegion.empty())
       continue;
-
-    CreateExceptionValues();
 
     // All of the invokes unwind to the same basic block: the landing pad.
     BasicBlock *LPad = InvokesForRegion[0]->getUnwindDest();
@@ -1965,64 +1974,69 @@ void TreeToLLVM::EmitLandingPads() {
     Builder.SetInsertPoint(LPad, LPad->getFirstNonPHI());
 
     // Fetch the exception pointer.
-    Value *ExcPtr = Builder.CreateCall(FuncEHException, "exc_ptr");
+    Value *ExcPtr = Builder.CreateCall(EHException, "exc_ptr");
 
     // Store it if made use of elsewhere.
     if (RegionNo < ExceptionPtrs.size() && ExceptionPtrs[RegionNo])
       Builder.CreateStore(ExcPtr, ExceptionPtrs[RegionNo]);
 
-//FIXME    // Fetch and store the exception selector.
-//FIXME
-//FIXME    // The exception and the personality function.
-//FIXME    Args.push_back(ExcPtr);
-//FIXME
-//FIXME    assert(llvm_eh_personality_libfunc
-//FIXME           && "no exception handling personality function!");
-//FIXME    Args.push_back(Builder.CreateBitCast(DECL_LOCAL(llvm_eh_personality_libfunc),
-//FIXME                                 Type::getInt8PtrTy(Context)));
-//FIXME
-//FIXME    // Add selections for each handler.
-//FIXME    foreach_reachable_handler(i, false, false, AddHandler, &Handlers);
-//FIXME
-//FIXME    for (std::vector<eh_region>::iterator I = Handlers.begin(),
-//FIXME         E = Handlers.end(); I != E; ++I) {
-//FIXME      eh_region region = *I;
-//FIXME
-//FIXME      // Create a post landing pad for the handler.
-//FIXME      getPostPad(get_eh_region_number(region));
-//FIXME
-//FIXME      int RegionKind = classify_eh_handler(region);
-//FIXME      if (RegionKind < 0) {
-//FIXME        // Filter - note the length.
-//FIXME        tree TypeList = get_eh_type_list(region);
-//FIXME        unsigned Length = list_length(TypeList);
-//FIXME        Args.reserve(Args.size() + Length + 1);
-//FIXME        Args.push_back(ConstantInt::get(Type::getInt32Ty, Length + 1));
-//FIXME
-//FIXME        // Add the type infos.
-//FIXME        for (; TypeList; TypeList = TREE_CHAIN(TypeList)) {
-//FIXME          tree TType = lookup_type_for_runtime(TREE_VALUE(TypeList));
-//FIXME          Args.push_back(EmitRegister(TType));
-//FIXME        }
-//FIXME      } else if (RegionKind > 0) {
-//FIXME        // Catch.
-//FIXME        tree TypeList = get_eh_type_list(region);
-//FIXME
-//FIXME        if (!TypeList) {
-//FIXME          // Catch-all - push a null pointer.
-//FIXME          Args.push_back(
-//FIXME            Constant::getNullValue(Type::getInt8PtrTy(Context))
-//FIXME          );
-//FIXME        } else {
-//FIXME          // Add the type infos.
-//FIXME          for (; TypeList; TypeList = TREE_CHAIN(TypeList)) {
-//FIXME            tree TType = lookup_type_for_runtime(TREE_VALUE(TypeList));
-//FIXME            Args.push_back(EmitRegister(TType));
-//FIXME          }
-//FIXME        }
-//FIXME      }
-//FIXME    }
-//FIXME
+    // Fetch and store the exception selector.
+
+    // The first argument is the exception pointer.
+    Args.push_back(ExcPtr);
+
+    // It is followed by the personality function.
+    tree personality = DECL_FUNCTION_PERSONALITY(FnDecl);
+    if (!personality) {
+      assert(function_needs_eh_personality(cfun) == eh_personality_any &&
+             "No exception handling personality!");
+      personality = lang_hooks.eh_personality();
+    }
+    Args.push_back(Builder.CreateBitCast(DECL_LLVM(personality),
+                                         Type::getInt8PtrTy(Context)));
+
+    for (eh_region r = get_eh_region_from_number(RegionNo); r; r = r->outer)
+      switch (r->type) {
+      case ERT_ALLOWED_EXCEPTIONS: {
+        // Filter - note the length.
+        tree TypeList = r->u.allowed.type_list;
+        unsigned Length = list_length(TypeList);
+        Args.reserve(Args.size() + Length + 1);
+        Args.push_back(ConstantInt::get(Type::getInt32Ty(Context), Length + 1));
+
+        // Add the type infos.
+        for (; TypeList; TypeList = TREE_CHAIN(TypeList)) {
+          tree TType = lookup_type_for_runtime(TREE_VALUE(TypeList));
+          Args.push_back(EmitRegister(TType));
+        }
+      }
+      case ERT_CLEANUP:
+        break;
+      case ERT_MUST_NOT_THROW:
+        // Same as a zero-length filter.
+        Args.push_back(ConstantInt::get(Type::getInt32Ty(Context), 1));
+        break;
+      case ERT_TRY: {
+        // Catches.
+
+        for (eh_catch c = r->u.eh_try.first_catch; c ; c = c->next_catch) {
+          tree TypeList = c->type_list;
+
+          if (!TypeList)
+            // Catch-all - push a null pointer.
+            Args.push_back(
+              Constant::getNullValue(Type::getInt8PtrTy(Context))
+            );
+          else
+            // Add the type infos.
+            for (; TypeList; TypeList = TREE_CHAIN(TypeList)) {
+              tree TType = lookup_type_for_runtime(TREE_VALUE(TypeList));
+              Args.push_back(EmitRegister(TType));
+            }
+        }
+      }
+    }
+
 //FIXME    if (can_throw_external_1(i, false, false)) {
 //FIXME      // Some exceptions from this region may not be caught by any handler.
 //FIXME      // Since invokes are required to branch to the unwind label no matter
@@ -2045,14 +2059,16 @@ void TreeToLLVM::EmitLandingPads() {
 //FIXME      }
 //FIXME      Args.push_back(CatchAll);
 //FIXME    }
-//FIXME
-//FIXME    // Emit the selector call.
-//FIXME    Value *Select = Builder.CreateCall(FuncEHSelector, Args.begin(), Args.end(),
-//FIXME                                       "eh_select");
-//FIXME    Builder.CreateStore(Select, ExceptionSelectorValue);
 
-//FIXME    Handlers.clear();
-//FIXME    Args.clear();
+    // Emit the selector call.
+    Value *Filter = Builder.CreateCall(EHSelector, Args.begin(), Args.end(),
+                                       "filter");
+
+    // Store it if made use of elsewhere.
+    if (RegionNo < ExceptionFilters.size() && ExceptionFilters[RegionNo])
+      Builder.CreateStore(Filter, ExceptionFilters[RegionNo]);
+
+    Args.clear();
   }
 
   Invokes.clear();
