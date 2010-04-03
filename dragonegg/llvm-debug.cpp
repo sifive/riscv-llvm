@@ -416,7 +416,7 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
   // Insert an llvm.dbg.declare into the current block.
   Instruction *Call = DebugFactory.InsertDeclare(AI, D, 
                                                  Builder.GetInsertBlock());
-  Call->setDebugLoc(NewDebugLoc::get(CurLineNo, 0, VarScope.getNode()));
+  Call->setDebugLoc(DebugLoc::get(CurLineNo, 0, VarScope.getNode()));
 }
 
 /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of 
@@ -438,7 +438,7 @@ void DebugInfo::EmitStopPoint(Function *Fn, BasicBlock *CurBB,
     if (RegionStack.empty())
       return;
     MDNode *Scope = cast<MDNode>(RegionStack.back());
-    Builder.SetCurrentDebugLocation(NewDebugLoc::get(CurLineNo,0/*col*/,Scope));
+    Builder.SetCurrentDebugLocation(DebugLoc::get(CurLineNo,0/*col*/,Scope));
 }
 
 /// EmitGlobalVariable - Emit information about a global variable.
