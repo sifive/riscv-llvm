@@ -257,8 +257,6 @@ TreeToLLVM::TreeToLLVM(tree fndecl) :
 
   AllocaInsertionPoint = 0;
 
-  FuncEHGetTypeID = 0;
-
   assert(TheTreeToLLVM == 0 && "Reentering function creation?");
   TheTreeToLLVM = this;
 }
@@ -1145,7 +1143,7 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
       break;
 
     case GIMPLE_EH_DISPATCH:
-      // TODO: Implement this.
+      RenderGIMPLE_EH_DISPATCH(stmt);
       break;
 
     case GIMPLE_GOTO:
@@ -1834,15 +1832,6 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
 //                           ... Control Flow ...
 //===----------------------------------------------------------------------===//
 
-/// CreateExceptionValues - Create values used internally by exception handling.
-void TreeToLLVM::CreateExceptionValues() {
-  // Check to see if the exception values have been constructed.
-  if (FuncEHGetTypeID) return;
-
-  FuncEHGetTypeID = Intrinsic::getDeclaration(TheModule,
-                                              Intrinsic::eh_typeid_for);
-}
-
 /// getExceptionPtr - Return the local holding the exception pointer for the
 /// given exception handling region, creating it if necessary.
 AllocaInst *TreeToLLVM::getExceptionPtr(unsigned RegionNo) {
@@ -1868,7 +1857,7 @@ AllocaInst *TreeToLLVM::getExceptionFilter(unsigned RegionNo) {
   AllocaInst *&ExceptionFilter = ExceptionFilters[RegionNo];
 
   if (!ExceptionFilter) {
-    ExceptionFilter = CreateTemporary(Type::getInt32PtrTy(Context));
+    ExceptionFilter = CreateTemporary(Type::getInt32Ty(Context));
     ExceptionFilter->setName("filt_tmp");
   }
 
@@ -1881,40 +1870,40 @@ void TreeToLLVM::EmitLandingPads() {
   if (Invokes.empty())
     return;
 
-  // If a GCC landing pad is shared by several exception handling regions, or if
-  // there is a normal edge to it, then create an LLVM landing pad for each eh
-  // region.  Calls to eh.exception and eh.selector will be placed in the LLVM
-  // landing pad, which branches to the GCC landing pad.
-  for (unsigned RegionNo = 1; RegionNo < Invokes.size(); ++RegionNo){
-    // Get the list of invokes for this exception handling region.
-    SmallVector<InvokeInst *, 8> &InvokesForRegion = Invokes[RegionNo];
+  // If a GCC post landing pad is shared by several exception handling regions,
+  // or if there is a normal edge to it, then create LLVM landing pads for each
+  // eh region.  Calls to eh.exception and eh.selector will then go in the LLVM
+  // landing pad, which branches to the GCC post landing pad.
+  for (unsigned LPadNo = 1; LPadNo < Invokes.size(); ++LPadNo) {
+    // Get the list of invokes for this GCC landing pad.
+    SmallVector<InvokeInst *, 8> &InvokesForPad = Invokes[LPadNo];
 
-    if (InvokesForRegion.empty())
+    if (InvokesForPad.empty())
       continue;
 
-    // All of the invokes unwind to the same basic block: the GCC landing pad.
-    BasicBlock *OldDest = InvokesForRegion[0]->getUnwindDest();
+    // All of the invokes unwind to the GCC post landing pad.
+    BasicBlock *PostPad = InvokesForPad[0]->getUnwindDest();
 
     // If the number of invokes is equal to the number of predecessors of the
-    // landing pad then it follows that no other exception handing region has
-    // invokes that unwind to this GCC landing pad, and also that there are no
-    // normal edges to the landing pad.  In this common case there is no need
-    // to create an LLVM specific landing pad.
-    if ((unsigned)std::distance(pred_begin(OldDest), pred_end(OldDest)) ==
-        InvokesForRegion.size())
+    // post landing pad then it follows that no other GCC landing pad has any
+    // invokes that unwind to this post landing pad, and also that no normal
+    // edges land at this post pad.  In this case there is no need to create
+    // an LLVM specific landing pad.
+    if ((unsigned)std::distance(pred_begin(PostPad), pred_end(PostPad)) ==
+        InvokesForPad.size())
       continue;
 
-    // Create the LLVM landing pad right before the GCC landing pad.
-    BasicBlock *NewDest = BasicBlock::Create(Context, "lpad", Fn, OldDest);
+    // Create the LLVM landing pad right before the GCC post landing pad.
+    BasicBlock *LPad = BasicBlock::Create(Context, "lpad", Fn, PostPad);
 
-    // Redirect invoke unwind edges from the GCC landing pad to NewDest.
-    for (unsigned i = 0, e = InvokesForRegion.size(); i < e; ++i)
-      InvokesForRegion[i]->setSuccessor(1, NewDest);
+    // Redirect invoke unwind edges from the GCC post landing pad to LPad.
+    for (unsigned i = 0, e = InvokesForPad.size(); i < e; ++i)
+      InvokesForPad[i]->setSuccessor(1, LPad);
 
-    // If there are any PHI nodes in OldDest, we need to update them to merge
-    // incoming values from NewDest instead.
-    pred_iterator PB = pred_begin(NewDest), PE = pred_end(NewDest);
-    for (BasicBlock::iterator II = OldDest->begin(); isa<PHINode>(II);) {
+    // If there are any PHI nodes in PostPad, we need to update them to merge
+    // incoming values from LPad instead.
+    pred_iterator PB = pred_begin(LPad), PE = pred_end(LPad);
+    for (BasicBlock::iterator II = PostPad->begin(); isa<PHINode>(II);) {
       PHINode *PN = cast<PHINode>(II++);
 
       // Check to see if all of the values coming in via invoke unwind edges are
@@ -1929,26 +1918,26 @@ void TreeToLLVM::EmitLandingPads() {
 
       if (InVal == 0) {
         // Different unwind edges have different values.  Create a new PHI node
-        // in NewDest.
+        // in LPad.
         PHINode *NewPN = PHINode::Create(PN->getType(), PN->getName()+".lpad",
-                                         NewDest);
+                                         LPad);
         // Add an entry for each unwind edge, using the value from the old PHI.
         for (pred_iterator PI = PB; PI != PE; ++PI)
           NewPN->addIncoming(PN->getIncomingValueForBlock(*PI), *PI);
 
-        // Now use this new PHI as the common incoming value for NewDest in PN.
+        // Now use this new PHI as the common incoming value for LPad in PN.
         InVal = NewPN;
       }
 
-      // Revector exactly one entry in the PHI node to come from NewDest and
+      // Revector exactly one entry in the PHI node to come from LPad and
       // delete the entries that came from the invoke unwind edges.
       for (pred_iterator PI = PB; PI != PE; ++PI)
         PN->removeIncomingValue(*PI);
-      PN->addIncoming(InVal, NewDest);
+      PN->addIncoming(InVal, LPad);
     }
 
-    // Add a fallthrough from NewDest to the original landing pad.
-    BranchInst::Create(OldDest, NewDest);
+    // Add a fallthrough from LPad to the original landing pad.
+    BranchInst::Create(PostPad, LPad);
   }
 
   // Initialize the exception pointer and selector value for each exception
@@ -1956,33 +1945,36 @@ void TreeToLLVM::EmitLandingPads() {
   // point each exception handling region has its own landing pad, which is
   // only reachable via the unwind edges of the region's invokes.
   std::vector<Value*> Args;
-  Function *EHException = Intrinsic::getDeclaration(TheModule,
-                                                    Intrinsic::eh_exception);
-  Function *EHSelector = Intrinsic::getDeclaration(TheModule,
-                                                   Intrinsic::eh_selector);
-  for (unsigned RegionNo = 1; RegionNo < Invokes.size(); ++RegionNo){
-    // Get the list of invokes for this exception handling region.
-    SmallVector<InvokeInst *, 8> &InvokesForRegion = Invokes[RegionNo];
+  Function *ExcIntr = Intrinsic::getDeclaration(TheModule,
+                                                Intrinsic::eh_exception);
+  Function *SelectorIntr = Intrinsic::getDeclaration(TheModule,
+                                                     Intrinsic::eh_selector);
+  for (unsigned LPadNo = 1; LPadNo < Invokes.size(); ++LPadNo) {
+    // Get the list of invokes for this GCC landing pad.
+    SmallVector<InvokeInst *, 8> &InvokesForPad = Invokes[LPadNo];
 
-    if (InvokesForRegion.empty())
+    if (InvokesForPad.empty())
       continue;
 
-    // All of the invokes unwind to the same basic block: the landing pad.
-    BasicBlock *LPad = InvokesForRegion[0]->getUnwindDest();
+    // All of the invokes unwind to the the landing pad.
+    BasicBlock *LPad = InvokesForPad[0]->getUnwindDest();
+
+    // The exception handling region this landing pad is for.
+    eh_region region = get_eh_region_from_lp_number(LPadNo);
+    assert(region->index > 0 && "Invalid landing pad region!");
+    unsigned RegionNo = region->index;
 
     // Insert instructions at the start of the landing pad, but after any phis.
     Builder.SetInsertPoint(LPad, LPad->getFirstNonPHI());
 
     // Fetch the exception pointer.
-    Value *ExcPtr = Builder.CreateCall(EHException, "exc_ptr");
+    Value *ExcPtr = Builder.CreateCall(ExcIntr, "exc_ptr");
 
     // Store it if made use of elsewhere.
     if (RegionNo < ExceptionPtrs.size() && ExceptionPtrs[RegionNo])
       Builder.CreateStore(ExcPtr, ExceptionPtrs[RegionNo]);
 
-    // Fetch and store the exception selector.
-
-    // The first argument is the exception pointer.
+    // Get the exception selector.  The first argument is the exception pointer.
     Args.push_back(ExcPtr);
 
     // It is followed by the personality function.
@@ -1995,47 +1987,64 @@ void TreeToLLVM::EmitLandingPads() {
     Args.push_back(Builder.CreateBitCast(DECL_LLVM(personality),
                                          Type::getInt8PtrTy(Context)));
 
-    for (eh_region r = get_eh_region_from_number(RegionNo); r; r = r->outer)
-      switch (r->type) {
+    bool AllCaught = false; // Did we saw a catch-all or no-throw?
+    SmallSet<Constant *, 8> AlreadyCaught; // Typeinfos known caught already.
+    for (; region && !AllCaught; region = region->outer)
+      switch (region->type) {
       case ERT_ALLOWED_EXCEPTIONS: {
-        // Filter - note the length.
-        tree TypeList = r->u.allowed.type_list;
-        unsigned Length = list_length(TypeList);
-        Args.reserve(Args.size() + Length + 1);
-        Args.push_back(ConstantInt::get(Type::getInt32Ty(Context), Length + 1));
+        // Filter.
+
+        // Push a fake placeholder value for the length.  The real length is
+        // computed below, once we know which typeinfos we are going to use.
+        unsigned LengthIndex = Args.size();
+        Args.push_back(NULL); // Fake length value.
 
         // Add the type infos.
-        for (; TypeList; TypeList = TREE_CHAIN(TypeList)) {
-          tree TType = lookup_type_for_runtime(TREE_VALUE(TypeList));
-          Args.push_back(TreeConstantToLLVM::Convert(TType));
+        AllCaught = true;
+        for (tree type = region->u.allowed.type_list; type;
+             type = TREE_CHAIN(type)) {
+          tree value = lookup_type_for_runtime(TREE_VALUE(type));
+          Constant *TypeInfo = TreeConstantToLLVM::Convert(value);
+          // No point in permitting a typeinfo to be thrown if we know it can
+          // never reach the filter.
+          if (AlreadyCaught.count(TypeInfo))
+            continue;
+          Args.push_back(TypeInfo);
+          AllCaught = false;
         }
+
+        // The length is one more than the number of typeinfos.
+        Args[LengthIndex] = ConstantInt::get(Type::getInt32Ty(Context),
+                                             Args.size() - LengthIndex);
+        break;
       }
       case ERT_CLEANUP:
         break;
       case ERT_MUST_NOT_THROW:
         // Same as a zero-length filter.
+        AllCaught = true;
         Args.push_back(ConstantInt::get(Type::getInt32Ty(Context), 1));
         break;
-      case ERT_TRY: {
+      case ERT_TRY:
         // Catches.
-
-        for (eh_catch c = r->u.eh_try.first_catch; c ; c = c->next_catch) {
-          tree TypeList = c->type_list;
-
-          if (!TypeList)
+        for (eh_catch c = region->u.eh_try.first_catch; c ; c = c->next_catch)
+          if (!c->type_list) {
             // Catch-all - push a null pointer.
-            Args.push_back(
-              Constant::getNullValue(Type::getInt8PtrTy(Context))
-            );
-          else
+            AllCaught = true;
+            Args.push_back(Constant::getNullValue(Type::getInt8PtrTy(Context)));
+          } else {
             // Add the type infos.
-            for (; TypeList; TypeList = TREE_CHAIN(TypeList)) {
-              tree TType = lookup_type_for_runtime(TREE_VALUE(TypeList));
-              Args.push_back(TreeConstantToLLVM::Convert(TType));
+            for (tree type = c->type_list; type; type = TREE_CHAIN(type)) {
+              tree value = lookup_type_for_runtime(TREE_VALUE(type));
+              Constant *TypeInfo = TreeConstantToLLVM::Convert(value);
+              // No point in trying to catch a typeinfo that was already caught.
+              if (!AlreadyCaught.insert(TypeInfo))
+                continue;
+              Args.push_back(TypeInfo);
             }
-        }
+          }
+        break;
       }
-    }
 
 //FIXME    if (can_throw_external_1(i, false, false)) {
 //FIXME      // Some exceptions from this region may not be caught by any handler.
@@ -2061,7 +2070,7 @@ void TreeToLLVM::EmitLandingPads() {
 //FIXME    }
 
     // Emit the selector call.
-    Value *Filter = Builder.CreateCall(EHSelector, Args.begin(), Args.end(),
+    Value *Filter = Builder.CreateCall(SelectorIntr, Args.begin(), Args.end(),
                                        "filter");
 
     // Store it if made use of elsewhere.
@@ -2074,125 +2083,9 @@ void TreeToLLVM::EmitLandingPads() {
   Invokes.clear();
 }
 
-//FIXME/// EmitPostPads - Emit EH post landing pads.
-//FIXMEvoid TreeToLLVM::EmitPostPads() {
-//FIXME  std::vector<eh_region> Handlers;
-//FIXME
-//FIXME  for (unsigned i = 1; i < PostPads.size(); ++i) {
-//FIXME    BasicBlock *PostPad = PostPads[i];
-//FIXME
-//FIXME    if (!PostPad)
-//FIXME      continue;
-//FIXME
-//FIXME    CreateExceptionValues();
-//FIXME
-//FIXME    BeginBlock(PostPad);
-//FIXMEBuilder.CreateUnreachable();
-//FIXME
-//FIXME    eh_region region = get_eh_region(i);
-//FIXME    BasicBlock *Dest = getLabelDeclBlock(get_eh_region_tree_label(region));
-//FIXME
-//FIXME    int RegionKind = classify_eh_handler(region);
-//FIXME    if (!RegionKind || !get_eh_type_list(region)) {
-//FIXME      // Cleanup, catch-all or empty filter - no testing required.
-//FIXME      Builder.CreateBr(Dest);
-//FIXME      continue;
-//FIXME    } else if (RegionKind < 0) {
-//FIXME      // Filter - the result of a filter selection will be a negative index if
-//FIXME      // there is a match.
-//FIXME      Value *Select = Builder.CreateLoad(ExceptionSelectorValue);
-//FIXME
-//FIXME      // Compare with the filter action value.
-//FIXME      Value *Zero = ConstantInt::get(Select->getType(), 0);
-//FIXME      Value *Compare = Builder.CreateICmpSLT(Select, Zero);
-//FIXME
-//FIXME      // Branch on the compare.
-//FIXME      BasicBlock *NoFilterBB = BasicBlock::Create(Context, "nofilter");
-//FIXME      Builder.CreateCondBr(Compare, Dest, NoFilterBB);
-//FIXME      BeginBlock(NoFilterBB);
-//FIXME    } else if (RegionKind > 0) {
-//FIXME      // Catch
-//FIXME      tree TypeList = get_eh_type_list(region);
-//FIXME
-//FIXME      Value *Cond = NULL;
-//FIXME      for (; TypeList; TypeList = TREE_CHAIN (TypeList)) {
-//FIXME        Value *TType = EmitRegister(lookup_type_for_runtime(TREE_VALUE(TypeList)));
-//FIXME        TType = Builder.CreateBitCast(TType,
-//FIXME                              Type::getInt8PtrTy(Context));
-//FIXME
-//FIXME        // Call get eh type id.
-//FIXME        Value *TypeID = Builder.CreateCall(FuncEHGetTypeID, TType, "eh_typeid");
-//FIXME        Value *Select = Builder.CreateLoad(ExceptionSelectorValue);
-//FIXME
-//FIXME        // Compare with the exception selector.
-//FIXME        Value *Compare = Builder.CreateICmpEQ(Select, TypeID);
-//FIXME
-//FIXME        Cond = Cond ? Builder.CreateOr(Cond, Compare) : Compare;
-//FIXME      }
-//FIXME
-//FIXME      BasicBlock *NoCatchBB = NULL;
-//FIXME
-//FIXME      // If the comparion fails, branch to the next catch that has a
-//FIXME      // post landing pad.
-//FIXME      eh_region next_catch = get_eh_next_catch(region);
-//FIXME      for (; next_catch; next_catch = get_eh_next_catch(next_catch)) {
-//FIXME        unsigned CatchNo = get_eh_region_number(next_catch);
-//FIXME
-//FIXME        if (CatchNo < PostPads.size())
-//FIXME          NoCatchBB = PostPads[CatchNo];
-//FIXME
-//FIXME        if (NoCatchBB)
-//FIXME          break;
-//FIXME      }
-//FIXME
-//FIXME      if (NoCatchBB) {
-//FIXME        // Branch on the compare.
-//FIXME        Builder.CreateCondBr(Cond, Dest, NoCatchBB);
-//FIXME        continue;
-//FIXME      }
-//FIXME
-//FIXME      // If there is no such catch, execute a RESX if the comparison fails.
-//FIXME      NoCatchBB = BasicBlock::Create(Context, "nocatch");
-//FIXME      // Branch on the compare.
-//FIXME      Builder.CreateCondBr(Cond, Dest, NoCatchBB);
-//FIXME      BeginBlock(NoCatchBB);
-//FIXME    }
-//FIXME
-//FIXME    // Emit a RESX_EXPR which skips handlers with no post landing pad.
-//FIXME    foreach_reachable_handler(i, true, false, AddHandler, &Handlers);
-//FIXME
-//FIXME    BasicBlock *TargetBB = NULL;
-//FIXME
-//FIXME    for (std::vector<eh_region>::iterator I = Handlers.begin(),
-//FIXME         E = Handlers.end(); I != E; ++I) {
-//FIXME      unsigned UnwindNo = get_eh_region_number(*I);
-//FIXME
-//FIXME      if (UnwindNo < PostPads.size())
-//FIXME        TargetBB = PostPads[UnwindNo];
-//FIXME
-//FIXME      if (TargetBB)
-//FIXME        break;
-//FIXME    }
-//FIXME
-//FIXME    if (TargetBB) {
-//FIXME      Builder.CreateBr(TargetBB);
-//FIXME    } else {
-//FIXME      assert(can_throw_external_1(i, true, false) &&
-//FIXME             "Must-not-throw region handled by runtime?");
-//FIXME      // Unwinding continues in the caller.
-//FIXME      if (!UnwindBB)
-//FIXME        UnwindBB = BasicBlock::Create(Context, "Unwind");
-//FIXME      Builder.CreateBr(UnwindBB);
-//FIXME    }
-//FIXME
-//FIXME    Handlers.clear();
-//FIXME  }
-//FIXME}
-
 /// EmitUnwindBlock - Emit the lazily created EH unwind block.
 void TreeToLLVM::EmitUnwindBlock() {
   if (UnwindBB) {
-    CreateExceptionValues();
     BeginBlock(UnwindBB);
 abort();//FIXME
 //FIXME    // Fetch and store exception handler.
@@ -2701,7 +2594,7 @@ namespace {
 Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
                               const AttrListPtr &InPAL) {
   BasicBlock *LandingPad = 0; // Non-zero indicates an invoke.
-  int RegionNo = 0; // Non-zero if contained in an exception handling region.
+  int LPadNo = 0;
 
   AttrListPtr PAL = InPAL;
   if (PAL.isEmpty() && isa<Function>(Callee))
@@ -2715,15 +2608,15 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   if (!PAL.paramHasAttr(~0, Attribute::NoUnwind)) {
     // This call may throw.  Determine if we need to generate
     // an invoke rather than a simple call.
-    RegionNo = lookup_stmt_eh_lp(stmt);
+    LPadNo = lookup_stmt_eh_lp(stmt);
 
     // Is the call in an exception handling region with a landing pad?
-    if (RegionNo > 0) {
+    if (LPadNo > 0) {
       // Generate an invoke, with the GCC landing pad as the unwind destination.
       // The destination may change to an LLVM only landing pad,  which precedes
       // the GCC one, after phi nodes have been populated (doing things this way
       // simplifies the generation of phi nodes).
-      eh_landing_pad lp = get_eh_landing_pad_from_number(RegionNo);
+      eh_landing_pad lp = get_eh_landing_pad_from_number(LPadNo);
       assert(lp && "Post landing pad not found!");
       LandingPad = getLabelDeclBlock(lp->post_landing_pad);
     }
@@ -2847,10 +2740,10 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     // precedes the GCC one, after phi nodes have been populated (doing things
     // this way simplifies the generation of phi nodes).  Record the invoke as
     // well as the GCC exception handling region.
-    assert(RegionNo > 0 && "Invoke but no GCC landing pad?");
-    if ((unsigned)RegionNo >= Invokes.size())
-      Invokes.resize(RegionNo + 1);
-    Invokes[RegionNo].push_back(cast<InvokeInst>(Call));
+    assert(LPadNo > 0 && "Invoke but no GCC landing pad?");
+    if ((unsigned)LPadNo >= Invokes.size())
+      Invokes.resize(LPadNo + 1);
+    Invokes[LPadNo].push_back(cast<InvokeInst>(Call));
 
     BeginBlock(NextBlock);
   }
@@ -7091,6 +6984,86 @@ void TreeToLLVM::RenderGIMPLE_COND(gimple stmt) {
 
   // Branch based on the condition.
   Builder.CreateCondBr(Cond, IfTrue, IfFalse);
+}
+
+void TreeToLLVM::RenderGIMPLE_EH_DISPATCH(gimple stmt) {
+  int RegionNo = gimple_eh_dispatch_region(stmt);
+  eh_region region = get_eh_region_from_number(RegionNo);
+
+  switch (region->type) {
+  default:
+    llvm_unreachable("Unexpected region type!");
+  case ERT_ALLOWED_EXCEPTIONS: {
+    // Filter.
+    BasicBlock *Dest = getLabelDeclBlock(region->u.allowed.label);
+
+    if (!region->u.allowed.type_list) {
+      // Not allowed to throw.  Branch directly to the post landing pad.
+      Builder.CreateBr(Dest);
+      BeginBlock(BasicBlock::Create(Context));
+      break;
+    }
+
+    // The result of a filter selection will be a negative index if there is a
+    // match.
+    // FIXME: It looks like you have to compare against a specific value,
+    // checking for any old negative number is not enough!
+    Value *Filter = Builder.CreateLoad(getExceptionFilter(RegionNo));
+
+    // Compare with the filter action value.
+    Value *Zero = ConstantInt::get(Filter->getType(), 0);
+    Value *Compare = Builder.CreateICmpSLT(Filter, Zero);
+
+    // Branch on the compare.
+    BasicBlock *NoMatchBB = BasicBlock::Create(Context);
+    Builder.CreateCondBr(Compare, Dest, NoMatchBB);
+    BeginBlock(NoMatchBB);
+    break;
+  }
+  case ERT_TRY:
+    // Catches.
+    Value *Filter = NULL;
+    SmallSet<Value *, 8> AlreadyCaught; // Typeinfos known caught.
+    Function *TypeIDIntr = Intrinsic::getDeclaration(TheModule,
+                                                     Intrinsic::eh_typeid_for);
+    for (eh_catch c = region->u.eh_try.first_catch; c ; c = c->next_catch) {
+      BasicBlock *Dest = getLabelDeclBlock(c->label);
+      if (!c->type_list) {
+        // Catch-all.  Branch directly to the post landing pad.
+        Builder.CreateBr(Dest);
+        break;
+      }
+
+      Value *Cond = NULL;
+      for (tree type = c->type_list; type; type = TREE_CHAIN (type)) {
+        tree value = lookup_type_for_runtime(TREE_VALUE(type));
+        Value *TypeInfo = TreeConstantToLLVM::Convert(value);
+        // No point in trying to catch a typeinfo that was already caught.
+        if (!AlreadyCaught.insert(TypeInfo))
+          continue;
+
+        TypeInfo = Builder.CreateBitCast(TypeInfo, Type::getInt8PtrTy(Context));
+
+        // Call get eh type id.
+        Value *TypeID = Builder.CreateCall(TypeIDIntr, TypeInfo, "typeid");
+
+        if (!Filter)
+          Filter = Builder.CreateLoad(getExceptionFilter(RegionNo));
+
+        // Compare with the exception selector.
+        Value *Compare = Builder.CreateICmpEQ(Filter, TypeID);
+
+        Cond = Cond ? Builder.CreateOr(Cond, Compare) : Compare;
+      }
+
+      if (Cond) {
+        BasicBlock *NoMatchBB = BasicBlock::Create(Context);
+        Builder.CreateCondBr(Cond, Dest, NoMatchBB);
+        BeginBlock(NoMatchBB);
+      }
+    }
+    break;
+  }
 }
 
 void TreeToLLVM::RenderGIMPLE_GOTO(gimple stmt) {

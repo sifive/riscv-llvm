@@ -424,7 +424,7 @@ private:
 
   //===---------------------- Exception Handling --------------------------===//
 
-  /// Invokes - The list of invoke instructions for a given EH region.
+  /// Invokes - The list of invoke instructions for a given landing pad.
   SmallVector<SmallVector<InvokeInst *, 8>, 16> Invokes;
 
   /// ExceptionPtrs - The local holding the exception pointer for a EH region.
@@ -432,9 +432,6 @@ private:
 
   /// ExceptionFilters - The local holding the filter value for a EH region.
   SmallVector<AllocaInst *, 16> ExceptionFilters;
-
-  /// FuncEHGetTypeID - Function used to return type id for give typeinfo.
-  Function *FuncEHGetTypeID;
 
 public:
   TreeToLLVM(tree_node *fndecl);
@@ -557,10 +554,6 @@ private: // Helper functions.
 
 private: // Helpers for exception handling.
 
-  /// CreateExceptionValues - Create values used internally by exception
-  /// handling.
-  void CreateExceptionValues();
-
   /// getLandingPad - Return the landing pad for the given exception handling
   /// region, creating it if necessary.
   BasicBlock *getLandingPad(unsigned RegionNo);
@@ -590,6 +583,7 @@ private:
   void RenderGIMPLE_ASSIGN(gimple stmt);
   void RenderGIMPLE_CALL(gimple stmt);
   void RenderGIMPLE_COND(gimple stmt);
+  void RenderGIMPLE_EH_DISPATCH(gimple stmt);
   void RenderGIMPLE_GOTO(gimple stmt);
   void RenderGIMPLE_RESX(gimple stmt);
   void RenderGIMPLE_RETURN(gimple stmt);
