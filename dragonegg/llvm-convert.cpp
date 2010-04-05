@@ -1619,15 +1619,17 @@ Value *TreeToLLVM::EmitMemCpy(Value *DestPtr, Value *SrcPtr, Value *Size,
                               unsigned Align) {
   const Type *SBP = Type::getInt8PtrTy(Context);
   const Type *IntPtr = TD.getIntPtrType(Context);
-  Value *Ops[4] = {
+  Value *Ops[5] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateBitCast(SrcPtr, SBP),
     Builder.CreateIntCast(Size, IntPtr, /*isSigned*/true),
-    ConstantInt::get(Type::getInt32Ty(Context), Align)
+    ConstantInt::get(Type::getInt32Ty(Context), Align),
+    ConstantInt::get(Type::getInt1Ty(Context), false)
   };
+  const Type *ArgTypes[3] = { SBP, SBP, IntPtr };
 
   Builder.CreateCall(Intrinsic::getDeclaration(TheModule, Intrinsic::memcpy,
-                                               &IntPtr, 1), Ops, Ops+4);
+                                               ArgTypes, 3), Ops, Ops+5);
   return Ops[0];
 }
 
@@ -1635,15 +1637,17 @@ Value *TreeToLLVM::EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size,
                                unsigned Align) {
   const Type *SBP = Type::getInt8PtrTy(Context);
   const Type *IntPtr = TD.getIntPtrType(Context);
-  Value *Ops[4] = {
+  Value *Ops[5] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateBitCast(SrcPtr, SBP),
     Builder.CreateIntCast(Size, IntPtr, /*isSigned*/true),
-    ConstantInt::get(Type::getInt32Ty(Context), Align)
+    ConstantInt::get(Type::getInt32Ty(Context), Align),
+    ConstantInt::get(Type::getInt1Ty(Context), false)
   };
+  const Type *ArgTypes[3] = { SBP, SBP, IntPtr };
 
   Builder.CreateCall(Intrinsic::getDeclaration(TheModule, Intrinsic::memmove,
-                                               &IntPtr, 1), Ops, Ops+4);
+                                               ArgTypes, 3), Ops, Ops+5);
   return Ops[0];
 }
 
@@ -1651,15 +1655,17 @@ Value *TreeToLLVM::EmitMemSet(Value *DestPtr, Value *SrcVal, Value *Size,
                               unsigned Align) {
   const Type *SBP = Type::getInt8PtrTy(Context);
   const Type *IntPtr = TD.getIntPtrType(Context);
-  Value *Ops[4] = {
+  Value *Ops[5] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateIntCast(SrcVal, Type::getInt8Ty(Context), /*isSigned*/true),
     Builder.CreateIntCast(Size, IntPtr, /*isSigned*/true),
-    ConstantInt::get(Type::getInt32Ty(Context), Align)
+    ConstantInt::get(Type::getInt32Ty(Context), Align),
+    ConstantInt::get(Type::getInt1Ty(Context), false)
   };
+  const Type *ArgTypes[2] = { SBP, IntPtr };
 
   Builder.CreateCall(Intrinsic::getDeclaration(TheModule, Intrinsic::memset,
-                                               &IntPtr, 1), Ops, Ops+4);
+                                               ArgTypes, 2), Ops, Ops+5);
   return Ops[0];
 }
 
