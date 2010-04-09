@@ -31,7 +31,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "llvm/CallingConv.h"
 #include "llvm/Intrinsics.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/IndexedMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/IRBuilder.h"
@@ -360,7 +359,6 @@ class TreeToLLVM {
   tree_node *FnDecl;
   Function *Fn;
   BasicBlock *ReturnBB;
-  BasicBlock *UnwindBB;
   unsigned ReturnOffset;
 
   // State that changes as the function is emitted.
@@ -427,11 +425,22 @@ private:
   /// Invokes - The list of invoke instructions for a given landing pad.
   SmallVector<SmallVector<InvokeInst *, 8>, 16> Invokes;
 
-  /// ExceptionPtrs - The local holding the exception pointer for a EH region.
+  /// ExceptionPtrs - The local holding the exception pointer for an EH region.
   SmallVector<AllocaInst *, 16> ExceptionPtrs;
 
-  /// ExceptionFilters - The local holding the filter value for a EH region.
+  /// ExceptionFilters - The local holding the filter value for an EH region.
   SmallVector<AllocaInst *, 16> ExceptionFilters;
+
+  /// FailureCode - The block holding the failure call for the given failure
+  /// function declaration (for must-not-throw regions - this is what is called
+  /// if an exception is nonetheless thrown).
+  DenseMap<tree_node *, BasicBlock *> FailureCode;
+
+  /// RewindBB - Block containing code that continues unwinding an exception.
+  BasicBlock *RewindBB;
+
+  /// RewindTmp - Local holding the exception to continue unwinding.
+  AllocaInst *RewindTmp;
 
 public:
   TreeToLLVM(tree_node *fndecl);
@@ -545,8 +554,13 @@ private: // Helper functions.
   /// EmitLandingPads - Emit EH landing pads.
   void EmitLandingPads();
 
-  /// EmitUnwindBlock - Emit the lazily created EH unwind block.
-  void EmitUnwindBlock();
+  /// EmitFailureCode - Emit the blocks containing failure code executed when
+  /// an exception is thrown in a must-not-throw region.
+  void EmitFailureCode();
+
+  /// EmitRewindBlock - Emit the block containing code to continue unwinding an
+  /// exception.
+  void EmitRewindBlock();
 
   /// EmitDebugInfo - Return true if debug info is to be emitted for current
   /// function.

@@ -239,9 +239,12 @@ bool TreeToLLVM::EmitDebugInfo() {
 TreeToLLVM::TreeToLLVM(tree fndecl) :
     TD(getTargetData()), Builder(Context, *TheFolder) {
   FnDecl = fndecl;
+  AllocaInsertionPoint = 0;
   Fn = 0;
-  ReturnBB = UnwindBB = 0;
+  ReturnBB = 0;
   ReturnOffset = 0;
+  RewindBB = 0;
+  RewindTmp = 0;
 
   if (EmitDebugInfo()) {
     expanded_location Location = expand_location(DECL_SOURCE_LOCATION (fndecl));
@@ -254,8 +257,6 @@ TreeToLLVM::TreeToLLVM(tree fndecl) :
       TheDebugInfo->setLocationLine(0);
     }
   }
-
-  AllocaInsertionPoint = 0;
 
   assert(TheTreeToLLVM == 0 && "Reentering function creation?");
   TheTreeToLLVM = this;
@@ -990,7 +991,8 @@ Function *TreeToLLVM::FinishFunctionBody() {
 
   // Now that phi nodes have been output, emit pending exception handling code.
   EmitLandingPads();
-  EmitUnwindBlock();
+  EmitFailureCode();
+  EmitRewindBlock();
 
 #ifndef NDEBUG
   if (!errorcount && !sorrycount)
@@ -2089,32 +2091,57 @@ void TreeToLLVM::EmitLandingPads() {
   Invokes.clear();
 }
 
-/// EmitUnwindBlock - Emit the lazily created EH unwind block.
-void TreeToLLVM::EmitUnwindBlock() {
-  if (UnwindBB) {
-    BeginBlock(UnwindBB);
-abort();//FIXME
-//FIXME    // Fetch and store exception handler.
-//FIXME    Value *Arg = Builder.CreateLoad(ExceptionValue, "eh_ptr");
-//FIXME    assert(llvm_unwind_resume_libfunc && "no unwind resume function!");
-//FIXME
-//FIXME    // As we're emitting a naked call (not an expression) going through
-//FIXME    // EmitCallOf would be wasteful and incorrect. Manually adjust
-//FIXME    // the calling convention for this call here if necessary.
-//FIXME#ifdef TARGET_ADJUST_LLVM_CC
-//FIXME    tree fntype = TREE_TYPE(llvm_unwind_resume_libfunc);
-//FIXME    CallingConv::ID CallingConvention = CallingConv::C;
-//FIXME
-//FIXME    TARGET_ADJUST_LLVM_CC(CallingConvention, fntype);
-//FIXME    CallInst *Call = Builder.CreateCall(DECL_LOCAL(llvm_unwind_resume_libfunc),
-//FIXME                                       Arg);
-//FIXME    Call->setCallingConv(CallingConvention);
-//FIXME#else
-//FIXME    Builder.CreateCall(DECL_LOCAL(llvm_unwind_resume_libfunc), Arg);
-//FIXME#endif
+/// EmitFailureCode - Emit the blocks containing failure code executed when
+/// an exception is thrown in a must-not-throw region.
+void TreeToLLVM::EmitFailureCode() {
+  for (DenseMap<tree, BasicBlock *>::iterator I = FailureCode.begin(),
+       E = FailureCode.end(); I != E; ++I) {
+    BeginBlock(I->second);
+
+    // Determine the failure function to call.
+    Value *FailFunc = DECL_LLVM(I->first);
+
+    // Make sure it has the right type.
+    FunctionType *FTy = FunctionType::get(Type::getVoidTy(Context), false);
+    FailFunc = Builder.CreateBitCast(FailFunc, FTy->getPointerTo());
+
+    // Spank the user for being naughty.
+    CallInst *FailCall = Builder.CreateCall(FailFunc);
+
+    // This is always fatal.
+    FailCall->setDoesNotReturn();
+    FailCall->setDoesNotThrow();
     Builder.CreateUnreachable();
   }
 }
+
+/// EmitRewindBlock - Emit the block containing code to continue unwinding an
+/// exception.
+void TreeToLLVM::EmitRewindBlock() {
+  if (!RewindBB)
+    return;
+
+  BeginBlock (RewindBB);
+
+  // The exception pointer to continue unwinding.
+  assert(RewindTmp && "Rewind block but nothing to unwind?");
+  Value *ExcPtr = Builder.CreateLoad(RewindTmp);
+
+  // Generate an explicit call to _Unwind_Resume_or_Rethrow.
+  std::vector<const Type*> Params(1, Type::getInt8PtrTy(Context));
+  FunctionType *FTy = FunctionType::get(Type::getVoidTy(Context), Params,
+                                        false);
+  Constant *RewindFn =
+    TheModule->getOrInsertFunction("_Unwind_Resume_or_Rethrow", FTy);
+
+  // Pass it to _Unwind_Resume_or_Rethrow.
+  CallInst *Rewind = Builder.CreateCall(RewindFn, ExcPtr);
+
+  // This call does not return.
+  Rewind->setDoesNotReturn();
+  Builder.CreateUnreachable();
+}
+
 
 //===----------------------------------------------------------------------===//
 //                           ... Expressions ...
@@ -7013,7 +7040,9 @@ void TreeToLLVM::RenderGIMPLE_EH_DISPATCH(gimple stmt) {
     // The result of a filter selection will be a negative index if there is a
     // match.
     // FIXME: It looks like you have to compare against a specific value,
-    // checking for any old negative number is not enough!
+    // checking for any old negative number is not enough!  This should not
+    // matter if the failure code branched to on a filter match is always the
+    // same (as in C++), but might cause problems with other languages.
     Value *Filter = Builder.CreateLoad(getExceptionFilter(RegionNo));
 
     // Compare with the filter action value.
@@ -7094,27 +7123,62 @@ void TreeToLLVM::RenderGIMPLE_GOTO(gimple stmt) {
 }
 
 void TreeToLLVM::RenderGIMPLE_RESX(gimple stmt) {
-  Builder.CreateUnreachable(); // FIXME
-//FIXME  int RegionNo = gimple_resx_region(stmt);
-//FIXME  std::vector<eh_region> Handlers;
-//FIXME
-//FIXME  foreach_reachable_handler(RegionNo, true, false, AddHandler, &Handlers);
-//FIXME
-//FIXME  if (!Handlers.empty()) {
-//FIXME    for (std::vector<eh_region>::iterator I = Handlers.begin(),
-//FIXME         E = Handlers.end(); I != E; ++I)
-//FIXME      // Create a post landing pad for the handler.
-//FIXME      getPostPad(get_eh_region_number(*I));
-//FIXME
-//FIXME    Builder.CreateBr(getPostPad(get_eh_region_number(*Handlers.begin())));
-//FIXME  } else {
-//FIXME    assert(can_throw_external_1(RegionNo, true, false) &&
-//FIXME           "Must-not-throw region handled by runtime?");
-//FIXME    // Unwinding continues in the caller.
-//FIXME    if (!UnwindBB)
-//FIXME      UnwindBB = BasicBlock::Create(Context, "Unwind");
-//FIXME    Builder.CreateBr(UnwindBB);
-//FIXME  }
+  // Reraise an exception.  If this statement is inside an exception handling
+  // region then the reraised exception may be caught by the current function,
+  // in which case it can be simplified into a branch.
+  int DstLPadNo = lookup_stmt_eh_lp(stmt);
+  eh_region dst_rgn = DstLPadNo ? get_eh_region_from_lp_number(DstLPadNo) : NULL;
+  eh_region src_rgn = get_eh_region_from_number(gimple_resx_region(stmt));
+
+  if (!src_rgn) {
+    // Unreachable block?
+    Builder.CreateUnreachable();
+    return;
+  }
+
+  if (dst_rgn) {
+    if (DstLPadNo < 0) {
+      // The reraise is inside a must-not-throw region.  Turn the reraise into a
+      // call to the failure routine (eg: std::terminate).
+      assert(dst_rgn->type == ERT_MUST_NOT_THROW && "Unexpected region type!");
+
+      // Look up the block containing the failure code.
+      tree failfunc = dst_rgn->u.must_not_throw.failure_decl;
+      BasicBlock *&FailureBlock = FailureCode[failfunc];
+      if (!FailureBlock)
+        FailureBlock = BasicBlock::Create(Context, "fail");
+
+      // Branch to it.
+      Builder.CreateBr(FailureBlock);
+      return;
+    }
+
+    // Use the exception pointer and filter value for the source region as the
+    // values for the destination region.
+    Value *ExcPtr = Builder.CreateLoad(getExceptionPtr(src_rgn->index));
+    Builder.CreateStore(ExcPtr, getExceptionPtr(dst_rgn->index));
+    Value *Filter = Builder.CreateLoad(getExceptionFilter(src_rgn->index));
+    Builder.CreateStore(Filter, getExceptionFilter(dst_rgn->index));
+
+    // Branch to the post landing pad for the destination region.
+    eh_landing_pad lp = get_eh_landing_pad_from_number(DstLPadNo);
+    assert(lp && "Post landing pad not found!");
+    Builder.CreateBr(getLabelDeclBlock(lp->post_landing_pad));
+    return;
+  }
+
+  // The exception unwinds out of the function.  Note the exception to unwind.
+  if (!RewindTmp) {
+    RewindTmp = CreateTemporary(Type::getInt8PtrTy(Context));
+    RewindTmp->setName("rewind_tmp");
+  }
+  Value *ExcPtr = Builder.CreateLoad(getExceptionPtr(src_rgn->index));
+  Builder.CreateStore(ExcPtr, RewindTmp);
+
+  // Jump to the block containing the rewind code.
+  if (!RewindBB)
+    RewindBB = BasicBlock::Create(Context, "rewind");
+  Builder.CreateBr(RewindBB);
 }
 
 void TreeToLLVM::RenderGIMPLE_RETURN(gimple stmt) {
