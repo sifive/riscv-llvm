@@ -42,12 +42,13 @@ USE_PER_STAGE_INSTALL_DIRECTORIES=0	# Do not use per-stage install
 
 
 # How to configure GCC.  As a minimum you need to enable C and C++, but you can
-# also enable other languages if you like.  You must specify --enable-lto.  The
-# other flags are optional.  The reason for --disable-multilib is that GCC fails
-# to build on my machine without it (this is a GCC issue, and has nothing to do
-# with dragonegg or LLVM).
-GCC_OPTIONS="--enable-lto --enable-languages=c,c++ --disable-bootstrap \
-	     --disable-multilib --enable-checking $GCC_OPTIONS"
+# also enable other languages if you like.  You must specify --enable-plugin and
+# --enable-lto.  The other flags are optional. The reason for --disable-multilib
+# is that GCC fails to build on my machine without it (this is a GCC issue, and
+# has nothing to do with dragonegg or LLVM).
+GCC_OPTIONS="--enable-plugin --enable-lto --enable-languages=c,c++ \
+	     --disable-bootstrap --disable-multilib --enable-checking \
+	     $GCC_OPTIONS"
 
 # How to configure LLVM.  These are all optional.  On my machine, the debugger
 # refuses to work with dragonegg unless I build LLVM with --disable-threads.

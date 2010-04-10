@@ -18,9 +18,9 @@ command should do the trick ("SomeLocalDir" is where you checked out gcc):
   cat gcc-patches/*.diff | patch -d SomeLocalDir -p1
 Hopefully one day the plugin will work with an unpatched gcc, but for the
 moment a small patch needs to be applied.  Configure gcc with your favorite
-options and also with --enable-lto.  Build gcc and install it somewhere.
-If you don't have libelf installed then the build will fail, because gcc's
-LTO code makes use of it, see
+options and also with --enable-plugin and --enable-lto.  Build gcc and install
+it somewhere.  If you don't have libelf installed then the build will fail,
+because gcc's LTO code makes use of it, see
   http://gcc.gnu.org/wiki/LinkTimeOptimization#Building_the_branch
 
 Darwin special: the gcc configure script thinks darwin doesn't support dynamic
