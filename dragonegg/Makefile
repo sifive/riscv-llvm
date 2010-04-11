@@ -13,8 +13,12 @@ LLVM_CONFIG?=llvm-config
 # object directories.
 SRC_DIR?=$(PWD)
 
-CFLAGS+=-Wall -Werror $(shell $(LLVM_CONFIG) --cflags)
-CXXFLAGS+=-Wall -Werror $(shell $(LLVM_CONFIG) --cxxflags)
+ifndef VERBOSE
+	QUIET:=@
+endif
+
+CFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cflags)
+CXXFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cxxflags)
 
 GCC_PLUGIN_DIR=$(shell $(GCC) -print-file-name=plugin)
 TARGET_TRIPLE:=$(shell $(GCC) -v 2>&1 | grep "^Target:" | sed -e "s/^Target: *//")
@@ -51,27 +55,33 @@ TARGET_HEADERS+=-I$(SRC_DIR)/$(shell $(TARGET_UTIL) -p) \
 default: $(PLUGIN)
 
 $(TARGET_UTIL_OBJECTS): %.o : $(SRC_DIR)/utils/%.cpp
-	$(CXX) -c $(PREPROCESSOR) $(CXXFLAGS) $<
+	@echo Compiling utils/$(<F)
+	$(QUIET)$(CXX) -c $(PREPROCESSOR) $(CXXFLAGS) $<
 
 $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
-	$(CXX) -o $@ $^ $(LINKER)
+	@echo Linking $(@F)
+	$(QUIET)$(CXX) -o $@ $^ $(LINKER)
 
 %.o : $(SRC_DIR)/%.c $(TARGET_UTIL)
-	$(CC) -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CFLAGS) $<
+	@echo Compiling $(<F)
+	$(QUIET)$(CC) -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CFLAGS) $<
 
 %.o : $(SRC_DIR)/%.cpp $(TARGET_UTIL)
-	$(CXX) -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CXXFLAGS) $<
+	@echo Compiling $(<F)
+	$(QUIET)$(CXX) -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CXXFLAGS) $<
 
 $(TARGET_OBJECT): $(TARGET_UTIL)
-	$(CXX) -o $@ -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CXXFLAGS) \
+	@echo Compiling $(shell $(TARGET_UTIL) -p)/llvm-target.cpp
+	$(QUIET)$(CXX) -o $@ -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CXXFLAGS) \
 		$(TARGET_SOURCE)
 
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
-	$(CXX) -shared $(PLUGIN_OBJECTS) $(TARGET_OBJECT) -o $@ $(LINKER) \
-		$(shell $(LLVM_CONFIG) --libs $(shell $(TARGET_UTIL) -p))
+	@echo Linking $(@F)
+	$(QUIET)$(CXX) -shared $(PLUGIN_OBJECTS) $(TARGET_OBJECT) -o $@ \
+	$(LINKER) $(shell $(LLVM_CONFIG) --libs $(shell $(TARGET_UTIL) -p))
 
 clean::
-	rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
+	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
 
 
 -include $(ALL_OBJECTS:.o=.d)
