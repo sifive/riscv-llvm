@@ -20,6 +20,12 @@ endif
 CFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cflags)
 CXXFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cxxflags)
 
+ifeq ($(shell uname),Darwin)
+LOADABLE_MODULE_OPTIONS=-bundle -undefined dynamic_lookup
+else
+LOADABLE_MODULE_OPTIONS=-shared
+endif
+
 GCC_PLUGIN_DIR=$(shell $(GCC) -print-file-name=plugin)
 TARGET_TRIPLE:=$(shell $(GCC) -v 2>&1 | grep "^Target:" | sed -e "s/^Target: *//")
 
@@ -77,8 +83,9 @@ $(TARGET_OBJECT): $(TARGET_UTIL)
 
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 	@echo Linking $@
-	$(QUIET)$(CXX) -shared $(CXXFLAGS) $(PLUGIN_OBJECTS) $(TARGET_OBJECT) \
-	-o $@ $(LINKER) $(shell $(LLVM_CONFIG) --libs $(shell $(TARGET_UTIL) -p))
+	$(QUIET)$(CXX) $(LOADABLE_MODULE_OPTIONS) $(CXXFLAGS) -o $@ $(LINKER) \
+	$(PLUGIN_OBJECTS) $(TARGET_OBJECT) -o $@ $(LINKER) \
+	$(shell $(LLVM_CONFIG) --libs $(shell $(TARGET_UTIL) -p))
 
 clean::
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
