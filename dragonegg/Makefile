@@ -44,14 +44,14 @@ TARGET_UTIL=./target
 
 ALL_OBJECTS=$(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL_OBJECTS)
 
-PREPROCESSOR+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
-	      -MD -MP \
-	      -DIN_GCC -DREVISION=\"$(REVISION)\" \
-	      -DTARGET_NAME=\"$(TARGET_TRIPLE)\" \
-	      -I$(SRC_DIR) -I$(GCC_PLUGIN_DIR)/include
+CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
+	     -MD -MP \
+	     -DIN_GCC -DREVISION=\"$(REVISION)\" \
+	     -DTARGET_NAME=\"$(TARGET_TRIPLE)\" \
+	     -I$(SRC_DIR) -I$(GCC_PLUGIN_DIR)/include
 
-LINKER+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) \
-	$(shell $(LLVM_CONFIG) --libs analysis core ipo scalaropts target)
+LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags) \
+	    $(shell $(LLVM_CONFIG) --libs analysis core ipo scalaropts target)
 
 # NOTE: The following flags can only be used after TARGET_UTIL has been built.
 TARGET_HEADERS+=-I$(SRC_DIR)/$(shell $(TARGET_UTIL) -p) \
@@ -62,29 +62,29 @@ default: $(PLUGIN)
 
 $(TARGET_UTIL_OBJECTS): %.o : $(SRC_DIR)/utils/%.cpp
 	@echo Compiling utils/$*.cpp
-	$(QUIET)$(CXX) -c $(PREPROCESSOR) $(CXXFLAGS) $<
+	$(QUIET)$(CXX) -c $(CPP_OPTIONS) $(CXXFLAGS) $<
 
 $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
 	@echo Linking $@
-	$(QUIET)$(CXX) -o $@ $^ $(LINKER)
+	$(QUIET)$(CXX) -o $@ $^ $(LD_OPTIONS)
 
 %.o : $(SRC_DIR)/%.c $(TARGET_UTIL)
 	@echo Compiling $*.c
-	$(QUIET)$(CC) -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CFLAGS) $<
+	$(QUIET)$(CC) -c $(CPP_OPTIONS) $(TARGET_HEADERS) $(CFLAGS) $<
 
 %.o : $(SRC_DIR)/%.cpp $(TARGET_UTIL)
 	@echo Compiling $*.cpp
-	$(QUIET)$(CXX) -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CXXFLAGS) $<
+	$(QUIET)$(CXX) -c $(CPP_OPTIONS) $(TARGET_HEADERS) $(CXXFLAGS) $<
 
 $(TARGET_OBJECT): $(TARGET_UTIL)
 	@echo Compiling $(shell $(TARGET_UTIL) -p)/llvm-target.cpp
-	$(QUIET)$(CXX) -o $@ -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CXXFLAGS) \
+	$(QUIET)$(CXX) -o $@ -c $(CPP_OPTIONS) $(TARGET_HEADERS) $(CXXFLAGS) \
 		$(TARGET_SOURCE)
 
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 	@echo Linking $@
-	$(QUIET)$(CXX) $(LOADABLE_MODULE_OPTIONS) $(CXXFLAGS) -o $@ $(LINKER) \
-	$(PLUGIN_OBJECTS) $(TARGET_OBJECT) -o $@ $(LINKER) \
+	$(QUIET)$(CXX) $(LOADABLE_MODULE_OPTIONS) $(LD_OPTIONS) \
+	$(CXXFLAGS) -o $@ $(PLUGIN_OBJECTS) $(TARGET_OBJECT) \
 	$(shell $(LLVM_CONFIG) --libs $(shell $(TARGET_UTIL) -p))
 
 clean::
