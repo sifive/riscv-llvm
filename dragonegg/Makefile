@@ -77,8 +77,8 @@ $(TARGET_OBJECT): $(TARGET_UTIL)
 
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 	@echo Linking $@
-	$(QUIET)$(CXX) -shared $(PLUGIN_OBJECTS) $(TARGET_OBJECT) -o $@ \
-	$(LINKER) $(shell $(LLVM_CONFIG) --libs $(shell $(TARGET_UTIL) -p))
+	$(QUIET)$(CXX) -shared $(CXXFLAGS) $(PLUGIN_OBJECTS) $(TARGET_OBJECT) \
+	-o $@ $(LINKER) $(shell $(LLVM_CONFIG) --libs $(shell $(TARGET_UTIL) -p))
 
 clean::
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
