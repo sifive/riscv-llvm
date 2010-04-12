@@ -2128,6 +2128,7 @@ void TreeToLLVM::EmitRewindBlock() {
   Value *ExcPtr = Builder.CreateLoad(RewindTmp);
 
   // Generate an explicit call to _Unwind_Resume_or_Rethrow.
+  // FIXME: On ARM this should be a call to __cxa_end_cleanup with no arguments.
   std::vector<const Type*> Params(1, Type::getInt8PtrTy(Context));
   FunctionType *FTy = FunctionType::get(Type::getVoidTy(Context), Params,
                                         false);
