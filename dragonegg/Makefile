@@ -55,19 +55,19 @@ TARGET_HEADERS+=-I$(SRC_DIR)/$(shell $(TARGET_UTIL) -p) \
 default: $(PLUGIN)
 
 $(TARGET_UTIL_OBJECTS): %.o : $(SRC_DIR)/utils/%.cpp
-	@echo Compiling utils/$(<F)
+	@echo Compiling utils/$*.cpp
 	$(QUIET)$(CXX) -c $(PREPROCESSOR) $(CXXFLAGS) $<
 
 $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
-	@echo Linking $(@F)
+	@echo Linking $@
 	$(QUIET)$(CXX) -o $@ $^ $(LINKER)
 
 %.o : $(SRC_DIR)/%.c $(TARGET_UTIL)
-	@echo Compiling $(<F)
+	@echo Compiling $*.c
 	$(QUIET)$(CC) -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CFLAGS) $<
 
 %.o : $(SRC_DIR)/%.cpp $(TARGET_UTIL)
-	@echo Compiling $(<F)
+	@echo Compiling $*.cpp
 	$(QUIET)$(CXX) -c $(PREPROCESSOR) $(TARGET_HEADERS) $(CXXFLAGS) $<
 
 $(TARGET_OBJECT): $(TARGET_UTIL)
@@ -76,7 +76,7 @@ $(TARGET_OBJECT): $(TARGET_UTIL)
 		$(TARGET_SOURCE)
 
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
-	@echo Linking $(@F)
+	@echo Linking $@
 	$(QUIET)$(CXX) -shared $(PLUGIN_OBJECTS) $(TARGET_OBJECT) -o $@ \
 	$(LINKER) $(shell $(LLVM_CONFIG) --libs $(shell $(TARGET_UTIL) -p))
 
