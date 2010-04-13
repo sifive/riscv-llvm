@@ -1995,6 +1995,24 @@ void TreeToLLVM::EmitLandingPads() {
     Args.push_back(Builder.CreateBitCast(DECL_LLVM(personality),
                                          Type::getInt8PtrTy(Context)));
 
+    // The representation of a catch-all is language specific.
+    // TODO: Remove this hack.
+    Constant *CatchAll;
+    StringRef LanguageName = lang_hooks.name;
+    if (LanguageName == "GNU Ada") {
+      StringRef Name = "__gnat_all_others_value";
+      CatchAll = TheModule->getGlobalVariable(Name);
+      if (!CatchAll)
+        CatchAll = new GlobalVariable(*TheModule,
+                                      ConvertType(integer_type_node),
+                                      /*isConstant*/true,
+                                      GlobalValue::ExternalLinkage,
+                                      /*Initializer*/NULL, Name);
+    } else {
+      // Other languages use a null pointer.
+      CatchAll = Constant::getNullValue(Type::getInt8PtrTy(Context));
+    }
+
     bool AllCaught = false; // Did we saw a catch-all or no-throw?
     SmallSet<Constant *, 8> AlreadyCaught; // Typeinfos known caught already.
     for (; region && !AllCaught; region = region->outer)
@@ -2049,33 +2067,21 @@ void TreeToLLVM::EmitLandingPads() {
               if (!AlreadyCaught.insert(TypeInfo))
                 continue;
               Args.push_back(TypeInfo);
+              AllCaught = TypeInfo == CatchAll;
+              if (AllCaught)
+                break;
             }
           }
         break;
       }
 
-//FIXME    if (can_throw_external_1(i, false, false)) {
-//FIXME      // Some exceptions from this region may not be caught by any handler.
-//FIXME      // Since invokes are required to branch to the unwind label no matter
-//FIXME      // what exception is being unwound, append a catch-all.
-//FIXME
-//FIXME      // The representation of a catch-all is language specific.
-//FIXME      Value *CatchAll;
-//FIXME      if (USING_SJLJ_EXCEPTIONS || !lang_eh_catch_all) {
-//FIXME        // Use a "cleanup" - this should be good enough for most languages.
-//FIXME        CatchAll = ConstantInt::get(Type::getInt32Ty, 0);
-//FIXME      } else {
-//FIXME        tree catch_all_type = lang_eh_catch_all();
-//FIXME        if (catch_all_type == NULL_TREE)
-//FIXME          // Use a C++ style null catch-all object.
-//FIXME          CatchAll = Constant::getNullValue(
-//FIXME                                    Type::getInt8PtrTy(Context));
-//FIXME        else
-//FIXME          // This language has a type that catches all others.
-//FIXME          CatchAll = TreeConstantToLLVM::Convert(catch_all_type);
-//FIXME      }
-//FIXME      Args.push_back(CatchAll);
-//FIXME    }
+    if (!AllCaught)
+      // Some exceptions from this region may not be caught by any handler.
+      // Since invokes are required to branch to the unwind label no matter
+      // what exception is being unwound, append a catch-all.  I have a plan
+      // that will make all such horrible hacks unnecessary, but unfortunately
+      // this comment is too short to explain it.
+      Args.push_back(CatchAll);
 
     // Emit the selector call.
     Value *Filter = Builder.CreateCall(SelectorIntr, Args.begin(), Args.end(),
