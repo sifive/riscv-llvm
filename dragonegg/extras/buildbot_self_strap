@@ -11,7 +11,7 @@ ln -sf $LLVM_SOURCE $BUILD_DIR/llvm
 ln -sf $DRAGONEGG_SOURCE $BUILD_DIR/dragonegg
 
 export CPPFLAGS="-I/opt/cfarm/mpfr-2.4.1/include -I/opt/cfarm/gmp-4.2.4/include/ -I /opt/cfarm/mpc-0.8/include/"
-export GCC_OPTIONS="--with-mpfr=/opt/cfarm/mpfr-2.4.1 --with-gmp=/opt/cfarm/gmp-4.2.4 --with-mpc=/opt/cfarm/mpc-0.8 --with-libelf=/opt/cfarm/libelf-0.8.12"
+export GCC_OPTIONS="--enable-languages=c,c++,fortran,objc,obj-c++ --with-mpfr=/opt/cfarm/mpfr-2.4.1 --with-gmp=/opt/cfarm/gmp-4.2.4 --with-mpc=/opt/cfarm/mpc-0.8 --with-libelf=/opt/cfarm/libelf-0.8.12"
 
 cd $BUILD_DIR
 $DRAGONEGG_SOURCE/extras/do_self_strap
