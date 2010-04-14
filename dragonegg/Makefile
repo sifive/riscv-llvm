@@ -26,8 +26,8 @@ else
 LOADABLE_MODULE_OPTIONS=-shared
 endif
 
-GCC_PLUGIN_DIR=$(shell $(GCC) -print-file-name=plugin)
-TARGET_TRIPLE:=$(shell $(GCC) -v 2>&1 | grep "^Target:" | sed -e "s/^Target: *//")
+GCC_PLUGIN_DIR:=$(shell $(GCC) -print-file-name=plugin)
+TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
 
 # NOTE: replace with an informative string when doing a release.
 REVISION:=$(shell svnversion -n $(SRC_DIR))
