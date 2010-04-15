@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -o errexit	# Exit if any command fails
+set -x		# Print commands executed
+
+LLVM_SOURCE=$1
+DRAGONEGG_SOURCE=$2
+BUILD_DIR=$3
+
+ln -sf $LLVM_SOURCE $BUILD_DIR/llvm
+ln -sf $DRAGONEGG_SOURCE $BUILD_DIR/dragonegg
+
+export CC="gcc -m32"
+export CXX="g++ -m32"
+export LD_LIBRARY_PATH=$HOME/cfarm-32/lib:$LD_LIBRARY_PATH
+export CPPFLAGS="-I/$HOME/cfarm-32/include"
+export GCC_OPTIONS="--build=i686-pc-linux-gnu --disable-multilib --enable-targets=all --with-mpfr=$HOME/cfarm-32/ --with-gmp=$HOME/cfarm-32/ --with-mpc=$HOME/cfarm-32/ --with-libelf=$HOME/cfarm-32/"
+export LLVM_OPTIONS="--build=i686-pc-linux-gnu"
+
+cd $BUILD_DIR
+$DRAGONEGG_SOURCE/extras/do_self_strap
