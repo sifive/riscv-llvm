@@ -1519,8 +1519,8 @@ static void TakeoverAsmOutput(void) {
 //                             Plugin interface
 //===----------------------------------------------------------------------===//
 
-// This plugin's code is licensed under the GPLv2.  The LLVM libraries use
-// the GPL compatible University of Illinois/NCSA Open Source License.
+// This plugin's code is licensed under the GPLv2 or later.  The LLVM libraries
+// use the GPL compatible University of Illinois/NCSA Open Source License.
 int plugin_is_GPL_compatible; // This plugin is GPL compatible.
 
 
