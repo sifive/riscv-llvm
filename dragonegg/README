@@ -11,34 +11,45 @@ You need the latest llvm from the subversion repository.
 Step 1: Build gcc
 -----------------
 
-Check out gcc from the gcc subversion repository:
+Check out gcc from the gcc subversion repository, either gcc mainline:
   svn checkout svn://gcc.gnu.org/svn/gcc/trunk SomeLocalDir
+or the gcc-4.5 branch:
+  svn checkout svn://gcc.gnu.org/svn/gcc/branches/gcc-4_5-branch SomeLocalDir
+
 Apply the patches in the gcc-patches subdirectory, if any.  The following
 command should do the trick ("SomeLocalDir" is where you checked out gcc):
   cat gcc-patches/*.diff | patch -d SomeLocalDir -p1
-Hopefully one day the plugin will work with an unpatched gcc, but for the
-moment a small patch needs to be applied.  Configure gcc with your favorite
-options and also with --enable-plugin and --enable-lto.  Build gcc and install
-it somewhere.  If you don't have libelf installed then the build will fail,
-because gcc's LTO code makes use of it, see
+
+Configure gcc with your favorite options and also with --enable-plugin and
+--enable-lto.  Build gcc and install it somewhere.  If you don't have libelf
+installed then the build will fail, because gcc's LTO code makes use of it,
+see
   http://gcc.gnu.org/wiki/LinkTimeOptimization#Building_the_branch
+In theory the gcc you build can be a cross-compiler, and the plugin should work
+and build code for the targetted platform.  I don't think anyone has ever tried
+this though.
 
 Darwin special: the gcc configure script thinks darwin doesn't support dynamic
-libraries and concludes that plugins won't work.  Delete or improve the check.
-If you improve it, please send your patch to the gcc developers!
+libraries and concludes that plugins won't work.  You can find patches to fix
+this here:
+http://gcc.gnu.org/ml/gcc-patches/2010-04/msg00610.html
 
 Step 2: Build the plugin
 ------------------------
 
 Build the plugin like this:
   GCC=PATH_TO_JUST_INSTALLED_GCC make
-If the gcc installed in step 1 occurs in your path with the name gcc-4.5 (maybe
-via a symbolic link) then you can build the plugin like this:
+The plugin needs to know about the version of gcc it will be loaded into, which
+is why you need to specify the gcc installed in step 1 via the GCC variable like
+this.  If you have arranged for the new gcc to occur in your path with the name
+gcc-4.5 (using a symbolic link for example) then you can build the plugin using:
   make
+The plugin is compiled using the system compiler, and not with the gcc specified
+in the GCC variable (which wouldn't work if you built a cross compiler).  If you
+want to also compile the plugin with the new gcc, you can do:
+  CC=PATH_TO_JUST_INSTALLED_GCC CXX=PATH_TO_JUST_INSTALLED_GCC GCC=PATH_TO_JUST_INSTALLED_GCC make
 The end result of the build is a shared library, dragonegg.so.
 
-Darwin special: "-shared" doesn't result in a correct dynamic library on darwin,
-use "-Wl,-flat_namespace -Wl,-undefined -Wl,suppress -dynamiclib" instead.
 
 ----------------------
 - USAGE INSTRUCTIONS -
