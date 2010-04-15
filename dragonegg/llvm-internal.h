@@ -422,19 +422,22 @@ private:
 
   //===---------------------- Exception Handling --------------------------===//
 
-  /// Invokes - The list of invoke instructions for a given landing pad.
-  SmallVector<SmallVector<InvokeInst *, 8>, 16> Invokes;
+  /// NormalInvokes - Mapping from landing pad number to the set of invoke
+  /// instructions that unwind to that landing pad.
+  SmallVector<SmallVector<InvokeInst *, 8>, 16> NormalInvokes;
 
-  /// ExceptionPtrs - The local holding the exception pointer for an EH region.
+  /// ExceptionPtrs - Mapping from EH region index to the local holding the
+  /// exception pointer for that region.
   SmallVector<AllocaInst *, 16> ExceptionPtrs;
 
-  /// ExceptionFilters - The local holding the filter value for an EH region.
+  /// ExceptionFilters - Mapping from EH region index to the local holding the
+  /// filter value for that region.
   SmallVector<AllocaInst *, 16> ExceptionFilters;
 
-  /// FailureCode - The block holding the failure call for the given failure
-  /// function declaration (for must-not-throw regions - this is what is called
-  /// if an exception is nonetheless thrown).
-  DenseMap<tree_node *, BasicBlock *> FailureCode;
+  /// FailureBlocks - Mapping from the index of a must-not-throw EH region to
+  /// the block containing the failure code for the region (the code that is
+  /// run if an exception is thrown in this region).
+  SmallVector<BasicBlock *, 16> FailureBlocks;
 
   /// RewindBB - Block containing code that continues unwinding an exception.
   BasicBlock *RewindBB;
@@ -554,9 +557,9 @@ private: // Helper functions.
   /// EmitLandingPads - Emit EH landing pads.
   void EmitLandingPads();
 
-  /// EmitFailureCode - Emit the blocks containing failure code executed when
+  /// EmitFailureBlocks - Emit the blocks containing failure code executed when
   /// an exception is thrown in a must-not-throw region.
-  void EmitFailureCode();
+  void EmitFailureBlocks();
 
   /// EmitRewindBlock - Emit the block containing code to continue unwinding an
   /// exception.
@@ -579,6 +582,10 @@ private: // Helpers for exception handling.
   /// getExceptionFilter - Return the local holding the filter value for the
   /// given exception handling region, creating it if necessary.
   AllocaInst *getExceptionFilter(unsigned RegionNo);
+
+  /// getFailureBlock - Return the basic block containing the failure code for
+  /// the given exception handling region, creating it if necessary.
+  BasicBlock *getFailureBlock(unsigned RegionNo);
 
 private:
   void EmitAutomaticVariableDecl(tree_node *decl);

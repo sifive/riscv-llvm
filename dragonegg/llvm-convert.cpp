@@ -991,7 +991,7 @@ Function *TreeToLLVM::FinishFunctionBody() {
 
   // Now that phi nodes have been output, emit pending exception handling code.
   EmitLandingPads();
-  EmitFailureCode();
+  EmitFailureBlocks();
   EmitRewindBlock();
 
 #ifndef NDEBUG
@@ -1872,19 +1872,33 @@ AllocaInst *TreeToLLVM::getExceptionFilter(unsigned RegionNo) {
   return ExceptionFilter;
 }
 
+/// getFailureBlock - Return the basic block containing the failure code for
+/// the given exception handling region, creating it if necessary.
+BasicBlock *TreeToLLVM::getFailureBlock(unsigned RegionNo) {
+  if (RegionNo >= FailureBlocks.size())
+    FailureBlocks.resize(RegionNo + 1, 0);
+
+  BasicBlock *&FailureBlock = FailureBlocks[RegionNo];
+
+  if (!FailureBlock)
+    FailureBlock = BasicBlock::Create(Context, "fail");
+
+  return FailureBlock;
+}
+
 /// EmitLandingPads - Emit EH landing pads.
 void TreeToLLVM::EmitLandingPads() {
   // If there are no invokes then there is nothing to do.
-  if (Invokes.empty())
+  if (NormalInvokes.empty())
     return;
 
   // If a GCC post landing pad is shared by several exception handling regions,
   // or if there is a normal edge to it, then create LLVM landing pads for each
   // eh region.  Calls to eh.exception and eh.selector will then go in the LLVM
   // landing pad, which branches to the GCC post landing pad.
-  for (unsigned LPadNo = 1; LPadNo < Invokes.size(); ++LPadNo) {
+  for (unsigned LPadNo = 1; LPadNo < NormalInvokes.size(); ++LPadNo) {
     // Get the list of invokes for this GCC landing pad.
-    SmallVector<InvokeInst *, 8> &InvokesForPad = Invokes[LPadNo];
+    SmallVector<InvokeInst *, 8> &InvokesForPad = NormalInvokes[LPadNo];
 
     if (InvokesForPad.empty())
       continue;
@@ -1955,11 +1969,11 @@ void TreeToLLVM::EmitLandingPads() {
   std::vector<Value*> Args;
   Function *ExcIntr = Intrinsic::getDeclaration(TheModule,
                                                 Intrinsic::eh_exception);
-  Function *SelectorIntr = Intrinsic::getDeclaration(TheModule,
-                                                     Intrinsic::eh_selector);
-  for (unsigned LPadNo = 1; LPadNo < Invokes.size(); ++LPadNo) {
+  Function *SlctrIntr = Intrinsic::getDeclaration(TheModule,
+                                                  Intrinsic::eh_selector);
+  for (unsigned LPadNo = 1; LPadNo < NormalInvokes.size(); ++LPadNo) {
     // Get the list of invokes for this GCC landing pad.
-    SmallVector<InvokeInst *, 8> &InvokesForPad = Invokes[LPadNo];
+    SmallVector<InvokeInst *, 8> &InvokesForPad = NormalInvokes[LPadNo];
 
     if (InvokesForPad.empty())
       continue;
@@ -2084,7 +2098,7 @@ void TreeToLLVM::EmitLandingPads() {
       Args.push_back(CatchAll);
 
     // Emit the selector call.
-    Value *Filter = Builder.CreateCall(SelectorIntr, Args.begin(), Args.end(),
+    Value *Filter = Builder.CreateCall(SlctrIntr, Args.begin(), Args.end(),
                                        "filter");
 
     // Store it if made use of elsewhere.
@@ -2094,24 +2108,97 @@ void TreeToLLVM::EmitLandingPads() {
     Args.clear();
   }
 
-  Invokes.clear();
+  NormalInvokes.clear();
 }
 
-/// EmitFailureCode - Emit the blocks containing failure code executed when
+/// EmitFailureBlocks - Emit the blocks containing failure code executed when
 /// an exception is thrown in a must-not-throw region.
-void TreeToLLVM::EmitFailureCode() {
-  for (DenseMap<tree, BasicBlock *>::iterator I = FailureCode.begin(),
-       E = FailureCode.end(); I != E; ++I) {
-    BeginBlock(I->second);
+void TreeToLLVM::EmitFailureBlocks() {
+  for (unsigned RegionNo = 1; RegionNo < FailureBlocks.size(); ++RegionNo) {
+    BasicBlock *FailureBlock = FailureBlocks[RegionNo];
+
+    if (!FailureBlock)
+      continue;
+
+    eh_region region = get_eh_region_from_number(RegionNo);
+    assert(region->type == ERT_MUST_NOT_THROW && "Unexpected region type!");
+
+    // Check whether all predecessors are invokes or not.  Nothing exotic can
+    // occur here, only direct branches and unwinding via an invoke.
+    bool hasBranchPred = false;
+    bool hasInvokePred = false;
+    for (pred_iterator I = pred_begin(FailureBlock), E = pred_end(FailureBlock);
+         I != E && (!hasInvokePred || !hasBranchPred); ++I) {
+      TerminatorInst *T = (*I)->getTerminator();
+      if (isa<InvokeInst>(T)) {
+        assert(FailureBlock != T->getSuccessor(0) && "Expected unwind target!");
+        hasInvokePred = true;
+      } else {
+        assert(isa<BranchInst>(T) && "Wrong kind of failure predecessor!");
+        hasBranchPred = true;
+      }
+    }
+    assert((hasBranchPred || hasInvokePred) && "No predecessors!");
+
+    // Determine the landing pad that invokes will unwind to.  If there are no
+    // invokes, then there is no landing pad.
+    BasicBlock *LandingPad = NULL;
+    if (hasInvokePred) {
+      // If all predecessors are invokes, then the failure block can be used as
+      // the landing pad.  Otherwise, create a landing pad.
+      if (hasBranchPred)
+        LandingPad = BasicBlock::Create(Context, "pad");
+      else
+        LandingPad = FailureBlock;
+    }
+
+    if (LandingPad) {
+      BeginBlock(LandingPad);
+
+      // Generate an empty (i.e. catch-all) filter in the landing pad.
+      Function *ExcIntr = Intrinsic::getDeclaration(TheModule,
+                                                    Intrinsic::eh_exception);
+      Function *SlctrIntr = Intrinsic::getDeclaration(TheModule,
+                                                      Intrinsic::eh_selector);
+      Value *Args[3];
+      // The exception pointer.
+      Args[0] = Builder.CreateCall(ExcIntr, "exc_ptr");
+      // The personality function.
+      tree personality = DECL_FUNCTION_PERSONALITY(FnDecl);
+      assert(personality && "No-throw region but no personality function!");
+      Args[1] = Builder.CreateBitCast(DECL_LLVM(personality),
+                                      Type::getInt8PtrTy(Context));
+      // One more than the filter length.
+      Args[2] = ConstantInt::get(Type::getInt32Ty(Context), 1);
+      // Create the selector call.
+      Builder.CreateCall(SlctrIntr, Args, Args + 3, "filter");
+
+      if (LandingPad != FailureBlock) {
+        // Make sure all invokes unwind to the new landing pad.
+        for (pred_iterator I = pred_begin(FailureBlock),
+             E = pred_end(FailureBlock); I != E; ) {
+          TerminatorInst *T = (*I++)->getTerminator();
+          if (isa<InvokeInst>(T))
+            T->setSuccessor(1, LandingPad);
+        }
+
+        // Branch to the failure block at the end of the landing pad.
+        Builder.CreateBr(FailureBlock);
+      }
+    }
+
+    if (LandingPad != FailureBlock)
+      BeginBlock(FailureBlock);
 
     // Determine the failure function to call.
-    Value *FailFunc = DECL_LLVM(I->first);
+    Value *FailFunc = DECL_LLVM(region->u.must_not_throw.failure_decl);
 
     // Make sure it has the right type.
     FunctionType *FTy = FunctionType::get(Type::getVoidTy(Context), false);
     FailFunc = Builder.CreateBitCast(FailFunc, FTy->getPointerTo());
 
     // Spank the user for being naughty.
+    // TODO: Set the correct debug location.
     CallInst *FailCall = Builder.CreateCall(FailFunc);
 
     // This is always fatal.
@@ -2650,8 +2737,8 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     // an invoke rather than a simple call.
     LPadNo = lookup_stmt_eh_lp(stmt);
 
-    // Is the call in an exception handling region with a landing pad?
     if (LPadNo > 0) {
+      // The call is in an exception handling region with a landing pad.
       // Generate an invoke, with the GCC landing pad as the unwind destination.
       // The destination may change to an LLVM only landing pad,  which precedes
       // the GCC one, after phi nodes have been populated (doing things this way
@@ -2659,6 +2746,14 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
       eh_landing_pad lp = get_eh_landing_pad_from_number(LPadNo);
       assert(lp && "Post landing pad not found!");
       LandingPad = getLabelDeclBlock(lp->post_landing_pad);
+    } else if (LPadNo < 0) {
+      eh_region region = get_eh_region_from_lp_number(LPadNo);
+      // The call is in a must-not-throw region.  Generate an invoke that causes
+      // the region's failure code to be run if an exception is thrown.
+      assert(region->type == ERT_MUST_NOT_THROW && "Unexpected region type!");
+
+      // Unwind to the block containing the failure code.
+      LandingPad = getFailureBlock(region->index);
     }
   }
 
@@ -2776,14 +2871,15 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     cast<InvokeInst>(Call)->setCallingConv(CallingConvention);
     cast<InvokeInst>(Call)->setAttributes(PAL);
 
-    // The invoke's destination may change to an LLVM only landing pad, which
-    // precedes the GCC one, after phi nodes have been populated (doing things
-    // this way simplifies the generation of phi nodes).  Record the invoke as
-    // well as the GCC exception handling region.
-    assert(LPadNo > 0 && "Invoke but no GCC landing pad?");
-    if ((unsigned)LPadNo >= Invokes.size())
-      Invokes.resize(LPadNo + 1);
-    Invokes[LPadNo].push_back(cast<InvokeInst>(Call));
+    if (LPadNo > 0) {
+      // The invoke's destination may change to an LLVM only landing pad, which
+      // precedes the GCC one, after phi nodes have been populated (doing things
+      // this way simplifies the generation of phi nodes).  Record the invoke as
+      // well as the GCC exception handling region.
+      if ((unsigned)LPadNo >= NormalInvokes.size())
+        NormalInvokes.resize(LPadNo + 1);
+      NormalInvokes[LPadNo].push_back(cast<InvokeInst>(Call));
+    }
 
     BeginBlock(NextBlock);
   }
@@ -7149,14 +7245,8 @@ void TreeToLLVM::RenderGIMPLE_RESX(gimple stmt) {
       // call to the failure routine (eg: std::terminate).
       assert(dst_rgn->type == ERT_MUST_NOT_THROW && "Unexpected region type!");
 
-      // Look up the block containing the failure code.
-      tree failfunc = dst_rgn->u.must_not_throw.failure_decl;
-      BasicBlock *&FailureBlock = FailureCode[failfunc];
-      if (!FailureBlock)
-        FailureBlock = BasicBlock::Create(Context, "fail");
-
-      // Branch to it.
-      Builder.CreateBr(FailureBlock);
+      // Branch to the block containing the failure code.
+      Builder.CreateBr(getFailureBlock(dst_rgn->index));
       return;
     }
 
