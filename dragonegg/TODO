@@ -39,11 +39,12 @@ This should tie in nicely with gimple registers versus references.
 Unify the code that determines which LLVM linkage type to use.  Need to do
 a bunch of experimenting to work out how the mapping should really be done.
 
+Stop hooking directly into target specific ABI code (which requires patching
+gcc).  Instead, either try to get ABI info from the gcc hooks (which may mean
+translating RTL) or reuse the clang code.
+
 Code quality
 ------------
-
-Check the effect on code speed of having complex numbers be first class
-structures, i.e. values rather than in-memory aggregates.
 
 Clarify and extend the distinction between gimple registers and "the rest",
 the rest being mostly references.
@@ -54,12 +55,12 @@ Consider turning this directly into the corresponding vector operations.
 Work in terms of units rather than octets (i8).  For example, if the target
 has a 16 bit byte, then use i16 for byte addressing.
 
+Add language specific flags, for example that C++ uses the one-definition rule.
+
 Features
 --------
 
 Output proper debug info rather than throwing most of it away.
-
-Add support for exception handling.
 
 Many x86 specific builtins are not supported, even though it would be easy to
 add support for some of them, for example the 256 bit versions of builtins we
