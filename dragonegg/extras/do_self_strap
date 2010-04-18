@@ -99,7 +99,7 @@ if [ ! -e $GCC_SOURCE ] ; then
 elif [ ! -L $GCC_SOURCE ] ; then	# Do not update symbolic links.  This is
 					# for the benefit of the buildbots.
   echo "Running svn cleanup"
-  svn cleanup
+  svn cleanup $GCC_SOURCE
   echo "Reverting any applied patches"
   svn revert -R $GCC_SOURCE/gcc
   echo "Updating GCC"
