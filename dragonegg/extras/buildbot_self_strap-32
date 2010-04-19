@@ -18,5 +18,7 @@ export GCC_OPTIONS="--enable-languages=c,c++,fortran,objc,obj-c++ --build=i686-p
 export LLVM_OPTIONS="--build=i686-pc-linux-gnu"
 
 cd $BUILD_DIR
-svn cleanup gcc # In case a previous run was interrupted while checking out gcc
+if [ -e gcc ] ; then
+	svn cleanup gcc # In case a previous run was interrupted while checking out gcc
+fi
 $DRAGONEGG_SOURCE/extras/do_self_strap
