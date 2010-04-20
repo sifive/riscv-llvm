@@ -426,7 +426,7 @@ static void LazilyConfigureLLVM(void) {
 
   Args.push_back(0);  // Null terminator.
   int pseudo_argc = Args.size()-1;
-  llvm::cl::ParseCommandLineOptions(pseudo_argc, (char**)&Args[0]);
+  llvm::cl::ParseCommandLineOptions(pseudo_argc, const_cast<char**>(&Args[0]));
 
   Configured = true;
 }

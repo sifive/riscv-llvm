@@ -3353,7 +3353,7 @@ ChooseConstraintTuple(const char **Constraints, tree outputs, tree inputs,
 static void FreeConstTupleStrings(const char **ReplacementStrings,
                                   unsigned int Size) {
   for (unsigned int i=0; i<Size; i++)
-    free((char *)ReplacementStrings[i]);
+    free(const_cast<char *>(ReplacementStrings[i]));
 }
 
 // When extracting a register name from a DECL_HARD_REGISTER variable,
