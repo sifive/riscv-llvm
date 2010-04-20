@@ -390,6 +390,10 @@ static void LazilyConfigureLLVM(void) {
     Args.push_back("--unwind-tables");
   if (!flag_schedule_insns)
     Args.push_back("--pre-RA-sched=source");
+  if (flag_function_sections)
+    Args.push_back("--ffunction-sections");
+  if (flag_data_sections)
+    Args.push_back("--fdata-sections");
 
   // If there are options that should be passed through to the LLVM backend
   // directly from the command line, do so now.  This is mainly for debugging
