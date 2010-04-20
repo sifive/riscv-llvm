@@ -158,6 +158,7 @@ for STAGE in $STAGES ; do
   export CC="$GCC_INSTALL/bin/gcc $PLUGIN_OPTION"
   export CXX="$GCC_INSTALL/bin/g++ $PLUGIN_OPTION"
   export GCC=$CC # Tells dragonegg what to build against
+  export PATH=$GCC_INSTALL/bin:$PATH # For gnatmake, gnatbind etc if building Ada
 
   # The built libstdc++ and libgcc may be more recent than the system versions.
   # Set the library path so that programs compiled with the just built GCC will
