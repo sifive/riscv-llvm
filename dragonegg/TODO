@@ -69,3 +69,12 @@ do support.  Improve this.
 The GCC builtin lowering outputs helpful warnings (for example,
 20081109_0.c:3:35: warning: attempt to free a non-heap object ‘bar’,
 see maybe_emit_free_warning), but we don't.  Improve this somehow.
+
+Work out how to write object files directly.  Currently this can't be
+done because gcc insists on running the assembler on compiler output
+when using -c.
+
+Make LTO transparent.  One part of this working out how to write bitcode when
+using -c, which runs into trouble because gcc insists on running the assembler
+on compiler output.  Another part is looking into the possibility of encoding
+bitcode in ELF sections like gcc does for gimple when doing LTO.
