@@ -11,13 +11,18 @@ You need the latest llvm from the subversion repository.
 Step 1: Build gcc
 -----------------
 
-Check out gcc from the gcc subversion repository, either gcc mainline:
-  svn checkout svn://gcc.gnu.org/svn/gcc/trunk SomeLocalDir
-or the gcc-4.5 branch:
+Obtain a copy of the source code for the gcc-4.5 release.  You can get it from
+one of the gcc mirrors, see http://gcc.gnu.org/mirrors.html.  Alternatively, you
+can use the gcc-4.5 branch of the gcc subversion repository:
   svn checkout svn://gcc.gnu.org/svn/gcc/branches/gcc-4_5-branch SomeLocalDir
+If you are feeling brave then you can try gcc mainline:
+  svn checkout svn://gcc.gnu.org/svn/gcc/trunk SomeLocalDir
+Changes on gcc mainline occasionally break the plugin, so your mileage may vary.
+You can find a subversion revision number that is known to work well in the file
+gcc_revision_tested_with (in the same directory as this README).
 
-Apply the patches in the gcc-patches subdirectory, if any.  The following
-command should do the trick ("SomeLocalDir" is where you checked out gcc):
+Apply the patches in the gcc-patches subdirectory, if any.  The following should
+do the trick ("SomeLocalDir" is where you checked/unpacked the gcc source):
   cat gcc-patches/*.diff | patch -d SomeLocalDir -p1
 
 Configure gcc with your favorite options and also with --enable-plugin and
@@ -39,6 +44,8 @@ Step 2: Build the plugin
 
 Build the plugin like this:
   GCC=PATH_TO_JUST_INSTALLED_GCC make
+This should be done in the directory containing this README.
+
 The plugin needs to know about the version of gcc it will be loaded into, which
 is why you need to specify the gcc installed in step 1 via the GCC variable like
 this.  If you have arranged for the new gcc to occur in your path with the name
@@ -48,6 +55,13 @@ The plugin is compiled using the system compiler, and not with the gcc specified
 in the GCC variable (which wouldn't work if you built a cross compiler).  If you
 want to also compile the plugin with the new gcc, you can do:
   CC=PATH_TO_JUST_INSTALLED_GCC CXX=PATH_TO_JUST_INSTALLED_GCC GCC=PATH_TO_JUST_INSTALLED_GCC make
+
+The build system runs the "llvm-config" program (which should be in your path if
+you installed LLVM properly in step 0) to find out about the copy of LLVM you
+installed, so there is no need to tell the build system explicitly about LLVM.
+If llvm-config is not in your path then you can specify where to find it using
+the LLVM_CONFIG variable.
+
 The end result of the build is a shared library, dragonegg.so.
 
 
