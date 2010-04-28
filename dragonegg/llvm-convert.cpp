@@ -70,8 +70,6 @@ extern "C" {
 #include "toplev.h"
 #include "flags.h"
 #include "hard-reg-set.h"
-//#include "except.h"
-//#include "libfuncs.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "rtl.h"
