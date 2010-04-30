@@ -80,6 +80,7 @@ extern "C" {
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "version.h"
+#include "except.h"
 }
 
 // Plugin headers
@@ -333,13 +334,8 @@ namespace llvm {
 #undef Declare2
 }
 
-/// LazilyConfigureLLVM - Set LLVM configuration options, if not already set.
-/// already created.
-static void LazilyConfigureLLVM(void) {
-  static bool Configured = false;
-  if (Configured)
-    return;
-
+/// ConfigureLLVM - Initialized and configure LLVM.
+static void ConfigureLLVM(void) {
   // Initialize the LLVM backend.
 #define DoInit2(TARG, MOD)  LLVMInitialize ## TARG ## MOD()
 #define DoInit(T, M) DoInit2(T, M)
@@ -394,6 +390,12 @@ static void LazilyConfigureLLVM(void) {
     Args.push_back("--ffunction-sections");
   if (flag_data_sections)
     Args.push_back("--fdata-sections");
+  if (flag_exceptions) {
+    if (USING_SJLJ_EXCEPTIONS)
+      Args.push_back("--enable-sjlj-eh");
+    else
+      Args.push_back("--enable-eh");
+  }
 
   // If there are options that should be passed through to the LLVM backend
   // directly from the command line, do so now.  This is mainly for debugging
@@ -431,8 +433,6 @@ static void LazilyConfigureLLVM(void) {
   Args.push_back(0);  // Null terminator.
   int pseudo_argc = Args.size()-1;
   llvm::cl::ParseCommandLineOptions(pseudo_argc, const_cast<char**>(&Args[0]));
-
-  Configured = true;
 }
 
 /// LazilyInitializeModule - Create a module to output LLVM IR to, if it wasn't
@@ -442,7 +442,7 @@ static void LazilyInitializeModule(void) {
   if (Initialized)
     return;
 
-  LazilyConfigureLLVM();
+  ConfigureLLVM();
 
   TheModule = new Module("", getGlobalContext());
 
@@ -529,25 +529,7 @@ static void LazilyInitializeModule(void) {
     TheDebugInfo = new DebugInfo(TheModule);
   if (TheDebugInfo)
     TheDebugInfo->Initialize();
-//TODO}
-//TODO
-//TODO/// performLateBackendInitialization - Set backend options that may only be
-//TODO/// known at codegen time.
-//TODOvoid performLateBackendInitialization(void) {
-//TODO  // The Ada front-end sets flag_exceptions only after processing the file.
-//TODO  if (USING_SJLJ_EXCEPTIONS)
-//TODO    SjLjExceptionHandling = flag_exceptions;
-//TODO  else
-//TODO    DwarfExceptionHandling = flag_exceptions;
-//TODO  for (Module::iterator I = TheModule->begin(), E = TheModule->end();
-//TODO       I != E; ++I)
-//TODO    if (!I->isDeclaration()) {
-//TODO      if (flag_disable_red_zone)
-//TODO        I->addFnAttr(Attribute::NoRedZone);
-//TODO      if (flag_no_implicit_float)
-//TODO        I->addFnAttr(Attribute::NoImplicitFloat);
-//TODO    }
-//TODO}
+
   Initialized = true;
 }
 
@@ -1585,7 +1567,6 @@ static void emit_function(struct cgraph_node *node) {
   }
 
   if (!errorcount && !sorrycount) { // Do not process broken code.
-    // TODO  performLateBackendInitialization();
     createPerFunctionOptimizationPasses();
 
     if (PerFunctionPasses)
@@ -2025,13 +2006,21 @@ static void llvm_finish_unit(void *gcc_data, void *user_data) {
 //TODO  timevar_push(TV_LLVM_PERFILE);
   LLVMContext &Context = getGlobalContext();
 
-//TODO  performLateBackendInitialization();
   createPerFunctionOptimizationPasses();
 //TODO
 //TODO  if (flag_pch_file) {
 //TODO    writeLLVMTypesStringTable();
 //TODO    writeLLVMValues();
 //TODO  }
+
+//TODO  for (Module::iterator I = TheModule->begin(), E = TheModule->end();
+//TODO       I != E; ++I)
+//TODO    if (!I->isDeclaration()) {
+//TODO      if (flag_disable_red_zone)
+//TODO        I->addFnAttr(Attribute::NoRedZone);
+//TODO      if (flag_no_implicit_float)
+//TODO        I->addFnAttr(Attribute::NoImplicitFloat);
+//TODO    }
 
   // Add an llvm.global_ctors global if needed.
   if (!StaticCtors.empty())
