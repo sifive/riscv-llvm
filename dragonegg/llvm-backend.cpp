@@ -390,12 +390,6 @@ static void ConfigureLLVM(void) {
     Args.push_back("--ffunction-sections");
   if (flag_data_sections)
     Args.push_back("--fdata-sections");
-  if (flag_exceptions) {
-    if (USING_SJLJ_EXCEPTIONS)
-      Args.push_back("--enable-sjlj-eh");
-    else
-      Args.push_back("--enable-eh");
-  }
 
   // If there are options that should be passed through to the LLVM backend
   // directly from the command line, do so now.  This is mainly for debugging
