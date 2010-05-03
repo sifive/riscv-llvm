@@ -56,7 +56,6 @@ extern "C" {
 extern "C" {
 #include "llvm-cache.h"
 }
-#include "bits_and_bobs.h"
 
 static LLVMContext &Context = getGlobalContext();
 

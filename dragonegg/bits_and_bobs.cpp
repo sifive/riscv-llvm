@@ -1,7 +1,5 @@
 #include <stdlib.h>
 
-bool flag_odr = false;
-
 int ix86_regparm;
 
 union tree_node;

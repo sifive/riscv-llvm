@@ -59,7 +59,6 @@ extern "C" {
 #include "llvm-abi.h"
 #include "llvm-debug.h"
 #include "llvm-internal.h"
-#include "bits_and_bobs.h"
 
 using namespace llvm;
 using namespace llvm::dwarf;

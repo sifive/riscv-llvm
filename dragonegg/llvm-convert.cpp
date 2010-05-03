@@ -84,7 +84,6 @@ extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
 #include "llvm-abi.h"
 #include "llvm-internal.h"
 #include "llvm-debug.h"
-#include "bits_and_bobs.h"
 
 static LLVMContext &Context = getGlobalContext();
 

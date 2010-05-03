@@ -87,6 +87,11 @@ extern TargetFolder *TheFolder;
 /// getTargetData - Return the current TargetData object from TheTarget.
 const TargetData &getTargetData();
 
+/// flag_odr - Whether the language being compiled obeys the One Definition Rule
+/// (i.e. if the same function is defined in multiple compilation units, all the
+/// definitions are equivalent).
+extern bool flag_odr;
+
 /// AttributeUsedGlobals - The list of globals that are marked attribute(used).
 extern SmallSetVector<Constant *,32> AttributeUsedGlobals;
 

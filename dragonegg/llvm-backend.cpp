@@ -88,7 +88,6 @@ extern "C" {
 #include "llvm-debug.h"
 #include "llvm-target.h"
 #include "llvm-os.h"
-#include "bits_and_bobs.h"
 extern "C" {
 #include "llvm-cache.h"
 }
@@ -514,6 +513,32 @@ static void CreateModule(const std::string &TargetTriple) {
                            getStringRepresentation());
 }
 
+/// flag_odr - Whether the language being compiled obeys the One Definition Rule
+/// (i.e. if the same function is defined in multiple compilation units, all the
+/// definitions are equivalent).
+bool flag_odr;
+
+/// InstallLanguageSettings - Do any language-specific back-end configuration.
+static void InstallLanguageSettings() {
+  // The principal here is that not doing any language-specific configuration
+  // should still result in correct code.  The language-specific settings are
+  // only for obtaining better code, but exploiting language-specific features.
+  StringRef LanguageName = lang_hooks.name;
+
+  if (LanguageName == "GNU Ada") {
+    flag_odr = true; // Ada obeys the one-definition-rule.
+  } else if (LanguageName == "GNU C") {
+  } else if (LanguageName == "GNU C++") {
+    flag_odr = true; // C++ obeys the one-definition-rule.
+  } else if (LanguageName == "GNU Fortran") {
+  } else if (LanguageName == "GNU GIMPLE") { // LTO gold plugin.
+  } else if (LanguageName == "GNU Java") {
+  } else if (LanguageName == "GNU Objective-C") {
+  } else if (LanguageName == "GNU Objective-C++") {
+    flag_odr = true; // Objective C++ obeys the one-definition-rule.
+  }
+}
+
 /// InitializeBackend - Initialize the GCC to LLVM conversion machinery.
 /// Can safely be called multiple times.
 static void InitializeBackend(void) {
@@ -538,6 +563,9 @@ static void InitializeBackend(void) {
     TheDebugInfo = new DebugInfo(TheModule);
   if (TheDebugInfo)
     TheDebugInfo->Initialize();
+
+  // Perform language specific configuration.
+  InstallLanguageSettings();
 
   Initialized = true;
 }
