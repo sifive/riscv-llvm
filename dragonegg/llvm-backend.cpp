@@ -427,21 +427,64 @@ static void ConfigureLLVM(void) {
   Args.push_back(0);  // Null terminator.
   int pseudo_argc = Args.size()-1;
   llvm::cl::ParseCommandLineOptions(pseudo_argc, const_cast<char**>(&Args[0]));
+
+  if (optimize)
+    RegisterRegAlloc::setDefault(createLinearScanRegisterAllocator);
+  else
+    RegisterRegAlloc::setDefault(createLocalRegisterAllocator);
 }
 
-/// LazilyInitializeModule - Create a module to output LLVM IR to, if it wasn't
-/// already created.
-static void LazilyInitializeModule(void) {
-  static bool Initialized = false;
-  if (Initialized)
-    return;
+/// ComputeTargetTriple - Determine the target triple to use.
+static std::string ComputeTargetTriple() {
+  // If the target wants to override the architecture, e.g. turning
+  // powerpc-darwin-... into powerpc64-darwin-... when -m64 is enabled, do so
+  // now.
+  std::string TargetTriple = TARGET_NAME;
+#ifdef LLVM_OVERRIDE_TARGET_ARCH
+  std::string Arch = LLVM_OVERRIDE_TARGET_ARCH();
+  if (!Arch.empty()) {
+    std::string::size_type DashPos = TargetTriple.find('-');
+    if (DashPos != std::string::npos)// If we have a sane t-t, replace the arch.
+      TargetTriple = Arch + TargetTriple.substr(DashPos);
+  }
+#endif
+#ifdef LLVM_OVERRIDE_TARGET_VERSION
+  char *NewTriple;
+  bool OverRidden = LLVM_OVERRIDE_TARGET_VERSION(TargetTriple.c_str(),
+                                                 &NewTriple);
+  if (OverRidden)
+    TargetTriple = std::string(NewTriple);
+#endif
+  return TargetTriple;
+}
 
-  ConfigureLLVM();
+/// CreateTargetMachine - Create the TargetMachine we will generate code with.
+static void CreateTargetMachine(const std::string &TargetTriple) {
+  // FIXME: Figure out how to select the target and pass down subtarget info.
+  std::string Err;
+  const Target *TME =
+    TargetRegistry::lookupTarget(TargetTriple, Err);
+  if (!TME)
+    report_fatal_error(Err);
 
-  TheModule = new Module("", getGlobalContext());
+  // Figure out the subtarget feature string we pass to the target.
+  std::string FeatureStr;
+  // The target can set LLVM_SET_SUBTARGET_FEATURES to configure the LLVM
+  // backend.
+#ifdef LLVM_SET_SUBTARGET_FEATURES
+  SubtargetFeatures Features;
+  LLVM_SET_SUBTARGET_FEATURES(Features);
+  FeatureStr = Features.getString();
+#endif
+  TheTarget = TME->createTargetMachine(TargetTriple, FeatureStr);
+  assert(TheTarget->getTargetData()->isBigEndian() == BYTES_BIG_ENDIAN);
+}
 
-  if (main_input_filename)
-    TheModule->setModuleIdentifier(main_input_filename);
+/// CreateModule - Create and initialize a module to output LLVM IR to.
+static void CreateModule(const std::string &TargetTriple) {
+  // Create the module itself.
+  StringRef ModuleID = main_input_filename ? main_input_filename : "";
+  TheModule = new Module(ModuleID, getGlobalContext());
 
   // Insert a special .ident directive to identify the version of the plugin
   // which compiled this code.  The format of the .ident string is patterned
@@ -464,60 +507,32 @@ static void LazilyInitializeModule(void) {
   }
 #endif
 
-  // If the target wants to override the architecture, e.g. turning
-  // powerpc-darwin-... into powerpc64-darwin-... when -m64 is enabled, do so
-  // now.
-  std::string TargetTriple = TARGET_NAME;
-#ifdef LLVM_OVERRIDE_TARGET_ARCH
-  std::string Arch = LLVM_OVERRIDE_TARGET_ARCH();
-  if (!Arch.empty()) {
-    std::string::size_type DashPos = TargetTriple.find('-');
-    if (DashPos != std::string::npos)// If we have a sane t-t, replace the arch.
-      TargetTriple = Arch + TargetTriple.substr(DashPos);
-  }
-#endif
-#ifdef LLVM_OVERRIDE_TARGET_VERSION
-  char *NewTriple;
-  bool OverRidden = LLVM_OVERRIDE_TARGET_VERSION(TargetTriple.c_str(),
-                                                 &NewTriple);
-  if (OverRidden)
-    TargetTriple = std::string(NewTriple);
-#endif
+  // Install information about the target triple and data layout into the module
+  // for optimizer use.
   TheModule->setTargetTriple(TargetTriple);
-
-  TheTypeConverter = new TypeConverter();
-
-  // Create the TargetMachine we will be generating code with.
-  // FIXME: Figure out how to select the target and pass down subtarget info.
-  std::string Err;
-  const Target *TME =
-    TargetRegistry::lookupTarget(TargetTriple, Err);
-  if (!TME)
-    report_fatal_error(Err);
-
-  // Figure out the subtarget feature string we pass to the target.
-  std::string FeatureStr;
-  // The target can set LLVM_SET_SUBTARGET_FEATURES to configure the LLVM
-  // backend.
-#ifdef LLVM_SET_SUBTARGET_FEATURES
-  SubtargetFeatures Features;
-  LLVM_SET_SUBTARGET_FEATURES(Features);
-  FeatureStr = Features.getString();
-#endif
-  TheTarget = TME->createTargetMachine(TargetTriple, FeatureStr);
-  assert(TheTarget->getTargetData()->isBigEndian() == BYTES_BIG_ENDIAN);
-
-  TheFolder = new TargetFolder(TheTarget->getTargetData());
-
-  // Install information about target datalayout stuff into the module for
-  // optimizer use.
   TheModule->setDataLayout(TheTarget->getTargetData()->
                            getStringRepresentation());
+}
 
-  if (optimize)
-    RegisterRegAlloc::setDefault(createLinearScanRegisterAllocator);
-  else
-    RegisterRegAlloc::setDefault(createLocalRegisterAllocator);
+/// InitializeBackend - Initialize the GCC to LLVM conversion machinery.
+/// Can safely be called multiple times.
+static void InitializeBackend(void) {
+  static bool Initialized = false;
+  if (Initialized)
+    return;
+
+  // Initialize and configure LLVM.
+  ConfigureLLVM();
+
+  // Create the target machine to generate code for.
+  const std::string TargetTriple = ComputeTargetTriple();
+  CreateTargetMachine(TargetTriple);
+
+  // Create a module to hold the generated LLVM IR.
+  CreateModule(TargetTriple);
+
+  TheTypeConverter = new TypeConverter();
+  TheFolder = new TargetFolder(TheTarget->getTargetData());
 
   if (debug_info_level > DINFO_LEVEL_NONE)
     TheDebugInfo = new DebugInfo(TheModule);
@@ -1837,7 +1852,7 @@ static void emit_functions(cgraph_node_set set) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
-  LazilyInitializeModule();
+  InitializeBackend();
 
   // Visit each function with a body, outputting it only once (the same function
   // can appear in multiple cgraph nodes due to cloning).
@@ -1900,7 +1915,7 @@ static void emit_variables(cgraph_node_set set) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
-  LazilyInitializeModule();
+  InitializeBackend();
 
   // Output all externally visible global variables, whether they are used in
   // this compilation unit or not, as well as any internal variables explicitly
@@ -1995,7 +2010,7 @@ static void llvm_finish_unit(void *gcc_data, void *user_data) {
   if (!quiet_flag)
     errs() << "Finishing compilation unit\n";
 
-  LazilyInitializeModule();
+  InitializeBackend();
 
 //TODO  timevar_push(TV_LLVM_PERFILE);
   LLVMContext &Context = getGlobalContext();
