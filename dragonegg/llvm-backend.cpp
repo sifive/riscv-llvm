@@ -540,7 +540,7 @@ static void InstallLanguageSettings() {
   } else if (LanguageName == "GNU C") {
     flag_vararg_requires_arguments = true; // "T foo() {}" -> "T foo(void) {}"
   } else if (LanguageName == "GNU C++") {
-    flag_odr = true; // C++ obeys the one-definition-rule
+//FIXME    flag_odr = true; // C++ obeys the one-definition-rule
   } else if (LanguageName == "GNU Fortran") {
   } else if (LanguageName == "GNU GIMPLE") { // LTO gold plugin
   } else if (LanguageName == "GNU Java") {
