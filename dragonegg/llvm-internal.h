@@ -87,6 +87,10 @@ extern TargetFolder *TheFolder;
 /// getTargetData - Return the current TargetData object from TheTarget.
 const TargetData &getTargetData();
 
+/// flag_default_initialize_globals - Whether global variables with no explicit
+/// initial value should be zero initialized.
+extern bool flag_default_initialize_globals;
+
 /// flag_odr - Whether the language being compiled obeys the One Definition Rule
 /// (i.e. if the same function is defined in multiple compilation units, all the
 /// definitions are equivalent).

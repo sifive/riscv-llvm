@@ -513,6 +513,10 @@ static void CreateModule(const std::string &TargetTriple) {
                            getStringRepresentation());
 }
 
+/// flag_default_initialize_globals - Whether global variables with no explicit
+/// initial value should be zero initialized.
+bool flag_default_initialize_globals = true; // GCC always initializes to zero
+
 /// flag_odr - Whether the language being compiled obeys the One Definition Rule
 /// (i.e. if the same function is defined in multiple compilation units, all the
 /// definitions are equivalent).
@@ -531,18 +535,19 @@ static void InstallLanguageSettings() {
   StringRef LanguageName = lang_hooks.name;
 
   if (LanguageName == "GNU Ada") {
-    flag_odr = true; // Ada obeys the one-definition-rule.
+    flag_default_initialize_globals = false; // Uninitialized means what it says
+    flag_odr = true; // Ada obeys the one-definition-rule
   } else if (LanguageName == "GNU C") {
     flag_vararg_requires_arguments = true; // "T foo() {}" -> "T foo(void) {}"
   } else if (LanguageName == "GNU C++") {
-    flag_odr = true; // C++ obeys the one-definition-rule.
+    flag_odr = true; // C++ obeys the one-definition-rule
   } else if (LanguageName == "GNU Fortran") {
-  } else if (LanguageName == "GNU GIMPLE") { // LTO gold plugin.
+  } else if (LanguageName == "GNU GIMPLE") { // LTO gold plugin
   } else if (LanguageName == "GNU Java") {
   } else if (LanguageName == "GNU Objective-C") {
     flag_vararg_requires_arguments = true; // "T foo() {}" -> "T foo(void) {}"
   } else if (LanguageName == "GNU Objective-C++") {
-    flag_odr = true; // Objective C++ obeys the one-definition-rule.
+    flag_odr = true; // Objective C++ obeys the one-definition-rule
   }
 }
 
@@ -1002,10 +1007,14 @@ void emit_global(tree decl) {
   // Convert the initializer over.
   Constant *Init;
   if (DECL_INITIAL(decl) == 0 || DECL_INITIAL(decl) == error_mark_node) {
-    // This global should be zero initialized.  Reconvert the type in case the
-    // forward def of the global and the real def differ in type (e.g. declared
-    // as 'int A[]', and defined as 'int A[100]').
-    Init = Constant::getNullValue(ConvertType(TREE_TYPE(decl)));
+    // Reconvert the type in case the forward def of the global and the real def
+    // differ in type (e.g. declared as 'int A[]', and defined as 'int A[100]').
+    const Type *Ty = ConvertType(TREE_TYPE(decl));
+
+    if (flag_default_initialize_globals)
+      Init = Constant::getNullValue(Ty);
+    else
+      Init = UndefValue::get(Ty);
   } else {
     assert((TREE_CONSTANT(DECL_INITIAL(decl)) || 
             TREE_CODE(DECL_INITIAL(decl)) == STRING_CST) &&
