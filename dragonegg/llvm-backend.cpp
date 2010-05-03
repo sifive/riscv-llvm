@@ -518,6 +518,11 @@ static void CreateModule(const std::string &TargetTriple) {
 /// definitions are equivalent).
 bool flag_odr;
 
+/// flag_vararg_requires_arguments - Do not consider functions with no arguments
+/// to take a variable number of arguments (...).  If set then a function like
+/// "T foo() {}" will be treated like "T foo(void) {}" and not "T foo(...) {}".
+bool flag_vararg_requires_arguments;
+
 /// InstallLanguageSettings - Do any language-specific back-end configuration.
 static void InstallLanguageSettings() {
   // The principal here is that not doing any language-specific configuration
@@ -528,12 +533,14 @@ static void InstallLanguageSettings() {
   if (LanguageName == "GNU Ada") {
     flag_odr = true; // Ada obeys the one-definition-rule.
   } else if (LanguageName == "GNU C") {
+    flag_vararg_requires_arguments = true; // "T foo() {}" -> "T foo(void) {}"
   } else if (LanguageName == "GNU C++") {
     flag_odr = true; // C++ obeys the one-definition-rule.
   } else if (LanguageName == "GNU Fortran") {
   } else if (LanguageName == "GNU GIMPLE") { // LTO gold plugin.
   } else if (LanguageName == "GNU Java") {
   } else if (LanguageName == "GNU Objective-C") {
+    flag_vararg_requires_arguments = true; // "T foo() {}" -> "T foo(void) {}"
   } else if (LanguageName == "GNU Objective-C++") {
     flag_odr = true; // Objective C++ obeys the one-definition-rule.
   }

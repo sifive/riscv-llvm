@@ -525,19 +525,6 @@ static bool isPassedByVal(tree type, const Type *Ty,
   return false;
 }
 
-/// LanguageIsC - Return true if we are compiling C or Objective-C.
-static bool LanguageIsC() {
-  // If we've already determined this, return it.
-  static unsigned Val = 2;
-  if (Val != 2) return (bool)Val;
-
-  StringRef LanguageName = lang_hooks.name;
-
-  if (LanguageName == "GNU C" || LanguageName == "GNU Objective-C")
-    return (Val = true);
-  return (Val = false);
-}
-
 void TreeToLLVM::StartFunctionBody() {
   std::string Name = getLLVMAssemblerName(FnDecl).str();
   // TODO: Add support for dropping the leading '\1' in order to support
@@ -558,7 +545,7 @@ void TreeToLLVM::StartFunctionBody() {
   //
   // Note that we only do this in C/Objective-C.  Doing this in C++ for
   // functions explicitly declared as taking (...) is bad.
-  if (TYPE_ARG_TYPES(TREE_TYPE(FnDecl)) == 0 && LanguageIsC()) {
+  if (TYPE_ARG_TYPES(TREE_TYPE(FnDecl)) == 0 && flag_vararg_requires_arguments){
     FTy = TheTypeConverter->ConvertArgListToFnType(TREE_TYPE(FnDecl),
                                                    DECL_ARGUMENTS(FnDecl),
                                                    static_chain,

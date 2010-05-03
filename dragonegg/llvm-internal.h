@@ -92,6 +92,11 @@ const TargetData &getTargetData();
 /// definitions are equivalent).
 extern bool flag_odr;
 
+/// flag_vararg_requires_arguments - Do not consider functions with no arguments
+/// to take a variable number of arguments (...).  If set then a function like
+/// "T foo() {}" will be treated like "T foo(void) {}" and not "T foo(...) {}".
+extern bool flag_vararg_requires_arguments;
+
 /// AttributeUsedGlobals - The list of globals that are marked attribute(used).
 extern SmallSetVector<Constant *,32> AttributeUsedGlobals;
 
