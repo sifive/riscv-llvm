@@ -757,6 +757,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   unknown: return false;
   IX86_BUILTIN_ADDPS:
   IX86_BUILTIN_ADDPD:
+    Result = Builder.CreateFAdd(Ops[0], Ops[1]);
+    return true;
   IX86_BUILTIN_PADDB:
   IX86_BUILTIN_PADDW:
   IX86_BUILTIN_PADDD:
@@ -769,6 +771,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     return true;
   IX86_BUILTIN_SUBPS:
   IX86_BUILTIN_SUBPD:
+    Result = Builder.CreateFSub(Ops[0], Ops[1]);
+    return true;
   IX86_BUILTIN_PSUBB:
   IX86_BUILTIN_PSUBW:
   IX86_BUILTIN_PSUBD:
@@ -781,6 +785,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     return true;
   IX86_BUILTIN_MULPS:
   IX86_BUILTIN_MULPD:
+    Result = Builder.CreateFMul(Ops[0], Ops[1]);
+    return true;
   IX86_BUILTIN_PMULLW:
   IX86_BUILTIN_PMULLW128:
     Result = Builder.CreateMul(Ops[0], Ops[1]);
