@@ -190,10 +190,10 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
         if (!FoundField) {
           if (rejectFatBitfield &&
               TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
-              TREE_INT_CST_LOW(TYPE_SIZE(getDeclaredType(Field))) > 
+              TREE_INT_CST_LOW(TYPE_SIZE(TREE_TYPE(Field))) > 
               TREE_INT_CST_LOW(TYPE_SIZE(type)))
             return 0;
-          FoundField = getDeclaredType(Field);
+          FoundField = TREE_TYPE(Field);
         } else {
           return 0;   // More than one field.
         }

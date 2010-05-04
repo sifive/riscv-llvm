@@ -131,7 +131,8 @@ static uint64_t NodeAlignInBits(tree Node) {
 ///
 static tree FieldType(tree Field) {
   if (TREE_CODE (Field) == ERROR_MARK) return integer_type_node;
-  return getDeclaredType(Field);
+  return DECL_BIT_FIELD_TYPE(Field) ?
+    DECL_BIT_FIELD_TYPE(Field) : TREE_TYPE (Field);
 }
 
 /// GetNodeName - Returns the name stored in a node regardless of whether the

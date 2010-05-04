@@ -303,10 +303,6 @@ inline uint64_t getFieldOffsetInBits(tree_node *field) {
   return Result;
 }
 
-/// getDeclaredType - Get the declared type for the specified field, and
-/// not the shrunk-to-fit type that GCC gives us in TREE_TYPE.
-tree_node *getDeclaredType(tree_node *field_decl);
-
 /// ValidateRegisterVariable - Check that a static "asm" variable is
 /// well-formed.  If not, emit error messages and return true.  If so, return
 /// false.

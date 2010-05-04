@@ -5418,7 +5418,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 
   StructAddrLV.Ptr = Builder.CreateBitCast(StructAddrLV.Ptr,
                                            StructTy->getPointerTo());
-  const Type *FieldTy = ConvertType(getDeclaredType(FieldDecl));
+  const Type *FieldTy = ConvertType(TREE_TYPE(FieldDecl));
 
   // BitStart - This is the actual offset of the field from the start of the
   // struct, in bits.  For bitfields this may be on a non-byte boundary.
@@ -8761,7 +8761,7 @@ Constant *TreeConstantToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 
   StructAddrLV = TheFolder->CreateBitCast(StructAddrLV,
                                           StructTy->getPointerTo());
-  const Type *FieldTy = ConvertType(getDeclaredType(FieldDecl));
+  const Type *FieldTy = ConvertType(TREE_TYPE(FieldDecl));
 
   // BitStart - This is the actual offset of the field from the start of the
   // struct, in bits.  For bitfields this may be on a non-byte boundary.

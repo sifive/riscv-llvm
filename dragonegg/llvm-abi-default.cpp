@@ -134,7 +134,7 @@ void DefaultABI::HandleArgument(tree type, std::vector<const Type*> &ScalarElts,
   } else if (TREE_CODE(type) == RECORD_TYPE) {
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
       if (TREE_CODE(Field) == FIELD_DECL) {
-        const tree Ftype = getDeclaredType(Field);
+        const tree Ftype = TREE_TYPE(Field);
         const Type *FTy = ConvertType(Ftype);
         unsigned FNo = GetFieldIndex(Field, Ty);
         assert(FNo < INT_MAX && "Case not handled yet!");
@@ -147,7 +147,7 @@ void DefaultABI::HandleArgument(tree type, std::vector<const Type*> &ScalarElts,
         // HandleByValArgument.)
         if (!LLVM_SHOULD_PASS_AGGREGATE_USING_BYVAL_ATTR(Ftype, FTy)) {
           C.EnterField(FNo, Ty);
-          HandleArgument(getDeclaredType(Field), ScalarElts);
+          HandleArgument(TREE_TYPE(Field), ScalarElts);
           C.ExitField();
         }
       }

@@ -287,8 +287,7 @@ static void NameType(const Type *Ty, tree t, Twine Prefix = Twine(),
 
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
 bool isBitfield(tree_node *field_decl) {
-  tree type = DECL_BIT_FIELD_TYPE(field_decl);
-  if (!type)
+  if (!DECL_BIT_FIELD(field_decl))
     return false;
 
   // A bitfield.  But do we need to treat it as one?
@@ -298,11 +297,11 @@ bool isBitfield(tree_node *field_decl) {
     // Does not start on a byte boundary - must treat as a bitfield.
     return true;
 
-  if (!isInt64(TYPE_SIZE (type), true))
+  if (!isInt64(TYPE_SIZE (TREE_TYPE(field_decl)), true))
     // No size or variable sized - play safe, treat as a bitfield.
     return true;
 
-  uint64_t TypeSizeInBits = getInt64(TYPE_SIZE (type), true);
+  uint64_t TypeSizeInBits = getInt64(TYPE_SIZE (TREE_TYPE(field_decl)), true);
   assert(!(TypeSizeInBits & 7) && "A type with a non-byte size!");
 
   assert(DECL_SIZE(field_decl) && "Bitfield with no bit size!");
@@ -312,13 +311,6 @@ bool isBitfield(tree_node *field_decl) {
     return true;
 
   return false;
-}
-
-/// getDeclaredType - Get the declared type for the specified field_decl, and
-/// not the shrunk-to-fit type that GCC gives us in TREE_TYPE.
-tree getDeclaredType(tree_node *field_decl) {
-  return DECL_BIT_FIELD_TYPE(field_decl) ?
-    DECL_BIT_FIELD_TYPE(field_decl) : TREE_TYPE (field_decl);
 }
 
 /// refine_type_to - Cause all users of the opaque type old_type to switch
@@ -646,7 +638,7 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
         return true;
 
       uint64_t FieldBitOffset = getFieldOffsetInBits(Field);
-      if (GCCTypeOverlapsWithPadding(getDeclaredType(Field),
+      if (GCCTypeOverlapsWithPadding(TREE_TYPE(Field),
                                      PadStartBits-FieldBitOffset, PadSizeBits))
         return true;
     }
@@ -1631,9 +1623,9 @@ bool TypeConverter::DecodeStructFields(tree Field,
         return false;
       // If Field has user defined alignment and it does not match Ty alignment
       // then convert to a packed struct and try again.
-      if (TYPE_USER_ALIGN(DECL_BIT_FIELD_TYPE(Field))) {
-        const Type *Ty = ConvertType(getDeclaredType(Field));
-        if (TYPE_ALIGN(DECL_BIT_FIELD_TYPE(Field)) !=
+      if (TYPE_USER_ALIGN(TREE_TYPE(Field))) {
+        const Type *Ty = ConvertType(TREE_TYPE(Field));
+        if (TYPE_ALIGN(TREE_TYPE(Field)) !=
             8 * Info.getTypeAlignment(Ty))
           return false;
       }
@@ -1649,7 +1641,7 @@ bool TypeConverter::DecodeStructFields(tree Field,
   assert((StartOffsetInBits & 7) == 0 && "Non-bit-field has non-byte offset!");
   uint64_t StartOffsetInBytes = StartOffsetInBits/8;
 
-  const Type *Ty = ConvertType(getDeclaredType(Field));
+  const Type *Ty = ConvertType(TREE_TYPE(Field));
 
   // If this field is packed then the struct may need padding fields
   // before this field.
