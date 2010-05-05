@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -o errexit	# Exit if any command fails
+set -o pipefail	# Return the last non-zero exit status in pipelines
 #set -x		# Print commands as they are executed
 shopt -s nullglob
 
