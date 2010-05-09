@@ -2927,6 +2927,11 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
 //               ... Inline Assembly and Register Variables ...
 //===----------------------------------------------------------------------===//
 
+// LLVM_GET_REG_NAME - Default to use GCC's register names.  Targets may
+// override this to use different names for some registers.
+#ifndef LLVM_GET_REG_NAME
+#define LLVM_GET_REG_NAME(REG_NAME, REG_NUM) reg_names[REG_NUM]
+#endif
 
 /// Reads from register variables are handled by emitting an inline asm node
 /// that copies the value out of the specified register.
@@ -2941,7 +2946,8 @@ Value *TreeToLLVM::EmitReadOfRegisterVariable(tree decl) {
   // Turn this into a 'tmp = call Ty asm "", "={reg}"()'.
   FunctionType *FTy = FunctionType::get(MemTy, std::vector<const Type*>(),false);
 
-  const char *Name = reg_names[decode_reg_name(extractRegisterName(decl))];
+  const char *Name = extractRegisterName(decl);
+  Name = LLVM_GET_REG_NAME(Name, decode_reg_name(Name));
 
   InlineAsm *IA = InlineAsm::get(FTy, "", "={"+std::string(Name)+"}", false);
   CallInst *Call = Builder.CreateCall(IA);
@@ -2967,7 +2973,8 @@ void TreeToLLVM::EmitModifyOfRegisterVariable(tree decl, Value *RHS) {
   FunctionType *FTy = FunctionType::get(Type::getVoidTy(Context), ArgTys,
                                         false);
 
-  const char *Name = reg_names[decode_reg_name(extractRegisterName(decl))];
+  const char *Name = extractRegisterName(decl);
+  Name = LLVM_GET_REG_NAME(Name, decode_reg_name(Name));
 
   InlineAsm *IA = InlineAsm::get(FTy, "", "{"+std::string(Name)+"}", true);
   CallInst *Call = Builder.CreateCall(IA, RHS);
@@ -3338,23 +3345,6 @@ static void FreeConstTupleStrings(const char **ReplacementStrings,
                                   unsigned int Size) {
   for (unsigned int i=0; i<Size; i++)
     free(const_cast<char *>(ReplacementStrings[i]));
-}
-
-// When extracting a register name from a DECL_HARD_REGISTER variable,
-// we normally want to look up RegNum in reg_names.  This works on most
-// targets, where ADDITIONAL_REGISTER_NAMES are true synonyms.  It does not
-// work on x86, where ADDITIONAL_REGISTER_NAMES are overlapping subregisters;
-// in particular AH and AL can't be distinguished if we go through reg_names.
-static const char* getConstraintRegNameFromGccTables(const char *RegName,
-                                                     unsigned int RegNum) {
-#ifdef LLVM_DO_NOT_USE_REG_NAMES
-  (void)RegNum;
-  if (*RegName == '%')
-    RegName++;
-  return RegName;
-#else
-  return reg_names[RegNum];
-#endif
 }
 
 
@@ -6766,7 +6756,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       const char* RegName = extractRegisterName(Operand);
       int RegNum = decode_reg_name(RegName);
       if (RegNum >= 0) {
-        RegName = getConstraintRegNameFromGccTables(RegName, RegNum);
+        RegName = LLVM_GET_REG_NAME(RegName, RegNum);
         unsigned RegNameLen = strlen(RegName);
         char *NewConstraint = (char*)alloca(RegNameLen+4);
         NewConstraint[0] = '=';
@@ -6949,7 +6939,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       const char *RegName = extractRegisterName(Val);
       int RegNum = decode_reg_name(RegName);
       if (RegNum >= 0) {
-        RegName = getConstraintRegNameFromGccTables(RegName, RegNum);
+        RegName = LLVM_GET_REG_NAME(RegName, RegNum);
         ConstraintStr += '{';
         ConstraintStr += RegName;
         ConstraintStr += '}';
@@ -6985,7 +6975,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       ConstraintStr += ",~{memory}";
       break;
     default:     // Normal register name.
-      RegName = getConstraintRegNameFromGccTables(RegName, RegCode);
+      RegName = LLVM_GET_REG_NAME(RegName, RegCode);
       ConstraintStr += ",~{";
       ConstraintStr += RegName;
       ConstraintStr += "}";
