@@ -92,6 +92,10 @@ extern "C" {
 #include "llvm-cache.h"
 }
 
+#if (GCC_MAJOR != 4)
+#error Unsupported GCC major version
+#endif
+
 // Non-zero if bytecode from PCH is successfully read.
 int flag_llvm_pch_read;
 
@@ -1892,7 +1896,11 @@ static void emit_file_scope_asm(tree string) {
 }
 
 /// emit_functions - Turn all functions in the compilation unit into LLVM IR.
-static void emit_functions(cgraph_node_set set) {
+static void emit_functions(cgraph_node_set set
+#if (GCC_MINOR > 5)
+                           , varpool_node_set vset ATTRIBUTE_UNUSED
+#endif
+                           ) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
@@ -1947,15 +1955,24 @@ static struct ipa_opt_pass_d pass_emit_functions = {
     NULL,		/* generate_summary */
     emit_functions,	/* write_summary */
     NULL,		/* read_summary */
+#if (GCC_MINOR > 5)
+    NULL,		/* write_optimization_summary */
+    NULL,		/* read_optimization_summary */
+#else
     NULL,		/* function_read_summary */
+#endif
     NULL,		/* stmt_fixup */
-    0,			/* TODOs */
+    0,			/* function_transform_todo_flags_start */
     NULL,		/* function_transform */
     NULL		/* variable_transform */
 };
 
 /// emit_variables - Output GCC global variables to the LLVM IR.
-static void emit_variables(cgraph_node_set set) {
+static void emit_variables(cgraph_node_set set
+#if (GCC_MINOR > 5)
+                           , varpool_node_set vset ATTRIBUTE_UNUSED
+#endif
+                           ) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
@@ -1999,7 +2016,12 @@ static struct ipa_opt_pass_d pass_emit_variables = {
     NULL,		/* generate_summary */
     emit_variables,	/* write_summary */
     NULL,		/* read_summary */
+#if (GCC_MINOR > 5)
+    NULL,		/* write_optimization_summary */
+    NULL,		/* read_optimization_summary */
+#else
     NULL,		/* function_read_summary */
+#endif
     NULL,		/* stmt_fixup */
     0,			/* function_transform_todo_flags_start */
     NULL,		/* function_transform */
@@ -2525,12 +2547,14 @@ int plugin_init (struct plugin_name_args *plugin_info,
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
+#if (GCC_MINOR < 6)
   // Disable any other LTO passes.
   pass_info.pass = &pass_ipa_null.pass;
   pass_info.reference_pass_name = "lto_wpa_fixup";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+#endif
 
   // Disable pass_lower_eh_dispatch, which runs after LLVM conversion.
   pass_info.pass = &pass_gimple_null.pass;

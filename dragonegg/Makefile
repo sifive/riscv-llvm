@@ -27,6 +27,9 @@ LOADABLE_MODULE_OPTIONS=-shared
 endif
 
 GCC_PLUGIN_DIR:=$(shell $(GCC) -print-file-name=plugin)
+GCC_VERSION:=$(shell $(GCC) -dumpversion)
+GCC_MAJOR=$(word 1, $(subst ., ,$(GCC_VERSION)))
+GCC_MINOR=$(word 2, $(subst ., ,$(GCC_VERSION)))
 TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
 
 # NOTE: replace with an informative string when doing a release.
@@ -47,6 +50,7 @@ ALL_OBJECTS=$(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL_OBJECTS)
 CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP \
 	     -DIN_GCC -DREVISION=\"$(REVISION)\" \
+	     -DGCC_MAJOR=$(GCC_MAJOR) -DGCC_MINOR=$(GCC_MINOR) \
 	     -DTARGET_NAME=\"$(TARGET_TRIPLE)\" \
 	     -I$(SRC_DIR) -I$(GCC_PLUGIN_DIR)/include
 
