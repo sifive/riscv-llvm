@@ -17,13 +17,13 @@ ifndef VERBOSE
 	QUIET:=@
 endif
 
-CFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cflags)
-CXXFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cxxflags)
+CFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cflags) -fvisibility=hidden
+CXXFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cxxflags) -fvisibility=hidden
 
 ifeq ($(shell uname),Darwin)
 LOADABLE_MODULE_OPTIONS=-bundle -undefined dynamic_lookup
 else
-LOADABLE_MODULE_OPTIONS=-shared
+LOADABLE_MODULE_OPTIONS=-shared -Wl,--version-script=exports.map
 endif
 
 GCC_PLUGIN_DIR:=$(shell $(GCC) -print-file-name=plugin)

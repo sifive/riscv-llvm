@@ -1,0 +1,7 @@
+{
+  global:
+    plugin_is_GPL_compatible;
+    plugin_init;
+  local:
+    *;
+};
