@@ -23,7 +23,7 @@ CXXFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cxxflags) -fvisibility=hidden
 ifeq ($(shell uname),Darwin)
 LOADABLE_MODULE_OPTIONS=-bundle -undefined dynamic_lookup
 else
-LOADABLE_MODULE_OPTIONS=-shared -Wl,--version-script=$(SRC_DIR)/exports.map
+LOADABLE_MODULE_OPTIONS=-shared -Wl,-O1 -Wl,--version-script=$(SRC_DIR)/exports.map
 endif
 
 GCC_PLUGIN_DIR:=$(shell $(GCC) -print-file-name=plugin)
