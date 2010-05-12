@@ -745,7 +745,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
 #endif
     HandlerEntry ToFind = {IDENTIFIER_POINTER(DECL_NAME(fndecl)), NULL};
     const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind, LT);
-    Handler = E == Handlers + N ? &&unknown : E->Handler;
+    Handler = (E == Handlers + N) || strcmp(E->Name, ToFind.Name) ?
+      &&unknown : E->Handler;
   }
 
   bool flip = false;
