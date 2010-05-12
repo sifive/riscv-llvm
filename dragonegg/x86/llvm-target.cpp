@@ -1036,7 +1036,6 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Value *BC = Builder.CreateBitCast(Ops[0], v4f32Ptr);
     StoreInst *SI = Builder.CreateStore(Ops[1], BC);
     SI->setAlignment(1);
-    Result = SI;
     return true;
   }
   IX86_BUILTIN_STOREUPD: {
@@ -1045,7 +1044,6 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Value *BC = Builder.CreateBitCast(Ops[0], v2f64Ptr);
     StoreInst *SI = Builder.CreateStore(Ops[1], BC);
     SI->setAlignment(1);
-    Result = SI;
     return true;
   }
   IX86_BUILTIN_STOREDQU: {
@@ -1054,7 +1052,6 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Value *BC = Builder.CreateBitCast(Ops[0], v16i8Ptr);
     StoreInst *SI = Builder.CreateStore(Ops[1], BC);
     SI->setAlignment(1);
-    Result = SI;
     return true;
   }
   IX86_BUILTIN_LOADHPS: {
@@ -1100,7 +1097,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Value *Idx = ConstantInt::get(Type::getInt32Ty(Context), 1);
     Ops[1] = Builder.CreateBitCast(Ops[1], v2f64);
     Ops[1] = Builder.CreateExtractElement(Ops[1], Idx);
-    Result = Builder.CreateStore(Ops[1], Ops[0]);
+    Builder.CreateStore(Ops[1], Ops[0]);
     return true;
   }
   IX86_BUILTIN_STORELPS: {
@@ -1110,7 +1107,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Value *Idx = ConstantInt::get(Type::getInt32Ty(Context), 0);
     Ops[1] = Builder.CreateBitCast(Ops[1], v2f64);
     Ops[1] = Builder.CreateExtractElement(Ops[1], Idx);
-    Result = Builder.CreateStore(Ops[1], Ops[0]);
+    Builder.CreateStore(Ops[1], Ops[0]);
     return true;
   }
   IX86_BUILTIN_MOVSHDUP:
@@ -1256,7 +1253,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Value *Ptr = CreateTemporary(Type::getInt32Ty(Context));
     Builder.CreateStore(Ops[0], Ptr);
     Ptr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
-    Result = Builder.CreateCall(ldmxcsr, Ptr);
+    Builder.CreateCall(ldmxcsr, Ptr);
     return true;
   }
   IX86_BUILTIN_STMXCSR: {
