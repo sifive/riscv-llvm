@@ -82,9 +82,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   static const HandlerEntry Handlers[] = {
     // Unsupported builtins are commented out.
     {"__builtin_ia32_addpd", &&IX86_BUILTIN_ADDPD},
-    //{"__builtin_ia32_addpd256", &&IX86_BUILTIN_ADDPD256},
+    {"__builtin_ia32_addpd256", &&IX86_BUILTIN_ADDPD256},
     {"__builtin_ia32_addps", &&IX86_BUILTIN_ADDPS},
-    //{"__builtin_ia32_addps256", &&IX86_BUILTIN_ADDPS256},
+    {"__builtin_ia32_addps256", &&IX86_BUILTIN_ADDPS256},
     //{"__builtin_ia32_addsd", &&IX86_BUILTIN_ADDSD},
     //{"__builtin_ia32_addss", &&IX86_BUILTIN_ADDSS},
     //{"__builtin_ia32_addsubpd", &&IX86_BUILTIN_ADDSUBPD},
@@ -98,13 +98,13 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     //{"__builtin_ia32_aesimc128", &&IX86_BUILTIN_AESIMC128},
     //{"__builtin_ia32_aeskeygenassist128", &&IX86_BUILTIN_AESKEYGENASSIST128},
     {"__builtin_ia32_andnpd", &&IX86_BUILTIN_ANDNPD},
-    //{"__builtin_ia32_andnpd256", &&IX86_BUILTIN_ANDNPD256},
+    {"__builtin_ia32_andnpd256", &&IX86_BUILTIN_ANDNPD256},
     {"__builtin_ia32_andnps", &&IX86_BUILTIN_ANDNPS},
-    //{"__builtin_ia32_andnps256", &&IX86_BUILTIN_ANDNPS256},
+    {"__builtin_ia32_andnps256", &&IX86_BUILTIN_ANDNPS256},
     {"__builtin_ia32_andpd", &&IX86_BUILTIN_ANDPD},
-    //{"__builtin_ia32_andpd256", &&IX86_BUILTIN_ANDPD256},
+    {"__builtin_ia32_andpd256", &&IX86_BUILTIN_ANDPD256},
     {"__builtin_ia32_andps", &&IX86_BUILTIN_ANDPS},
-    //{"__builtin_ia32_andps256", &&IX86_BUILTIN_ANDPS256},
+    {"__builtin_ia32_andps256", &&IX86_BUILTIN_ANDPS256},
     //{"__builtin_ia32_blendpd", &&IX86_BUILTIN_BLENDPD},
     //{"__builtin_ia32_blendpd256", &&IX86_BUILTIN_BLENDPD256},
     //{"__builtin_ia32_blendps", &&IX86_BUILTIN_BLENDPS},
@@ -220,9 +220,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     //{"__builtin_ia32_cvttss2si64", &&IX86_BUILTIN_CVTTSS2SI64},
     //{"__builtin_ia32_cvtudq2ps", &&IX86_BUILTIN_CVTUDQ2PS},
     {"__builtin_ia32_divpd", &&IX86_BUILTIN_DIVPD},
-    //{"__builtin_ia32_divpd256", &&IX86_BUILTIN_DIVPD256},
+    {"__builtin_ia32_divpd256", &&IX86_BUILTIN_DIVPD256},
     {"__builtin_ia32_divps", &&IX86_BUILTIN_DIVPS},
-    //{"__builtin_ia32_divps256", &&IX86_BUILTIN_DIVPS256},
+    {"__builtin_ia32_divps256", &&IX86_BUILTIN_DIVPS256},
     //{"__builtin_ia32_divsd", &&IX86_BUILTIN_DIVSD},
     //{"__builtin_ia32_divss", &&IX86_BUILTIN_DIVSS},
     //{"__builtin_ia32_dppd", &&IX86_BUILTIN_DPPD},
@@ -308,16 +308,16 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     {"__builtin_ia32_movss", &&IX86_BUILTIN_MOVSS},
     //{"__builtin_ia32_mpsadbw128", &&IX86_BUILTIN_MPSADBW128},
     {"__builtin_ia32_mulpd", &&IX86_BUILTIN_MULPD},
-    //{"__builtin_ia32_mulpd256", &&IX86_BUILTIN_MULPD256},
+    {"__builtin_ia32_mulpd256", &&IX86_BUILTIN_MULPD256},
     {"__builtin_ia32_mulps", &&IX86_BUILTIN_MULPS},
-    //{"__builtin_ia32_mulps256", &&IX86_BUILTIN_MULPS256},
+    {"__builtin_ia32_mulps256", &&IX86_BUILTIN_MULPS256},
     //{"__builtin_ia32_mulsd", &&IX86_BUILTIN_MULSD},
     //{"__builtin_ia32_mulss", &&IX86_BUILTIN_MULSS},
     //{"__builtin_ia32_mwait", &&IX86_BUILTIN_MWAIT},
     {"__builtin_ia32_orpd", &&IX86_BUILTIN_ORPD},
-    //{"__builtin_ia32_orpd256", &&IX86_BUILTIN_ORPD256},
+    {"__builtin_ia32_orpd256", &&IX86_BUILTIN_ORPD256},
     {"__builtin_ia32_orps", &&IX86_BUILTIN_ORPS},
-    //{"__builtin_ia32_orps256", &&IX86_BUILTIN_ORPS256},
+    {"__builtin_ia32_orps256", &&IX86_BUILTIN_ORPS256},
     //{"__builtin_ia32_pabsb", &&IX86_BUILTIN_PABSB},
     //{"__builtin_ia32_pabsb128", &&IX86_BUILTIN_PABSB128},
     //{"__builtin_ia32_pabsd", &&IX86_BUILTIN_PABSD},
@@ -611,9 +611,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     {"__builtin_ia32_storeups", &&IX86_BUILTIN_STOREUPS},
     //{"__builtin_ia32_storeups256", &&IX86_BUILTIN_STOREUPS256},
     {"__builtin_ia32_subpd", &&IX86_BUILTIN_SUBPD},
-    //{"__builtin_ia32_subpd256", &&IX86_BUILTIN_SUBPD256},
+    {"__builtin_ia32_subpd256", &&IX86_BUILTIN_SUBPD256},
     {"__builtin_ia32_subps", &&IX86_BUILTIN_SUBPS},
-    //{"__builtin_ia32_subps256", &&IX86_BUILTIN_SUBPS256},
+    {"__builtin_ia32_subps256", &&IX86_BUILTIN_SUBPS256},
     //{"__builtin_ia32_subsd", &&IX86_BUILTIN_SUBSD},
     //{"__builtin_ia32_subss", &&IX86_BUILTIN_SUBSS},
     //{"__builtin_ia32_ucomieq", &&IX86_BUILTIN_UCOMIEQSS},
@@ -722,9 +722,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     //{"__builtin_ia32_vtestzps256", &&IX86_BUILTIN_VTESTZPS256},
     //{"__builtin_ia32_vzeroall", &&IX86_BUILTIN_VZEROALL},
     {"__builtin_ia32_xorpd", &&IX86_BUILTIN_XORPD},
-    //{"__builtin_ia32_xorpd256", &&IX86_BUILTIN_XORPD256},
+    {"__builtin_ia32_xorpd256", &&IX86_BUILTIN_XORPD256},
     {"__builtin_ia32_xorps", &&IX86_BUILTIN_XORPS},
-    //{"__builtin_ia32_xorps256", &&IX86_BUILTIN_XORPS256},
+    {"__builtin_ia32_xorps256", &&IX86_BUILTIN_XORPS256},
   };
 
   static std::vector<void*> FunctionCodeCache;
@@ -754,7 +754,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
 
   unknown: return false;
   IX86_BUILTIN_ADDPS:
+  IX86_BUILTIN_ADDPS256:
   IX86_BUILTIN_ADDPD:
+  IX86_BUILTIN_ADDPD256:
     Result = Builder.CreateFAdd(Ops[0], Ops[1]);
     return true;
   IX86_BUILTIN_PADDB:
@@ -768,7 +770,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateAdd(Ops[0], Ops[1]);
     return true;
   IX86_BUILTIN_SUBPS:
+  IX86_BUILTIN_SUBPS256:
   IX86_BUILTIN_SUBPD:
+  IX86_BUILTIN_SUBPD256:
     Result = Builder.CreateFSub(Ops[0], Ops[1]);
     return true;
   IX86_BUILTIN_PSUBB:
@@ -782,7 +786,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateSub(Ops[0], Ops[1]);
     return true;
   IX86_BUILTIN_MULPS:
+  IX86_BUILTIN_MULPS256:
   IX86_BUILTIN_MULPD:
+  IX86_BUILTIN_MULPD256:
     Result = Builder.CreateFMul(Ops[0], Ops[1]);
     return true;
   IX86_BUILTIN_PMULLW:
@@ -790,7 +796,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateMul(Ops[0], Ops[1]);
     return true;
   IX86_BUILTIN_DIVPS:
+  IX86_BUILTIN_DIVPS256:
   IX86_BUILTIN_DIVPD:
+  IX86_BUILTIN_DIVPD256:
     Result = Builder.CreateFDiv(Ops[0], Ops[1]);
     return true;
   IX86_BUILTIN_PAND:
@@ -811,28 +819,36 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateXor(Ops[0], Ops[1]);
     return true;
   IX86_BUILTIN_ANDPS:
+  IX86_BUILTIN_ANDPS256:
   IX86_BUILTIN_ANDPD:
+  IX86_BUILTIN_ANDPD256:
     Ops[0] = BitCastToIntVector(Ops[0], Builder);
     Ops[1] = Builder.CreateBitCast(Ops[1], Ops[0]->getType());
     Result = Builder.CreateAnd(Ops[0], Ops[1]);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   IX86_BUILTIN_ORPS:
+  IX86_BUILTIN_ORPS256:
   IX86_BUILTIN_ORPD:
+  IX86_BUILTIN_ORPD256:
     Ops[0] = BitCastToIntVector(Ops[0], Builder);
     Ops[1] = Builder.CreateBitCast(Ops[1], Ops[0]->getType());
     Result = Builder.CreateOr(Ops[0], Ops[1]);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   IX86_BUILTIN_XORPS:
+  IX86_BUILTIN_XORPS256:
   IX86_BUILTIN_XORPD:
+  IX86_BUILTIN_XORPD256:
     Ops[0] = BitCastToIntVector(Ops[0], Builder);
     Ops[1] = Builder.CreateBitCast(Ops[1], Ops[0]->getType());
     Result = Builder.CreateXor(Ops[0], Ops[1]);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   IX86_BUILTIN_ANDNPS:
+  IX86_BUILTIN_ANDNPS256:
   IX86_BUILTIN_ANDNPD:
+  IX86_BUILTIN_ANDNPD256:
     Ops[0] = BitCastToIntVector(Ops[0], Builder);
     Ops[1] = Builder.CreateBitCast(Ops[1], Ops[0]->getType());
     Ops[0] = Builder.CreateNot(Ops[0]);
