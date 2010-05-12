@@ -55,8 +55,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <gmp.h>
 
 // GCC headers
-#undef VISIBILITY_HIDDEN
-
 extern "C" {
 #include "config.h"
 #include "system.h"
@@ -1563,10 +1561,9 @@ static void TakeoverAsmOutput(void) {
 //===----------------------------------------------------------------------===//
 
 // This plugin's code is licensed under the GPLv2 or later.  The LLVM libraries
-// use the GPL compatible University of Illinois/NCSA Open Source License.
-#pragma GCC visibility push(default)
-int plugin_is_GPL_compatible; // This plugin is GPL compatible.
-#pragma GCC visibility pop
+// use the GPL compatible University of Illinois/NCSA Open Source License.  The
+// plugin is GPL compatible.
+int plugin_is_GPL_compatible LLVM_GLOBAL_VISIBILITY;
 
 
 /// llvm_start_unit - Perform late initialization.  This is called by GCC just
@@ -2359,9 +2356,8 @@ static bool version_check(struct plugin_gcc_version *gcc_version,
 /// plugin_init - Plugin initialization routine, called by GCC.  This is the
 /// first code executed in the plugin (except for constructors).  Configure
 /// the plugin and setup GCC, taking over optimization and code generation.
-#pragma GCC visibility push(default)
-int plugin_init(struct plugin_name_args *plugin_info,
-                struct plugin_gcc_version *version) {
+int LLVM_GLOBAL_VISIBILITY plugin_init(struct plugin_name_args *plugin_info,
+                                       struct plugin_gcc_version *version) {
   const char *plugin_name = plugin_info->base_name;
   struct register_pass_info pass_info;
 
@@ -2652,4 +2648,3 @@ int plugin_init(struct plugin_name_args *plugin_info,
 
   return 0;
 }
-#pragma GCC visibility pop

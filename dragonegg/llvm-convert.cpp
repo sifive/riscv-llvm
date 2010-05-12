@@ -51,8 +51,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <gmp.h>
 
 // GCC headers
-#undef VISIBILITY_HIDDEN
-
 extern "C" {
 #include "config.h"
 #include "system.h"
