@@ -467,7 +467,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     //{"__builtin_ia32_pmulhuw128", &&IX86_BUILTIN_PMULHUW128},
     //{"__builtin_ia32_pmulhw", &&IX86_BUILTIN_PMULHW},
     //{"__builtin_ia32_pmulhw128", &&IX86_BUILTIN_PMULHW128},
-    //{"__builtin_ia32_pmulld128", &&IX86_BUILTIN_PMULLD128},
+    {"__builtin_ia32_pmulld128", &&IX86_BUILTIN_PMULLD128},
     {"__builtin_ia32_pmullw", &&IX86_BUILTIN_PMULLW},
     {"__builtin_ia32_pmullw128", &&IX86_BUILTIN_PMULLW128},
     //{"__builtin_ia32_pmuludq", &&IX86_BUILTIN_PMULUDQ},
@@ -793,6 +793,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     return true;
   IX86_BUILTIN_PMULLW:
   IX86_BUILTIN_PMULLW128:
+  IX86_BUILTIN_PMULLD128:
     Result = Builder.CreateMul(Ops[0], Ops[1]);
     return true;
   IX86_BUILTIN_DIVPS:
