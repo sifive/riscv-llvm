@@ -3428,8 +3428,7 @@ Value *TreeToLLVM::BuildVectorShuffle(Value *InVec1, Value *InVec2, ...) {
 //                     ... Builtin Function Expansion ...
 //===----------------------------------------------------------------------===//
 
-/// EmitFrontendExpandedBuiltinCall - For MD builtins that do not have a
-/// directly corresponding LLVM intrinsic, we allow the target to do some amount
+/// EmitFrontendExpandedBuiltinCall - We allow the target to do some amount
 /// of lowering.  This allows us to avoid having intrinsics for operations that
 /// directly correspond to LLVM constructs.
 ///
@@ -3581,15 +3580,17 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 #ifdef LLVM_TARGET_INTRINSIC_PREFIX
       TargetPrefix = LLVM_TARGET_INTRINSIC_PREFIX;
 #endif
+      // If the backend has some special code to lower, go ahead and try to
+      // do that first.
+      if (EmitFrontendExpandedBuiltinCall(stmt, fndecl, DestLoc, Result))
+        return true;
+
       // If this builtin directly corresponds to an LLVM intrinsic, get the
       // IntrinsicID now.
       const char *BuiltinName = IDENTIFIER_POINTER(DECL_NAME(fndecl));
       Intrinsic::ID IntrinsicID =
         Intrinsic::getIntrinsicForGCCBuiltin(TargetPrefix, BuiltinName);
       if (IntrinsicID == Intrinsic::not_intrinsic) {
-        if (EmitFrontendExpandedBuiltinCall(stmt, fndecl, DestLoc, Result))
-          return true;
-
         error_at(gimple_location(stmt),
                  "unsupported target builtin %<%s%> used", BuiltinName);
         const Type *ResTy = ConvertType(gimple_call_return_type(stmt));
