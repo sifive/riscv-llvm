@@ -954,10 +954,6 @@ Function *TreeToLLVM::FinishFunctionBody() {
       }
     }
   }
-  if (EmitDebugInfo()) {
-    TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
-    TheDebugInfo->EmitFunctionEnd(Builder.GetInsertBlock(), true);
-  }
   if (RetVals.empty())
     Builder.CreateRetVoid();
   else if (RetVals.size() == 1 && RetVals[0]->getType() == Fn->getReturnType()){
@@ -975,6 +971,16 @@ Function *TreeToLLVM::FinishFunctionBody() {
   EmitLandingPads();
   EmitFailureBlocks();
   EmitRewindBlock();
+
+  if (EmitDebugInfo()) {
+    // FIXME: This should be output just before the return call generated above.
+    // But because EmitFunctionEnd pops the region stack, that means that if the
+    // call to PopulatePhiNodes (for example) generates complicated debug info,
+    // then the debug info logic barfs.  Testcases showing this are 20011126-2.c
+    // or pr42221.c from the gcc testsuite compiled with -g -O3.
+    TheDebugInfo->EmitStopPoint(Fn, ReturnBB, Builder);
+    TheDebugInfo->EmitFunctionEnd(ReturnBB, true);
+  }
 
 #ifndef NDEBUG
   if (!errorcount && !sorrycount)

@@ -389,10 +389,6 @@ void DebugInfo::EmitFunctionEnd(BasicBlock *CurBB, bool EndFunction) {
 void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
                             tree type, Value *AI, LLVMBuilder &Builder) {
 
-  // Do not emit variable declaration info, for now.
-  if (optimize)
-    return;
-
   // Ignore compiler generated temporaries.
   if (DECL_IGNORED_P(decl))
     return;
