@@ -99,10 +99,8 @@ extern "C" int ix86_regparm;
 /* On x86-32 objects containing SSE vectors are 16 byte aligned, everything
    else 4.  On x86-64 vectors are 8-byte aligned, everything else can
    be figured out by the back end. */
-extern "C" bool contains_aligned_value_p(tree);
 #define LLVM_BYVAL_ALIGNMENT(T) \
-  (TARGET_64BIT ? (TREE_CODE(T)==VECTOR_TYPE ? 8 : 0) : \
-   TARGET_SSE && contains_aligned_value_p(T) ? 16 : 4)
+  (TYPE_ALIGN(T) / 8)
 
 extern tree llvm_x86_should_return_selt_struct_as_scalar(tree);
 
