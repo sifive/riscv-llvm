@@ -223,7 +223,7 @@ const TargetData &getTargetData() {
   return *TheTarget->getTargetData();
 }
 
-/// EmitDebugInfo - Return true if debug info is to be emitted for current 
+/// EmitDebugInfo - Return true if debug info is to be emitted for current
 /// function.
 bool TreeToLLVM::EmitDebugInfo() {
   if (TheDebugInfo && !DECL_IGNORED_P(getFUNCTION_DECL()))
@@ -3690,15 +3690,15 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 
     // LLVM doesn't handle type 1 or type 3. Deal with that here.
     Value *Tmp = EmitMemory(gimple_call_arg(stmt, 1));
-    
+
     ConstantInt *CI = cast<ConstantInt>(Tmp);
-    
+
     // Clear the bottom bit since we only handle whole objects and shift to turn
     // the second bit into our boolean.
     uint64_t val = (CI->getZExtValue() & 0x2) >> 1;
-    
+
     Value *NewTy = ConstantInt::get(Tmp->getType(), val);
-    
+
     Value* Args[] = {
       EmitMemory(gimple_call_arg(stmt, 0)),
       NewTy

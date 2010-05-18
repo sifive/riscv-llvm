@@ -1,4 +1,4 @@
-/* High-level LLVM backend interface 
+/* High-level LLVM backend interface
 Copyright (C) 2005 Free Software Foundation, Inc.
 Contributed by Evan Cheng (evan.cheng@apple.com)
 
@@ -911,7 +911,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       error_at(gimple_location(stmt), "mask must be an immediate");
       Result = Ops[0];
     }
-    
+
     return true;
   IX86_BUILTIN_PUNPCKHBW:
     Result = BuildVectorShuffle(Ops[0], Ops[1], 4, 12, 5, 13,
@@ -1262,7 +1262,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Value *Ptr  = CreateTemporary(Type::getInt32Ty(Context));
     Value *BPtr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
     Builder.CreateCall(stmxcsr, BPtr);
-    
+
     Result = Builder.CreateLoad(Ptr);
     return true;
   }
@@ -1271,43 +1271,43 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
 
       // In the header we multiply by 8, correct that back now.
       unsigned shiftVal = (cast<ConstantInt>(Ops[2])->getZExtValue())/8;
-    
+
       // If palignr is shifting the pair of input vectors less than 9 bytes,
       // emit a shuffle instruction.
       if (shiftVal <= 8) {
         const llvm::Type *IntTy = Type::getInt32Ty(Context);
         const llvm::Type *EltTy = Type::getInt8Ty(Context);
         const llvm::Type *VecTy = VectorType::get(EltTy, 8);
-        
+
         Ops[1] = Builder.CreateBitCast(Ops[1], VecTy);
         Ops[0] = Builder.CreateBitCast(Ops[0], VecTy);
 
         SmallVector<Constant*, 8> Indices;
         for (unsigned i = 0; i != 8; ++i)
           Indices.push_back(ConstantInt::get(IntTy, shiftVal + i));
-      
+
         Value* SV = ConstantVector::get(Indices.begin(), Indices.size());
         Result = Builder.CreateShuffleVector(Ops[1], Ops[0], SV, "palignr");
         return true;
       }
-    
+
       // If palignr is shifting the pair of input vectors more than 8 but less
       // than 16 bytes, emit a logical right shift of the destination.
       if (shiftVal < 16) {
         // MMX has these as 1 x i64 vectors for some odd optimization reasons.
         const llvm::Type *EltTy = Type::getInt64Ty(Context);
         const llvm::Type *VecTy = VectorType::get(EltTy, 1);
-      
+
         Ops[0] = Builder.CreateBitCast(Ops[0], VecTy, "cast");
         Ops[1] = ConstantInt::get(VecTy, (shiftVal-8) * 8);
-      
+
         // create i32 constant
         Function *F = Intrinsic::getDeclaration(TheModule,
                                                 Intrinsic::x86_mmx_psrl_q);
         Result = Builder.CreateCall(F, &Ops[0], &Ops[0] + 2, "palignr");
         return true;
       }
-    
+
       // If palignr is shifting the pair of vectors more than 32 bytes,
       // emit zero.
       Result = Constant::getNullValue(ResultType);
@@ -1328,7 +1328,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
         const llvm::Type *IntTy = Type::getInt32Ty(Context);
         const llvm::Type *EltTy = Type::getInt8Ty(Context);
         const llvm::Type *VecTy = VectorType::get(EltTy, 16);
-        
+
         Ops[1] = Builder.CreateBitCast(Ops[1], VecTy);
         Ops[0] = Builder.CreateBitCast(Ops[0], VecTy);
 
@@ -1353,7 +1353,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
 
         // create i32 constant
         llvm::Function *F = Intrinsic::getDeclaration(TheModule,
-                                                  Intrinsic::x86_sse2_psrl_dq);        
+                                                  Intrinsic::x86_sse2_psrl_dq);
         Result = Builder.CreateCall(F, &Ops[0], &Ops[0] + 2, "palignr");
         return true;
       }
@@ -1426,26 +1426,26 @@ llvm_x86_32_should_pass_aggregate_in_mixed_regs(tree TreeType, const Type *Ty,
   for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
     const Type *EltTy = STy->getElementType(i);
     // 32 and 64-bit integers are fine, as are float and double.  Long double
-    // (which can be picked as the type for a union of 16 bytes) is not fine, 
+    // (which can be picked as the type for a union of 16 bytes) is not fine,
     // as loads and stores of it get only 10 bytes.
     if (EltTy == Type::getInt32Ty(Context) ||
-        EltTy == Type::getInt64Ty(Context) || 
+        EltTy == Type::getInt64Ty(Context) ||
         EltTy == Type::getFloatTy(Context) ||
         EltTy == Type::getDoubleTy(Context) ||
         EltTy->isPointerTy()) {
       Elts.push_back(EltTy);
       continue;
     }
-    
+
     // TODO: Vectors are also ok to pass if they don't require extra alignment.
     // TODO: We can also pass structs like {i8, i32}.
-    
+
     Elts.clear();
     return false;
   }
-  
+
   return true;
-}  
+}
 
 /* It returns true if an aggregate of the specified type should be passed as a
    first class aggregate. */
@@ -1528,7 +1528,7 @@ llvm_x86_64_aggregate_partially_passed_in_regs(std::vector<const Type*> &Elts,
   // Counting number of GPRs and XMMs used so far. According to AMD64 ABI
   // document: "If there are no registers available for any eightbyte of an
   // argument, the whole  argument is passed on the stack." X86-64 uses 6
-  // integer 
+  // integer
   // For example, if two GPRs are required but only one is available, then
   // both parts will be in memory.
   // FIXME: This is a temporary solution. To be removed when llvm has first
@@ -1697,7 +1697,7 @@ llvm_x86_64_should_pass_aggregate_in_mixed_regs(tree TreeType, const Type *Ty,
   return !totallyEmpty;
 }
 
-/* On Darwin x86-32, vectors which are not MMX nor SSE should be passed as 
+/* On Darwin x86-32, vectors which are not MMX nor SSE should be passed as
    integers.  On Darwin x86-64, such vectors bigger than 128 bits should be
    passed in memory (byval). */
 bool llvm_x86_should_pass_vector_in_integer_regs(tree type) {
@@ -1734,8 +1734,8 @@ bool llvm_x86_should_pass_vector_using_byval_attr(tree type) {
 
 /* The MMX vector v1i64 is returned in EAX and EDX on Darwin.  Communicate
     this by returning i64 here.  Likewise, (generic) vectors such as v2i16
-    are returned in EAX.  
-   On Darwin x86-64, v1i64 is returned in RAX and other MMX vectors are 
+    are returned in EAX.
+   On Darwin x86-64, v1i64 is returned in RAX and other MMX vectors are
     returned in XMM0.  Judging from comments, this would not be right for
     Win64.  Don't know about Linux.  */
 tree llvm_x86_should_return_vector_as_scalar(tree type, bool isBuiltin) {
@@ -1789,7 +1789,7 @@ bool llvm_x86_should_return_vector_as_shadow(tree type, bool isBuiltin) {
   return false;
 }
 
-// llvm_x86_should_not_return_complex_in_memory -  Return true if TYPE 
+// llvm_x86_should_not_return_complex_in_memory -  Return true if TYPE
 // should be returned using multiple value return instruction.
 bool llvm_x86_should_not_return_complex_in_memory(tree type) {
 
@@ -1803,7 +1803,7 @@ bool llvm_x86_should_not_return_complex_in_memory(tree type) {
   return false;
 }
 
-// llvm_suitable_multiple_ret_value_type - Return TRUE if return value 
+// llvm_suitable_multiple_ret_value_type - Return TRUE if return value
 // of type TY should be returned using multiple value return instruction.
 static bool llvm_suitable_multiple_ret_value_type(const Type *Ty,
                                                   tree TreeType) {
@@ -1825,7 +1825,7 @@ static bool llvm_suitable_multiple_ret_value_type(const Type *Ty,
   if (NumClasses == 0)
     return false;
 
-  if (NumClasses == 1 && 
+  if (NumClasses == 1 &&
       (Class[0] == X86_64_INTEGERSI_CLASS || Class[0] == X86_64_INTEGER_CLASS))
     // This will fit in one i64 register.
     return false;
@@ -1873,7 +1873,7 @@ const Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) 
           Class[0] == X86_64_INTEGER_CLASS) {
         // one int register
         HOST_WIDE_INT Bytes =
-          (Mode == BLKmode) ? int_size_in_bytes(type) : 
+          (Mode == BLKmode) ? int_size_in_bytes(type) :
                               (int) GET_MODE_SIZE(Mode);
         if (Bytes>4)
           return Type::getInt64Ty(Context);
@@ -1884,11 +1884,11 @@ const Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) 
         else
           return Type::getInt8Ty(Context);
       }
-      assert(0 && "Unexpected type!"); 
+      assert(0 && "Unexpected type!");
     }
     if (NumClasses == 2) {
       if (Class[1] == X86_64_NO_CLASS) {
-        if (Class[0] == X86_64_INTEGER_CLASS || 
+        if (Class[0] == X86_64_INTEGER_CLASS ||
             Class[0] == X86_64_NO_CLASS ||
             Class[0] == X86_64_INTEGERSI_CLASS)
           return Type::getInt64Ty(Context);
@@ -1907,7 +1907,7 @@ const Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) 
           return Type::getDoubleTy(Context);
         else if (Class[1] == X86_64_SSESF_CLASS)
           return Type::getFloatTy(Context);
-        assert(0 && "Unexpected type!"); 
+        assert(0 && "Unexpected type!");
       }
       assert(0 && "Unexpected type!");
     }
@@ -1926,7 +1926,7 @@ const Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) 
 /// llvm_x86_64_get_multiple_return_reg_classes - Find register classes used
 /// to return Ty. It is expected that Ty requires multiple return values.
 /// This routine uses GCC implementation to find required register classes.
-/// The original implementation of this routine is based on 
+/// The original implementation of this routine is based on
 /// llvm_x86_64_should_pass_aggregate_in_mixed_regs code.
 void
 llvm_x86_64_get_multiple_return_reg_classes(tree TreeType, const Type *Ty,
@@ -2053,7 +2053,7 @@ llvm_x86_64_get_multiple_return_reg_classes(tree TreeType, const Type *Ty,
   }
 }
 
-// Return LLVM Type if TYPE can be returned as an aggregate, 
+// Return LLVM Type if TYPE can be returned as an aggregate,
 // otherwise return NULL.
 const Type *llvm_x86_aggr_type_for_struct_return(tree type) {
   const Type *Ty = ConvertType(type);
@@ -2068,24 +2068,24 @@ const Type *llvm_x86_aggr_type_for_struct_return(tree type) {
     ElementTypes.push_back(Type::getX86_FP80Ty(Context));
     ElementTypes.push_back(Type::getX86_FP80Ty(Context));
     return StructType::get(Context, ElementTypes, STy->isPacked());
-  } 
+  }
 
   std::vector<const Type*> GCCElts;
   llvm_x86_64_get_multiple_return_reg_classes(type, Ty, GCCElts);
   return StructType::get(Context, GCCElts, false);
 }
 
-// llvm_x86_extract_mrv_array_element - Helper function that help extract 
+// llvm_x86_extract_mrv_array_element - Helper function that help extract
 // an array element from multiple return value.
 //
 // Here, SRC is returning multiple values. DEST's DESTFIELNO field is an array.
-// Extract SRCFIELDNO's ELEMENO value and store it in DEST's FIELDNO field's 
+// Extract SRCFIELDNO's ELEMENO value and store it in DEST's FIELDNO field's
 // ELEMENTNO.
 //
 static void llvm_x86_extract_mrv_array_element(Value *Src, Value *Dest,
-                                               unsigned SrcFieldNo, 
+                                               unsigned SrcFieldNo,
                                                unsigned SrcElemNo,
-                                               unsigned DestFieldNo, 
+                                               unsigned DestFieldNo,
                                                unsigned DestElemNo,
                                                LLVMBuilder &Builder,
                                                bool isVolatile) {
@@ -2111,7 +2111,7 @@ static void llvm_x86_extract_mrv_array_element(Value *Src, Value *Dest,
 void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,
                                             bool isVolatile,
                                             LLVMBuilder &Builder) {
-  
+
   const StructType *STy = cast<StructType>(Src->getType());
   unsigned NumElements = STy->getNumElements();
 
@@ -2157,7 +2157,7 @@ void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,
       Builder.CreateStore(EVI, GEP, isVolatile);
       ++DNO; ++SNO;
       continue;
-    } 
+    }
 
     // Special treatement for _Complex.
     if (DestElemType->isStructTy()) {
@@ -2178,7 +2178,7 @@ void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,
       ++DNO; ++SNO;
       continue;
     }
-    
+
     // Access array elements individually. Note, Src and Dest type may
     // not match. For example { <2 x float>, float } and { float[3]; }
     const ArrayType *ATy = cast<ArrayType>(DestElemType);
@@ -2187,8 +2187,8 @@ void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,
     while (DElemNo < ArraySize) {
       unsigned i = 0;
       unsigned Size = 1;
-      
-      if (const VectorType *SElemTy = 
+
+      if (const VectorType *SElemTy =
           dyn_cast<VectorType>(STy->getElementType(SNO))) {
         Size = SElemTy->getNumElements();
         if (SElemTy->getElementType()->getTypeID() == Type::FloatTyID
@@ -2197,14 +2197,14 @@ void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,
           Size = 2;
       }
       while (i < Size) {
-        llvm_x86_extract_mrv_array_element(Src, Dest, SNO, i++, 
-                                           DNO, DElemNo++, 
+        llvm_x86_extract_mrv_array_element(Src, Dest, SNO, i++,
+                                           DNO, DElemNo++,
                                            Builder, isVolatile);
       }
       // Consumed this src field. Try next one.
       ++SNO;
     }
-    // Finished building current dest field. 
+    // Finished building current dest field.
     ++DNO;
   }
 }
@@ -2250,8 +2250,8 @@ bool llvm_x86_should_pass_aggregate_in_integer_regs(tree type, unsigned *size,
         return true;
       }
     }
-    return false;    
+    return false;
   }
-  else 
+  else
     return !isSingleElementStructOrArray(type, false, true);
 }

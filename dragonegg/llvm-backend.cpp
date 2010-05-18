@@ -1,4 +1,4 @@
-/* High-level LLVM backend interface 
+/* High-level LLVM backend interface
 Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 Contributed by Chris Lattner (sabre@nondot.org)
 
@@ -131,7 +131,7 @@ SmallSetVector<Constant*, 32> AttributeCompilerUsedGlobals;
 std::vector<Constant*> AttributeAnnotateGlobals;
 
 /// PerFunctionPasses - This is the list of cleanup passes run per-function
-/// as each is compiled.  In cases where we are not doing IPO, it includes the 
+/// as each is compiled.  In cases where we are not doing IPO, it includes the
 /// code generator.
 static FunctionPassManager *PerFunctionPasses = 0;
 static PassManager *PerModulePasses = 0;
@@ -289,7 +289,7 @@ static unsigned GuessAtInliningThreshold() {
   if (optimize_size)
     // Reduce inline limit.
     return 75;
-  
+
   if (optimize >= 3)
     return 275;
   return 225;
@@ -645,7 +645,7 @@ static void InitializeOutputStreams(bool Binary) {
 //TODO  flag_llvm_pch_read = 1;
 //TODO}
 //TODO
-//TODO/// llvm_pch_write_init - Initialize PCH writing. 
+//TODO/// llvm_pch_write_init - Initialize PCH writing.
 //TODOvoid llvm_pch_write_init(void) {
 //TODO  timevar_push(TV_LLVM_INIT);
 //TODO  AsmOutStream = new oFILEstream(asm_out_file);
@@ -664,7 +664,7 @@ static void InitializeOutputStreams(bool Binary) {
 //TODO  // Emit an LLVM .bc file to the output.  This is used when passed
 //TODO  // -emit-llvm -c to the GCC driver.
 //TODO  PerModulePasses->add(createBitcodeWriterPass(*AsmOutStream));
-//TODO  
+//TODO
 //TODO  // Disable emission of .ident into the output file... which is completely
 //TODO  // wrong for llvm/.bc emission cases.
 //TODO  flag_no_ident = 1;
@@ -685,7 +685,7 @@ static void InitializeOutputStreams(bool Binary) {
 //TODO}
 
 static void createPerFunctionOptimizationPasses() {
-  if (PerFunctionPasses) 
+  if (PerFunctionPasses)
     return;
 
   // Create and set up the per-function pass manager.
@@ -718,7 +718,7 @@ static void createPerFunctionOptimizationPasses() {
   // FIXME: This is disabled right now until bugs can be worked out.  Reenable
   // this for fast -O0 compiles!
   if (!EmitIR && 0) {
-    FunctionPassManager *PM = PerFunctionPasses;    
+    FunctionPassManager *PM = PerFunctionPasses;
     HasPerFunctionPasses = true;
 
     CodeGenOpt::Level OptLevel = CodeGenOpt::Default;  // -O2, -Os, and -Oz
@@ -748,7 +748,7 @@ static void createPerFunctionOptimizationPasses() {
       exit(1);
     }
   }
-  
+
   if (HasPerFunctionPasses) {
     PerFunctionPasses->doInitialization();
   } else {
@@ -802,7 +802,7 @@ static void createPerModuleOptimizationPasses() {
     PerModulePasses->add(createBitcodeWriterPass(*OutStream));
     HasPerModulePasses = true;
   } else if (EmitIR) {
-    // Emit an LLVM .ll file to the output.  This is used when passed 
+    // Emit an LLVM .ll file to the output.  This is used when passed
     // -emit-llvm -S to the GCC driver.
     InitializeOutputStreams(false);
     PerModulePasses->add(createPrintModulePass(OutStream));
@@ -885,17 +885,17 @@ static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
   std::vector<Constant*> InitList;
   std::vector<Constant*> StructInit;
   StructInit.resize(2);
-  
+
   LLVMContext &Context = getGlobalContext();
-  
+
   const Type *FPTy =
     FunctionType::get(Type::getVoidTy(Context),
                       std::vector<const Type*>(), false);
   FPTy = FPTy->getPointerTo();
-  
+
   for (unsigned i = 0, e = Tors.size(); i != e; ++i) {
     StructInit[0] = ConstantInt::get(Type::getInt32Ty(Context), Tors[i].second);
-    
+
     // __attribute__(constructor) can be on a function with any type.  Make sure
     // the pointer is void()*.
     StructInit[1] = TheFolder->CreateBitCast(Tors[i].first, FPTy);
@@ -911,14 +911,14 @@ static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
 /// ConvertMetadataStringToGV - Convert string to global value. Use existing
 /// global if possible.
 Constant* ConvertMetadataStringToGV(const char *str) {
-  
+
   Constant *Init = ConstantArray::get(getGlobalContext(), std::string(str));
 
   // Use cached string if it exists.
   static std::map<Constant*, GlobalVariable*> StringCSTCache;
   GlobalVariable *&Slot = StringCSTCache[Init];
   if (Slot) return Slot;
-  
+
   // Create a new string global.
   GlobalVariable *GV = new GlobalVariable(*TheModule, Init->getType(), true,
                                           GlobalVariable::PrivateLinkage,
@@ -926,42 +926,42 @@ Constant* ConvertMetadataStringToGV(const char *str) {
   GV->setSection("llvm.metadata");
   Slot = GV;
   return GV;
-  
+
 }
 
 /// AddAnnotateAttrsToGlobal - Adds decls that have a annotate attribute to a
 /// vector to be emitted later.
 void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
   LLVMContext &Context = getGlobalContext();
-  
+
   // Handle annotate attribute on global.
   tree annotateAttr = lookup_attribute("annotate", DECL_ATTRIBUTES (decl));
   if (annotateAttr == 0)
     return;
-  
+
   // Get file and line number
   Constant *lineNo = ConstantInt::get(Type::getInt32Ty(Context),
                                       DECL_SOURCE_LINE(decl));
   Constant *file = ConvertMetadataStringToGV(DECL_SOURCE_FILE(decl));
   const Type *SBP = Type::getInt8PtrTy(Context);
   file = TheFolder->CreateBitCast(file, SBP);
- 
-  // There may be multiple annotate attributes. Pass return of lookup_attr 
+
+  // There may be multiple annotate attributes. Pass return of lookup_attr
   //  to successive lookups.
   while (annotateAttr) {
-    
+
     // Each annotate attribute is a tree list.
     // Get value of list which is our linked list of args.
     tree args = TREE_VALUE(annotateAttr);
-    
+
     // Each annotate attribute may have multiple args.
     // Treat each arg as if it were a separate annotate attribute.
     for (tree a = args; a; a = TREE_CHAIN(a)) {
       // Each element of the arg list is a tree list, so get value
       tree val = TREE_VALUE(a);
-      
+
       // Assert its a string, and then get that string.
-      assert(TREE_CODE(val) == STRING_CST && 
+      assert(TREE_CODE(val) == STRING_CST &&
              "Annotate attribute arg should always be a string");
       Constant *strGV = TreeConstantToLLVM::EmitLV_STRING_CST(val);
       Constant *Element[4] = {
@@ -970,11 +970,11 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
         file,
         lineNo
       };
- 
+
       AttributeAnnotateGlobals.push_back(
         ConstantStruct::get(Context, Element, 4, false));
     }
-      
+
     // Get next annotate attribute.
     annotateAttr = TREE_CHAIN(annotateAttr);
     if (annotateAttr)
@@ -993,7 +993,7 @@ void emit_global(tree decl) {
     return;
 
   // If tree nodes says defer output then do not emit global yet.
-  if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS) 
+  if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS)
       && (DECL_DEFER_OUTPUT(decl)))
       return;
 
@@ -1005,7 +1005,7 @@ void emit_global(tree decl) {
 
   // Get or create the global variable now.
   GlobalVariable *GV = cast<GlobalVariable>(DECL_LLVM(decl));
-  
+
   // Convert the initializer over.
   Constant *Init;
   if (DECL_INITIAL(decl) == 0 || DECL_INITIAL(decl) == error_mark_node) {
@@ -1018,10 +1018,10 @@ void emit_global(tree decl) {
     else
       Init = UndefValue::get(Ty);
   } else {
-    assert((TREE_CONSTANT(DECL_INITIAL(decl)) || 
+    assert((TREE_CONSTANT(DECL_INITIAL(decl)) ||
             TREE_CODE(DECL_INITIAL(decl)) == STRING_CST) &&
            "Global initializer should be constant!");
-    
+
     // Temporarily set an initializer for the global, so we don't infinitely
     // recurse.  If we don't do this, we can hit cases where we see "oh a global
     // with an initializer hasn't been initialized yet, call emit_global on it".
@@ -1047,7 +1047,7 @@ void emit_global(tree decl) {
     SET_DECL_LLVM(decl, NGV);
     GV = NGV;
   }
- 
+
   // Set the initializer.
   GV->setInitializer(Init);
 
@@ -1105,12 +1105,12 @@ void emit_global(tree decl) {
     if (DECL_SECTION_NAME(decl)) {
       GV->setSection(TREE_STRING_POINTER(DECL_SECTION_NAME(decl)));
 #ifdef LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION
-    } else if (const char *Section = 
+    } else if (const char *Section =
                 LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION(decl)) {
       GV->setSection(Section);
 #endif
     }
-    
+
     // Set the alignment for the global if one of the following condition is met
     // 1) DECL_ALIGN is better than the alignment as per ABI specification
     // 2) DECL_ALIGN is set by user.
@@ -1137,14 +1137,14 @@ void emit_global(tree decl) {
       else
         AttributeUsedGlobals.insert(GV);
     }
-  
+
     // Add annotate attributes for globals
     if (DECL_ATTRIBUTES(decl))
       AddAnnotateAttrsToGlobal(GV, decl);
-  
+
 #ifdef LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION
   } else if (TREE_CODE(decl) == CONST_DECL) {
-    if (const char *Section = 
+    if (const char *Section =
         LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION(decl)) {
       GV->setSection(Section);
 
@@ -1235,7 +1235,7 @@ Value *make_decl_llvm(tree decl) {
 
   if (errorcount || sorrycount)
     return NULL;  // Do not process broken code.
-  
+
   LLVMContext &Context = getGlobalContext();
 
   // Global register variable with asm name, e.g.:
@@ -1246,7 +1246,7 @@ Value *make_decl_llvm(tree decl) {
     ValidateRegisterVariable(decl);
     return NULL;
   }
-  
+
 //TODO  timevar_push(TV_LLVM_GLOBALS);
 
   std::string Name;
@@ -1264,17 +1264,17 @@ Value *make_decl_llvm(tree decl) {
     }
 #endif
   }
-  
+
   // Specifying a section attribute on a variable forces it into a
   // non-.bss section, and thus it cannot be common.
   if (TREE_CODE(decl) == VAR_DECL && DECL_SECTION_NAME(decl) != NULL_TREE &&
       DECL_INITIAL(decl) == NULL_TREE && DECL_COMMON(decl))
     DECL_COMMON(decl) = 0;
-  
+
   // Variables can't be both common and weak.
   if (TREE_CODE(decl) == VAR_DECL && DECL_WEAK(decl))
     DECL_COMMON(decl) = 0;
-  
+
   // Okay, now we need to create an LLVM global variable or function for this
   // object.  Note that this is quite possibly a forward reference to the
   // object, so its type may change later.
@@ -1286,7 +1286,7 @@ Value *make_decl_llvm(tree decl) {
     if (FnEntry == 0) {
       CallingConv::ID CC;
       AttrListPtr PAL;
-      const FunctionType *Ty = 
+      const FunctionType *Ty =
         TheTypeConverter->ConvertFunctionType(TREE_TYPE(decl), decl, NULL,
                                               CC, PAL);
       FnEntry = Function::Create(Ty, Function::ExternalLinkage, Name, TheModule);
@@ -1319,7 +1319,7 @@ Value *make_decl_llvm(tree decl) {
 
         // Now we can give GV the proper name.
         FnEntry->takeName(G);
-        
+
         // G is now dead, nuke it.
         G->eraseFromParent();
       }
@@ -1337,7 +1337,7 @@ Value *make_decl_llvm(tree decl) {
       Ty = StructType::get(Context);
 
     if (Name.empty()) {   // Global has no name.
-      GV = new GlobalVariable(*TheModule, Ty, false, 
+      GV = new GlobalVariable(*TheModule, Ty, false,
                               GlobalValue::ExternalLinkage, 0, "");
 
       // Check for external weak linkage.
@@ -1353,7 +1353,7 @@ Value *make_decl_llvm(tree decl) {
       // If the global has a name, prevent multiple vars with the same name from
       // being created.
       GlobalVariable *GVE = TheModule->getGlobalVariable(Name, true);
-    
+
       if (GVE == 0) {
         GV = new GlobalVariable(*TheModule, Ty, false,
                                 GlobalValue::ExternalLinkage, 0, Name);
@@ -1374,7 +1374,7 @@ Value *make_decl_llvm(tree decl) {
         if (GV->getName() != Name) {
           Function *F = TheModule->getFunction(Name);
           assert(F && F->isDeclaration() && "A function turned into a global?");
-          
+
           // Replace any uses of "F" with uses of GV.
           Constant *FInNewType = TheFolder->CreateBitCast(GV, F->getType());
           F->replaceAllUsesWith(FInNewType);
@@ -1384,11 +1384,11 @@ Value *make_decl_llvm(tree decl) {
 
           // Now we can give GV the proper name.
           GV->takeName(F);
-          
+
           // F is now dead, nuke it.
           F->eraseFromParent();
         }
-        
+
       } else {
         GV = GVE;  // Global already created, reuse it.
       }
@@ -1474,7 +1474,7 @@ void register_ctor_dtor(Function *Fn, int InitPrio, bool isCtor) {
 //FIXMEvoid print_llvm_type(FILE *file, void *LLVM) {
 //FIXME  oFILEstream FS(file);
 //FIXME  FS << "LLVM: ";
-//FIXME  
+//FIXME
 //FIXME  // FIXME: oFILEstream can probably be removed in favor of a new raw_ostream
 //FIXME  // adaptor which would be simpler and more efficient.  In the meantime, just
 //FIXME  // adapt the adaptor.
@@ -2160,7 +2160,7 @@ static void llvm_finish_unit(void *gcc_data, void *user_data) {
 
 //TODO  // Emit intermediate file before module level optimization passes are run.
 //TODO  if (flag_debug_llvm_module_opt) {
-//TODO    
+//TODO
 //TODO    static PassManager *IntermediatePM = new PassManager();
 //TODO    IntermediatePM->add(new TargetData(*TheTarget->getTargetData()));
 //TODO
@@ -2169,7 +2169,7 @@ static void llvm_finish_unit(void *gcc_data, void *user_data) {
 //TODO    strcat(&asm_intermediate_out_filename[0],".0");
 //TODO    FILE *asm_intermediate_out_file = fopen(asm_intermediate_out_filename, "w+b");
 //TODO    AsmIntermediateOutStream = new oFILEstream(asm_intermediate_out_file);
-//TODO    raw_ostream *AsmIntermediateRawOutStream = 
+//TODO    raw_ostream *AsmIntermediateRawOutStream =
 //TODO      new raw_os_ostream(*AsmIntermediateOutStream);
 //TODO    if (EmitIR && 0)
 //TODO      IntermediatePM->add(createBitcodeWriterPass(*AsmIntermediateOutStream));
@@ -2189,7 +2189,7 @@ static void llvm_finish_unit(void *gcc_data, void *user_data) {
   createPerModuleOptimizationPasses();
   if (PerModulePasses)
     PerModulePasses->run(*TheModule);
-  
+
   // Run the code generator, if present.
   if (CodeGenPasses) {
     CodeGenPasses->doInitialization();

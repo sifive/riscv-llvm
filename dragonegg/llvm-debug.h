@@ -51,7 +51,7 @@ class Module;
 class DebugInfo {
 private:
   Module *M;                            // The current module.
-  DIFactory DebugFactory;               
+  DIFactory DebugFactory;
   const char *CurFullPath;              // Previous location file encountered.
   int CurLineNo;                        // Previous location line# encountered.
   const char *PrevFullPath;             // Previous location file encountered.
@@ -61,23 +61,23 @@ private:
   DICompileUnit TheCU;                  // The compile unit.
 
   // This counter counts debug info for forward referenced subroutine types.
-  // This counter is used to create unique name for such types so that their 
+  // This counter is used to create unique name for such types so that their
   // debug info (through MDNodes) is not shared accidently.
   unsigned FwdTypeCount;
 
   std::map<tree_node *, WeakVH > TypeCache;
-                                        // Cache of previously constructed 
+                                        // Cache of previously constructed
                                         // Types.
   std::map<tree_node *, WeakVH > SPCache;
-                                        // Cache of previously constructed 
+                                        // Cache of previously constructed
                                         // Subprograms.
   std::map<tree_node *, WeakVH> NameSpaceCache;
-                                        // Cache of previously constructed name 
+                                        // Cache of previously constructed name
                                         // spaces.
 
   SmallVector<WeakVH, 4> RegionStack;
                                         // Stack to track declarative scopes.
-  
+
   std::map<tree_node *, WeakVH> RegionMap;
 
   /// FunctionNames - This is a storage for function names that are
@@ -95,7 +95,7 @@ public:
   // Accessors.
   void setLocationFile(const char *FullPath) { CurFullPath = FullPath; }
   void setLocationLine(int LineNo)           { CurLineNo = LineNo; }
-  
+
   /// EmitFunctionStart - Constructs the debug code for entering a function -
   /// "llvm.dbg.func.start."
   void EmitFunctionStart(tree_node *FnDecl, Function *Fn, BasicBlock *CurBB);
@@ -109,10 +109,10 @@ public:
   void EmitDeclare(tree_node *decl, unsigned Tag, const char *Name,
                    tree_node *type, Value *AI, LLVMBuilder &Builder);
 
-  /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of 
+  /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of
   /// source line.
   void EmitStopPoint(Function *Fn, BasicBlock *CurBB, LLVMBuilder &Builder);
-                     
+
   /// EmitGlobalVariable - Emit information about a global variable.
   ///
   void EmitGlobalVariable(GlobalVariable *GV, tree_node *decl);
@@ -151,7 +151,7 @@ public:
 
   /// findRegion - Find tree_node N's region.
   DIDescriptor findRegion(tree_node *n);
-  
+
   /// getOrCreateNameSpace - Get name space descriptor for the tree node.
   DINameSpace getOrCreateNameSpace(tree_node *Node, DIDescriptor Context);
 

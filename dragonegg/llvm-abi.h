@@ -47,7 +47,7 @@ extern "C" {
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-}  
+}
 
 // Plugin headers
 #include "llvm-internal.h"
@@ -95,7 +95,7 @@ struct DefaultABIClient {
   /// HandleScalarArgument - This is the primary callback that specifies an
   /// LLVM argument to pass.  It is only used for first class types.
   /// If RealSize is non Zero then it specifies number of bytes to access
-  /// from LLVMTy. 
+  /// from LLVMTy.
   virtual void HandleScalarArgument(const llvm::Type *LLVMTy, tree type,
                             unsigned RealSize = 0) {}
 
@@ -135,8 +135,8 @@ struct DefaultABIClient {
  false
 #endif
 
-// doNotUseShadowReturn - Return true if the specified GCC type 
-// should not be returned using a pointer to struct parameter. 
+// doNotUseShadowReturn - Return true if the specified GCC type
+// should not be returned using a pointer to struct parameter.
 static inline bool doNotUseShadowReturn(tree type, tree fndecl,
                                         CallingConv::ID CC) {
   if (!TYPE_SIZE(type))
@@ -156,7 +156,7 @@ static inline bool doNotUseShadowReturn(tree type, tree fndecl,
 /// isSingleElementStructOrArray - If this is (recursively) a structure with one
 /// field or an array with one element, return the field type, otherwise return
 /// null.  If ignoreZeroLength, the struct (recursively) may include zero-length
-/// fields in addition to the single element that has data.  If 
+/// fields in addition to the single element that has data.  If
 /// rejectFatBitField, and the single element is a bitfield of a type that's
 /// bigger than the struct, return null anyway.
 static inline
@@ -180,7 +180,7 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
       if (TREE_CODE(Field) == FIELD_DECL) {
         if (ignoreZeroLength) {
-          if (DECL_SIZE(Field) && 
+          if (DECL_SIZE(Field) &&
               TREE_CODE(DECL_SIZE(Field)) == INTEGER_CST &&
               TREE_INT_CST_LOW(DECL_SIZE(Field)) == 0)
             continue;
@@ -188,7 +188,7 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
         if (!FoundField) {
           if (rejectFatBitfield &&
               TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
-              TREE_INT_CST_LOW(TYPE_SIZE(TREE_TYPE(Field))) > 
+              TREE_INT_CST_LOW(TYPE_SIZE(TREE_TYPE(Field))) >
               TREE_INT_CST_LOW(TYPE_SIZE(type)))
             return 0;
           FoundField = TREE_TYPE(Field);
@@ -196,7 +196,7 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
           return 0;   // More than one field.
         }
       }
-    return FoundField ? isSingleElementStructOrArray(FoundField, 
+    return FoundField ? isSingleElementStructOrArray(FoundField,
                                                      ignoreZeroLength, false)
                       : 0;
   case ARRAY_TYPE:
@@ -207,7 +207,7 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
   }
 }
 
-/// isZeroSizedStructOrUnion - Returns true if this is a struct or union 
+/// isZeroSizedStructOrUnion - Returns true if this is a struct or union
 /// which is zero bits wide.
 static inline bool isZeroSizedStructOrUnion(tree type) {
   if (TREE_CODE(type) != RECORD_TYPE &&
@@ -217,7 +217,7 @@ static inline bool isZeroSizedStructOrUnion(tree type) {
   return int_size_in_bytes(type) == 0;
 }
 
-// getLLVMScalarTypeForStructReturn - Return LLVM Type if TY can be 
+// getLLVMScalarTypeForStructReturn - Return LLVM Type if TY can be
 // returned as a scalar, otherwise return NULL. This is the default
 // target independent implementation.
 static inline
@@ -251,7 +251,7 @@ static inline const Type* getLLVMAggregateTypeForStructReturn(tree type) {
 }
 
 #ifndef LLVM_TRY_PASS_AGGREGATE_CUSTOM
-#define LLVM_TRY_PASS_AGGREGATE_CUSTOM(T, E, CC, C)	\
+#define LLVM_TRY_PASS_AGGREGATE_CUSTOM(T, E, CC, C) \
   false
 #endif
 
@@ -326,7 +326,7 @@ static inline const Type* getLLVMAggregateTypeForStructReturn(tree type) {
 #endif
 
 // LLVM_SHOULD_RETURN_SELT_STRUCT_AS_SCALAR - Return a TYPE tree if this single
-// element struct should be returned using the convention for that scalar TYPE, 
+// element struct should be returned using the convention for that scalar TYPE,
 // 0 otherwise.
 // The returned TYPE must be the same size as X for this to work; that is
 // checked elsewhere.  (Structs where this is not the case can be constructed
@@ -350,14 +350,14 @@ static inline const Type* getLLVMAggregateTypeForStructReturn(tree type) {
 #define LLVM_SHOULD_RETURN_VECTOR_AS_SHADOW(X,Y) 0
 #endif
 
-// LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be 
+// LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be
 // returned as a scalar, otherwise return NULL.
 #ifndef LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN
 #define LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN(X, Y) \
   getLLVMScalarTypeForStructReturn((X), (Y))
 #endif
 
-// LLVM_AGGR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be 
+// LLVM_AGGR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be
 // returned as an aggregate, otherwise return NULL.
 #ifndef LLVM_AGGR_TYPE_FOR_STRUCT_RETURN
 #define LLVM_AGGR_TYPE_FOR_STRUCT_RETURN(X, CC)    \

@@ -353,7 +353,7 @@ enum x86_64_reg_class
  * macro should call the target TreeToLLVM::TargetIntrinsicLower method and
  *  return true.This macro is invoked from a method in the TreeToLLVM class.
  */
-#define LLVM_TARGET_INTRINSIC_LOWER(STMT, FNDECL, DESTLOC, RESULT, DESTTY, OPS)	\
+#define LLVM_TARGET_INTRINSIC_LOWER(STMT, FNDECL, DESTLOC, RESULT, DESTTY, OPS) \
         TargetIntrinsicLower(STMT, FNDECL, DESTLOC, RESULT, DESTTY, OPS);
 
 /* LLVM_GET_REG_NAME - When extracting a register name for a constraint, use
