@@ -58,6 +58,7 @@ LLVM_OPTIONS="--enable-optimized --enable-assertions \
 
 COMPARE="cmp --ignore-initial=16"	# How to compare object files
 MAKE="nice -n 20 make -j -l3"		# How to run make
+MAKE_INSTALL="nice -n 20 make install"	# How to run make install
 
 
 # Turn off plugin version checking, otherwise the check may fail if all stages
@@ -147,7 +148,7 @@ for STAGE in $STAGES ; do
 
   echo "Installing stage $STAGE GCC"
   rm -fr $GCC_INSTALL $GCC_INSTALL_BASE
-  $MAKE install
+  $MAKE_INSTALL
   if [ "$GCC_INSTALL_BASE" != "$GCC_INSTALL" ] ; then
     # Move the just built GCC to its definitive install directory.
     mv $GCC_INSTALL_BASE $GCC_INSTALL
