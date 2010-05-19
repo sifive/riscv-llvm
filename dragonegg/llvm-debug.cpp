@@ -318,8 +318,8 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
                                   FNType,
                                   Fn->hasInternalLinkage(),
                                   true /*definition*/,
-                                  Virtuality, VIndex, ContainingType);
-
+                                  Virtuality, VIndex, ContainingType,
+                                  DECL_ARTIFICIAL (FnDecl), optimize);
 
   SPCache[FnDecl] = WeakVH(SP);
 
@@ -926,7 +926,7 @@ DIType DebugInfo::createStructType(tree type) {
                                       getOrCreateFile(MemLoc.file),
                                       MemLoc.line, SPTy, false, false,
                                       Virtuality, VIndex, ContainingType,
-                                      DECL_ARTIFICIAL (Member));
+                                      DECL_ARTIFICIAL (Member), optimize);
       EltTys.push_back(SP);
       SPCache[Member] = WeakVH(SP);
     }
