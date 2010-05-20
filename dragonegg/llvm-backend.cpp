@@ -1431,6 +1431,11 @@ Value *make_decl_llvm(tree decl) {
 /// make_definition_llvm - Ensures that the body or initial value of the given
 /// GCC global will be output, and returns a declaration for it.
 Value *make_definition_llvm(tree decl) {
+  // Inform cgraph that we used the global.  Usually it knows this already, but
+  // in some cases, for example if decl is an exception handling typeinfo, it
+  // expects to be told explicitly.
+  mark_decl_referenced(decl);
+
   // Only need to do something special for global variables.
   if (TREE_CODE(decl) != CONST_DECL && TREE_CODE(decl) != VAR_DECL)
     return DECL_LLVM(decl);
