@@ -407,7 +407,7 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
   llvm::DIVariable D =
     DebugFactory.CreateVariable(Tag, VarScope,
                                 Name, getOrCreateFile(Loc.file),
-                                Loc.line, Ty);
+                                Loc.line, Ty, optimize);
 
   Instruction *Call =
     DebugFactory.InsertDeclare(AI, D, Builder.GetInsertBlock());
