@@ -400,6 +400,8 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
   // Construct variable.
   DIScope VarScope = DIScope(cast<MDNode>(RegionStack.back()));
   DIType Ty = getOrCreateType(type);
+  if (!Ty && TREE_CODE(type) == OFFSET_TYPE)
+    Ty = createPointerType(TREE_TYPE(type));
   if (DECL_ARTIFICIAL (decl))
       Ty = DebugFactory.CreateArtificialType(Ty);
   // If type info is not available then do not emit debug info for this var.
@@ -597,9 +599,8 @@ DIType DebugInfo::createPointerType(tree type) {
   DIType FromTy = getOrCreateType(TREE_TYPE(type));
   // type* and type&
   // FIXME: Should BLOCK_POINTER_TYP have its own DW_TAG?
-  unsigned Tag = TREE_CODE(type) == POINTER_TYPE ?
-    DW_TAG_pointer_type :
-    DW_TAG_reference_type;
+  unsigned Tag = TREE_CODE(type) == REFERENCE_TYPE ?
+    DW_TAG_reference_type: DW_TAG_pointer_type;
   unsigned Flags = 0;
 
   // Check if this pointer type has a name.
