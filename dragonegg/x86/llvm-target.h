@@ -358,8 +358,10 @@ enum x86_64_reg_class
    the string extracted from the magic symbol built for that register, rather
    than reg_names.  The latter maps both AH and AL to the same thing, which
    means we can't distinguish them. */
-#define LLVM_GET_REG_NAME(REG_NAME, REG_NUM) \
-  ((REG_NAME) + (*(REG_NAME) == '%' ? 1 : 0))
+#define LLVM_GET_REG_NAME(REG_NAME, REG_NUM) __extension__ \
+  ({ const char *nm = (REG_NAME);                          \
+     if (*nm == '%' || *nm == '#') ++nm;                   \
+     (ISDIGIT (*nm) ? reg_names[REG_NUM] : nm); })
 
 /* Propagate code model setting to backend */
 #define LLVM_SET_MACHINE_OPTIONS(argvec)           \
