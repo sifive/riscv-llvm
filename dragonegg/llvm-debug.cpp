@@ -244,8 +244,7 @@ StringRef DebugInfo::getFunctionName(tree FnDecl) {
   return StringRef(StrPtr);
 }
 
-/// EmitFunctionStart - Constructs the debug code for entering a function -
-/// "llvm.dbg.func.start."
+/// EmitFunctionStart - Constructs the debug code for entering a function.
 void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
                                   BasicBlock *CurBB) {
 
@@ -370,8 +369,7 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
   return getOrCreateFile(main_input_filename);
 }
 
-/// EmitFunctionEnd - Constructs the debug code for exiting a declarative
-/// region - "llvm.dbg.region.end."
+/// EmitFunctionEnd - Pop the region stack and reset current lexical block.
 void DebugInfo::EmitFunctionEnd(BasicBlock *CurBB, bool EndFunction) {
   assert(!RegionStack.empty() && "Region stack mismatch, stack empty!");
   RegionStack.pop_back();
@@ -385,7 +383,6 @@ void DebugInfo::EmitFunctionEnd(BasicBlock *CurBB, bool EndFunction) {
 }
 
 /// EmitDeclare - Constructs the debug code for allocation of a new variable.
-/// region - "llvm.dbg.declare."
 void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
                             tree type, Value *AI, LLVMBuilder &Builder) {
 
@@ -412,14 +409,13 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
                                 Name, getOrCreateFile(Loc.file),
                                 Loc.line, Ty);
 
-  // Insert an llvm.dbg.declare into the current block.
-  Instruction *Call = DebugFactory.InsertDeclare(AI, D,
-                                                 Builder.GetInsertBlock());
+  Instruction *Call =
+    DebugFactory.InsertDeclare(AI, D, Builder.GetInsertBlock());
+
   Call->setDebugLoc(DebugLoc::get(CurLineNo, 0, VarScope));
 }
 
-/// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of
-/// source line - "llvm.dbg.stoppoint."  Now enabled at -O.
+/// EmitStopPoint - Set current source location. 
 void DebugInfo::EmitStopPoint(Function *Fn, BasicBlock *CurBB,
                               LLVMBuilder &Builder) {
   // Don't bother if things are the same as last time.
