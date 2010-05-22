@@ -402,6 +402,9 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
   DIType Ty = getOrCreateType(type);
   if (DECL_ARTIFICIAL (decl))
       Ty = DebugFactory.CreateArtificialType(Ty);
+  // If type info is not available then do not emit debug info for this var.
+  if (!Ty)
+    return;
   llvm::DIVariable D =
     DebugFactory.CreateVariable(Tag, VarScope,
                                 Name, getOrCreateFile(Loc.file),
@@ -1069,6 +1072,7 @@ DIType DebugInfo::getOrCreateType(tree type) {
       // gen_type_die(TYPE_OFFSET_BASETYPE(type), context_die);
       // gen_type_die(TREE_TYPE(type), context_die);
       // gen_ptr_to_mbr_type_die(type, context_die);
+      // PR 7104
       break;
     }
 
