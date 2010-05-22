@@ -1320,7 +1320,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   }
   IX86_BUILTIN_PALIGNR128: {
     if (isa<ConstantInt>(Ops[2])) {
-      unsigned shiftVal = cast<ConstantInt>(Ops[2])->getZExtValue();
+
+      // In the header we multiply by 8, correct that back now.
+      unsigned shiftVal = (cast<ConstantInt>(Ops[2])->getZExtValue())/8;
 
       // If palignr is shifting the pair of input vectors less than 17 bytes,
       // emit a shuffle instruction.
