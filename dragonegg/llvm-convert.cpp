@@ -2932,7 +2932,8 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
 //===----------------------------------------------------------------------===//
 
 // LLVM_GET_REG_NAME - Default to use GCC's register names.  Targets may
-// override this to use different names for some registers.
+// override this to use different names for some registers.  The REG_NAME is
+// the name before it was decoded; it may be null in some contexts.
 #ifndef LLVM_GET_REG_NAME
 #define LLVM_GET_REG_NAME(REG_NAME, REG_NUM) reg_names[REG_NUM]
 #endif
@@ -3171,7 +3172,7 @@ static std::string CanonicalizeConstraint(const char *Constraint) {
     // If we found a single register register class, return the register.
     if (RegMember != -1) {
       Result += '{';
-      Result += reg_names[RegMember];
+      Result += LLVM_GET_REG_NAME(0, RegMember);
       Result += '}';
     } else {
       Result += ConstraintChar;
