@@ -2954,7 +2954,7 @@ Value *TreeToLLVM::EmitReadOfRegisterVariable(tree decl) {
   const char *Name = extractRegisterName(decl);
   Name = LLVM_GET_REG_NAME(Name, decode_reg_name(Name));
 
-  InlineAsm *IA = InlineAsm::get(FTy, "", "={"+std::string(Name)+"}", false);
+  InlineAsm *IA = InlineAsm::get(FTy, "", "={"+std::string(Name)+"}", true);
   CallInst *Call = Builder.CreateCall(IA);
   Call->setDoesNotThrow();
 
