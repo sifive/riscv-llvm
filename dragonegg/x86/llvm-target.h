@@ -364,25 +364,30 @@ enum x86_64_reg_class
      ((!nm || ISDIGIT (*nm)) ? reg_names[REG_NUM] : nm); })
 
 /* Propagate code model setting to backend */
-#define LLVM_SET_MACHINE_OPTIONS(argvec)           \
-  switch (ix86_cmodel) {                           \
-  default:                                         \
-    sorry ("code model %<%s%> not supported yet", ix86_cmodel_string);  \
-    break;                                         \
-  case CM_SMALL:                                   \
-  case CM_SMALL_PIC:                               \
-    argvec.push_back("--code-model=small");        \
-    break;                                         \
-  case CM_KERNEL:                                  \
-    argvec.push_back("--code-model=kernel");       \
-    break;                                         \
-  case CM_MEDIUM:                                  \
-  case CM_MEDIUM_PIC:                              \
-    argvec.push_back("--code-model=medium");       \
-    break;                                         \
-  case CM_32:                                      \
-    argvec.push_back("--code-model=default");      \
-    break;                                         \
-  }
+#define LLVM_SET_MACHINE_OPTIONS(argvec)                \
+  do {                                                  \
+    switch (ix86_cmodel) {                              \
+    default:                                            \
+      sorry ("code model %<%s%> not supported yet",     \
+             ix86_cmodel_string);                       \
+      break;                                            \
+    case CM_SMALL:                                      \
+    case CM_SMALL_PIC:                                  \
+      argvec.push_back("--code-model=small");           \
+      break;                                            \
+    case CM_KERNEL:                                     \
+      argvec.push_back("--code-model=kernel");          \
+      break;                                            \
+    case CM_MEDIUM:                                     \
+    case CM_MEDIUM_PIC:                                 \
+      argvec.push_back("--code-model=medium");          \
+      break;                                            \
+    case CM_32:                                         \
+      argvec.push_back("--code-model=default");         \
+      break;                                            \
+    }                                                   \
+    if (TARGET_OMIT_LEAF_FRAME_POINTER)                 \
+      argvec.push_back("--disable-non-leaf-fp-elim");   \
+  } while (0)
 
 #endif /* LLVM_TARGET_H */
