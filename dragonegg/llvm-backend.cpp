@@ -1651,7 +1651,7 @@ static GlobalValue::LinkageTypes GetLinkageForAlias(tree decl) {
 
   if (DECL_ONE_ONLY(decl))
     // Copies of this DECL in multiple translation units should be merged.
-    return GlobalValue::WeakODRLinkage;
+    return GlobalValue::getWeakLinkage(flag_odr);
 
   if (DECL_WEAK(decl))
     // The user may have explicitly asked for weak linkage - ignore flag_odr.
