@@ -533,7 +533,7 @@ bool flag_vararg_requires_arguments;
 static void InstallLanguageSettings() {
   // The principal here is that not doing any language-specific configuration
   // should still result in correct code.  The language-specific settings are
-  // only for obtaining better code, but exploiting language-specific features.
+  // only for obtaining better code, by exploiting language-specific features.
   StringRef LanguageName = lang_hooks.name;
 
   if (LanguageName == "GNU Ada") {
@@ -542,7 +542,7 @@ static void InstallLanguageSettings() {
   } else if (LanguageName == "GNU C") {
     flag_vararg_requires_arguments = true; // "T foo() {}" -> "T foo(void) {}"
   } else if (LanguageName == "GNU C++") {
-//FIXME    flag_odr = true; // C++ obeys the one-definition-rule
+    flag_odr = true; // C++ obeys the one-definition-rule
   } else if (LanguageName == "GNU Fortran") {
   } else if (LanguageName == "GNU GIMPLE") { // LTO gold plugin
   } else if (LanguageName == "GNU Java") {
