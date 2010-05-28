@@ -428,11 +428,6 @@ static void ConfigureLLVM(void) {
   Args.push_back(0);  // Null terminator.
   int pseudo_argc = Args.size()-1;
   llvm::cl::ParseCommandLineOptions(pseudo_argc, const_cast<char**>(&Args[0]));
-
-  if (optimize)
-    RegisterRegAlloc::setDefault(createLinearScanRegisterAllocator);
-  else
-    RegisterRegAlloc::setDefault(createLocalRegisterAllocator);
 }
 
 /// ComputeTargetTriple - Determine the target triple to use.
