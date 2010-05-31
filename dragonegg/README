@@ -27,8 +27,8 @@ do the trick ("SomeLocalDir" is where you checked/unpacked the gcc source):
 
 Configure gcc with your favorite options and also with --enable-plugin and
 --enable-lto.  Build gcc and install it somewhere.  If you don't have libelf
-installed then the build will fail, because gcc's LTO code makes use of it,
-see
+installed then the configure step may fail because the configure script thinks
+that LTO requires libelf, though in fact it does not when using dragonegg.  See
   http://gcc.gnu.org/wiki/LinkTimeOptimization#Building_the_branch
 In theory the gcc you build can be a cross-compiler, and the plugin should work
 and build code for the targetted platform.  I don't think anyone has ever tried
@@ -38,6 +38,15 @@ Darwin special: the gcc configure script thinks darwin doesn't support dynamic
 libraries and concludes that plugins won't work.  You can find patches to fix
 this here:
 http://gcc.gnu.org/ml/gcc-patches/2010-04/msg00610.html
+NOTE: This may be fixed in gcc mainline (gcc 4.6).
+
+Darwin special 2: the gcc configure script thinks darwin doesn't support LTO
+because it is not an ELF platform.  Dragonegg repurposes the LTO infrastructure,
+and thus needs LTO support enabled, but it makes no use of the parts of LTO that
+require ELF.  You just need to turn off the ELF check in the configure script.
+If anyone has a patch to do this, I will be happy to add it here!
+NOTE: This is fixed in gcc mainline (gcc 4.6).
+
 
 Step 2: Build the plugin
 ------------------------
