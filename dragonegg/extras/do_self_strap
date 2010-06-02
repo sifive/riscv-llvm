@@ -54,7 +54,7 @@ GCC_OPTIONS="--enable-plugin --enable-lto --enable-languages=c,c++ \
 # How to configure LLVM.  These are all optional.  On my machine, the debugger
 # refuses to work with dragonegg unless I build LLVM with --disable-threads.
 LLVM_OPTIONS="--enable-optimized --enable-assertions \
-	      --disable-threads $LLVM_OPTIONS"
+	      --disable-threads --enable-debug-symbols $LLVM_OPTIONS"
 
 COMPARE="cmp --ignore-initial=16"	# How to compare object files
 MAKE="nice -n 20 make -j -l3"		# How to run make
