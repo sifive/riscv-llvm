@@ -979,7 +979,7 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
 
 /// emit_global - Emit the specified VAR_DECL or aggregate CONST_DECL to LLVM as
 /// a global variable.  This function implements the end of assemble_variable.
-void emit_global(tree decl) {
+static void emit_global(tree decl) {
   // FIXME: Support alignment on globals: DECL_ALIGN.
   // FIXME: DECL_PRESERVE_P indicates the var is marked with attribute 'used'.
 
