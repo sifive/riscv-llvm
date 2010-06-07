@@ -987,11 +987,6 @@ static void emit_global(tree decl) {
   if (TREE_CODE(decl) == VAR_DECL && DECL_REGISTER(decl))
     return;
 
-  // If tree nodes says defer output then do not emit global yet.
-  if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS)
-      && (DECL_DEFER_OUTPUT(decl)))
-      return;
-
   // If we encounter a forward declaration then do not emit the global yet.
   if (!TYPE_SIZE(TREE_TYPE(decl)))
     return;
@@ -1426,11 +1421,6 @@ Value *make_decl_llvm(tree decl) {
 /// make_definition_llvm - Ensures that the body or initial value of the given
 /// GCC global will be output, and returns a declaration for it.
 Value *make_definition_llvm(tree decl) {
-  // Inform cgraph that we used the global.  Usually it knows this already, but
-  // in some cases, for example if decl is an exception handling typeinfo, it
-  // expects to be told explicitly.
-  mark_decl_referenced(decl);
-
   // Only need to do something special for global variables.
   if (TREE_CODE(decl) != CONST_DECL && TREE_CODE(decl) != VAR_DECL)
     return DECL_LLVM(decl);
@@ -1442,10 +1432,6 @@ Value *make_definition_llvm(tree decl) {
     assert(!DECL_INITIAL(decl) && "Non-static global has initial value!");
     return DECL_LLVM(decl);
   }
-  // Public static variables will be output later anyway, so there is no point
-  // in outputting them here.
-  if (TREE_CODE(decl) == VAR_DECL && TREE_PUBLIC(decl))
-    return DECL_LLVM(decl);
   GlobalValue *GV = cast<GlobalValue>(DECL_LLVM(decl));
   // If we already output a definition for this declaration, then reuse it.
   if (!GV->isDeclaration())
