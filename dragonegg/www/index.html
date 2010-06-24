@@ -54,13 +54,12 @@
   </ul>
 
   <p><a href="http://dragonegg.llvm.org/">DragonEgg</a> is under heavy
-  development and is not mature - it may crash or produce wrong code.  It works
-  with <a href="http://gcc.gnu.org">gcc-4.5</a> which hasn't been released yet.
-  This is an additional source of instability, and means that
+  development and is not mature - it may crash or produce wrong code.  The
+  development version of <a href="http://dragonegg.llvm.org/">dragonegg</a>
+  works with <a href="http://llvm.org">LLVM-2.8</a> which hasn't been released
+  yet.  This is an additional source of instability, and means that
   <a href="http://dragonegg.llvm.org/">dragonegg</a> may fail to build from
-  time-to-time if it has not caught up with the latest gcc changes.
-  <a href="http://dragonegg.llvm.org/">DragonEgg</a> uses the development
-  version of <a href="http://llvm.org">LLVM</a> which creates similar problems.</p>
+  time-to-time if it has not caught up with the latest changes.</p>
 
   <!--=====================================================================-->
   <h2>Releases</h2>
@@ -69,7 +68,7 @@
   <ul>
   <li><p><a href="http://llvm.org/releases/download.html#2.7">dragonegg-2.7</a>
       is the first ever dragonegg release, so please be gentle with it. It works
-      with <a href="http://llvm.org/releases/download.html#2.7">llvm-2.7</a> and
+      with <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
       <p>Known problems with the
       <a href="http://llvm.org/releases/download.html#2.7">dragonegg-2.7</a>
@@ -170,13 +169,44 @@ declare i32 @puts(i8* nocapture) nounwind
   <h2>Getting it</h2>
   <!--=====================================================================-->
 
-  <p>Get <a href="http://dragonegg.llvm.org/">dragonegg</a>:</p>
+  <p>Get the
+     <a href="http://llvm.org/releases/download.html#2.7">dragonegg-2.7</a>
+     source:</p>
+     <pre>	wget http://llvm.org/releases/2.7/dragonegg-2.7.tgz</pre>
+  <p>Unpack it:</p>
+     <pre>	tar xzf dragonegg-2.7.tgz</pre>
+  <p>Download the
+     <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7 binaries</a>
+     (mysteriously referred to as clang binaries) for your platform and install them.</p>
+  <p>Get the <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> source:</p>
+     <pre>	wget http://mirrors.kernel.org/gnu/gcc/gcc-4.5.0/gcc-4.5.0.tar.gz</pre>
+  <p>Unpack it:</p>
+     <pre>	tar xzf gcc-4.5.0.tar.gz</pre>
+  <p>Apply the patch in <tt>dragonegg/gcc-patches/</tt> to
+     <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>:</p>
+     <pre>	patch -d gcc-4.5.0 -p1 < dragonegg-2.7/gcc-patches/i386_static.diff</pre>
+  <p>Build and install <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> in the
+     usual way.</p>
+  <p>Doing</p>
+     <pre>	GCC=path_to_just_installed_gcc make</pre>
+  <p>in the <tt>dragonegg-2.7</tt> directory should then build <tt>dragonegg.so</tt>.
+     See the <tt>README</tt> file for more details.</p>
+  <p>To use <tt>dragonegg.so</tt>, compile something with your just-installed
+     version of <tt>gcc</tt>, adding <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt>
+     to the command line.  See the <tt>README</tt> file for more details and useful
+     command line options.</p>
+
+  <!--=====================================================================-->
+  <h2>Getting the development version</h2>
+  <!--=====================================================================-->
+
+  <p>Get the development version of
+     <a href="http://dragonegg.llvm.org/">dragonegg</a>:</p>
      <pre>	svn co http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg</pre>
   <p>Get the development version of <a href="http://llvm.org">LLVM</a>:</p>
      <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
-  <p>Build <a href="http://llvm.org">LLVM</a> in the usual way.
-     You do not need to install it.</p>
-  <p>Get the development version of <a href="http://gcc.gnu.org">gcc</a>:</p>
+  <p>Build <a href="http://llvm.org">LLVM</a> in the usual way.</p>
+  <p>Get <a href="http://gcc.gnu.org">gcc-4.5</a>:</p>
      <pre>	svn co http://gcc.gnu.org/svn/gcc/trunk gcc</pre>
   <p>Apply all of the patches in <tt>dragonegg/gcc-patches/</tt>, if any, to
      <a href="http://gcc.gnu.org">gcc</a>.
