@@ -57,10 +57,35 @@
   development and is not mature - it may crash or produce wrong code.  It works
   with <a href="http://gcc.gnu.org">gcc-4.5</a> which hasn't been released yet.
   This is an additional source of instability, and means that
-  <a href="http://dragonegg.llvm.org/">DragonEgg</a> may fail to build from
+  <a href="http://dragonegg.llvm.org/">dragonegg</a> may fail to build from
   time-to-time if it has not caught up with the latest gcc changes.
   <a href="http://dragonegg.llvm.org/">DragonEgg</a> uses the development
   version of <a href="http://llvm.org">LLVM</a> which creates similar problems.</p>
+
+  <!--=====================================================================-->
+  <h2>Releases</h2>
+  <!--=====================================================================-->
+
+  <ul>
+  <li><p><a href="http://llvm.org/releases/download.html#2.7">dragonegg-2.7</a>
+      is the first ever dragonegg release, so please be gentle with it. It works
+      with <a href="http://llvm.org/releases/download.html#2.7">llvm-2.7</a> and
+      <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
+      <p>Known problems with the
+      <a href="http://llvm.org/releases/download.html#2.7">dragonegg-2.7</a>
+      release:</p>
+      <ul>
+      <li>If <tt>gcc-4.5</tt> was configured with a target triple of the form
+          <tt>x86_64-linux-gnu</tt> or <tt>i386-linux-gnu</tt> then the build
+          fails with <tt>"error: llvm-os.h: No such file or directory"</tt>.
+          Use the four component style <tt>x86_64-unknown-linux-gnu</tt> or
+          <tt>i386-unknown-linux-gnu</tt> instead.</li>
+      <li>Fortran common variables may not be output when they should be,
+          causing link failures.  This has been fixed in the development version
+          of <a href="http://dragonegg.llvm.org/">dragonegg</a>.
+      </ul>
+      </li>
+  </ul>
 
   <!--=====================================================================-->
   <h2>DragonEgg in action</h2>
@@ -145,7 +170,7 @@ declare i32 @puts(i8* nocapture) nounwind
   <h2>Getting it</h2>
   <!--=====================================================================-->
 
-  <p>Get <a href="http://dragonegg.llvm.org/">DragonEgg</a>:</p>
+  <p>Get <a href="http://dragonegg.llvm.org/">dragonegg</a>:</p>
      <pre>	svn co http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg</pre>
   <p>Get the development version of <a href="http://llvm.org">LLVM</a>:</p>
      <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
@@ -178,9 +203,9 @@ declare i32 @puts(i8* nocapture) nounwind
   <h2>More information</h2>
   <!--=====================================================================-->
   There was a talk "Reimplementing llvm-gcc as a gcc plugin" about
-  <a href="http://dragonegg.llvm.org/">DragonEgg</a> at the
+  <a href="http://dragonegg.llvm.org/">dragonegg</a> at the
   <a href="http://llvm.org/devmtg/2009-10/">2009 llvm developers meeting</a>.
-  At that time, <a href="http://dragonegg.llvm.org/">DragonEgg</a> was known as
+  At that time, <a href="http://dragonegg.llvm.org/">dragonegg</a> was known as
   "the gcc plugin".
   <p>[<a href="http://llvm.org/devmtg/2009-10/Sands_LLVMGCCPlugin.pdf">Slides</a>]</p>
   <p>[<a href="http://llvm.org/devmtg/2009-10/Sands_LLVMGCCPlugin-700kbps.mov">Video</a>]&nbsp;<font size="-1">(Computer)</font></p>
