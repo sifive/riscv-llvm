@@ -13,12 +13,13 @@
   <h1>DragonEgg - Using LLVM as a GCC backend</h1>
   <!--*********************************************************************-->
 
-  <p><a href="http://dragonegg.llvm.org/">DragonEgg</a> is a gcc plugin
-  <tt>dragonegg.so</tt> that replaces gcc's optimizers and code generators with
-  those from the <a href="http://llvm.org">LLVM project</a>.</p>
+  <p><a href="#gettingrelease">DragonEgg</a> is a
+  <a href="http://gcc.gnu.org/wiki/plugins">gcc plugin</a> <tt>dragonegg.so</tt>
+  that replaces gcc's optimizers and code generators with those from the
+  <a href="http://llvm.org">LLVM project</a>.</p>
   <p>It is a reimplementation of
   <a href="http://llvm.org/docs/CommandGuide/">llvm-gcc</a>
-  that works with <a href="http://gcc.gnu.org">gcc-4.5</a> or later.</p>
+  that works with <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> or later.</p>
 
   <br clear="all">
 
@@ -38,41 +39,34 @@
   <ul>
   <li>C works well, for example you can build a working gcc using it</li>
   <li>C++ works fairly well, for example you can build LLVM, clang and boost
-  with it (the resulting LLVM and clang work correctly; I did not test whether
-  boost actually works)</li>
-  <li>A lot of Fortran compiles, but the compiled code has not been tested for
-  correctness</li>
+  with it (the resulting LLVM and clang work correctly; boost mostly works but
+  there are some mysterious failures)</li>
+  <li>Fortran works fairly well, for example SPEC CPU mostly compiles and works,
+  but there are some failures</li>
   <li>It can compile quite a lot of Ada, and the compiled code mostly seems to
   work</li>
   <li>It can compile a small amount of Obj-C and Obj-C++</li>
   <li>It fails to compile any Java</li>
   <li>Limited debug info</li>
-  <li>Requires one gcc patch</li>
+  <li>Requires patching gcc</li>
   <li>Only supports x86-32 and x86-64</li>
   <li>Only supports linux and darwin (additional gcc patches are needed on
       darwin, see the <tt>README</tt> file).
   </ul>
 
-  <p><a href="http://dragonegg.llvm.org/">DragonEgg</a> is under heavy
-  development and is not mature - it may crash or produce wrong code.  The
-  development version of <a href="http://dragonegg.llvm.org/">dragonegg</a>
-  works with <a href="http://llvm.org">LLVM-2.8</a> which hasn't been released
-  yet.  This is an additional source of instability, and means that
-  <a href="http://dragonegg.llvm.org/">dragonegg</a> may fail to build from
-  time-to-time if it has not caught up with the latest changes.</p>
+  <p>DragonEgg is not mature - while it works quite well, it should not be
+  considered production quality.</p>
 
   <!--=====================================================================-->
   <h2>Releases</h2>
   <!--=====================================================================-->
 
   <ul>
-  <li><p><a href="http://llvm.org/releases/download.html#2.7">dragonegg-2.7</a>
-      is the first ever dragonegg release, so please be gentle with it. It works
+  <li><p><a href="#gettingrelease">DragonEgg-2.7</a>
+      is the first ever DragonEgg release, so please be gentle with it. It works
       with <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
-      <p>Known problems with the
-      <a href="http://llvm.org/releases/download.html#2.7">dragonegg-2.7</a>
-      release:</p>
+      <p>Known problems with the DragonEgg-2.7 release:</p>
       <ul>
       <li>If <tt>gcc-4.5</tt> was configured with a target triple of the form
           <tt>x86_64-linux-gnu</tt> or <tt>i386-linux-gnu</tt> then the build
@@ -80,8 +74,8 @@
           Use the four component style <tt>x86_64-unknown-linux-gnu</tt> or
           <tt>i386-unknown-linux-gnu</tt> instead.</li>
       <li>Fortran common variables may not be output when they should be,
-          causing link failures.  This has been fixed in the development version
-          of <a href="http://dragonegg.llvm.org/">dragonegg</a>.
+          causing link failures.  This has been fixed in the
+          <a href="#gettingdevel">development version</a> of DragonEgg.
       </ul>
       </li>
   </ul>
@@ -166,27 +160,27 @@ entry:
 declare i32 @puts(i8* nocapture) nounwind
 </pre>
   <!--=====================================================================-->
-  <h2>Getting it</h2>
+  <h2><a name="gettingrelease">Getting it</a></h2>
   <!--=====================================================================-->
 
   <p>Get the
-     <a href="http://llvm.org/releases/download.html#2.7">dragonegg-2.7</a>
-     source:</p>
+  <a href="http://llvm.org/releases/download.html#2.7">DragonEgg-2.7 source code</a>:
      <pre>	wget http://llvm.org/releases/2.7/dragonegg-2.7.tgz</pre>
   <p>Unpack it:</p>
      <pre>	tar xzf dragonegg-2.7.tgz</pre>
   <p>Download the
-     <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7 binaries</a>
-     (mysteriously referred to as clang binaries) for your platform and install them.</p>
-  <p>Get the <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> source:</p>
+  <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7 binaries</a>
+  (mysteriously referred to as clang binaries) for your platform and install
+  them.</p>
+  <p>Get the <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5 source code</a>:</p>
      <pre>	wget http://mirrors.kernel.org/gnu/gcc/gcc-4.5.0/gcc-4.5.0.tar.gz</pre>
   <p>Unpack it:</p>
      <pre>	tar xzf gcc-4.5.0.tar.gz</pre>
-  <p>Apply the patch in <tt>dragonegg/gcc-patches/</tt> to
-     <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>:</p>
+  <p>Apply the patch in <tt>dragonegg-2.7/gcc-patches/</tt> to the gcc-4.5
+  source:</p>
      <pre>	patch -d gcc-4.5.0 -p1 < dragonegg-2.7/gcc-patches/i386_static.diff</pre>
-  <p>Build and install <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> in the
-     usual way.</p>
+  <p><a href="http://gcc.gnu.org/install/">Build and install gcc-4.5</a> in the
+  usual way.</p>
   <p>Doing</p>
      <pre>	GCC=path_to_just_installed_gcc make</pre>
   <p>in the <tt>dragonegg-2.7</tt> directory should then build <tt>dragonegg.so</tt>.
@@ -197,21 +191,21 @@ declare i32 @puts(i8* nocapture) nounwind
      command line options.</p>
 
   <!--=====================================================================-->
-  <h2>Getting the development version</h2>
+  <h2><a name="gettingdevel">Getting the development version</a></h2>
   <!--=====================================================================-->
 
-  <p>Get the development version of
-     <a href="http://dragonegg.llvm.org/">dragonegg</a>:</p>
+  <p>Get the source code for the development version of DragonEgg:</p>
      <pre>	svn co http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg</pre>
-  <p>Get the development version of <a href="http://llvm.org">LLVM</a>:</p>
+  <p>Get the source code for the development version of LLVM:</p>
      <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
-  <p>Build <a href="http://llvm.org">LLVM</a> in the usual way.</p>
-  <p>Get <a href="http://gcc.gnu.org">gcc-4.5</a>:</p>
-     <pre>	svn co http://gcc.gnu.org/svn/gcc/trunk gcc</pre>
-  <p>Apply all of the patches in <tt>dragonegg/gcc-patches/</tt>, if any, to
-     <a href="http://gcc.gnu.org">gcc</a>.
-     You need to pass the <tt>-p1</tt> option to <tt>patch</tt>.
-     Build and install <a href="http://gcc.gnu.org">gcc</a> in the usual way.</p>
+  <p><a href="http://llvm.org/docs/GettingStarted.html">Build LLVM</a> in the
+  usual way.</p>
+  <p>Get the <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5 source code</a>:</p>
+     <pre>	svn co http://gcc.gnu.org/svn/gcc/branches/gcc-4_5-branch gcc-4.5</pre>
+  <p>Apply all of the patches in <tt>dragonegg/gcc-patches/</tt>, if any, to the
+     gcc-4.5 source. You need to pass the <tt>-p1</tt> option to <tt>patch</tt>.
+     <a href="http://gcc.gnu.org/install/">Build and install gcc-4.5</a> in the
+     usual way.</p>
   <p>Doing</p>
      <pre>	GCC=path_to_just_installed_gcc make</pre>
   <p>in the <tt>dragonegg</tt> directory should then build <tt>dragonegg.so</tt>.
@@ -232,11 +226,10 @@ declare i32 @puts(i8* nocapture) nounwind
   <!--=====================================================================-->
   <h2>More information</h2>
   <!--=====================================================================-->
-  There was a talk "Reimplementing llvm-gcc as a gcc plugin" about
-  <a href="http://dragonegg.llvm.org/">dragonegg</a> at the
+  There was a talk "Reimplementing llvm-gcc as a gcc plugin" about DragonEgg at
+  the
   <a href="http://llvm.org/devmtg/2009-10/">2009 llvm developers meeting</a>.
-  At that time, <a href="http://dragonegg.llvm.org/">dragonegg</a> was known as
-  "the gcc plugin".
+  At that time, DragonEgg was known as "the gcc plugin".
   <p>[<a href="http://llvm.org/devmtg/2009-10/Sands_LLVMGCCPlugin.pdf">Slides</a>]</p>
   <p>[<a href="http://llvm.org/devmtg/2009-10/Sands_LLVMGCCPlugin-700kbps.mov">Video</a>]&nbsp;<font size="-1">(Computer)</font></p>
   <p>[<a href="http://llvm.org/devmtg/2009-10/Sands_LLVMGCCPlugin-mobile.m4v">Video</a>]&nbsp;<font size="-1">(Mobile)</font></p>
