@@ -43,6 +43,9 @@ static GTY ((if_marked ("tree_llvm_map_marked_p"),
              param_is(struct tree_llvm_map)))
   htab_t llvm_cache;
 
+// Garbage collector header
+#include "gt-llvm-cache.h"
+
 /// llvm_has_cached - Returns whether a value has been associated with the tree.
 bool llvm_has_cached(union tree_node *tree) {
   struct tree_map_base in;
@@ -129,5 +132,3 @@ void llvm_replace_cached(const void *old_val, const void *new_val) {
 
   htab_traverse(llvm_cache, replace, &u);
 }
-
-#include "gt-llvm-cache.h"
