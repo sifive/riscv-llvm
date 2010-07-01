@@ -102,7 +102,7 @@ clean::
 # is not used in a normal build.
 GENGTYPE_INPUT=$(SRC_DIR)/llvm-cache.c
 GENGTYPE_OUTPUT=$(SRC_DIR)/gt-llvm-cache.h
-$(GENGTYPE_OUTPUT):
+gt-llvm-cache.h::
 	cd $(HOME)/GCC/objects/gcc && ./build/gengtype \
 	  -P $(GENGTYPE_OUTPUT) $(GCC_PLUGIN_DIR) gtyp-input.list \
 	    $(GENGTYPE_INPUT)
