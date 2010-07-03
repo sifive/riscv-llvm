@@ -1583,23 +1583,11 @@ static bool gate_emission(void) {
   return !errorcount && !sorrycount; // Do not process broken code.
 }
 
-/// emit_function - Turn a gimple function into LLVM IR.  This is called once
-/// for each function in the compilation unit.
-static void emit_function(struct cgraph_node *node) {
-  if (errorcount || sorrycount)
-    return; // Do not process broken code.
-
-  tree function = node->decl;
-  struct function *fn = DECL_STRUCT_FUNCTION(function);
-  if (!quiet_flag && DECL_NAME(function))
-    errs() << IDENTIFIER_POINTER(DECL_NAME(function));
-
-  // Set the current function to this one.
-  // TODO: Make it so we don't need to do this.
-  assert(current_function_decl == NULL_TREE && cfun == NULL &&
-         "Current function already set!");
-  current_function_decl = function;
-  push_cfun (fn);
+/// emit_current_function - Turn the current gimple function into LLVM IR.  This
+/// is called once for each function in the compilation unit.
+static void emit_current_function() {
+  if (!quiet_flag && DECL_NAME(current_function_decl))
+    errs() << IDENTIFIER_POINTER(DECL_NAME(current_function_decl));
 
   // Convert the AST to raw/ugly LLVM code.
   Function *Fn;
@@ -1617,6 +1605,26 @@ static void emit_function(struct cgraph_node *node) {
     // TODO: Nuke the .ll code for the function at -O[01] if we don't want to
     // inline it or something else.
   }
+}
+
+/// emit_function - Turn a gimple function into LLVM IR.  This is called once
+/// for each function in the compilation unit if GCC optimizations are disabled.
+static void emit_function(struct cgraph_node *node) {
+  if (errorcount || sorrycount)
+    return; // Do not process broken code.
+
+  tree function = node->decl;
+  struct function *fn = DECL_STRUCT_FUNCTION(function);
+
+  // Set the current function to this one.
+  // TODO: Make it so we don't need to do this.
+  assert(current_function_decl == NULL_TREE && cfun == NULL &&
+         "Current function already set!");
+  current_function_decl = function;
+  push_cfun (fn);
+
+  // Convert the function.
+  emit_current_function();
 
   // Done with this function.
   current_function_decl = NULL;
@@ -1898,7 +1906,10 @@ static void emit_functions(cgraph_node_set set
        csi_next(&csi)) {
     struct cgraph_node *node = csi_node(csi);
     if (node->analyzed && Visited.insert(node->decl))
-      emit_function(node);
+      // If GCC optimizations are enabled then functions are output later, in
+      // place of gimple to RTL conversion.
+      if (!EnableGCCOptimizations)
+        emit_function(node);
 
     // Output any same-body aliases or thunks in the order they were created.
     struct cgraph_node *alias, *next;
@@ -2043,6 +2054,45 @@ static struct rtl_opt_pass pass_disable_rtl =
       PROP_ssa | PROP_trees,	/* properties_destroyed */
       0,			/* todo_flags_start */
       0				/* todo_flags_finish */
+    }
+};
+
+/// rtl_emit_function - Turn a gimple function into LLVM IR.  This is called
+/// once for each function in the compilation unit if GCC optimizations are
+/// enabled.
+static unsigned int rtl_emit_function (void) {
+  InitializeBackend();
+
+  // Convert the function.
+  emit_current_function();
+
+  // Free any data structures.
+  execute_free_datastructures();
+
+  // Finally, we have written out this function!
+  TREE_ASM_WRITTEN(current_function_decl) = 1;
+  return 0;
+}
+
+/// pass_rtl_emit_function - RTL pass that converts a function to LLVM IR.
+static struct rtl_opt_pass pass_rtl_emit_function =
+{
+    {
+      RTL_PASS,
+      "rtl_emit_function",	/* name */
+      gate_emission,		/* gate */
+      rtl_emit_function,	/* execute */
+      NULL,			/* sub */
+      NULL,			/* next */
+      0,			/* static_pass_number */
+      TV_NONE,			/* tv_id */
+      PROP_ssa | PROP_gimple_leh | PROP_gimple_lomp
+        | PROP_cfg,		/* properties_required */
+      0,			/* properties_provided */
+      PROP_ssa | PROP_trees,	/* properties_destroyed */
+      TODO_verify_ssa | TODO_verify_flow
+        | TODO_verify_stmts,	/* todo_flags_start */
+      TODO_ggc_collect		/* todo_flags_finish */
     }
 };
 
@@ -2519,13 +2569,17 @@ int LLVM_GLOBAL_VISIBILITY plugin_init(struct plugin_name_args *plugin_info,
     register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
   }
 
-  // Replace LTO generation with gimple to LLVM conversion.
+  // Replace the LTO gimple pass.  If GCC optimizations are disabled then this
+  // is where functions are converted to LLVM IR.  When GCC optimizations are
+  // enabled then only aliases and thunks are output here, with functions being
+  // converted later after all tree optimizers have run.
   pass_info.pass = &pass_emit_functions.pass;
   pass_info.reference_pass_name = "lto_gimple_out";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
+  // Replace the LTO decls pass with conversion of global variables to LLVM IR.
   pass_info.pass = &pass_emit_variables.pass;
   pass_info.reference_pass_name = "lto_decls_out";
   pass_info.ref_pass_instance_number = 0;
@@ -2541,79 +2595,85 @@ int LLVM_GLOBAL_VISIBILITY plugin_init(struct plugin_name_args *plugin_info,
   register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 #endif
 
-  // Disable pass_lower_eh_dispatch, which runs after LLVM conversion.
-  pass_info.pass = &pass_gimple_null.pass;
-  pass_info.reference_pass_name = "ehdisp";
-  pass_info.ref_pass_instance_number = 0;
-  pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-
-  // Disable pass_all_optimizations, which runs after LLVM conversion.
-  pass_info.pass = &pass_gimple_null.pass;
-  pass_info.reference_pass_name = "*all_optimizations";
-  pass_info.ref_pass_instance_number = 0;
-  pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-
-  // Disable pass_lower_complex_O0, which runs after LLVM conversion.
-  pass_info.pass = &pass_gimple_null.pass;
-  pass_info.reference_pass_name = "cplxlower0";
-  pass_info.ref_pass_instance_number = 0;
-  pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-
-  // Disable pass_cleanup_eh, which runs after LLVM conversion.
-  // This pass is scheduled twice, once before LLVM conversion and once after.
-  // If GCC optimizations are enabled, then we should keep the first instance
-  // and only disable the second.  There does not seem to be a good way to do
-  // this, so just allow both instances to run in this case.
   if (!EnableGCCOptimizations) {
+    // Disable pass_lower_eh_dispatch, which runs after LLVM conversion.
+    pass_info.pass = &pass_gimple_null.pass;
+    pass_info.reference_pass_name = "ehdisp";
+    pass_info.ref_pass_instance_number = 0;
+    pass_info.pos_op = PASS_POS_REPLACE;
+    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+    // Disable pass_all_optimizations, which runs after LLVM conversion.
+    pass_info.pass = &pass_gimple_null.pass;
+    pass_info.reference_pass_name = "*all_optimizations";
+    pass_info.ref_pass_instance_number = 0;
+    pass_info.pos_op = PASS_POS_REPLACE;
+    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+    // Disable pass_lower_complex_O0, which runs after LLVM conversion.
+    pass_info.pass = &pass_gimple_null.pass;
+    pass_info.reference_pass_name = "cplxlower0";
+    pass_info.ref_pass_instance_number = 0;
+    pass_info.pos_op = PASS_POS_REPLACE;
+    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+    // Disable pass_cleanup_eh, which runs after LLVM conversion.
     pass_info.pass = &pass_gimple_null.pass;
     pass_info.reference_pass_name = "ehcleanup";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+    // Disable pass_lower_resx, which runs after LLVM conversion.
+    pass_info.pass = &pass_gimple_null.pass;
+    pass_info.reference_pass_name = "resx";
+    pass_info.ref_pass_instance_number = 0;
+    pass_info.pos_op = PASS_POS_REPLACE;
+    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+    // Disable pass_nrv, which runs after LLVM conversion.
+    pass_info.pass = &pass_gimple_null.pass;
+    pass_info.reference_pass_name = "nrv";
+    pass_info.ref_pass_instance_number = 0;
+    pass_info.pos_op = PASS_POS_REPLACE;
+    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+    // Disable pass_mudflap_2, which runs after LLVM conversion.
+    pass_info.pass = &pass_gimple_null.pass;
+    pass_info.reference_pass_name = "mudflap2";
+    pass_info.ref_pass_instance_number = 0;
+    pass_info.pos_op = PASS_POS_REPLACE;
+    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+    // Disable pass_cleanup_cfg_post_optimizing, which runs after LLVM conversion.
+    pass_info.pass = &pass_gimple_null.pass;
+    pass_info.reference_pass_name = "optimized";
+    pass_info.ref_pass_instance_number = 0;
+    pass_info.pos_op = PASS_POS_REPLACE;
+    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+
+    // TODO: Disable pass_warn_function_noreturn?
   }
 
-  // Disable pass_lower_resx, which runs after LLVM conversion.
-  pass_info.pass = &pass_gimple_null.pass;
-  pass_info.reference_pass_name = "resx";
-  pass_info.ref_pass_instance_number = 0;
-  pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  // Replace rtl expansion.
+  if (!EnableGCCOptimizations) {
+    // Replace rtl expansion with a pass that pretends to codegen functions, but
+    // actually only does the hoop jumping that GCC requires at this point.
+    pass_info.pass = &pass_disable_rtl.pass;
+    pass_info.reference_pass_name = "expand";
+    pass_info.ref_pass_instance_number = 0;
+    pass_info.pos_op = PASS_POS_REPLACE;
+    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  } else {
+    // Replace rtl expansion with a pass that converts functions to LLVM IR.
+    pass_info.pass = &pass_rtl_emit_function.pass;
+    pass_info.reference_pass_name = "expand";
+    pass_info.ref_pass_instance_number = 0;
+    pass_info.pos_op = PASS_POS_REPLACE;
+    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  }
 
-  // Disable pass_nrv, which runs after LLVM conversion.
-  pass_info.pass = &pass_gimple_null.pass;
-  pass_info.reference_pass_name = "nrv";
-  pass_info.ref_pass_instance_number = 0;
-  pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-
-  // Disable pass_mudflap_2, which runs after LLVM conversion.
-  pass_info.pass = &pass_gimple_null.pass;
-  pass_info.reference_pass_name = "mudflap2";
-  pass_info.ref_pass_instance_number = 0;
-  pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-
-  // Disable pass_cleanup_cfg_post_optimizing, which runs after LLVM conversion.
-  pass_info.pass = &pass_gimple_null.pass;
-  pass_info.reference_pass_name = "optimized";
-  pass_info.ref_pass_instance_number = 0;
-  pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-
-  // TODO: Disable pass_warn_function_noreturn?
-
-  // Replace rtl expansion with a pass that pretends to codegen functions, but
-  // actually only does the hoop jumping that GCC requires at this point.
-  pass_info.pass = &pass_disable_rtl.pass;
-  pass_info.reference_pass_name = "expand";
-  pass_info.ref_pass_instance_number = 0;
-  pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-
-  // Turn off all rtl passes.
+  // Turn off all other rtl passes.
   pass_info.pass = &pass_gimple_null.pass;
   pass_info.reference_pass_name = "*rest_of_compilation";
   pass_info.ref_pass_instance_number = 0;
