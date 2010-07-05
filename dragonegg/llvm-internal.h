@@ -222,6 +222,14 @@ inline const Type *ConvertType(tree_node *type) {
   return TheTypeConverter->ConvertType(type);
 }
 
+/// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
+/// address unit wide.  For example, on a machine which has 16 bit bytes returns
+/// an i16*.
+inline const Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace = 0) {
+  assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
+  return IntegerType::get(C, BITS_PER_UNIT)->getPointerTo(AddrSpace);
+}
+
 /// GetFieldIndex - Return the index of the field in the given LLVM type that
 /// corresponds to the GCC field declaration 'decl'.  This means that the LLVM
 /// and GCC fields start in the same byte (if 'decl' is a bitfield, this means
@@ -326,6 +334,10 @@ public:
 
   uint32_t getAlignment() const {
     return 1U << LogAlign;
+  }
+
+  void setAlignment(uint32_t A) {
+    LogAlign = Log2_32(A);
   }
 };
 
@@ -780,6 +792,7 @@ private:
   LValue EmitLV_WITH_SIZE_EXPR(tree_node *exp);
   LValue EmitLV_XXXXPART_EXPR(tree_node *exp, unsigned Idx);
   LValue EmitLV_SSA_NAME(tree_node *exp);
+  LValue EmitLV_TARGET_MEM_REF(tree_node *exp);
 
   // Constant Expressions.
   Value *EmitINTEGER_CST(tree_node *exp);

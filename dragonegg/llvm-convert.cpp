@@ -1254,6 +1254,9 @@ LValue TreeToLLVM::EmitLV(tree exp) {
   case SSA_NAME:
     LV = EmitLV_SSA_NAME(exp);
     break;
+  case TARGET_MEM_REF:
+    LV = EmitLV_TARGET_MEM_REF(exp);
+    break;
 
   // Constants.
   case LABEL_DECL: {
@@ -5647,6 +5650,51 @@ LValue TreeToLLVM::EmitLV_SSA_NAME(tree exp) {
   return LValue(Temp, 1);
 }
 
+LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
+  // TODO: Take the address space into account.
+  // TODO: Improve the alignment estimate.
+  struct mem_address addr;
+  get_address_description (exp, &addr);
+
+  LValue Ref;
+  Value *Delta = 0; // Offset from base pointer in units
+  if (addr.symbol) {
+    Ref = EmitLV(addr.symbol);
+    if (addr.base && !integer_zerop (addr.base))
+      Delta = EmitRegister(addr.base);
+  } else {
+    assert(addr.base && "TARGET_MEM_REF has neither base nor symbol!");
+    Ref = LValue(EmitRegister(addr.base), 1);
+  }
+
+  if (addr.index) {
+    Value *Index = EmitRegister(addr.index);
+    if (addr.step && !integer_onep (addr.step))
+      Index = Builder.CreateMul(Index, EmitRegisterConstant(addr.step));
+    Delta = Delta ? Builder.CreateAdd(Delta, Index) : Index;
+  }
+
+  if (addr.offset && !integer_zerop (addr.offset)) {
+    Constant *Offset = EmitRegisterConstant(addr.offset);
+    Delta = Delta ? Builder.CreateAdd(Delta, Offset) : Offset;
+  }
+
+  if (Delta) {
+    // Advance the base pointer by the given number of units.
+    Ref.Ptr = Builder.CreateBitCast(Ref.Ptr, GetUnitPointerType(Context));
+    Ref.Ptr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
+      Builder.CreateInBoundsGEP(Ref.Ptr, Delta)
+      : Builder.CreateGEP(Ref.Ptr, Delta);
+    Ref.setAlignment(1); // Let the optimizers compute the alignment.
+  }
+
+  // The result can be of a different pointer type even if we didn't advance it.
+  Ref.Ptr = UselesslyTypeConvert(Ref.Ptr,
+                                 GetRegType(TREE_TYPE(exp))->getPointerTo());
+
+  return Ref;
+}
+
 Constant *TreeToLLVM::EmitLV_LABEL_DECL(tree exp) {
   return BlockAddress::get(Fn, getLabelDeclBlock(exp));
 }
@@ -7503,6 +7551,7 @@ Value *TreeToLLVM::EmitAssignSingleRHS(tree rhs) {
   case IMAGPART_EXPR:
   case INDIRECT_REF:
   case REALPART_EXPR:
+  case TARGET_MEM_REF:
   case VIEW_CONVERT_EXPR:
     return EmitLoadOfLValue(rhs); // Load from memory.
 
