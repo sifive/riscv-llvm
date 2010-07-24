@@ -35,13 +35,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/IRBuilder.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/TargetFolder.h"
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/TargetFolder.h"
 
 // System headers
-#include <vector>
 #include <cassert>
 #include <string>
+#include <vector>
+
+struct basic_block_def;
+union gimple_statement_d;
+union tree_node;
 
 namespace llvm {
   class Module;
@@ -104,26 +108,26 @@ extern bool flag_vararg_requires_arguments;
 /// AttributeUsedGlobals - The list of globals that are marked attribute(used).
 extern SmallSetVector<Constant *,32> AttributeUsedGlobals;
 
-extern Constant* ConvertMetadataStringToGV(const char* str);
+extern Constant* ConvertMetadataStringToGV(const char *str);
 
 /// AddAnnotateAttrsToGlobal - Adds decls that have a
 /// annotate attribute to a vector to be emitted later.
-extern void AddAnnotateAttrsToGlobal(GlobalValue *GV, union tree_node* decl);
+extern void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree_node *decl);
 
 // Mapping between GCC declarations and LLVM values.  The GCC declaration must
 // satisfy HAS_RTL_P.
 
 /// DECL_LLVM - Returns the LLVM declaration of a global variable or function.
-extern Value *make_decl_llvm(union tree_node *);
+extern Value *make_decl_llvm(tree_node *);
 #define DECL_LLVM(NODE) make_decl_llvm(NODE)
 
 /// SET_DECL_LLVM - Set the DECL_LLVM for NODE to LLVM.
-extern Value *set_decl_llvm(union tree_node *, Value *);
+extern Value *set_decl_llvm(tree_node *, Value *);
 #define SET_DECL_LLVM(NODE, LLVM) set_decl_llvm(NODE, LLVM)
 
 /// DECL_LLVM_IF_SET - The DECL_LLVM for NODE, if it is set, or NULL, if it is
 /// not set.
-extern Value *get_decl_llvm(union tree_node *);
+extern Value *get_decl_llvm(tree_node *);
 #define DECL_LLVM_IF_SET(NODE) (HAS_RTL_P(NODE) ? get_decl_llvm(NODE) : NULL)
 
 /// DECL_LLVM_SET_P - Returns nonzero if the DECL_LLVM for NODE has already
@@ -132,7 +136,7 @@ extern Value *get_decl_llvm(union tree_node *);
 
 /// DEFINITION_LLVM - Ensures that the body or initial value of the given GCC
 /// global will be output, and returns a declaration for it.
-Value *make_definition_llvm(union tree_node *decl);
+Value *make_definition_llvm(tree_node *decl);
 #define DEFINITION_LLVM(NODE) make_definition_llvm(NODE)
 
 // Mapping between GCC declarations and non-negative integers.  The GCC
@@ -140,11 +144,11 @@ Value *make_definition_llvm(union tree_node *decl);
 
 /// set_decl_index - Associate a non-negative number with the given GCC
 /// declaration.
-int set_decl_index(union tree_node *, int);
+int set_decl_index(tree_node *, int);
 
 /// get_decl_index - Get the non-negative number associated with the given GCC
 /// declaration.  Returns a negative value if no such association has been made.
-int get_decl_index(union tree_node *);
+int get_decl_index(tree_node *);
 
 void changeLLVMConstant(Constant *Old, Constant *New);
 void register_ctor_dtor(Function *, int, bool);
@@ -153,15 +157,15 @@ void writeLLVMTypesStringTable();
 void readLLVMValues();
 void writeLLVMValues();
 void clearTargetBuiltinCache();
-const char* extractRegisterName(union tree_node*);
-void handleVisibility(union tree_node* decl, GlobalValue *GV);
-Twine getLLVMAssemblerName(union tree_node *);
+const char *extractRegisterName(tree_node *);
+void handleVisibility(tree_node *decl, GlobalValue *GV);
+Twine getLLVMAssemblerName(tree_node *);
 
 struct StructTypeConversionInfo;
 
 /// Return true if and only if field no. N from struct type T is a padding
 /// element added to match llvm struct type size and gcc struct type size.
-bool isPaddingElement(union tree_node*, unsigned N);
+bool isPaddingElement(tree_node*, unsigned N);
 
 /// TypeConverter - Implement the converter from GCC types to LLVM types.
 ///
@@ -225,17 +229,14 @@ inline const Type *ConvertType(tree_node *type) {
 /// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
 /// address unit wide.  For example, on a machine which has 16 bit bytes returns
 /// an i16*.
-inline const Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace = 0) {
-  assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
-  return IntegerType::get(C, BITS_PER_UNIT)->getPointerTo(AddrSpace);
-}
+extern const Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace = 0);
 
 /// GetFieldIndex - Return the index of the field in the given LLVM type that
 /// corresponds to the GCC field declaration 'decl'.  This means that the LLVM
 /// and GCC fields start in the same byte (if 'decl' is a bitfield, this means
 /// that its first bit is within the byte the LLVM field starts at).  Returns
 /// INT_MAX if there is no such LLVM field.
-int GetFieldIndex(union tree_node *decl, const Type *Ty);
+int GetFieldIndex(tree_node *decl, const Type *Ty);
 
 /// getINTEGER_CSTVal - Return the specified INTEGER_CST value as a uint64_t.
 ///
@@ -262,54 +263,21 @@ bool isPassedByInvisibleReference(tree_node *type);
 /// type and the corresponding LLVM SequentialType lay out their components
 /// identically in memory, so doing a GEP accesses the right memory location.
 /// We assume that objects without a known size do not.
-inline bool isSequentialCompatible(tree_node *type) {
-  assert((TREE_CODE(type) == ARRAY_TYPE ||
-          TREE_CODE(type) == POINTER_TYPE ||
-          TREE_CODE(type) == REFERENCE_TYPE) && "not a sequential type!");
-  // This relies on gcc types with constant size mapping to LLVM types with the
-  // same size.  It is possible for the component type not to have a size:
-  // struct foo;  extern foo bar[];
-  return isInt64(TYPE_SIZE(TREE_TYPE(type)), true);
-}
+extern bool isSequentialCompatible(tree_node *type);
 
 /// OffsetIsLLVMCompatible - Return true if the given field is offset from the
 /// start of the record by a constant amount which is not humongously big.
-inline bool OffsetIsLLVMCompatible(tree_node *field_decl) {
-  return isInt64(DECL_FIELD_OFFSET(field_decl), true);
-}
+extern bool OffsetIsLLVMCompatible(tree_node *field_decl);
 
 /// ArrayLengthOf - Returns the length of the given gcc array type, or ~0ULL if
 /// the array has variable or unknown length.
-inline uint64_t ArrayLengthOf(tree_node *type) {
-  assert(TREE_CODE(type) == ARRAY_TYPE && "Only for array types!");
-  // If the element type has variable size and the array type has variable
-  // length, but by some miracle the product gives a constant size, then we
-  // also return ~0ULL here.  I can live with this, and I bet you can too!
-  if (!isInt64(TYPE_SIZE(type), true) ||
-      !isInt64(TYPE_SIZE(TREE_TYPE(type)), true))
-    return ~0ULL;
-  // May return zero for arrays that gcc considers to have non-zero length, but
-  // only if the array type has zero size (this can happen if the element type
-  // has zero size), in which case the discrepancy doesn't matter.
-  //
-  // If the user increased the alignment of the element type, then the size of
-  // the array type is rounded up by that alignment, but the size of the element
-  // is not.  Since gcc requires the user alignment to be strictly smaller than
-  // the element size, this does not impact the length computation.
-  return integer_zerop(TYPE_SIZE(type)) ?  0 : getInt64(TYPE_SIZE(type), true) /
-    getInt64(TYPE_SIZE(TREE_TYPE(type)), true);
-}
+extern uint64_t ArrayLengthOf(tree_node *type);
 
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
 bool isBitfield(tree_node *field_decl);
 
 /// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
-inline uint64_t getFieldOffsetInBits(tree_node *field) {
-  assert(OffsetIsLLVMCompatible(field) && "Offset is not constant!");
-  uint64_t Result = getInt64(DECL_FIELD_BIT_OFFSET(field), true);
-  Result += getInt64(DECL_FIELD_OFFSET(field), true) * BITS_PER_UNIT;
-  return Result;
-}
+extern uint64_t getFieldOffsetInBits(tree_node *field);
 
 /// ValidateRegisterVariable - Check that a static "asm" variable is
 /// well-formed.  If not, emit error messages and return true.  If so, return
@@ -368,7 +336,7 @@ public:
 
 /// PhiRecord - This struct holds the LLVM PHI node associated with a GCC phi.
 struct PhiRecord {
-  gimple gcc_phi;
+  gimple_statement_d *gcc_phi;
   PHINode *PHI;
 };
 
@@ -398,7 +366,7 @@ class TreeToLLVM {
   Instruction *SSAInsertionPoint;
 
   /// BasicBlocks - Map from GCC to LLVM basic blocks.
-  DenseMap<basic_block, BasicBlock*> BasicBlocks;
+  DenseMap<basic_block_def *, BasicBlock*> BasicBlocks;
 
   /// LocalDecls - Map from local declarations to their associated LLVM values.
   DenseMap<tree_node *, AssertingVH<Value> > LocalDecls;
@@ -416,23 +384,23 @@ public:
   /// DECL_LOCAL - Like DECL_LLVM, returns the LLVM declaration of a variable or
   /// function.  However DECL_LOCAL can be used with declarations local to the
   /// current function as well as with global declarations.
-  Value *make_decl_local(union tree_node *);
+  Value *make_decl_local(tree_node *);
   #define DECL_LOCAL(NODE) make_decl_local(NODE)
 
   /// DEFINITION_LOCAL - Like DEFINITION_LLVM, ensures that the initial value or
   /// body of a variable or function will be output.  However DEFINITION_LOCAL
   /// can be used with declarations local to the current function as well as
   /// with global declarations.
-  Value *make_definition_local(union tree_node *);
+  Value *make_definition_local(tree_node *);
   #define DEFINITION_LOCAL(NODE) make_definition_local(NODE)
 
   /// SET_DECL_LOCAL - Set the DECL_LOCAL for NODE to LLVM.
-  Value *set_decl_local(union tree_node *, Value *);
+  Value *set_decl_local(tree_node *, Value *);
   #define SET_DECL_LOCAL(NODE, LLVM) set_decl_local(NODE, LLVM)
 
   /// DECL_LOCAL_IF_SET - The DECL_LOCAL for NODE, if it is set, or NULL, if it
   /// is not set.
-  Value *get_decl_local(union tree_node *);
+  Value *get_decl_local(tree_node *);
   #define DECL_LOCAL_IF_SET(NODE) (HAS_RTL_P(NODE) ? get_decl_local(NODE) : NULL)
 
   /// DECL_LOCAL_SET_P - Returns nonzero if the DECL_LOCAL for NODE has already
@@ -479,7 +447,7 @@ public:
   Function *EmitFunction();
 
   /// EmitBasicBlock - Convert the given basic block.
-  void EmitBasicBlock(basic_block bb);
+  void EmitBasicBlock(basic_block_def *bb);
 
   /// EmitLV - Convert the specified l-value tree node to LLVM code, returning
   /// the address of the result.
@@ -489,22 +457,22 @@ public:
 
   /// CastToAnyType - Cast the specified value to the specified type regardless
   /// of the types involved. This is an inferred cast.
-  Value *CastToAnyType (Value *V, bool VSigned, const Type* Ty, bool TySigned);
+  Value *CastToAnyType (Value *V, bool VSigned, const Type *Ty, bool TySigned);
 
   /// CastToUIntType - Cast the specified value to the specified type assuming
   /// that V's type and Ty are integral types. This arbitrates between BitCast,
   /// Trunc and ZExt.
-  Value *CastToUIntType(Value *V, const Type* Ty);
+  Value *CastToUIntType(Value *V, const Type *Ty);
 
   /// CastToSIntType - Cast the specified value to the specified type assuming
   /// that V's type and Ty are integral types. This arbitrates between BitCast,
   /// Trunc and SExt.
-  Value *CastToSIntType(Value *V, const Type* Ty);
+  Value *CastToSIntType(Value *V, const Type *Ty);
 
   /// CastToFPType - Cast the specified value to the specified type assuming
   /// that V's type and Ty are floating point types. This arbitrates between
   /// BitCast, FPTrunc and FPExt.
-  Value *CastToFPType(Value *V, const Type* Ty);
+  Value *CastToFPType(Value *V, const Type *Ty);
 
   /// CreateAnyAdd - Add two LLVM scalar values with the given GCC type.  Does
   /// not support complex numbers.  The type is used to set overflow flags.
@@ -552,7 +520,7 @@ private: // Helper functions.
   void PopulatePhiNodes();
 
   /// getBasicBlock - Find or create the LLVM basic block corresponding to BB.
-  BasicBlock *getBasicBlock(basic_block bb);
+  BasicBlock *getBasicBlock(basic_block_def *bb);
 
   /// getLabelDeclBlock - Lazily get and create a basic block for the specified
   /// label.
@@ -622,27 +590,27 @@ private:
 
   //===------------------ Render* - Convert GIMPLE to LLVM ----------------===//
 
-  void RenderGIMPLE_ASM(gimple stmt);
-  void RenderGIMPLE_ASSIGN(gimple stmt);
-  void RenderGIMPLE_CALL(gimple stmt);
-  void RenderGIMPLE_COND(gimple stmt);
-  void RenderGIMPLE_EH_DISPATCH(gimple stmt);
-  void RenderGIMPLE_GOTO(gimple stmt);
-  void RenderGIMPLE_RESX(gimple stmt);
-  void RenderGIMPLE_RETURN(gimple stmt);
-  void RenderGIMPLE_SWITCH(gimple stmt);
+  void RenderGIMPLE_ASM(gimple_statement_d *stmt);
+  void RenderGIMPLE_ASSIGN(gimple_statement_d *stmt);
+  void RenderGIMPLE_CALL(gimple_statement_d *stmt);
+  void RenderGIMPLE_COND(gimple_statement_d *stmt);
+  void RenderGIMPLE_EH_DISPATCH(gimple_statement_d *stmt);
+  void RenderGIMPLE_GOTO(gimple_statement_d *stmt);
+  void RenderGIMPLE_RESX(gimple_statement_d *stmt);
+  void RenderGIMPLE_RETURN(gimple_statement_d *stmt);
+  void RenderGIMPLE_SWITCH(gimple_statement_d *stmt);
 
   // Render helpers.
 
   /// EmitAssignRHS - Convert the RHS of a scalar GIMPLE_ASSIGN to LLVM.
-  Value *EmitAssignRHS(gimple stmt);
+  Value *EmitAssignRHS(gimple_statement_d *stmt);
 
   /// EmitAssignSingleRHS - Helper for EmitAssignRHS.  Handles those RHS that
   /// are not register expressions.
   Value *EmitAssignSingleRHS(tree_node *rhs);
 
   /// OutputCallRHS - Convert the RHS of a GIMPLE_CALL.
-  Value *OutputCallRHS(gimple stmt, const MemRef *DestLoc);
+  Value *OutputCallRHS(gimple_statement_d *stmt, const MemRef *DestLoc);
 
   /// WriteScalarToLHS - Store RHS, a non-aggregate value, into the given LHS.
   void WriteScalarToLHS(tree_node *lhs, Value *Scalar);
@@ -689,15 +657,15 @@ private:
 
   /// EmitCompare - Compare LHS with RHS using the appropriate comparison code.
   /// The result is an i1 boolean.
-  Value *EmitCompare(tree_node *lhs, tree_node *rhs, tree_code code);
+  Value *EmitCompare(tree_node *lhs, tree_node *rhs, unsigned code);
 
   // Binary expressions.
-  Value *EmitReg_MinMaxExpr(tree_node *type, tree_node *op0, tree_node* op1,
+  Value *EmitReg_MinMaxExpr(tree_node *type, tree_node *op0, tree_node *op1,
                             unsigned UIPred, unsigned SIPred, unsigned Opc,
                             bool isMax);
   Value *EmitReg_RotateOp(tree_node *type, tree_node *op0, tree_node *op1,
                           unsigned Opc1, unsigned Opc2);
-  Value *EmitReg_ShiftOp(tree_node *op0, tree_node* op1, unsigned Opc);
+  Value *EmitReg_ShiftOp(tree_node *op0, tree_node *op1, unsigned Opc);
   Value *EmitReg_TruthOp(tree_node *type, tree_node *op0, tree_node *op1,
                          unsigned Opc);
   Value *EmitReg_BIT_AND_EXPR(tree_node *op0, tree_node *op1);
@@ -723,8 +691,8 @@ private:
   Value *EmitLoadOfLValue(tree_node *exp);
   Value *EmitOBJ_TYPE_REF(tree_node *exp);
   Value *EmitADDR_EXPR(tree_node *exp);
-  Value *EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
-                    const AttrListPtr &PAL);
+  Value *EmitCallOf(Value *Callee, gimple_statement_d *stmt,
+                    const MemRef *DestLoc, const AttrListPtr &PAL);
   Value *EmitFieldAnnotation(Value *FieldPtr, tree_node *FieldDecl);
 
   // Inline Assembly and Register Variables.
@@ -736,46 +704,49 @@ private:
   Value *BuildVector(const std::vector<Value*> &Elts);
   Value *BuildVector(Value *Elt, ...);
   Value *BuildVectorShuffle(Value *InVec1, Value *InVec2, ...);
-  Value *BuildBinaryAtomicBuiltin(gimple stmt, Intrinsic::ID id);
-  Value *BuildCmpAndSwapAtomicBuiltin(gimple stmt, tree_node *type,
+  Value *BuildBinaryAtomicBuiltin(gimple_statement_d *stmt, Intrinsic::ID id);
+  Value *BuildCmpAndSwapAtomicBuiltin(gimple_statement_d *stmt, tree_node *type,
                                       bool isBool);
 
   // Builtin Function Expansion.
-  bool EmitBuiltinCall(gimple stmt, tree_node *fndecl,
+  bool EmitBuiltinCall(gimple_statement_d *stmt, tree_node *fndecl,
                        const MemRef *DestLoc, Value *&Result);
-  bool EmitFrontendExpandedBuiltinCall(gimple stmt, tree_node *fndecl,
-                                       const MemRef *DestLoc, Value *&Result);
+  bool EmitFrontendExpandedBuiltinCall(gimple_statement_d *stmt,
+                                       tree_node *fndecl, const MemRef *DestLoc,
+                                       Value *&Result);
   bool EmitBuiltinUnaryOp(Value *InVal, Value *&Result, Intrinsic::ID Id);
-  Value *EmitBuiltinSQRT(gimple stmt);
-  Value *EmitBuiltinPOWI(gimple stmt);
-  Value *EmitBuiltinPOW(gimple stmt);
+  Value *EmitBuiltinSQRT(gimple_statement_d *stmt);
+  Value *EmitBuiltinPOWI(gimple_statement_d *stmt);
+  Value *EmitBuiltinPOW(gimple_statement_d *stmt);
 
-  bool EmitBuiltinConstantP(gimple stmt, Value *&Result);
-  bool EmitBuiltinAlloca(gimple stmt, Value *&Result);
-  bool EmitBuiltinExpect(gimple stmt, Value *&Result);
-  bool EmitBuiltinExtendPointer(gimple stmt, Value *&Result);
-  bool EmitBuiltinVAStart(gimple stmt);
-  bool EmitBuiltinVAEnd(gimple stmt);
-  bool EmitBuiltinVACopy(gimple stmt);
-  bool EmitBuiltinMemCopy(gimple stmt, Value *&Result,
+  bool EmitBuiltinConstantP(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinAlloca(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinExpect(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinExtendPointer(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinVAStart(gimple_statement_d *stmt);
+  bool EmitBuiltinVAEnd(gimple_statement_d *stmt);
+  bool EmitBuiltinVACopy(gimple_statement_d *stmt);
+  bool EmitBuiltinMemCopy(gimple_statement_d *stmt, Value *&Result,
                           bool isMemMove, bool SizeCheck);
-  bool EmitBuiltinMemSet(gimple stmt, Value *&Result, bool SizeCheck);
-  bool EmitBuiltinBZero(gimple stmt, Value *&Result);
-  bool EmitBuiltinPrefetch(gimple stmt);
-  bool EmitBuiltinReturnAddr(gimple stmt, Value *&Result, bool isFrame);
-  bool EmitBuiltinExtractReturnAddr(gimple stmt, Value *&Result);
-  bool EmitBuiltinFrobReturnAddr(gimple stmt, Value *&Result);
-  bool EmitBuiltinStackSave(gimple stmt, Value *&Result);
-  bool EmitBuiltinStackRestore(gimple stmt);
-  bool EmitBuiltinEHPointer(gimple stmt, Value *&Result);
-  bool EmitBuiltinDwarfCFA(gimple stmt, Value *&Result);
-  bool EmitBuiltinDwarfSPColumn(gimple stmt, Value *&Result);
-  bool EmitBuiltinEHReturnDataRegno(gimple stmt, Value *&Result);
-  bool EmitBuiltinEHReturn(gimple stmt, Value *&Result);
-  bool EmitBuiltinInitDwarfRegSizes(gimple stmt, Value *&Result);
-  bool EmitBuiltinUnwindInit(gimple stmt, Value *&Result);
-  bool EmitBuiltinAdjustTrampoline(gimple stmt, Value *&Result);
-  bool EmitBuiltinInitTrampoline(gimple stmt, Value *&Result);
+  bool EmitBuiltinMemSet(gimple_statement_d *stmt, Value *&Result,
+                         bool SizeCheck);
+  bool EmitBuiltinBZero(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinPrefetch(gimple_statement_d *stmt);
+  bool EmitBuiltinReturnAddr(gimple_statement_d *stmt, Value *&Result,
+                             bool isFrame);
+  bool EmitBuiltinExtractReturnAddr(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinFrobReturnAddr(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinStackSave(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinStackRestore(gimple_statement_d *stmt);
+  bool EmitBuiltinEHPointer(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinDwarfCFA(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinDwarfSPColumn(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinEHReturnDataRegno(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinEHReturn(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinInitDwarfRegSizes(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinUnwindInit(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinAdjustTrampoline(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinInitTrampoline(gimple_statement_d *stmt, Value *&Result);
 
   // Complex Math Expressions.
   Value *CreateComplex(Value *Real, Value *Imag, tree_node *elt_type);
@@ -825,9 +796,7 @@ private:
 
   /// EmitMemory - Convert the specified gimple register or local constant of
   /// register type to an LLVM value with in-memory type (given by ConvertType).
-  Value *EmitMemory(tree_node *reg) {
-    return Reg2Mem(EmitRegister(reg), TREE_TYPE(reg), Builder);
-  }
+  Value *EmitMemory(tree_node *reg);
 
   /// LoadRegisterFromMemory - Loads a value of the given scalar GCC type from
   /// the memory location pointed to by Loc.  Takes care of adjusting for any
@@ -844,7 +813,7 @@ private:
 
 private:
   // Optional target defined builtin intrinsic expanding function.
-  bool TargetIntrinsicLower(gimple stmt,
+  bool TargetIntrinsicLower(gimple_statement_d *stmt,
                             tree_node *fndecl,
                             const MemRef *DestLoc,
                             Value *&Result,

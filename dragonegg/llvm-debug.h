@@ -27,14 +27,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef LLVM_DEBUG_H
 #define LLVM_DEBUG_H
 
+// Plugin headers
+#include "llvm-internal.h"
+
 // LLVM headers
 #include "llvm/Analysis/DebugInfo.h"
+#include "llvm/Support/Allocator.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/ValueHandle.h"
 
 // System headers
-#include <string>
 #include <map>
+#include <string>
 #include <vector>
 
 namespace llvm {

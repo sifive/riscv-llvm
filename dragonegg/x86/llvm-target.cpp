@@ -23,6 +23,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // This is a C++ source file that implements specific llvm IA-32 ABI.
 //===----------------------------------------------------------------------===//
 
+// Plugin headers
+#include "llvm-abi.h"
+#include "llvm-internal.h"
+#include "llvm-target.h"
+
 // LLVM headers
 #include "llvm/DerivedTypes.h"
 #include "llvm/Instructions.h"
@@ -43,11 +48,6 @@ extern "C" {
 #include "tree.h"
 #include "gimple.h"
 }
-
-// Plugin headers
-#include "llvm-abi.h"
-#include "llvm-internal.h"
-#include "llvm-target.h"
 
 static LLVMContext &Context = getGlobalContext();
 

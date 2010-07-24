@@ -19,6 +19,15 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+// Plugin headers
+extern "C" {
+#include "llvm-cache.h"
+}
+#include "llvm-debug.h"
+#include "llvm-internal.h"
+#include "llvm-os.h"
+#include "llvm-target.h"
+
 // LLVM headers
 #define DEBUG_TYPE "plugin"
 #include "llvm/Constants.h"
@@ -27,28 +36,28 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/ValueSymbolTable.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/Verifier.h"
-#include "llvm/Assembly/Writer.h"
 #include "llvm/Assembly/PrintModulePass.h"
+#include "llvm/Assembly/Writer.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/StandardPasses.h"
+#include "llvm/System/Program.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetRegistry.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Transforms/Scalar.h"
+#include "llvm/Target/TargetRegistry.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/StandardPasses.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/System/Program.h"
+#include "llvm/Transforms/Scalar.h"
 
 // System headers
 #include <cassert>
@@ -79,15 +88,6 @@ extern "C" {
 #include "tree-pass.h"
 #include "version.h"
 #include "except.h"
-}
-
-// Plugin headers
-#include "llvm-internal.h"
-#include "llvm-debug.h"
-#include "llvm-target.h"
-#include "llvm-os.h"
-extern "C" {
-#include "llvm-cache.h"
 }
 
 #if (GCC_MAJOR != 4)

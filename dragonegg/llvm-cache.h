@@ -28,14 +28,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef LLVM_CACHE_H
 #define LLVM_CACHE_H
 
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "target.h"
-#include "tree.h"
+union tree_node;
 
 /// llvm_has_cached - Returns whether a value has been associated with the tree.
-extern bool llvm_has_cached(union tree_node *tree);
+extern int llvm_has_cached(union tree_node *tree);
 
 /// llvm_get_cached - Returns the value associated with the tree, or NULL.
 extern const void *llvm_get_cached(union tree_node *tree);

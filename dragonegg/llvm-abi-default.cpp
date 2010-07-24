@@ -1,4 +1,97 @@
+// Plugin headers
 #include "llvm-abi.h"
+
+// System headers
+#include <gmp.h>
+
+// GCC headers
+extern "C" {
+#include "config.h"
+#include "system.h"
+#include "coretypes.h"
+#include "target.h"
+#include "tree.h"
+}
+
+// doNotUseShadowReturn - Return true if the specified GCC type
+// should not be returned using a pointer to struct parameter.
+bool doNotUseShadowReturn(tree type, tree fndecl, CallingConv::ID CC) {
+  if (!TYPE_SIZE(type))
+    return false;
+  if (TREE_CODE(TYPE_SIZE(type)) != INTEGER_CST)
+    return false;
+  // LLVM says do not use shadow argument.
+  if (LLVM_SHOULD_NOT_RETURN_COMPLEX_IN_MEMORY(type) ||
+      LLVM_SHOULD_NOT_USE_SHADOW_RETURN(type, CC))
+    return true;
+  // GCC says use shadow argument.
+  if (aggregate_value_p(type, fndecl))
+    return false;
+  return true;
+}
+
+/// isSingleElementStructOrArray - If this is (recursively) a structure with one
+/// field or an array with one element, return the field type, otherwise return
+/// null.  If ignoreZeroLength, the struct (recursively) may include zero-length
+/// fields in addition to the single element that has data.  If
+/// rejectFatBitField, and the single element is a bitfield of a type that's
+/// bigger than the struct, return null anyway.
+tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
+                                  bool rejectFatBitfield) {
+  // Scalars are good.
+  if (!AGGREGATE_TYPE_P(type)) return type;
+
+  tree FoundField = 0;
+  switch (TREE_CODE(type)) {
+  case QUAL_UNION_TYPE:
+  case UNION_TYPE:     // Single element unions don't count.
+  case COMPLEX_TYPE:   // Complex values are like 2-element records.
+  default:
+    return 0;
+  case RECORD_TYPE:
+    // If this record has variable length, reject it.
+    if (TREE_CODE(TYPE_SIZE(type)) != INTEGER_CST)
+      return 0;
+
+    for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
+      if (TREE_CODE(Field) == FIELD_DECL) {
+        if (ignoreZeroLength) {
+          if (DECL_SIZE(Field) &&
+              TREE_CODE(DECL_SIZE(Field)) == INTEGER_CST &&
+              TREE_INT_CST_LOW(DECL_SIZE(Field)) == 0)
+            continue;
+        }
+        if (!FoundField) {
+          if (rejectFatBitfield &&
+              TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
+              TREE_INT_CST_LOW(TYPE_SIZE(TREE_TYPE(Field))) >
+              TREE_INT_CST_LOW(TYPE_SIZE(type)))
+            return 0;
+          FoundField = TREE_TYPE(Field);
+        } else {
+          return 0;   // More than one field.
+        }
+      }
+    return FoundField ? isSingleElementStructOrArray(FoundField,
+                                                     ignoreZeroLength, false)
+                      : 0;
+  case ARRAY_TYPE:
+    const ArrayType *Ty = dyn_cast<ArrayType>(ConvertType(type));
+    if (!Ty || Ty->getNumElements() != 1)
+      return 0;
+    return isSingleElementStructOrArray(TREE_TYPE(type), false, false);
+  }
+}
+
+/// isZeroSizedStructOrUnion - Returns true if this is a struct or union
+/// which is zero bits wide.
+bool isZeroSizedStructOrUnion(tree type) {
+  if (TREE_CODE(type) != RECORD_TYPE &&
+      TREE_CODE(type) != UNION_TYPE &&
+      TREE_CODE(type) != QUAL_UNION_TYPE)
+    return false;
+  return int_size_in_bytes(type) == 0;
+}
 
 DefaultABI::DefaultABI(DefaultABIClient &c) : C(c) {}
 

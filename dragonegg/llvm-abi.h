@@ -28,30 +28,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef LLVM_ABI_H
 #define LLVM_ABI_H
 
+// Plugin headers
+#include "llvm-internal.h"
+#include "llvm-target.h"
+
 // LLVM headers
 #include "llvm/Attributes.h"
 #include "llvm/CallingConv.h"
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/LLVMContext.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/Support/Compiler.h"
-
-// System headers
-#include <gmp.h>
-
-// GCC headers
-extern "C" {
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "tm.h"
-#include "tree.h"
-}
-
-// Plugin headers
-#include "llvm-internal.h"
-#include "llvm-target.h"
+#include "llvm/Target/TargetData.h"
 
 namespace llvm {
   class BasicBlock;
@@ -96,21 +84,22 @@ struct DefaultABIClient {
   /// LLVM argument to pass.  It is only used for first class types.
   /// If RealSize is non Zero then it specifies number of bytes to access
   /// from LLVMTy.
-  virtual void HandleScalarArgument(const llvm::Type *LLVMTy, tree type,
+  virtual void HandleScalarArgument(const llvm::Type *LLVMTy, tree_node *type,
                             unsigned RealSize = 0) {}
 
   /// HandleByInvisibleReferenceArgument - This callback is invoked if a pointer
   /// (of type PtrTy) to the argument is passed rather than the argument itself.
-  virtual void HandleByInvisibleReferenceArgument(const llvm::Type *PtrTy, tree type) {}
+  virtual void HandleByInvisibleReferenceArgument(const llvm::Type *PtrTy,
+                                                  tree_node *type) {}
 
   /// HandleByValArgument - This callback is invoked if the aggregate function
   /// argument is passed by value.
-  virtual void HandleByValArgument(const llvm::Type *LLVMTy, tree type) {}
+  virtual void HandleByValArgument(const llvm::Type *LLVMTy, tree_node *type) {}
 
   /// HandleFCAArgument - This callback is invoked if the aggregate function
   /// argument is passed by value as a first class aggregate.
   virtual void HandleFCAArgument(const llvm::Type *LLVMTy,
-                         tree type ATTRIBUTE_UNUSED) {}
+                                 tree_node *type ATTRIBUTE_UNUSED) {}
 
   /// EnterField - Called when we're about the enter the field of a struct
   /// or union.  FieldNo is the number of the element we are entering in the
@@ -137,21 +126,8 @@ struct DefaultABIClient {
 
 // doNotUseShadowReturn - Return true if the specified GCC type
 // should not be returned using a pointer to struct parameter.
-static inline bool doNotUseShadowReturn(tree type, tree fndecl,
-                                        CallingConv::ID CC) {
-  if (!TYPE_SIZE(type))
-    return false;
-  if (TREE_CODE(TYPE_SIZE(type)) != INTEGER_CST)
-    return false;
-  // LLVM says do not use shadow argument.
-  if (LLVM_SHOULD_NOT_RETURN_COMPLEX_IN_MEMORY(type) ||
-     LLVM_SHOULD_NOT_USE_SHADOW_RETURN(type, CC))
-    return true;
-  // GCC says use shadow argument.
-  if (aggregate_value_p(type, fndecl))
-    return false;
-  return true;
-}
+extern bool doNotUseShadowReturn(tree_node *type, tree_node *fndecl,
+                                 CallingConv::ID CC);
 
 /// isSingleElementStructOrArray - If this is (recursively) a structure with one
 /// field or an array with one element, return the field type, otherwise return
@@ -159,69 +135,19 @@ static inline bool doNotUseShadowReturn(tree type, tree fndecl,
 /// fields in addition to the single element that has data.  If
 /// rejectFatBitField, and the single element is a bitfield of a type that's
 /// bigger than the struct, return null anyway.
-static inline
-tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
-                                  bool rejectFatBitfield) {
-  // Scalars are good.
-  if (!AGGREGATE_TYPE_P(type)) return type;
-
-  tree FoundField = 0;
-  switch (TREE_CODE(type)) {
-  case QUAL_UNION_TYPE:
-  case UNION_TYPE:     // Single element unions don't count.
-  case COMPLEX_TYPE:   // Complex values are like 2-element records.
-  default:
-    return 0;
-  case RECORD_TYPE:
-    // If this record has variable length, reject it.
-    if (TREE_CODE(TYPE_SIZE(type)) != INTEGER_CST)
-      return 0;
-
-    for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
-      if (TREE_CODE(Field) == FIELD_DECL) {
-        if (ignoreZeroLength) {
-          if (DECL_SIZE(Field) &&
-              TREE_CODE(DECL_SIZE(Field)) == INTEGER_CST &&
-              TREE_INT_CST_LOW(DECL_SIZE(Field)) == 0)
-            continue;
-        }
-        if (!FoundField) {
-          if (rejectFatBitfield &&
-              TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
-              TREE_INT_CST_LOW(TYPE_SIZE(TREE_TYPE(Field))) >
-              TREE_INT_CST_LOW(TYPE_SIZE(type)))
-            return 0;
-          FoundField = TREE_TYPE(Field);
-        } else {
-          return 0;   // More than one field.
-        }
-      }
-    return FoundField ? isSingleElementStructOrArray(FoundField,
-                                                     ignoreZeroLength, false)
-                      : 0;
-  case ARRAY_TYPE:
-    const ArrayType *Ty = dyn_cast<ArrayType>(ConvertType(type));
-    if (!Ty || Ty->getNumElements() != 1)
-      return 0;
-    return isSingleElementStructOrArray(TREE_TYPE(type), false, false);
-  }
-}
+extern tree_node *isSingleElementStructOrArray(tree_node *type,
+                                               bool ignoreZeroLength,
+                                               bool rejectFatBitfield);
 
 /// isZeroSizedStructOrUnion - Returns true if this is a struct or union
 /// which is zero bits wide.
-static inline bool isZeroSizedStructOrUnion(tree type) {
-  if (TREE_CODE(type) != RECORD_TYPE &&
-      TREE_CODE(type) != UNION_TYPE &&
-      TREE_CODE(type) != QUAL_UNION_TYPE)
-    return false;
-  return int_size_in_bytes(type) == 0;
-}
+extern bool isZeroSizedStructOrUnion(tree_node *type);
 
 // getLLVMScalarTypeForStructReturn - Return LLVM Type if TY can be
 // returned as a scalar, otherwise return NULL. This is the default
 // target independent implementation.
 static inline
-const Type* getLLVMScalarTypeForStructReturn(tree type, unsigned *Offset) {
+const Type* getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) {
   const Type *Ty = ConvertType(type);
   unsigned Size = getTargetData().getTypeAllocSize(Ty);
   *Offset = 0;
@@ -246,7 +172,7 @@ const Type* getLLVMScalarTypeForStructReturn(tree type, unsigned *Offset) {
 // getLLVMAggregateTypeForStructReturn - Return LLVM type if TY can be
 // returns as multiple values, otherwise return NULL. This is the default
 // target independent implementation.
-static inline const Type* getLLVMAggregateTypeForStructReturn(tree type) {
+static inline const Type* getLLVMAggregateTypeForStructReturn(tree_node *type) {
   return NULL;
 }
 
@@ -394,24 +320,25 @@ public:
   /// return type. It potentially breaks down the argument and invokes methods
   /// on the client that indicate how its pieces should be handled.  This
   /// handles things like returning structures via hidden parameters.
-  void HandleReturnType(tree type, tree fn, bool isBuiltin);
+  void HandleReturnType(tree_node *type, tree_node *fn, bool isBuiltin);
 
   /// HandleArgument - This is invoked by the target-independent code for each
   /// argument type passed into the function.  It potentially breaks down the
   /// argument and invokes methods on the client that indicate how its pieces
   /// should be handled.  This handles things like decimating structures into
   /// their fields.
-  void HandleArgument(tree type, std::vector<const Type*> &ScalarElts,
+  void HandleArgument(tree_node *type, std::vector<const Type*> &ScalarElts,
                       Attributes *Attributes = NULL);
 
   /// HandleUnion - Handle a UNION_TYPE or QUAL_UNION_TYPE tree.
   ///
-  void HandleUnion(tree type, std::vector<const Type*> &ScalarElts);
+  void HandleUnion(tree_node *type, std::vector<const Type*> &ScalarElts);
 
   /// PassInIntegerRegisters - Given an aggregate value that should be passed in
   /// integer registers, convert it to a structure containing ints and pass all
   /// of the struct elements in.  If Size is set we pass only that many bytes.
-  void PassInIntegerRegisters(tree type, std::vector<const Type*> &ScalarElts,
+  void PassInIntegerRegisters(tree_node *type,
+                              std::vector<const Type*> &ScalarElts,
                               unsigned origSize, bool DontCheckAlignment);
 
   /// PassInMixedRegisters - Given an aggregate value that should be passed in

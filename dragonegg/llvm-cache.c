@@ -28,6 +28,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "llvm-cache.h"
 
 // GCC headers
+#include "config.h"
+#include "system.h"
+#include "coretypes.h"
+#include "target.h"
+#include "tree.h"
 #include "ggc.h"
 
 struct GTY(()) tree_llvm_map {
@@ -47,7 +52,7 @@ static GTY ((if_marked ("tree_llvm_map_marked_p"),
 #include "gt-llvm-cache.h"
 
 /// llvm_has_cached - Returns whether a value has been associated with the tree.
-bool llvm_has_cached(union tree_node *tree) {
+int llvm_has_cached(union tree_node *tree) {
   struct tree_map_base in;
 
   if (!llvm_cache)

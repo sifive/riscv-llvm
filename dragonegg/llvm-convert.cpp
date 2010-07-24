@@ -23,8 +23,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // This is the code that converts GCC AST nodes into LLVM code.
 //===----------------------------------------------------------------------===//
 
+// Plugin headers
+#include "llvm-abi.h"
+#include "llvm-debug.h"
+#include "llvm-internal.h"
+
 // LLVM headers
-#include "llvm/ValueSymbolTable.h"
 #include "llvm/CallingConv.h"
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
@@ -32,20 +36,21 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "llvm/Instructions.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
+#include "llvm/ValueSymbolTable.h"
 #include "llvm/Analysis/ConstantFolding.h"
-#include "llvm/System/Host.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/ValueHandle.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ValueHandle.h"
+#include "llvm/System/Host.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/DenseMap.h"
 
 // System headers
 #include <gmp.h>
@@ -77,11 +82,6 @@ extern "C" {
 extern int get_pointer_alignment (tree exp, unsigned int max_align);
 extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
 }
-
-// Plugin headers
-#include "llvm-abi.h"
-#include "llvm-internal.h"
-#include "llvm-debug.h"
 
 static LLVMContext &Context = getGlobalContext();
 
@@ -5884,6 +5884,12 @@ const Type *TreeToLLVM::GetRegType(tree type) {
   return ConvertType(type);
 }
 
+/// EmitMemory - Convert the specified gimple register or local constant of
+/// register type to an LLVM value with in-memory type (given by ConvertType).
+Value *TreeToLLVM::EmitMemory(tree reg) {
+  return Reg2Mem(EmitRegister(reg), TREE_TYPE(reg), Builder);
+}
+
 /// EmitRegister - Convert the specified gimple register or local constant of
 /// register type to an LLVM value.  Only creates code in the entry block.
 Value *TreeToLLVM::EmitRegister(tree reg) {
@@ -6044,7 +6050,7 @@ Value *TreeToLLVM::EmitReg_TRUTH_NOT_EXPR(tree type, tree op) {
 
 /// EmitCompare - Compare LHS with RHS using the appropriate comparison code.
 /// The result is an i1 boolean.
-Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, tree_code code) {
+Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, unsigned code) {
   Value *LHS = EmitRegister(lhs);
   Value *RHS = UselesslyTypeConvert(EmitRegister(rhs), LHS->getType());
 

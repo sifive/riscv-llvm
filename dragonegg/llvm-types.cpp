@@ -23,19 +23,25 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // This is the code that converts GCC tree types into LLVM types.
 //===----------------------------------------------------------------------===//
 
+// Plugin headers
+#include "llvm-abi.h"
+extern "C" {
+#include "llvm-cache.h"
+}
+
 // LLVM headers
 #include "llvm/CallingConv.h"
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Module.h"
 #include "llvm/TypeSymbolTable.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/Assembly/Writer.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetMachine.h"
 
 // System headers
 #include <gmp.h>
@@ -46,13 +52,8 @@ extern "C" {
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "target.h"
 #include "tree.h"
-}
-
-// Plugin headers
-#include "llvm-abi.h"
-extern "C" {
-#include "llvm-cache.h"
 }
 
 static LLVMContext &Context = getGlobalContext();
@@ -201,6 +202,44 @@ static FunctionType *GetFunctionType(const PATypeHolder &Res,
 //                       Type Conversion Utilities
 //===----------------------------------------------------------------------===//
 
+/// ArrayLengthOf - Returns the length of the given gcc array type, or ~0ULL if
+/// the array has variable or unknown length.
+uint64_t ArrayLengthOf(tree type) {
+  assert(TREE_CODE(type) == ARRAY_TYPE && "Only for array types!");
+  // If the element type has variable size and the array type has variable
+  // length, but by some miracle the product gives a constant size, then we
+  // also return ~0ULL here.  I can live with this, and I bet you can too!
+  if (!isInt64(TYPE_SIZE(type), true) ||
+      !isInt64(TYPE_SIZE(TREE_TYPE(type)), true))
+    return ~0ULL;
+  // May return zero for arrays that gcc considers to have non-zero length, but
+  // only if the array type has zero size (this can happen if the element type
+  // has zero size), in which case the discrepancy doesn't matter.
+  //
+  // If the user increased the alignment of the element type, then the size of
+  // the array type is rounded up by that alignment, but the size of the element
+  // is not.  Since gcc requires the user alignment to be strictly smaller than
+  // the element size, this does not impact the length computation.
+  return integer_zerop(TYPE_SIZE(type)) ?  0 : getInt64(TYPE_SIZE(type), true) /
+    getInt64(TYPE_SIZE(TREE_TYPE(type)), true);
+}
+
+/// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
+inline uint64_t getFieldOffsetInBits(tree field) {
+  assert(OffsetIsLLVMCompatible(field) && "Offset is not constant!");
+  uint64_t Result = getInt64(DECL_FIELD_BIT_OFFSET(field), true);
+  Result += getInt64(DECL_FIELD_OFFSET(field), true) * BITS_PER_UNIT;
+  return Result;
+}
+
+/// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
+/// address unit wide.  For example, on a machine which has 16 bit bytes returns
+/// an i16*.
+const Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace) {
+  assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
+  return IntegerType::get(C, BITS_PER_UNIT)->getPointerTo(AddrSpace);
+}
+
 // isPassedByInvisibleReference - Return true if an argument of the specified
 // type should be passed in by invisible reference.
 //
@@ -213,6 +252,26 @@ bool isPassedByInvisibleReference(tree Type) {
   // cases that make arguments automatically passed in by reference.
   return TREE_ADDRESSABLE(Type) || TYPE_SIZE(Type) == 0 ||
          TREE_CODE(TYPE_SIZE(Type)) != INTEGER_CST;
+}
+
+/// isSequentialCompatible - Return true if the specified gcc array or pointer
+/// type and the corresponding LLVM SequentialType lay out their components
+/// identically in memory, so doing a GEP accesses the right memory location.
+/// We assume that objects without a known size do not.
+bool isSequentialCompatible(tree type) {
+  assert((TREE_CODE(type) == ARRAY_TYPE ||
+          TREE_CODE(type) == POINTER_TYPE ||
+          TREE_CODE(type) == REFERENCE_TYPE) && "not a sequential type!");
+  // This relies on gcc types with constant size mapping to LLVM types with the
+  // same size.  It is possible for the component type not to have a size:
+  // struct foo;  extern foo bar[];
+  return isInt64(TYPE_SIZE(TREE_TYPE(type)), true);
+}
+
+/// OffsetIsLLVMCompatible - Return true if the given field is offset from the
+/// start of the record by a constant amount which is not humongously big.
+bool OffsetIsLLVMCompatible(tree field_decl) {
+  return isInt64(DECL_FIELD_OFFSET(field_decl), true);
 }
 
 /// NameType - Try to name the given type after the given GCC tree node.  If
