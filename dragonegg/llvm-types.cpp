@@ -225,7 +225,7 @@ uint64_t ArrayLengthOf(tree type) {
 }
 
 /// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
-inline uint64_t getFieldOffsetInBits(tree field) {
+uint64_t getFieldOffsetInBits(tree field) {
   assert(OffsetIsLLVMCompatible(field) && "Offset is not constant!");
   uint64_t Result = getInt64(DECL_FIELD_BIT_OFFSET(field), true);
   Result += getInt64(DECL_FIELD_OFFSET(field), true) * BITS_PER_UNIT;
