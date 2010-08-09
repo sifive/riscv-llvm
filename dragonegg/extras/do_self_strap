@@ -57,7 +57,7 @@ LLVM_OPTIONS="--enable-optimized --enable-assertions \
 	      --disable-threads --enable-debug-symbols $LLVM_OPTIONS"
 
 COMPARE="cmp --ignore-initial=16"	# How to compare object files
-MAKE="nice -n 20 make -j2 -l1"		# How to run make
+MAKE="nice -n 20 make -j3 -l2"		# How to run make
 MAKE_INSTALL="nice -n 20 make install"	# How to run make install
 
 
