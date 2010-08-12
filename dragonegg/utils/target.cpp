@@ -36,7 +36,7 @@ static Option Options[] = {
 };
 
 int main(int argc, char **argv) {
-  Triple T(TARGET_NAME);
+  Triple T(Triple::normalize(TARGET_TRIPLE));
 
   for (int i = 1; i < argc; ++i) {
     bool Found = false;

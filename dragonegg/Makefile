@@ -51,13 +51,13 @@ CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP \
 	     -DIN_GCC -DREVISION=\"$(REVISION)\" \
 	     -DGCC_MAJOR=$(GCC_MAJOR) -DGCC_MINOR=$(GCC_MINOR) \
-	     -DTARGET_NAME=\"$(TARGET_TRIPLE)\" \
 	     -I$(SRC_DIR) -I$(GCC_PLUGIN_DIR)/include
 
 LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags)
 
 # NOTE: The following flags can only be used after TARGET_UTIL has been built.
-TARGET_HEADERS+=-I$(SRC_DIR)/$(shell $(TARGET_UTIL) -p) \
+TARGET_HEADERS+=-DTARGET_NAME=\"$(shell $(TARGET_UTIL) -t)\" \
+		-I$(SRC_DIR)/$(shell $(TARGET_UTIL) -p) \
 		-I$(SRC_DIR)/$(shell $(TARGET_UTIL) -o)
 
 
@@ -65,7 +65,8 @@ default: $(PLUGIN)
 
 $(TARGET_UTIL_OBJECTS): %.o : $(SRC_DIR)/utils/%.cpp
 	@echo Compiling utils/$*.cpp
-	$(QUIET)$(CXX) -c $(CPP_OPTIONS) $(CXXFLAGS) $<
+	$(QUIET)$(CXX) -c -DTARGET_TRIPLE=\"$(TARGET_TRIPLE)\" \
+	$(CPP_OPTIONS) $(CXXFLAGS) $<
 
 $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
 	@echo Linking $@
@@ -83,7 +84,7 @@ $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
 $(TARGET_OBJECT): $(TARGET_UTIL)
 	@echo Compiling $(shell $(TARGET_UTIL) -p)/llvm-target.cpp
 	$(QUIET)$(CXX) -o $@ -c $(CPP_OPTIONS) $(TARGET_HEADERS) $(CXXFLAGS) \
-		$(TARGET_SOURCE)
+	$(TARGET_SOURCE)
 
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 	@echo Linking $@
