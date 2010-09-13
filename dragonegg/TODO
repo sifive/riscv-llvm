@@ -29,13 +29,6 @@ Correctness
 
 GCC now has per-function optimization levels.  Add support for this.
 
-Fortran is currently broken because it has a boolean type with a precision
-of 1 bit but size not equal to 8 bits.  We convert to i1 which has the wrong
-AllocSize.  Fix this by distinguishing between the "memory type" used for
-passing the value around in memory (which would be i32 for this Fortran type),
-and the "register type" used for passing about in register (i1 in this case).
-This should tie in nicely with gimple registers versus references.
-
 Unify the code that determines which LLVM linkage type to use.  Need to do
 a bunch of experimenting to work out how the mapping should really be done.
 
@@ -60,7 +53,8 @@ Add language specific flags, for example that C++ uses the one-definition rule.
 Features
 --------
 
-Output proper debug info rather than throwing most of it away.
+Output proper debug info rather than throwing most of it away.  Provide column
+numbers in location info.
 
 Many x86 specific builtins are not supported, even though it would be easy to
 add support for some of them, for example the 256 bit versions of builtins we
@@ -78,3 +72,5 @@ Make LTO transparent.  One part of this working out how to write bitcode when
 using -c, which runs into trouble because gcc insists on running the assembler
 on compiler output.  Another part is looking into the possibility of encoding
 bitcode in ELF sections like gcc does for gimple when doing LTO.
+
+Add support for address spaces.
