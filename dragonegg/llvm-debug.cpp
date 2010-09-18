@@ -349,7 +349,7 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
 
   std::map<tree_node *, WeakVH>::iterator I = RegionMap.find(Node);
   if (I != RegionMap.end())
-    if (MDNode *R = dyn_cast_or_null<MDNode>(I->second))
+    if (MDNode *R = dyn_cast_or_null<MDNode>(&*I->second))
       return DIDescriptor(R);
 
   if (TYPE_P (Node)) {
@@ -758,7 +758,7 @@ DIType DebugInfo::createStructType(tree type) {
   // descriptor.
   std::map<tree_node *, WeakVH >::iterator I = TypeCache.find(type);
   if (I != TypeCache.end())
-    if (MDNode *TN = dyn_cast_or_null<MDNode>(I->second))
+    if (MDNode *TN = dyn_cast_or_null<MDNode>(&*I->second))
       return DIType(TN);
 
   // forward declaration,
