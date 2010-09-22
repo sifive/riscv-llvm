@@ -74,3 +74,5 @@ on compiler output.  Another part is looking into the possibility of encoding
 bitcode in ELF sections like gcc does for gimple when doing LTO.
 
 Add support for address spaces.
+
+Add support for non-temporal stores.
