@@ -7700,7 +7700,8 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
 
     // Next, if this doesn't touch the top bit, mask out any bits that shouldn't
     // be set in the result.
-    uint64_t MaskVal = ((1ULL << BitsInVal)-1) << FirstBitInVal;
+    uint64_t MaskVal = 1;
+    MaskVal = ((MaskVal << BitsInVal)-1) << FirstBitInVal;
     Constant *Mask = ConstantInt::get(Type::getInt64Ty(Context), MaskVal);
     Mask = Builder.getFolder().CreateTruncOrBitCast(Mask, ValTy);
 
