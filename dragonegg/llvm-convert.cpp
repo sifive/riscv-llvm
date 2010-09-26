@@ -63,21 +63,16 @@ extern "C" {
 #include "target.h"
 #include "tree.h"
 
-#include "tm_p.h"
-//TODO#include "c-tree.h"  // FIXME: eliminate.
-#include "tree-iterator.h"
-#include "output.h"
 #include "diagnostic.h"
-#include "real.h"
-#include "function.h"
-#include "toplev.h"
+#include "except.h"
 #include "flags.h"
-#include "hard-reg-set.h"
+#include "langhooks.h"
+#include "output.h"
+#include "rtl.h"
+#include "tm_p.h"
+#include "toplev.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
-#include "rtl.h"
-#include "langhooks.h"
-#include "except.h"
 
 extern int get_pointer_alignment (tree exp, unsigned int max_align);
 extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];

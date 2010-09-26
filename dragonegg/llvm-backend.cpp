@@ -71,11 +71,9 @@ extern "C" {
 #include "target.h"
 #include "tree.h"
 
-#include "cgraph.h"
 #include "debug.h"
 #include "diagnostic.h"
 #include "flags.h"
-#include "function.h"
 #include "gcc-plugin.h"
 #include "intl.h"
 #include "langhooks.h"
@@ -83,11 +81,9 @@ extern "C" {
 #include "params.h"
 #include "plugin-version.h"
 #include "toplev.h"
-#include "tree-inline.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "version.h"
-#include "except.h"
 }
 
 #if (GCC_MAJOR != 4)

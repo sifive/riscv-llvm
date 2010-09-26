@@ -44,9 +44,10 @@ extern "C" {
 #include "system.h"
 #include "coretypes.h"
 #include "target.h"
-#include "toplev.h"
 #include "tree.h"
+
 #include "gimple.h"
+#include "toplev.h"
 }
 
 static LLVMContext &Context = getGlobalContext();
