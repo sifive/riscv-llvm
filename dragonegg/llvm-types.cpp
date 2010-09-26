@@ -58,6 +58,10 @@ extern "C" {
 #include "tree.h"
 }
 
+// NoLength - Special value used to indicate that an array has variable or
+// unknown length.
+static const uint64_t NoLength = ~(uint64_t)0;
+
 static LLVMContext &Context = getGlobalContext();
 
 //===----------------------------------------------------------------------===//
@@ -204,16 +208,16 @@ static FunctionType *GetFunctionType(const PATypeHolder &Res,
 //                       Type Conversion Utilities
 //===----------------------------------------------------------------------===//
 
-/// ArrayLengthOf - Returns the length of the given gcc array type, or ~0ULL if
-/// the array has variable or unknown length.
+/// ArrayLengthOf - Returns the length of the given gcc array type, or NoLength
+//  if the array has variable or unknown length.
 uint64_t ArrayLengthOf(tree type) {
   assert(TREE_CODE(type) == ARRAY_TYPE && "Only for array types!");
   // If the element type has variable size and the array type has variable
   // length, but by some miracle the product gives a constant size, then we
-  // also return ~0ULL here.  I can live with this, and I bet you can too!
+  // also return NoLength here.  I can live with this, and I bet you can too!
   if (!isInt64(TYPE_SIZE(type), true) ||
       !isInt64(TYPE_SIZE(TREE_TYPE(type)), true))
-    return ~0ULL;
+    return NoLength;
   // May return zero for arrays that gcc considers to have non-zero length, but
   // only if the array type has zero size (this can happen if the element type
   // has zero size), in which case the discrepancy doesn't matter.
@@ -640,7 +644,7 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
 
   case ARRAY_TYPE: {
     uint64_t NumElts = ArrayLengthOf(type);
-    if (NumElts == ~0ULL)
+    if (NumElts == NoLength)
       return true;
     unsigned EltSizeBits = getInt64(TYPE_SIZE(TREE_TYPE(type)), true);
 
@@ -903,7 +907,7 @@ const Type *TypeConverter::ConvertType(tree type) {
     const Type *ElementTy = ConvertType(TREE_TYPE(type));
     uint64_t NumElements = ArrayLengthOf(type);
 
-    if (NumElements == ~0ULL) // Variable length array?
+    if (NumElements == NoLength) // Variable length array?
       NumElements = 0;
 
     // Create the array type.
@@ -1917,7 +1921,7 @@ void TypeConverter::SelectUnionMember(tree type,
   tree GccUnionTy = 0;
   tree UnionField = 0;
   unsigned MinAlign = ~0U;
-  uint64_t BestSize = FindBiggest ? 0ULL : ~0ULL;
+  uint64_t BestSize = FindBiggest ? 0 : ~(uint64_t)0;
   for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
     if (TREE_CODE(Field) != FIELD_DECL) continue;
     assert(DECL_FIELD_OFFSET(Field) && integer_zerop(DECL_FIELD_OFFSET(Field))
