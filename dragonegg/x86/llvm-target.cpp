@@ -113,8 +113,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       Checked = true;
     }
 #endif
-    HandlerEntry ToFind
-      = {IDENTIFIER_POINTER(DECL_NAME(fndecl)), SearchForHandler};
+    const char *Identifier = IDENTIFIER_POINTER(DECL_NAME(fndecl));
+    assert(!strncmp(Identifier, "__builtin_ia32_", 15) && "Unexpected prefix!");
+    HandlerEntry ToFind = {Identifier + 15, SearchForHandler};
     const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind, LT);
     Handler = (E == Handlers + N) || strcmp(E->Name, ToFind.Name) ?
       UnsupportedBuiltin : E->Handler;
