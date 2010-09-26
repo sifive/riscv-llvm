@@ -65,6 +65,7 @@ static Value *BitCastToIntVector(Value *Op, LLVMBuilder &Builder) {
                                                    VecTy->getNumElements()));
 }
 
+/// BuiltinCode - A enumerated type with one value for each supported builtin.
 enum BuiltinCode {
   SearchForHandler, // Builtin not seen before - search for a handler.
 #define DEFINE_BUILTIN(x) x
@@ -91,18 +92,31 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
                                       Value *&Result,
                                       const Type *ResultType,
                                       std::vector<Value*> &Ops) {
-  static const HandlerEntry Handlers[] = {
+  // DECL_FUNCTION_CODE contains a value of the enumerated type ix86_builtins,
+  // declared in i386.c.  If this type was visible to us then we could simply
+  // use a switch statement on DECL_FUNCTION_CODE to jump to the right code for
+  // handling the builtin.  But the type isn't visible, so instead we generate
+  // at run-time a map from the values of DECL_FUNCTION_CODE to values of the
+  // enumerated type BuiltinCode (defined above), the analog of ix86_builtins,
+  // and do the switch on the BuiltinCode value instead.
+
+  // The map from DECL_FUNCTION_CODE values to BuiltinCode.
+  static std::vector<BuiltinCode> FunctionCodeMap;
+  if (FunctionCodeMap.size() <= DECL_FUNCTION_CODE(fndecl))
+      FunctionCodeMap.resize(DECL_FUNCTION_CODE(fndecl) + 1);
+
+  // See if we already associated a BuiltinCode with this DECL_FUNCTION_CODE.
+  BuiltinCode &Handler = FunctionCodeMap[DECL_FUNCTION_CODE(fndecl)];
+  if (Handler == SearchForHandler) {
+    // No associated BuiltinCode.  Work out what value to use based on the
+    // builtin's name.
+
+    // List of builtin names (w/o '__builtin_ia32_') and associated BuiltinCode.
+    static const HandlerEntry Handlers[] = {
 #define DEFINE_BUILTIN(x) {#x, x}
 #include "x86_builtins"
 #undef DEFINE_BUILTIN
-  };
-
-  static std::vector<BuiltinCode> FunctionCodeCache;
-  if (FunctionCodeCache.size() <= DECL_FUNCTION_CODE(fndecl))
-      FunctionCodeCache.resize(DECL_FUNCTION_CODE(fndecl) + 1);
-  BuiltinCode &Handler = FunctionCodeCache[DECL_FUNCTION_CODE(fndecl)];
-  if (Handler == SearchForHandler) {
-    // Find the handler for this intrinsic.
+    };
     size_t N = sizeof(Handlers) / sizeof(Handlers[0]);
 #ifndef NDEBUG
     // Check that the list of handlers is sorted by name.
@@ -113,12 +127,16 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       Checked = true;
     }
 #endif
+
+    Handler = UnsupportedBuiltin;
     const char *Identifier = IDENTIFIER_POINTER(DECL_NAME(fndecl));
-    assert(!strncmp(Identifier, "__builtin_ia32_", 15) && "Unexpected prefix!");
-    HandlerEntry ToFind = {Identifier + 15, SearchForHandler};
-    const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind, LT);
-    Handler = (E == Handlers + N) || strcmp(E->Name, ToFind.Name) ?
-      UnsupportedBuiltin : E->Handler;
+    // All builtins handled here have a name starting with __builtin_ia32_.
+    if (!strncmp(Identifier, "__builtin_ia32_", 15)) {
+      HandlerEntry ToFind = { Identifier + 15, SearchForHandler };
+      const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind, LT);
+      if ((E < Handlers + N) && !strcmp(E->Name, ToFind.Name))
+        Handler = E->Handler;
+    }
   }
 
   bool flip = false;
