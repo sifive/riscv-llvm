@@ -18,16 +18,16 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-//===----------------------------------------------------------------------===//
-// This code lets you to associate a void* with a tree, as if it were cached
-// inside the tree: if the tree is garbage collected and reallocated, then the
-// cached value will have been cleared.
-//===----------------------------------------------------------------------===//
+/*===----------------------------------------------------------------------===
+   This code lets you to associate a void* with a tree, as if it were cached
+   inside the tree: if the tree is garbage collected and reallocated, then the
+   cached value will have been cleared.
+  ===----------------------------------------------------------------------===*/
 
-// Plugin headers
+/* Plugin headers.  */
 #include "llvm-cache.h"
 
-// GCC headers
+/* GCC headers.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -48,10 +48,11 @@ static GTY ((if_marked ("tree_llvm_map_marked_p"),
              param_is(struct tree_llvm_map)))
   htab_t llvm_cache;
 
-// Garbage collector header
+/* Garbage collector header.  */
 #include "gt-llvm-cache.h"
 
-/// llvm_has_cached - Returns whether a value has been associated with the tree.
+/* llvm_has_cached - Returns whether a value has been associated with the
+   tree.  */
 int llvm_has_cached(union tree_node *tree) {
   struct tree_map_base in;
 
@@ -62,7 +63,7 @@ int llvm_has_cached(union tree_node *tree) {
   return htab_find(llvm_cache, &in) != NULL;
 }
 
-/// llvm_get_cached - Returns the value associated with the tree, or NULL.
+/* llvm_get_cached - Returns the value associated with the tree, or NULL.  */
 const void *llvm_get_cached(union tree_node *tree) {
   struct tree_llvm_map *h;
   struct tree_map_base in;
@@ -75,15 +76,15 @@ const void *llvm_get_cached(union tree_node *tree) {
   return h ? h->val : NULL;
 }
 
-/// llvm_set_cached - Associates the given value with the tree (and returns it).
-/// To delete an association, pass a NULL value here.
+/* llvm_set_cached - Associates the given value with the tree (and returns it).
+   To delete an association, pass a NULL value here.  */
 const void *llvm_set_cached(union tree_node *tree, const void *val) {
   struct tree_llvm_map **slot;
   struct tree_map_base in;
 
   in.from = tree;
 
-  // If deleting, remove the slot.
+  /* If deleting, remove the slot.  */
   if (val == NULL) {
     if (llvm_cache)
       htab_remove_elt(llvm_cache, &in);
@@ -111,8 +112,8 @@ struct update {
   const void *new_val;
 };
 
-/// replace - If the current value for the slot matches old_val, then replace
-/// it with new_val, or delete it if new_val is NULL.
+/* replace - If the current value for the slot matches old_val, then replace
+   it with new_val, or delete it if new_val is NULL.  */
 static int replace(void **slot, void *data) {
   struct tree_llvm_map *entry = *(struct tree_llvm_map **)slot;
   struct update *u = (struct update *)data;
@@ -128,9 +129,11 @@ static int replace(void **slot, void *data) {
   return 1;
 }
 
-/// llvm_replace_cached - Replaces all occurrences of old_val with new_val.
+/* llvm_replace_cached - Replaces all occurrences of old_val with new_val.  */
 void llvm_replace_cached(const void *old_val, const void *new_val) {
-  struct update u = { old_val, new_val };
+  struct update u;
+  u.old_val = old_val;
+  u.new_val = new_val;
 
   if (!llvm_cache || old_val == NULL)
     return;
