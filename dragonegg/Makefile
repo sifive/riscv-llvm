@@ -17,8 +17,9 @@ ifndef VERBOSE
 	QUIET:=@
 endif
 
-CFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cflags) -fvisibility=hidden
-CXXFLAGS+=-Wall $(shell $(LLVM_CONFIG) --cxxflags) -fvisibility=hidden
+COMMON_FLAGS=-Wall -Wextra -fvisibility=hidden
+CFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cflags)
+CXXFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cxxflags)
 
 ifeq ($(shell uname),Darwin)
 LOADABLE_MODULE_OPTIONS=-bundle -undefined dynamic_lookup

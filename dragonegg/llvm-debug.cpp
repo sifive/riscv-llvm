@@ -161,7 +161,7 @@ static StringRef GetNodeName(tree Node) {
 /// whether the node is a TYPE or DECL.  UseStub is true if we should consider
 /// the type stub as the actually location (ignored in struct/unions/enums.)
 static expanded_location GetNodeLocation(tree Node, bool UseStub = true) {
-  expanded_location Location = { NULL, 0 };
+  expanded_location Location = { NULL, 0, 0, false };
 
   if (Node == NULL_TREE)
     return Location;
@@ -246,9 +246,7 @@ StringRef DebugInfo::getFunctionName(tree FnDecl) {
 }
 
 /// EmitFunctionStart - Constructs the debug code for entering a function.
-void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn,
-                                  BasicBlock *CurBB) {
-
+void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn) {
   DIType FNType = getOrCreateType(TREE_TYPE(FnDecl));
 
   std::map<tree_node *, WeakVH >::iterator I = SPCache.find(FnDecl);
@@ -371,7 +369,7 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
 }
 
 /// EmitFunctionEnd - Pop the region stack and reset current lexical block.
-void DebugInfo::EmitFunctionEnd(BasicBlock *CurBB, bool EndFunction) {
+void DebugInfo::EmitFunctionEnd(bool EndFunction) {
   assert(!RegionStack.empty() && "Region stack mismatch, stack empty!");
   RegionStack.pop_back();
   // Blocks get erased; clearing these is needed for determinism, and also
@@ -417,8 +415,7 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
 }
 
 /// EmitStopPoint - Set current source location. 
-void DebugInfo::EmitStopPoint(Function *Fn, BasicBlock *CurBB,
-                              LLVMBuilder &Builder) {
+void DebugInfo::EmitStopPoint(BasicBlock *CurBB, LLVMBuilder &Builder) {
   // Don't bother if things are the same as last time.
   if (PrevLineNo == CurLineNo &&
       PrevBB == CurBB &&
@@ -703,7 +700,7 @@ DIType DebugInfo::createEnumType(tree type) {
   llvm::DIArray EltArray =
     DebugFactory.GetOrCreateArray(Elements.data(), Elements.size());
 
-  expanded_location Loc = { NULL, 0 };
+  expanded_location Loc = { NULL, 0, 0, false };
   if (TYPE_SIZE(type))
     // Incomplete enums do not  have any location info.
     Loc = GetNodeLocation(TREE_CHAIN(type), false);

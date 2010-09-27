@@ -685,7 +685,7 @@ void TreeToLLVM::StartFunctionBody() {
   Builder.SetInsertPoint(EntryBlock);
 
   if (EmitDebugInfo())
-    TheDebugInfo->EmitFunctionStart(FnDecl, Fn, Builder.GetInsertBlock());
+    TheDebugInfo->EmitFunctionStart(FnDecl, Fn);
 
   // Loop over all of the arguments to the function, setting Argument names and
   // creating argument alloca's for the PARM_DECLs in case their address is
@@ -773,7 +773,7 @@ void TreeToLLVM::StartFunctionBody() {
   }
 
   if (EmitDebugInfo())
-    TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
+    TheDebugInfo->EmitStopPoint(Builder.GetInsertBlock(), Builder);
 
   // Create a new block for the return node, but don't insert it yet.
   ReturnBB = BasicBlock::Create(Context, "return");
@@ -981,8 +981,8 @@ Function *TreeToLLVM::FinishFunctionBody() {
     // call to PopulatePhiNodes (for example) generates complicated debug info,
     // then the debug info logic barfs.  Testcases showing this are 20011126-2.c
     // or pr42221.c from the gcc testsuite compiled with -g -O3.
-    TheDebugInfo->EmitStopPoint(Fn, ReturnBB, Builder);
-    TheDebugInfo->EmitFunctionEnd(ReturnBB, true);
+    TheDebugInfo->EmitStopPoint(ReturnBB, Builder);
+    TheDebugInfo->EmitFunctionEnd(true);
   }
 
 #ifndef NDEBUG
@@ -1111,7 +1111,7 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
         TheDebugInfo->setLocationFile("");
         TheDebugInfo->setLocationLine(0);
       }
-      TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
+      TheDebugInfo->EmitStopPoint(Builder.GetInsertBlock(), Builder);
     }
 
     switch (gimple_code(stmt)) {
@@ -1169,7 +1169,7 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
   if (EmitDebugInfo()) {
     TheDebugInfo->setLocationFile("");
     TheDebugInfo->setLocationLine(0);
-    TheDebugInfo->EmitStopPoint(Fn, Builder.GetInsertBlock(), Builder);
+    TheDebugInfo->EmitStopPoint(Builder.GetInsertBlock(), Builder);
   }
 
   // Add a branch to the fallthru block.

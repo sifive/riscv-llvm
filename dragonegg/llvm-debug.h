@@ -102,11 +102,11 @@ public:
 
   /// EmitFunctionStart - Constructs the debug code for entering a function -
   /// "llvm.dbg.func.start."
-  void EmitFunctionStart(tree_node *FnDecl, Function *Fn, BasicBlock *CurBB);
+  void EmitFunctionStart(tree_node *FnDecl, Function *Fn);
 
   /// EmitFunctionEnd - Constructs the debug code for exiting a declarative
   /// region - "llvm.dbg.region.end."
-  void EmitFunctionEnd(BasicBlock *CurBB, bool EndFunction);
+  void EmitFunctionEnd(bool EndFunction);
 
   /// EmitDeclare - Constructs the debug code for allocation of a new variable.
   /// region - "llvm.dbg.declare."
@@ -115,7 +115,7 @@ public:
 
   /// EmitStopPoint - Emit a call to llvm.dbg.stoppoint to indicate a change of
   /// source line.
-  void EmitStopPoint(Function *Fn, BasicBlock *CurBB, LLVMBuilder &Builder);
+  void EmitStopPoint(BasicBlock *CurBB, LLVMBuilder &Builder);
 
   /// EmitGlobalVariable - Emit information about a global variable.
   ///
