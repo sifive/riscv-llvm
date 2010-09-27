@@ -1027,7 +1027,7 @@ namespace {
     }
 
     void HandleScalarArgument(const llvm::Type *LLVMTy, tree type,
-                              unsigned RealSize = 0) {
+                              unsigned RealSize ATTRIBUTE_UNUSED = 0) {
       if (KNRPromotion) {
         if (type == float_type_node)
           LLVMTy = ConvertType(double_type_node);
@@ -1040,7 +1040,8 @@ namespace {
 
     /// HandleByInvisibleReferenceArgument - This callback is invoked if a pointer
     /// (of type PtrTy) to the argument is passed rather than the argument itself.
-    void HandleByInvisibleReferenceArgument(const llvm::Type *PtrTy, tree type) {
+    void HandleByInvisibleReferenceArgument(const llvm::Type *PtrTy,
+                                            tree type ATTRIBUTE_UNUSED) {
       ArgTypes.push_back(PtrTy);
     }
 
@@ -1460,7 +1461,8 @@ struct StructTypeConversionInfo {
   /// includes the specified byte, remove it. Return true struct
   /// layout is sized properly. Return false if unable to handle ByteOffset.
   /// In this case caller should redo this struct as a packed structure.
-  bool ResizeLastElementIfOverlapsWith(uint64_t ByteOffset, tree Field,
+  bool ResizeLastElementIfOverlapsWith(uint64_t ByteOffset,
+                                       tree Field ATTRIBUTE_UNUSED,
                                        const Type *Ty) {
     const Type *SavedTy = NULL;
 

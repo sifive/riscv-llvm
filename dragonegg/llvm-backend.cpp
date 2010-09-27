@@ -1554,7 +1554,8 @@ int plugin_is_GPL_compatible __attribute__ ((visibility("default")));
 /// before processing the compilation unit.
 /// NOTE: called even when only doing syntax checking, so do not initialize the
 /// module etc here.
-static void llvm_start_unit(void *gcc_data, void *user_data) {
+static void llvm_start_unit(void *gcc_data ATTRIBUTE_UNUSED,
+                            void *user_data ATTRIBUTE_UNUSED) {
   if (!quiet_flag)
     errs() << "Starting compilation unit\n";
 
@@ -1868,7 +1869,7 @@ static void emit_alias(tree decl, tree target) {
 
 /// emit_same_body_alias - Turn a same-body alias into LLVM IR.
 static void emit_same_body_alias(struct cgraph_node *alias,
-                                 struct cgraph_node *target) {
+                                 struct cgraph_node *target ATTRIBUTE_UNUSED) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
@@ -1962,7 +1963,7 @@ static struct ipa_opt_pass_d pass_emit_functions = {
 };
 
 /// emit_variables - Output GCC global variables to the LLVM IR.
-static void emit_variables(cgraph_node_set set
+static void emit_variables(cgraph_node_set set ATTRIBUTE_UNUSED
 #if (GCC_MINOR > 5)
                            , varpool_node_set vset ATTRIBUTE_UNUSED
 #endif
@@ -2096,13 +2097,15 @@ static struct rtl_opt_pass pass_rtl_emit_function =
 
 
 /// llvm_finish - Run shutdown code when GCC exits.
-static void llvm_finish(void *gcc_data, void *user_data) {
+static void llvm_finish(void *gcc_data ATTRIBUTE_UNUSED,
+                        void *user_data ATTRIBUTE_UNUSED) {
   FinalizePlugin();
 }
 
 /// llvm_finish_unit - Finish the .s file.  This is called by GCC once the
 /// compilation unit has been completely processed.
-static void llvm_finish_unit(void *gcc_data, void *user_data) {
+static void llvm_finish_unit(void *gcc_data ATTRIBUTE_UNUSED,
+                             void *user_data ATTRIBUTE_UNUSED) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 

@@ -375,7 +375,7 @@ namespace {
     /// getCallingConv - This provides the desired CallingConv for the function.
     CallingConv::ID& getCallingConv(void) { return CallingConv; }
 
-    void HandlePad(const llvm::Type *LLVMTy) {
+    void HandlePad(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED) {
       ++AI;
     }
 
@@ -394,8 +394,9 @@ namespace {
       LocStack.clear();
     }
 
-    void HandleAggregateShadowResult(const PointerType *PtrArgTy,
-                                       bool RetPtr) {
+    void HandleAggregateShadowResult(
+      const PointerType *PtrArgTy ATTRIBUTE_UNUSED,
+      bool RetPtr ATTRIBUTE_UNUSED) {
       // If the function returns a structure by value, we transform the function
       // to take a pointer to the result as the first argument of the function
       // instead.
@@ -429,7 +430,8 @@ namespace {
       ++AI;
     }
 
-    void HandleScalarShadowResult(const PointerType *PtrArgTy, bool RetPtr) {
+    void HandleScalarShadowResult(const PointerType *PtrArgTy ATTRIBUTE_UNUSED,
+                                  bool RetPtr ATTRIBUTE_UNUSED) {
       assert(AI != Builder.GetInsertBlock()->getParent()->arg_end() &&
              "No explicit return value?");
       AI->setName("scalar.result");
@@ -438,7 +440,8 @@ namespace {
       ++AI;
     }
 
-    void HandleScalarArgument(const llvm::Type *LLVMTy, tree type,
+    void HandleScalarArgument(const llvm::Type *LLVMTy,
+                              tree type ATTRIBUTE_UNUSED,
                               unsigned RealSize = 0) {
       Value *ArgVal = AI;
       if (ArgVal->getType() != LLVMTy) {
@@ -467,11 +470,12 @@ namespace {
       ++AI;
     }
 
-    void HandleByValArgument(const llvm::Type *LLVMTy, tree type) {
+    void HandleByValArgument(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED,
+                             tree type ATTRIBUTE_UNUSED) {
       ++AI;
     }
 
-    void HandleFCAArgument(const llvm::Type *LLVMTy,
+    void HandleFCAArgument(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED,
                            tree type ATTRIBUTE_UNUSED) {
       // Store the FCA argument into alloca.
       assert(!LocStack.empty());
@@ -481,7 +485,8 @@ namespace {
       ++AI;
     }
 
-    void HandleAggregateResultAsScalar(const Type *ScalarTy, unsigned Offset=0){
+    void HandleAggregateResultAsScalar(const Type *ScalarTy ATTRIBUTE_UNUSED,
+                                       unsigned Offset=0) {
       this->Offset = Offset;
     }
 
@@ -506,7 +511,8 @@ namespace {
 // passed in memory byval.
 static bool isPassedByVal(tree type, const Type *Ty,
                           std::vector<const Type*> &ScalarArgs,
-                          bool isShadowRet, CallingConv::ID &CC) {
+                          bool isShadowRet,
+                          CallingConv::ID &CC ATTRIBUTE_UNUSED) {
   if (LLVM_SHOULD_PASS_AGGREGATE_USING_BYVAL_ATTR(type, Ty))
     return true;
 
@@ -742,7 +748,7 @@ void TreeToLLVM::StartFunctionBody() {
       // Emit gcroot intrinsic if arg has attribute
       if (POINTER_TYPE_P(TREE_TYPE(Args))
           && lookup_attribute ("gcroot", TYPE_ATTRIBUTES(TREE_TYPE(Args))))
-        EmitTypeGcroot(Tmp, Args);
+        EmitTypeGcroot(Tmp);
 
       Client.setName(Name);
       Client.setLocation(Tmp);
@@ -1433,7 +1439,7 @@ void TreeToLLVM::BeginBlock(BasicBlock *BB) {
 /// CopyAggregate - Recursively traverse the potientially aggregate src/dest
 /// ptrs, copying all of the elements.
 static void CopyAggregate(MemRef DestLoc, MemRef SrcLoc,
-                          LLVMBuilder &Builder, tree gccType){
+                          LLVMBuilder &Builder, tree gccType) {
   assert(DestLoc.Ptr->getType() == SrcLoc.Ptr->getType() &&
          "Cannot copy between two pointers of different type!");
   const Type *ElTy =
@@ -1661,7 +1667,7 @@ Value *TreeToLLVM::EmitMemSet(Value *DestPtr, Value *SrcVal, Value *Size,
 
 
 // Emits code to do something for a type attribute
-void TreeToLLVM::EmitTypeGcroot(Value *V, tree decl) {
+void TreeToLLVM::EmitTypeGcroot(Value *V) {
   // GC intrinsics can only be used in functions which specify a collector.
   Fn->setGC("shadow-stack");
 
@@ -1806,7 +1812,7 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
       // We should null out local variables so that a stack crawl
       // before initialization doesn't get garbage results to follow.
       const Type *T = cast<PointerType>(AI->getType())->getElementType();
-      EmitTypeGcroot(AI, decl);
+      EmitTypeGcroot(AI);
       Builder.CreateStore(Constant::getNullValue(T), AI);
     }
 
@@ -2566,7 +2572,7 @@ namespace {
 
     /// HandleScalarResult - This callback is invoked if the function returns a
     /// simple scalar result value.
-    void HandleScalarResult(const Type *RetTy) {
+    void HandleScalarResult(const Type *RetTy ATTRIBUTE_UNUSED) {
       // There is nothing to do here if we return a scalar or void.
       assert(DestLoc == 0 &&
              "Call returns a scalar but caller expects aggregate!");
@@ -2575,14 +2581,14 @@ namespace {
     /// HandleAggregateResultAsScalar - This callback is invoked if the function
     /// returns an aggregate value by bit converting it to the specified scalar
     /// type and returning that.
-    void HandleAggregateResultAsScalar(const Type *ScalarTy,
+    void HandleAggregateResultAsScalar(const Type *ScalarTy ATTRIBUTE_UNUSED,
                                        unsigned Offset = 0) {
       this->Offset = Offset;
     }
 
     /// HandleAggregateResultAsAggregate - This callback is invoked if the
     /// function returns an aggregate value using multiple return values.
-    void HandleAggregateResultAsAggregate(const Type *AggrTy) {
+    void HandleAggregateResultAsAggregate(const Type *AggrTy ATTRIBUTE_UNUSED) {
       // There is nothing to do here.
       isAggrRet = true;
     }
@@ -2592,7 +2598,7 @@ namespace {
     /// RetPtr is set to true, the pointer argument itself is returned from the
     /// function.
     void HandleAggregateShadowResult(const PointerType *PtrArgTy,
-                                       bool RetPtr) {
+                                     bool RetPtr ATTRIBUTE_UNUSED) {
       // We need to pass memory to write the return value into.
       // FIXME: alignment and volatility are being ignored!
       assert(!DestLoc || PtrArgTy == DestLoc->Ptr->getType());
@@ -2625,7 +2631,8 @@ namespace {
     /// returns a scalar value by using a "shadow" first parameter, which is a
     /// pointer to the scalar, of type PtrArgTy.  If RetPtr is set to true,
     /// the pointer argument itself is returned from the function.
-    void HandleScalarShadowResult(const PointerType *PtrArgTy, bool RetPtr) {
+    void HandleScalarShadowResult(const PointerType *PtrArgTy,
+                                  bool RetPtr ATTRIBUTE_UNUSED) {
       assert(DestLoc == 0 &&
              "Call returns a scalar but caller expects aggregate!");
       // Create a buffer to hold the result.  The result will be loaded out of
@@ -2664,7 +2671,8 @@ namespace {
     /// HandleByInvisibleReferenceArgument - This callback is invoked if a
     /// pointer (of type PtrTy) to the argument is passed rather than the
     /// argument itself.
-    void HandleByInvisibleReferenceArgument(const llvm::Type *PtrTy, tree type){
+    void HandleByInvisibleReferenceArgument(const llvm::Type *PtrTy,
+                                            tree type ATTRIBUTE_UNUSED) {
       Value *Loc = getAddress();
       Loc = Builder.CreateBitCast(Loc, PtrTy);
       CallOperands.push_back(Loc);
@@ -2673,7 +2681,8 @@ namespace {
     /// HandleByValArgument - This callback is invoked if the aggregate function
     /// argument is passed by value. It is lowered to a parameter passed by
     /// reference with an additional parameter attribute "ByVal".
-    void HandleByValArgument(const llvm::Type *LLVMTy, tree type) {
+    void HandleByValArgument(const llvm::Type *LLVMTy,
+                             tree type ATTRIBUTE_UNUSED) {
       Value *Loc = getAddress();
       assert(LLVMTy->getPointerTo() == Loc->getType());
       CallOperands.push_back(Loc);

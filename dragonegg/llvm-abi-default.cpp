@@ -17,7 +17,8 @@ extern "C" {
 
 // doNotUseShadowReturn - Return true if the specified GCC type
 // should not be returned using a pointer to struct parameter.
-bool doNotUseShadowReturn(tree type, tree fndecl, CallingConv::ID CC) {
+bool doNotUseShadowReturn(tree type, tree fndecl,
+                          CallingConv::ID CC ATTRIBUTE_UNUSED) {
   if (!TYPE_SIZE(type))
     return false;
   if (TREE_CODE(TYPE_SIZE(type)) != INTEGER_CST)

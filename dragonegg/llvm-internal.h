@@ -584,7 +584,7 @@ private:
   void EmitAnnotateIntrinsic(Value *V, tree_node *decl);
 
   /// EmitTypeGcroot - Emits call to make type a gcroot
-  void EmitTypeGcroot(Value *V, tree_node *decl);
+  void EmitTypeGcroot(Value *V);
 
 private:
 

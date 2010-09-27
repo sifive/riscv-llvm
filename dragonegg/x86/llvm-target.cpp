@@ -88,7 +88,7 @@ static bool LT(const HandlerEntry &E, const HandlerEntry &F) {
  */
 bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
                                       tree fndecl,
-                                      const MemRef *DestLoc,
+                                      const MemRef *DestLoc ATTRIBUTE_UNUSED,
                                       Value *&Result,
                                       const Type *ResultType,
                                       std::vector<Value*> &Ops) {
@@ -1325,8 +1325,9 @@ const Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) 
 /// The original implementation of this routine is based on
 /// llvm_x86_64_should_pass_aggregate_in_mixed_regs code.
 void
-llvm_x86_64_get_multiple_return_reg_classes(tree TreeType, const Type *Ty,
-                                            std::vector<const Type*> &Elts){
+llvm_x86_64_get_multiple_return_reg_classes(tree TreeType,
+                                            const Type *Ty ATTRIBUTE_UNUSED,
+                                            std::vector<const Type*> &Elts) {
   enum x86_64_reg_class Class[MAX_CLASSES];
   enum machine_mode Mode = type_natural_mode(TreeType, NULL);
   HOST_WIDE_INT Bytes =
