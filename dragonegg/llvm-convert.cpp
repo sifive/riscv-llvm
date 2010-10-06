@@ -2265,13 +2265,6 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
   // TODO: Arrange for Volatile to already be set in the LValue.
   const Type *Ty = ConvertType(TREE_TYPE(exp));
   unsigned Alignment = LV.getAlignment();
-  if (TREE_CODE(exp) == COMPONENT_REF)
-    if (const StructType *STy =
-        dyn_cast<StructType>(ConvertType(TREE_TYPE(TREE_OPERAND(exp, 0)))))
-      if (STy->isPacked())
-        // Packed struct members use 1 byte alignment
-        Alignment = 1;
-
 
   if (!LV.isBitfield()) {
     // Scalar value: emit a load.
