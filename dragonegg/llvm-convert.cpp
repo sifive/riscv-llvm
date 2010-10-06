@@ -6792,6 +6792,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   std::string NewAsmStr = ConvertInlineAsmStr(stmt, outputs, inputs, labels,
                                               NumOutputs+NumInputs);
   std::string ConstraintStr;
+  bool HasSideEffects = gimple_asm_volatile_p(stmt) || !outputs;
 
   // StoreCallResultAddr - The pointer to store the result of the call through.
   SmallVector<Value *, 4> StoreCallResultAddrs;
@@ -6841,6 +6842,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
         NewConstraint[RegNameLen+2] = '}';
         NewConstraint[RegNameLen+3] = 0;
         SimplifiedConstraint = NewConstraint;
+        // This output will now be implicit; set the sideffect flag on the asm.
+        HasSideEffects = true;
         // We should no longer consider mem constraints.
         AllowsMem = false;
       } else {
@@ -7085,8 +7088,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     return;
   }
 
-  Value *Asm = InlineAsm::get(FTy, NewAsmStr, ConstraintStr,
-                              gimple_asm_volatile_p(stmt) || !outputs);
+  Value *Asm = InlineAsm::get(FTy, NewAsmStr, ConstraintStr, HasSideEffects);
   CallInst *CV = Builder.CreateCall(Asm, CallOps.begin(), CallOps.end(),
                                     CallResultTypes.empty() ? "" : "asmtmp");
   CV->setDoesNotThrow();
