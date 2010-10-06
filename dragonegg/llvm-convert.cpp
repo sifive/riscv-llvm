@@ -6814,6 +6814,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       const Type *LLVMTy = ConvertType(type);
 
       Value *Op = 0;
+      const Type *OpTy = LLVMTy;
       if (LLVMTy->isSingleValueType()) {
         if (TREE_CODE(Val)==ADDR_EXPR &&
             TREE_CODE(TREE_OPERAND(Val,0))==LABEL_DECL) {
@@ -6850,10 +6851,10 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
           // Otherwise, emit our value as a lvalue.
           isIndirect = true;
           Op = LV.Ptr;
+          OpTy = Op->getType();
         }
       }
 
-      const Type *OpTy = Op->getType();
       // If this input operand is matching an output operand, e.g. '0', check if
       // this is something that llvm supports. If the operand types are
       // different, then emit an error if 1) one of the types is not integer or
@@ -6912,13 +6913,12 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
                                                  OTyBits-OpTyBits);
               Op = Builder.CreateLShr(Op, ShAmt);
             }
-            OpTy = Op->getType();
           }
         }
       }
 
       CallOps.push_back(Op);
-      CallArgTypes.push_back(OpTy);
+      CallArgTypes.push_back(Op->getType());
     } else {                          // Memory operand.
       mark_addressable(TREE_VALUE(Input));
       isIndirect = true;
