@@ -4514,6 +4514,17 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
         return false;
       }
     }
+#if defined(TARGET_ARM) && defined(CONFIG_DARWIN_H)
+    Value *Buf = Emit(TREE_VALUE(arglist), 0);
+    Buf = Builder.CreateBitCast(Buf, Type::getInt8Ty(Context)->getPointerTo());
+    Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
+                                                 Intrinsic::eh_sjlj_longjmp),
+                      Buf);
+    Result = 0;
+    return true;
+#else
+    return false;
+#endif
   }
   case BUILT_IN_APPLY_ARGS:
   case BUILT_IN_APPLY:
