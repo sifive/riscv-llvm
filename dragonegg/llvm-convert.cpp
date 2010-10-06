@@ -3125,9 +3125,9 @@ static std::string CanonicalizeConstraint(const char *Constraint) {
 
     // Translate 'p' to 'm'.  This is supposed to check for a valid memory
     // address, but for inline assembly there is no way to know the mode of
-    // the data being addressed.
+    // the data being addressed.  Peculiarly, it also accepts a constant.
     if (ConstraintChar == 'p')
-      ConstraintChar = 'm';
+      Result += "im";
 
     // See if this is a regclass constraint.
     unsigned RegClass;
