@@ -1773,8 +1773,6 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
     // Compute the variable's size in bytes.
     Size = EmitRegister(DECL_SIZE_UNIT(decl));
     Ty = Type::getInt8Ty(Context);
-    Size = Builder.CreateIntCast(Size, Type::getInt32Ty(Context),
-                                 /*isSigned*/false);
   }
 
   unsigned Alignment = 0; // Alignment in bytes.
@@ -5052,7 +5050,6 @@ bool TreeToLLVM::EmitBuiltinAlloca(gimple stmt, Value *&Result) {
   if (!validate_gimple_arglist(stmt, INTEGER_TYPE, VOID_TYPE))
     return false;
   Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
-  Amt = Builder.CreateIntCast(Amt, Type::getInt32Ty(Context), /*isSigned*/true);
   Result = Builder.CreateAlloca(Type::getInt8Ty(Context), Amt);
   return true;
 }
