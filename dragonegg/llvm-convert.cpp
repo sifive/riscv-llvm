@@ -987,7 +987,7 @@ Function *TreeToLLVM::FinishFunctionBody() {
 
 #ifndef NDEBUG
   if (!errorcount && !sorrycount)
-    for (DenseMap<tree, TrackingVH<Value> >::const_iterator I = SSANames.begin(),
+    for (DenseMap<tree,TrackingVH<Value> >::const_iterator I = SSANames.begin(),
          E = SSANames.end(); I != E; ++I)
       if (isSSAPlaceholder(I->second)) {
         debug_tree(I->first);
@@ -1034,7 +1034,7 @@ BasicBlock *TreeToLLVM::getBasicBlock(basic_block bb) {
         BB->setName("<D." + UID + ">");
       }
     } else {
-      // When there is no label, use the same naming scheme as the GCC tree dumps.
+      // When there is no label, use the same name scheme as the GCC tree dumps.
       Twine Index(bb->index);
       BB->setName("<bb " + Index + ">");
     }
@@ -2956,7 +2956,8 @@ Value *TreeToLLVM::EmitReadOfRegisterVariable(tree decl) {
     return UndefValue::get(RegTy);
 
   // Turn this into a 'tmp = call Ty asm "", "={reg}"()'.
-  FunctionType *FTy = FunctionType::get(MemTy, std::vector<const Type*>(),false);
+  FunctionType *FTy = FunctionType::get(MemTy, std::vector<const Type*>(),
+                                        false);
 
   const char *Name = extractRegisterName(decl);
   Name = LLVM_GET_REG_NAME(Name, decode_reg_name(Name));
@@ -4771,9 +4772,10 @@ bool TreeToLLVM::EmitBuiltinDwarfCFA(gimple stmt, Value *&Result) {
   int cfa_offset = ARG_POINTER_CFA_OFFSET(exp);
 
   // FIXME: is i32 always enough here?
-  Result = Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
-                                                        Intrinsic::eh_dwarf_cfa),
-                              ConstantInt::get(Type::getInt32Ty(Context), cfa_offset));
+  Result =
+    Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
+                                                 Intrinsic::eh_dwarf_cfa),
+                       ConstantInt::get(Type::getInt32Ty(Context), cfa_offset));
 
   return true;
 }
@@ -6833,8 +6835,9 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
         if (TySize == 1 || TySize == 8 || TySize == 16 ||
             TySize == 32 || TySize == 64 || (TySize == 128 && !AllowsMem)) {
           LLVMTy = IntegerType::get(Context, TySize);
-          Op = Builder.CreateLoad(Builder.CreateBitCast(LV.Ptr,
-                                                        LLVMTy->getPointerTo()));
+          Op =
+            Builder.CreateLoad(Builder.CreateBitCast(LV.Ptr,
+                                                     LLVMTy->getPointerTo()));
         } else {
           // Codegen only supports indirect operands with mem constraints.
           if (!AllowsMem)
@@ -6882,17 +6885,17 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
           unsigned OTyBits = TD.getTypeSizeInBits(OTy);
           unsigned OpTyBits = TD.getTypeSizeInBits(OpTy);
           if (OTyBits == 0 || OpTyBits == 0 || OTyBits < OpTyBits) {
-            // It's tempting to implement the OTyBits < OpTyBits case by truncating
-            // Op down to OTy, however that breaks in the case of an inline asm
-            // constraint that corresponds to a single register, because the
-            // user can write code that assumes the whole register is defined,
-            // despite the output operand being only a subset of the register. For
-            // example:
+            // It's tempting to implement the OTyBits < OpTyBits case by 
+            // truncating Op down to OTy, however that breaks in the case of an 
+            // inline asm constraint that corresponds to a single register, 
+            // because the user can write code that assumes the whole register 
+            // is defined, despite the output operand being only a subset of the
+            // register. For example:
             //
             //   asm ("sarl $10, %%eax" : "=a"(c) : "0"(1000000));
             //
-            // The expected behavior is for %eax to be fully defined with the value
-            // 1000000 immediately before the asm.
+            // The expected behavior is for %eax to be fully defined with the 
+            // value 1000000 immediately before the asm.
             error_at(gimple_location(stmt),
                      "unsupported inline asm: input constraint with a matching "
                      "output constraint of incompatible type!");
@@ -7195,7 +7198,8 @@ void TreeToLLVM::RenderGIMPLE_RESX(gimple stmt) {
   // region then the reraised exception may be caught by the current function,
   // in which case it can be simplified into a branch.
   int DstLPadNo = lookup_stmt_eh_lp(stmt);
-  eh_region dst_rgn = DstLPadNo ? get_eh_region_from_lp_number(DstLPadNo) : NULL;
+  eh_region dst_rgn =
+    DstLPadNo ? get_eh_region_from_lp_number(DstLPadNo) : NULL;
   eh_region src_rgn = get_eh_region_from_number(gimple_resx_region(stmt));
 
   if (!src_rgn) {
@@ -7613,7 +7617,8 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
       ThisLastBitPlusOne = LV.BitStart+LV.BitSize;
 
     Value *Ptr = Index ?
-      Builder.CreateGEP(LV.Ptr, ConstantInt::get(Type::getInt32Ty(Context), Index)) :
+      Builder.CreateGEP(LV.Ptr,
+                        ConstantInt::get(Type::getInt32Ty(Context), Index)) :
       LV.Ptr;
     LoadInst *LI = Builder.CreateLoad(Ptr, LV.Volatile);
     LI->setAlignment(Alignment);
@@ -7749,8 +7754,8 @@ Constant *TreeConstantToLLVM::ConvertREAL_CST(tree exp) {
     if (llvm::sys::isBigEndianHost() != FLOAT_WORDS_BIG_ENDIAN)
       std::swap(UArr[0], UArr[1]);
 
-    return
-      ConstantFP::get(Context, Ty->isFloatTy() ? APFloat((float)V) : APFloat(V));
+    return ConstantFP::get(Context, Ty->isFloatTy() ?
+                           APFloat((float)V) : APFloat(V));
   } else if (Ty->isX86_FP80Ty()) {
     long RealArr[4];
     uint64_t UArr[2];
