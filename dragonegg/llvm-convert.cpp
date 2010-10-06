@@ -5553,7 +5553,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   // adjust FieldPtr so that it is close enough to the bitfield that
   // *FieldPtr contains the first needed bit.  Be careful to make sure that
   // the pointer remains appropriately aligned.
-  if (BitStart > LLVMValueBitSize) {
+  if (BitStart >= LLVMValueBitSize) {
     // In this case, we know that the alignment of the field is less than
     // the size of the field.  To get the pointer close enough, add some
     // number of alignment units to the pointer.
