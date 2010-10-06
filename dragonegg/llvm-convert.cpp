@@ -5992,20 +5992,37 @@ Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
   // Turn FP abs into fabs/fabsf.
   const char *Name = 0;
 
+  tree ArgType;
   switch (Op->getType()->getTypeID()) {
   default: assert(0 && "Unknown FP type!");
-  case Type::FloatTyID:  Name = "fabsf"; break;
-  case Type::DoubleTyID: Name = "fabs"; break;
+  case Type::FloatTyID:
+    Name = "fabsf";
+    ArgType = float_type_node;
+    break;
+  case Type::DoubleTyID:
+    Name = "fabs";
+    ArgType = double_type_node;
+    break;
   case Type::X86_FP80TyID:
   case Type::PPC_FP128TyID:
-  case Type::FP128TyID: Name = "fabsl"; break;
+  case Type::FP128TyID:
+    Name = "fabsl";
+    ArgType = long_double_type_node;
+    break;
   }
 
   Value *V = TheModule->getOrInsertFunction(Name, Op->getType(), Op->getType(),
                                             NULL);
+  // Determine the calling convention.
+  CallingConv::ID CallingConvention = CallingConv::C;
+#ifdef TARGET_ADJUST_LLVM_CC
+  tree FunctionType = build_function_type_list(ArgType, ArgType, NULL);
+  TARGET_ADJUST_LLVM_CC(CallingConvention, FunctionType);
+#endif
   CallInst *Call = Builder.CreateCall(V, Op);
   Call->setDoesNotThrow();
   Call->setDoesNotAccessMemory();
+  Call->setCallingConv(CallingConvention);
   return Call;
 }
 
