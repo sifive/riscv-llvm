@@ -2938,6 +2938,15 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
 #define LLVM_GET_REG_NAME(REG_NAME, REG_NUM) reg_names[REG_NUM]
 #endif
 
+// LLVM_CANONICAL_ADDRESS_CONSTRAINTS - GCC defines the "p" constraint to
+// allow a valid memory address, but targets differ widely on what is allowed
+// as an address.  This macro is a string containing the canonical constraint
+// characters that are conservatively valid addresses.  Default to allowing an
+// address in a register, since that works for many targets.
+#ifndef LLVM_CANONICAL_ADDRESS_CONSTRAINTS
+#define LLVM_CANONICAL_ADDRESS_CONSTRAINTS "r"
+#endif
+
 /// Reads from register variables are handled by emitting an inline asm node
 /// that copies the value out of the specified register.
 Value *TreeToLLVM::EmitReadOfRegisterVariable(tree decl) {
@@ -3123,11 +3132,14 @@ static std::string CanonicalizeConstraint(const char *Constraint) {
       continue;
     }
 
-    // Translate 'p' to 'm'.  This is supposed to check for a valid memory
-    // address, but for inline assembly there is no way to know the mode of
-    // the data being addressed.  Peculiarly, it also accepts a constant.
-    if (ConstraintChar == 'p')
-      Result += "im";
+    // Translate 'p' to a target-specific set of constraints that
+    // conservatively allow a valid memory address.  For inline assembly there
+    // is no way to know the mode of the data being addressed, so this is only
+    // a rough approximation of how GCC handles this constraint.
+    if (ConstraintChar == 'p') {
+      Result += LLVM_CANONICAL_ADDRESS_CONSTRAINTS;
+      continue;
+    }
 
     // See if this is a regclass constraint.
     unsigned RegClass;
