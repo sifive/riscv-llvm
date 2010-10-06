@@ -6019,6 +6019,9 @@ Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
   tree FunctionType = build_function_type_list(ArgType, ArgType, NULL);
   TARGET_ADJUST_LLVM_CC(CallingConvention, FunctionType);
 #endif
+
+  Function *F = cast<Function>(V);
+  F->setCallingConv(CallingConvention);
   CallInst *Call = Builder.CreateCall(V, Op);
   Call->setDoesNotThrow();
   Call->setDoesNotAccessMemory();
