@@ -388,6 +388,9 @@ enum x86_64_reg_class
     }                                                   \
     if (TARGET_OMIT_LEAF_FRAME_POINTER)                 \
       argvec.push_back("--disable-non-leaf-fp-elim");   \
+                                                        \
+    if (ix86_force_align_arg_pointer)                   \
+      argvec.push_back("-realign-stack");               \
   } while (0)
 
 #endif /* LLVM_TARGET_H */
