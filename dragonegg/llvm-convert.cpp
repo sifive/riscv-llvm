@@ -3766,6 +3766,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     EmitBuiltinUnaryOp(Amt, Result, Intrinsic::ctpop);
     Result = Builder.CreateBinOp(Instruction::And, Result,
                                  ConstantInt::get(Result->getType(), 1));
+    tree return_type = gimple_call_return_type(stmt);
+    const Type *DestTy = ConvertType(return_type);
+    Result = Builder.CreateIntCast(Result, DestTy,
+                                   /*isSigned*/!TYPE_UNSIGNED(return_type),
+                                   "cast");
     return true;
   }
   case BUILT_IN_POPCOUNT:  // These GCC builtins always return int.
