@@ -493,7 +493,7 @@ public:
   /// CreateTemporary - Create a new alloca instruction of the specified type,
   /// inserting it into the entry block and returning it.  The resulting
   /// instruction's type is a pointer to the specified type.
-  AllocaInst *CreateTemporary(const Type *Ty);
+  AllocaInst *CreateTemporary(const Type *Ty, unsigned align=0);
 
   /// CreateTempLoc - Like CreateTemporary, but returns a MemRef.
   MemRef CreateTempLoc(const Type *Ty);

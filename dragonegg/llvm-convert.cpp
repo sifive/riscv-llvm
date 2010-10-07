@@ -352,6 +352,11 @@ static void llvm_store_scalar_argument(Value *Loc, Value *ArgVal,
   llvm_store_scalar_argument((LOC),(ARG),(TYPE),(SIZE),(BUILDER))
 #endif
 
+// This is true for types whose alignment when passed on the stack is less
+// than the alignment of the type.
+#define LLVM_BYVAL_ALIGNMENT_TOO_SMALL(T) \
+   (LLVM_BYVAL_ALIGNMENT(T) && LLVM_BYVAL_ALIGNMENT(T) < TYPE_ALIGN_UNIT(T))
+
 namespace {
   /// FunctionPrologArgumentConversion - This helper class is driven by the ABI
   /// definition for this target to figure out how to retrieve arguments from
@@ -472,6 +477,33 @@ namespace {
 
     void HandleByValArgument(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED,
                              tree type ATTRIBUTE_UNUSED) {
+      if (LLVM_BYVAL_ALIGNMENT_TOO_SMALL(type)) {
+        // Incoming object on stack is insufficiently aligned for the type.
+        // Make a correctly aligned copy.
+        assert(!LocStack.empty());
+        Value *Loc = LocStack.back();
+        // We cannot use field-by-field copy here; x86 long double is 16
+        // bytes, but only 10 are copied.  If the object is really a union
+        // we might need the other bytes.  We must also be careful to use
+        // the smaller alignment.
+        const Type *SBP = Type::getInt8PtrTy(Context);
+        const Type *IntPtr = getTargetData().getIntPtrType(Context);
+        Value *Ops[5] = {
+          Builder.CreateCast(Instruction::BitCast, Loc, SBP),
+          Builder.CreateCast(Instruction::BitCast, AI, SBP),
+          ConstantInt::get(IntPtr,
+                           TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type))),
+          ConstantInt::get(Type::getInt32Ty(Context), 
+                           LLVM_BYVAL_ALIGNMENT(type)),
+          ConstantInt::get(Type::getInt1Ty(Context), false)
+        };
+        const Type *ArgTypes[3] = {SBP, SBP, IntPtr };
+        Builder.CreateCall(Intrinsic::getDeclaration(TheModule, 
+                                                     Intrinsic::memcpy,
+                                                     ArgTypes, 3), Ops, Ops+5);
+
+        AI->setName(NameStack.back());
+      }
       ++AI;
     }
 
@@ -715,12 +747,17 @@ void TreeToLLVM::StartFunctionBody() {
     bool isInvRef = isPassedByInvisibleReference(TREE_TYPE(Args));
     if (isInvRef ||
         (ArgTy->isVectorTy() &&
-         LLVM_SHOULD_PASS_VECTOR_USING_BYVAL_ATTR(TREE_TYPE(Args))) ||
+         LLVM_SHOULD_PASS_VECTOR_USING_BYVAL_ATTR(TREE_TYPE(Args)) &&
+         !LLVM_BYVAL_ALIGNMENT_TOO_SMALL(TREE_TYPE(Args))) ||
         (!ArgTy->isSingleValueType() &&
          isPassedByVal(TREE_TYPE(Args), ArgTy, ScalarArgs,
-                       Client.isShadowReturn(), CallingConv))) {
+                       Client.isShadowReturn(), CallingConv) &&
+         !LLVM_BYVAL_ALIGNMENT_TOO_SMALL(TREE_TYPE(Args)))) {
       // If the value is passed by 'invisible reference' or 'byval reference',
-      // the l-value for the argument IS the argument itself.
+      // the l-value for the argument IS the argument itself.  But for byval
+      // arguments whose alignment as an argument is less than the normal
+      // alignment of the type (examples are x86-32 aggregates containing long
+      // double and large x86-64 vectors), we need to make the copy.
       AI->setName(Name);
       SET_DECL_LOCAL(Args, AI);
       if (!isInvRef && EmitDebugInfo())
@@ -732,7 +769,7 @@ void TreeToLLVM::StartFunctionBody() {
       // Otherwise, we create an alloca to hold the argument value and provide
       // an l-value.  On entry to the function, we copy formal argument values
       // into the alloca.
-      Value *Tmp = CreateTemporary(ArgTy);
+      Value *Tmp = CreateTemporary(ArgTy, TYPE_ALIGN_UNIT(TREE_TYPE(Args)));
       Tmp->setName(std::string(Name)+"_addr");
       SET_DECL_LOCAL(Args, Tmp);
       if (EmitDebugInfo()) {
@@ -1391,7 +1428,7 @@ Value *TreeToLLVM::CreateAnySub(Value *LHS, Value *RHS, tree_node *type) {
 /// CreateTemporary - Create a new alloca instruction of the specified type,
 /// inserting it into the entry block and returning it.  The resulting
 /// instruction's type is a pointer to the specified type.
-AllocaInst *TreeToLLVM::CreateTemporary(const Type *Ty) {
+AllocaInst *TreeToLLVM::CreateTemporary(const Type *Ty, unsigned align) {
   if (AllocaInsertionPoint == 0) {
     // Create a dummy instruction in the entry block as a marker to insert new
     // alloc instructions before.  It doesn't matter what this instruction is,
@@ -1404,7 +1441,7 @@ AllocaInst *TreeToLLVM::CreateTemporary(const Type *Ty) {
     Fn->begin()->getInstList().insert(Fn->begin()->begin(),
                                       AllocaInsertionPoint);
   }
-  return new AllocaInst(Ty, 0, "memtmp", AllocaInsertionPoint);
+  return new AllocaInst(Ty, 0, align, "memtmp", AllocaInsertionPoint);
 }
 
 /// CreateTempLoc - Like CreateTemporary, but returns a MemRef.
