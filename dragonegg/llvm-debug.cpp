@@ -222,7 +222,6 @@ DebugInfo::DebugInfo(Module *m)
 , PrevFullPath("")
 , PrevLineNo(0)
 , PrevBB(NULL)
-, FwdTypeCount(0)
 , RegionStack()
 {}
 
