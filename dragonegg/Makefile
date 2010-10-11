@@ -17,7 +17,7 @@ ifndef VERBOSE
 	QUIET:=@
 endif
 
-COMMON_FLAGS=-Wall -Wextra -fvisibility=hidden
+COMMON_FLAGS=-Wall -fvisibility=hidden
 CFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cflags)
 CXXFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cxxflags)
 
