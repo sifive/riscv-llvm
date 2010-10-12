@@ -50,7 +50,7 @@
   <li>Limited debug info</li>
   <li>Requires patching gcc</li>
   <li>Only supports x86-32 and x86-64</li>
-  <li>Only supports linux and darwin (additional gcc patches are needed on
+  <li>Only supports linux and darwin (additional gcc patches may be needed on
       darwin, see the <tt>README</tt> file).
   </ul>
 
@@ -62,9 +62,24 @@
   <!--=====================================================================-->
 
   <ul>
-  <li><p><a href="#gettingrelease">DragonEgg-2.7</a>
-      is the first ever DragonEgg release, so please be gentle with it. It works
-      with <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7</a> and
+  <li><p><a href="#gettingrelease">DragonEgg-2.8</a> is the most recent
+      DragonEgg release.  It requires
+      <a href="http://llvm.org/releases/download.html#2.8">LLVM-2.8</a> and
+      <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
+      <p>The 2.8 release has the following notable changes:</p>
+      <ul>
+      <li>The plugin loads faster due to exporting fewer symbols.</li>
+      <li>Additional vector operations such as addps256 are now supported.</li>
+      <li>Ada global variables with no initial value are no longer zero initialized,
+      resulting in better optimization.</li>
+      <li>The '-fplugin-arg-dragonegg-enable-gcc-optzns' flag now runs all gcc
+      optimizers, rather than just a handful.</li>
+      <li>Fortran programs using common variables now link correctly.</li>
+      <li>GNU OMP constructs no longer crash the compiler.</li>
+      </ul>
+      </li>
+  <li><p>DragonEgg-2.7 was the first ever DragonEgg release. It works with
+      <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
       <p>Known problems with the DragonEgg-2.7 release:</p>
       <ul>
@@ -78,7 +93,7 @@
       <li>Programs using OpenMP directives crash the plugin.</li>
       </ul>
       <p>These problems have been fixed in the
-      <a href="#gettingdevel">development version</a> of DragonEgg.</p>
+      <a href="#gettingrelease">2.8 release</a> of DragonEgg.</p>
       </li>
   </ul>
 
@@ -166,26 +181,26 @@ declare i32 @puts(i8* nocapture) nounwind
   <!--=====================================================================-->
 
   <p>Get the
-  <a href="http://llvm.org/releases/download.html#2.7">DragonEgg-2.7 source code</a>:
-     <pre>	wget http://llvm.org/releases/2.7/dragonegg-2.7.tgz</pre>
+  <a href="http://llvm.org/releases/download.html#2.8">DragonEgg-2.8 source code</a>:
+     <pre>	wget http://llvm.org/releases/2.8/dragonegg-2.8.tar.gz</pre>
   <p>Unpack it:</p>
-     <pre>	tar xzf dragonegg-2.7.tgz</pre>
+     <pre>	tar xzf dragonegg-2.8.tar.gz</pre>
   <p>Download the
-  <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7 binaries</a>
+  <a href="http://llvm.org/releases/download.html#2.8">LLVM-2.8 binaries</a>
   (mysteriously referred to as clang binaries) for your platform and install
   them.</p>
   <p>Get the <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5 source code</a>:</p>
-     <pre>	wget http://mirrors.kernel.org/gnu/gcc/gcc-4.5.0/gcc-4.5.0.tar.gz</pre>
+     <pre>	wget http://mirrors.kernel.org/gnu/gcc/gcc-4.5.1/gcc-4.5.1.tar.gz</pre>
   <p>Unpack it:</p>
-     <pre>	tar xzf gcc-4.5.0.tar.gz</pre>
-  <p>Apply the patch in <tt>dragonegg-2.7/gcc-patches/</tt> to the gcc-4.5
+     <pre>	tar xzf gcc-4.5.1.tar.gz</pre>
+  <p>Apply the patch in <tt>dragonegg-2.8/gcc-patches/</tt> to the gcc-4.5
   source:</p>
-     <pre>	patch -d gcc-4.5.0 -p1 < dragonegg-2.7/gcc-patches/i386_static.diff</pre>
+     <pre>	patch -d gcc-4.5.1 -p1 < dragonegg-2.8/gcc-patches/i386_static.diff</pre>
   <p><a href="http://gcc.gnu.org/install/">Build and install gcc-4.5</a> in the
   usual way.</p>
   <p>Doing</p>
      <pre>	GCC=path_to_just_installed_gcc make</pre>
-  <p>in the <tt>dragonegg-2.7</tt> directory should then build <tt>dragonegg.so</tt>.
+  <p>in the <tt>dragonegg-2.8</tt> directory should then build <tt>dragonegg.so</tt>.
      See the <tt>README</tt> file for more details.</p>
   <p>To use <tt>dragonegg.so</tt>, compile something with your just-installed
      version of <tt>gcc</tt>, adding <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt>
