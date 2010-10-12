@@ -5516,10 +5516,14 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 
   // Okay, everything is good.  Return this as a bitfield if we can't
   // return it as a normal l-value. (e.g. "struct X { int X : 32 };" ).
-  if (BitfieldSize != LLVMValueBitSize || BitStart != 0)
-    return LValue(FieldPtr, LVAlign, BitStart, BitfieldSize);
-
-  return LValue(FieldPtr, LVAlign);
+  LValue LV(FieldPtr, LVAlign);
+  if (BitfieldSize != LLVMValueBitSize || BitStart != 0) {
+    // Writing these fields directly rather than using the appropriate LValue
+    // constructor works around a miscompilation by gcc-4.4 in Release mode.
+    LV.BitStart = BitStart;
+    LV.BitSize = BitfieldSize;
+  }
+  return LV;
 }
 
 LValue TreeToLLVM::EmitLV_DECL(tree exp) {
