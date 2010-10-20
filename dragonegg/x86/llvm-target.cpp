@@ -88,10 +88,11 @@ static bool LT(const HandlerEntry &E, const HandlerEntry &F) {
  */
 bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
                                       tree fndecl,
-                                      const MemRef *DestLoc ATTRIBUTE_UNUSED,
+                                      const MemRef *DestLoc,
                                       Value *&Result,
                                       const Type *ResultType,
                                       std::vector<Value*> &Ops) {
+  (void)DestLoc; // Otherwise unused - avoid compiler warning.
   // DECL_FUNCTION_CODE contains a value of the enumerated type ix86_builtins,
   // declared in i386.c.  If this type was visible to us then we could simply
   // use a switch statement on DECL_FUNCTION_CODE to jump to the right code for
@@ -1325,9 +1326,9 @@ const Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) 
 /// The original implementation of this routine is based on
 /// llvm_x86_64_should_pass_aggregate_in_mixed_regs code.
 void
-llvm_x86_64_get_multiple_return_reg_classes(tree TreeType,
-                                            const Type *Ty ATTRIBUTE_UNUSED,
+llvm_x86_64_get_multiple_return_reg_classes(tree TreeType, const Type *Ty,
                                             std::vector<const Type*> &Elts) {
+  (void)Ty; // Otherwise unused - avoid compiler warning.
   enum x86_64_reg_class Class[MAX_CLASSES];
   enum machine_mode Mode = type_natural_mode(TreeType, NULL);
   HOST_WIDE_INT Bytes =

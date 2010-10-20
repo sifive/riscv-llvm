@@ -54,70 +54,84 @@ struct DefaultABIClient {
 
   /// HandleScalarResult - This callback is invoked if the function returns a
   /// simple scalar result value, which is of type RetTy.
-  virtual void HandleScalarResult(const Type *RetTy ATTRIBUTE_UNUSED) {}
+  virtual void HandleScalarResult(const Type *RetTy) {
+    (void)RetTy; // Otherwise unused - avoid compiler warning.
+  }
 
   /// HandleAggregateResultAsScalar - This callback is invoked if the function
   /// returns an aggregate value by bit converting it to the specified scalar
   /// type and returning that.  The bit conversion should start at byte Offset
   /// within the struct, and ScalarTy is not necessarily big enough to cover
   /// the entire struct.
-  virtual void HandleAggregateResultAsScalar(
-    const Type *ScalarTy ATTRIBUTE_UNUSED,
-    unsigned Offset ATTRIBUTE_UNUSED = 0) {}
+  virtual void HandleAggregateResultAsScalar(const Type *ScalarTy,
+                                             unsigned Offset = 0) {
+    (void)ScalarTy; (void)Offset; // Otherwise unused - avoid compiler warning.
+  }
 
   /// HandleAggregateResultAsAggregate - This callback is invoked if the function
   /// returns an aggregate value using multiple return values.
-  virtual void HandleAggregateResultAsAggregate(
-    const Type *AggrTy ATTRIBUTE_UNUSED) {}
+  virtual void HandleAggregateResultAsAggregate(const Type *AggrTy) {
+    (void)AggrTy; // Otherwise unused - avoid compiler warning.
+  }
 
   /// HandleAggregateShadowResult - This callback is invoked if the function
   /// returns an aggregate value by using a "shadow" first parameter, which is
   /// a pointer to the aggregate, of type PtrArgTy.  If RetPtr is set to true,
   /// the pointer argument itself is returned from the function.
-  virtual void HandleAggregateShadowResult(
-    const PointerType *PtrArgTy ATTRIBUTE_UNUSED,
-    bool RetPtr ATTRIBUTE_UNUSED) {}
+  virtual void HandleAggregateShadowResult(const PointerType *PtrArgTy,
+                                           bool RetPtr) {
+    (void)PtrArgTy; (void)RetPtr; // Otherwise unused - avoid compiler warning.
+  }
 
   /// HandleScalarShadowResult - This callback is invoked if the function
   /// returns a scalar value by using a "shadow" first parameter, which is a
   /// pointer to the scalar, of type PtrArgTy.  If RetPtr is set to true,
   /// the pointer argument itself is returned from the function.
-  virtual void HandleScalarShadowResult(
-    const PointerType *PtrArgTy ATTRIBUTE_UNUSED,
-    bool RetPtr ATTRIBUTE_UNUSED) {}
+  virtual void HandleScalarShadowResult(const PointerType *PtrArgTy,
+                                        bool RetPtr) {
+    (void)PtrArgTy; (void)RetPtr; // Otherwise unused - avoid compiler warning.
+  }
 
 
   /// HandleScalarArgument - This is the primary callback that specifies an
   /// LLVM argument to pass.  It is only used for first class types.
   /// If RealSize is non Zero then it specifies number of bytes to access
   /// from LLVMTy.
-  virtual void HandleScalarArgument(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED,
-                                    tree_node *type ATTRIBUTE_UNUSED,
-                                    unsigned RealSize ATTRIBUTE_UNUSED = 0) {}
+  virtual void HandleScalarArgument(const llvm::Type *LLVMTy, tree_node *type,
+                                    unsigned RealSize = 0) {
+    (void)LLVMTy; (void)type;
+    (void)RealSize; // Otherwise unused - avoid compiler warning.
+  }
 
   /// HandleByInvisibleReferenceArgument - This callback is invoked if a pointer
   /// (of type PtrTy) to the argument is passed rather than the argument itself.
-  virtual void HandleByInvisibleReferenceArgument(
-    const llvm::Type *PtrTy ATTRIBUTE_UNUSED,
-    tree_node *type ATTRIBUTE_UNUSED) {}
+  virtual void HandleByInvisibleReferenceArgument(const llvm::Type *PtrTy,
+                                                  tree_node *type) {
+    (void)PtrTy; (void)type; // Otherwise unused - avoid compiler warning.
+  }
 
   /// HandleByValArgument - This callback is invoked if the aggregate function
   /// argument is passed by value.
-  virtual void HandleByValArgument(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED,
-                                   tree_node *type ATTRIBUTE_UNUSED) {}
+  virtual void HandleByValArgument(const llvm::Type *LLVMTy, tree_node *type) {
+    (void)LLVMTy; (void)type; // Otherwise unused - avoid compiler warning.
+  }
 
   /// HandleFCAArgument - This callback is invoked if the aggregate function
   /// argument is passed by value as a first class aggregate.
-  virtual void HandleFCAArgument(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED,
-                                 tree_node *type ATTRIBUTE_UNUSED) {}
+  virtual void HandleFCAArgument(const llvm::Type *LLVMTy, tree_node *type) {
+    (void)LLVMTy; (void)type; // Otherwise unused - avoid compiler warning.
+  }
 
   /// EnterField - Called when we're about the enter the field of a struct
   /// or union.  FieldNo is the number of the element we are entering in the
   /// LLVM Struct, StructTy is the LLVM type of the struct we are entering.
-  virtual void EnterField(unsigned FieldNo ATTRIBUTE_UNUSED,
-                          const llvm::Type *StructTy ATTRIBUTE_UNUSED) {}
+  virtual void EnterField(unsigned FieldNo, const llvm::Type *StructTy) {
+    (void)FieldNo; (void)StructTy; // Otherwise unused - avoid compiler warning.
+  }
   virtual void ExitField() {}
-  virtual void HandlePad(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED) {}
+  virtual void HandlePad(const llvm::Type *LLVMTy) {
+    (void)LLVMTy; // Otherwise unused - avoid compiler warning.
+  }
 };
 
 // LLVM_SHOULD_NOT_RETURN_COMPLEX_IN_MEMORY - A hook to allow
@@ -183,8 +197,8 @@ const Type* getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) 
 // getLLVMAggregateTypeForStructReturn - Return LLVM type if TY can be
 // returns as multiple values, otherwise return NULL. This is the default
 // target independent implementation.
-static inline const Type* getLLVMAggregateTypeForStructReturn(
-  tree_node *type ATTRIBUTE_UNUSED) {
+static inline const Type* getLLVMAggregateTypeForStructReturn(tree_node *type) {
+  (void)type; // Otherwise unused - avoid compiler warning.
   return NULL;
 }
 
@@ -310,9 +324,11 @@ static inline const Type* getLLVMAggregateTypeForStructReturn(
   llvm_default_extract_multiple_return_value((Src),(Dest),(V),(B))
 #endif
 static inline
-void llvm_default_extract_multiple_return_value(
-  Value *Src ATTRIBUTE_UNUSED, Value *Dest ATTRIBUTE_UNUSED,
-  bool isVolatile ATTRIBUTE_UNUSED, LLVMBuilder &Builder ATTRIBUTE_UNUSED) {
+void llvm_default_extract_multiple_return_value(Value *Src, Value *Dest,
+                                                bool isVolatile,
+                                                LLVMBuilder &Builder) {
+  (void)Src; (void)Dest;
+  (void)isVolatile; (void)Builder; // Otherwise unused - avoid compiler warning.
   assert (0 && "LLVM_EXTRACT_MULTIPLE_RETURN_VALUE is not implemented!");
 }
 

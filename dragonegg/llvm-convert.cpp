@@ -130,6 +130,7 @@ bool isInt64(tree t, bool Unsigned) {
 /// overflowed constants.  These conditions can be checked by calling isInt64.
 uint64_t getInt64(tree t, bool Unsigned) {
   assert(isInt64(t, Unsigned) && "invalid constant!");
+  (void)Unsigned; // Otherwise unused if asserts off - avoid compiler warning.
   return getINTEGER_CSTVal(t);
 }
 
@@ -380,7 +381,8 @@ namespace {
     /// getCallingConv - This provides the desired CallingConv for the function.
     CallingConv::ID& getCallingConv(void) { return CallingConv; }
 
-    void HandlePad(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED) {
+    void HandlePad(const llvm::Type *LLVMTy) {
+      (void)LLVMTy; // Otherwise unused - avoid compiler warning.
       ++AI;
     }
 
@@ -399,9 +401,8 @@ namespace {
       LocStack.clear();
     }
 
-    void HandleAggregateShadowResult(
-      const PointerType *PtrArgTy ATTRIBUTE_UNUSED,
-      bool RetPtr ATTRIBUTE_UNUSED) {
+    void HandleAggregateShadowResult(const PointerType *PtrArgTy, bool RetPtr) {
+      (void)PtrArgTy; (void)RetPtr; // Otherwise unused - avoid compiler warning
       // If the function returns a structure by value, we transform the function
       // to take a pointer to the result as the first argument of the function
       // instead.
@@ -435,8 +436,8 @@ namespace {
       ++AI;
     }
 
-    void HandleScalarShadowResult(const PointerType *PtrArgTy ATTRIBUTE_UNUSED,
-                                  bool RetPtr ATTRIBUTE_UNUSED) {
+    void HandleScalarShadowResult(const PointerType *PtrArgTy, bool RetPtr) {
+      (void)PtrArgTy; (void)RetPtr; // Otherwise unused - avoid compiler warning
       assert(AI != Builder.GetInsertBlock()->getParent()->arg_end() &&
              "No explicit return value?");
       AI->setName("scalar.result");
@@ -445,9 +446,9 @@ namespace {
       ++AI;
     }
 
-    void HandleScalarArgument(const llvm::Type *LLVMTy,
-                              tree type ATTRIBUTE_UNUSED,
+    void HandleScalarArgument(const llvm::Type *LLVMTy, tree type,
                               unsigned RealSize = 0) {
+      (void)type; // Otherwise unused - avoid compiler warning.
       Value *ArgVal = AI;
       if (ArgVal->getType() != LLVMTy) {
         if (ArgVal->getType()->isPointerTy() && LLVMTy->isPointerTy()) {
@@ -475,8 +476,8 @@ namespace {
       ++AI;
     }
 
-    void HandleByValArgument(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED,
-                             tree type ATTRIBUTE_UNUSED) {
+    void HandleByValArgument(const llvm::Type *LLVMTy, tree type) {
+      (void)LLVMTy; (void)type; // Otherwise unused - avoid compiler warning.
       if (LLVM_BYVAL_ALIGNMENT_TOO_SMALL(type)) {
         // Incoming object on stack is insufficiently aligned for the type.
         // Make a correctly aligned copy.
@@ -507,8 +508,8 @@ namespace {
       ++AI;
     }
 
-    void HandleFCAArgument(const llvm::Type *LLVMTy ATTRIBUTE_UNUSED,
-                           tree type ATTRIBUTE_UNUSED) {
+    void HandleFCAArgument(const llvm::Type *LLVMTy, tree type) {
+      (void)LLVMTy; (void)type; // Otherwise unused - avoid compiler warning.
       // Store the FCA argument into alloca.
       assert(!LocStack.empty());
       Value *Loc = LocStack.back();
@@ -517,8 +518,9 @@ namespace {
       ++AI;
     }
 
-    void HandleAggregateResultAsScalar(const Type *ScalarTy ATTRIBUTE_UNUSED,
-                                       unsigned Offset=0) {
+    void HandleAggregateResultAsScalar(const Type *ScalarTy,
+                                       unsigned Offset = 0) {
+      (void)ScalarTy; // Otherwise unused - avoid compiler warning.
       this->Offset = Offset;
     }
 
@@ -543,8 +545,8 @@ namespace {
 // passed in memory byval.
 static bool isPassedByVal(tree type, const Type *Ty,
                           std::vector<const Type*> &ScalarArgs,
-                          bool isShadowRet,
-                          CallingConv::ID &CC ATTRIBUTE_UNUSED) {
+                          bool isShadowRet, CallingConv::ID &CC) {
+  (void)CC; // Otherwise unused - avoid compiler warning.
   if (LLVM_SHOULD_PASS_AGGREGATE_USING_BYVAL_ATTR(type, Ty))
     return true;
 
@@ -2600,7 +2602,8 @@ namespace {
 
     /// HandleScalarResult - This callback is invoked if the function returns a
     /// simple scalar result value.
-    void HandleScalarResult(const Type *RetTy ATTRIBUTE_UNUSED) {
+    void HandleScalarResult(const Type *RetTy) {
+      (void)RetTy; // Otherwise unused - avoid compiler warning.
       // There is nothing to do here if we return a scalar or void.
       assert(DestLoc == 0 &&
              "Call returns a scalar but caller expects aggregate!");
@@ -2609,14 +2612,16 @@ namespace {
     /// HandleAggregateResultAsScalar - This callback is invoked if the function
     /// returns an aggregate value by bit converting it to the specified scalar
     /// type and returning that.
-    void HandleAggregateResultAsScalar(const Type *ScalarTy ATTRIBUTE_UNUSED,
+    void HandleAggregateResultAsScalar(const Type *ScalarTy,
                                        unsigned Offset = 0) {
+      (void)ScalarTy; // Otherwise unused - avoid compiler warning.
       this->Offset = Offset;
     }
 
     /// HandleAggregateResultAsAggregate - This callback is invoked if the
     /// function returns an aggregate value using multiple return values.
-    void HandleAggregateResultAsAggregate(const Type *AggrTy ATTRIBUTE_UNUSED) {
+    void HandleAggregateResultAsAggregate(const Type *AggrTy) {
+      (void)AggrTy; // Otherwise unused - avoid compiler warning.
       // There is nothing to do here.
       isAggrRet = true;
     }
@@ -2625,8 +2630,8 @@ namespace {
     /// returns an aggregate value by using a "shadow" first parameter.  If
     /// RetPtr is set to true, the pointer argument itself is returned from the
     /// function.
-    void HandleAggregateShadowResult(const PointerType *PtrArgTy,
-                                     bool RetPtr ATTRIBUTE_UNUSED) {
+    void HandleAggregateShadowResult(const PointerType *PtrArgTy, bool RetPtr) {
+      (void)RetPtr; // Otherwise unused - avoid compiler warning.
       // We need to pass memory to write the return value into.
       // FIXME: alignment and volatility are being ignored!
       assert(!DestLoc || PtrArgTy == DestLoc->Ptr->getType());
@@ -2659,8 +2664,8 @@ namespace {
     /// returns a scalar value by using a "shadow" first parameter, which is a
     /// pointer to the scalar, of type PtrArgTy.  If RetPtr is set to true,
     /// the pointer argument itself is returned from the function.
-    void HandleScalarShadowResult(const PointerType *PtrArgTy,
-                                  bool RetPtr ATTRIBUTE_UNUSED) {
+    void HandleScalarShadowResult(const PointerType *PtrArgTy, bool RetPtr) {
+      (void)RetPtr; // Otherwise unused - avoid compiler warning.
       assert(DestLoc == 0 &&
              "Call returns a scalar but caller expects aggregate!");
       // Create a buffer to hold the result.  The result will be loaded out of
@@ -2700,7 +2705,8 @@ namespace {
     /// pointer (of type PtrTy) to the argument is passed rather than the
     /// argument itself.
     void HandleByInvisibleReferenceArgument(const llvm::Type *PtrTy,
-                                            tree type ATTRIBUTE_UNUSED) {
+                                            tree type) {
+      (void)type; // Otherwise unused - avoid compiler warning.
       Value *Loc = getAddress();
       Loc = Builder.CreateBitCast(Loc, PtrTy);
       CallOperands.push_back(Loc);
@@ -2709,19 +2715,21 @@ namespace {
     /// HandleByValArgument - This callback is invoked if the aggregate function
     /// argument is passed by value. It is lowered to a parameter passed by
     /// reference with an additional parameter attribute "ByVal".
-    void HandleByValArgument(const llvm::Type *LLVMTy,
-                             tree type ATTRIBUTE_UNUSED) {
+    void HandleByValArgument(const llvm::Type *LLVMTy, tree type) {
+      (void)type; // Otherwise unused - avoid compiler warning.
       Value *Loc = getAddress();
       assert(LLVMTy->getPointerTo() == Loc->getType());
+      (void)LLVMTy; // Otherwise unused if asserts off - avoid compiler warning.
       CallOperands.push_back(Loc);
     }
 
     /// HandleFCAArgument - This callback is invoked if the aggregate function
     /// argument is passed as a first class aggregate.
-    void HandleFCAArgument(const llvm::Type *LLVMTy,
-                           tree type ATTRIBUTE_UNUSED) {
+    void HandleFCAArgument(const llvm::Type *LLVMTy, tree type) {
+      (void)type; // Otherwise unused - avoid compiler warning.
       Value *Loc = getAddress();
       assert(LLVMTy->getPointerTo() == Loc->getType());
+      (void)LLVMTy; // Otherwise unused if asserts off - avoid compiler warning.
       CallOperands.push_back(Builder.CreateLoad(Loc));
     }
 
@@ -4638,8 +4646,8 @@ bool TreeToLLVM::EmitBuiltinMemSet(gimple stmt, Value *&Result, bool SizeCheck){
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinBZero(gimple stmt,
-                                  Value *&Result ATTRIBUTE_UNUSED) {
+bool TreeToLLVM::EmitBuiltinBZero(gimple stmt, Value *&Result) {
+  (void)Result; // Otherwise unused - avoid compiler warning.
   if (!validate_gimple_arglist(stmt, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return false;
 
@@ -4863,8 +4871,8 @@ bool TreeToLLVM::EmitBuiltinEHReturnDataRegno(gimple stmt, Value *&Result) {
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt,
-                                     Value *&Result ATTRIBUTE_UNUSED) {
+bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&Result) {
+  (void)Result; // Otherwise unused - avoid compiler warning.
   if (!validate_gimple_arglist(stmt, INTEGER_TYPE, POINTER_TYPE, VOID_TYPE))
     return false;
 
@@ -4886,8 +4894,8 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt,
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinInitDwarfRegSizes(gimple stmt,
-                                              Value *&Result ATTRIBUTE_UNUSED) {
+bool TreeToLLVM::EmitBuiltinInitDwarfRegSizes(gimple stmt, Value *&Result) {
+  (void)Result; // Otherwise unused - avoid compiler warning.
 #ifdef DWARF2_UNWIND_INFO
   unsigned int i;
   bool wrote_return_column = false;
@@ -4953,8 +4961,8 @@ bool TreeToLLVM::EmitBuiltinInitDwarfRegSizes(gimple stmt,
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinUnwindInit(gimple stmt,
-                                       Value *&Result ATTRIBUTE_UNUSED) {
+bool TreeToLLVM::EmitBuiltinUnwindInit(gimple stmt, Value *&Result) {
+  (void)Result; // Otherwise unused - avoid compiler warning.
   if (!validate_gimple_arglist(stmt, VOID_TYPE))
     return false;
 
@@ -5075,8 +5083,8 @@ bool TreeToLLVM::EmitBuiltinAdjustTrampoline(gimple stmt, Value *&Result) {
   return true;
 }
 
-bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt,
-                                           Value *&Result ATTRIBUTE_UNUSED) {
+bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt, Value *&Result) {
+  (void)Result; // Otherwise unused - avoid compiler warning.
   if (!validate_gimple_arglist(stmt, POINTER_TYPE, POINTER_TYPE, POINTER_TYPE,
                          VOID_TYPE))
     return false;

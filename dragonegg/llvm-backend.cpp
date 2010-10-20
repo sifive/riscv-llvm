@@ -296,7 +296,7 @@ static unsigned GuessAtInliningThreshold() {
 // SizeOfGlobalMatchesDecl - Whether the size of the given global value is the
 // same as that of the given GCC declaration.  Conservatively returns 'true' if
 // the answer is unclear.
-static ATTRIBUTE_UNUSED
+static ATTRIBUTE_UNUSED // Only called from asserts.
 bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
   // If the GCC declaration has no size then nothing useful can be said here.
   if (!DECL_SIZE(decl))
@@ -1556,8 +1556,9 @@ int plugin_is_GPL_compatible __attribute__ ((visibility("default")));
 /// before processing the compilation unit.
 /// NOTE: called even when only doing syntax checking, so do not initialize the
 /// module etc here.
-static void llvm_start_unit(void *gcc_data ATTRIBUTE_UNUSED,
-                            void *user_data ATTRIBUTE_UNUSED) {
+static void llvm_start_unit(void *gcc_data, void *user_data) {
+  (void)gcc_data; (void)user_data; // Otherwise unused - avoid compiler warning.
+
   if (!quiet_flag)
     errs() << "Starting compilation unit\n";
 
@@ -1871,7 +1872,9 @@ static void emit_alias(tree decl, tree target) {
 
 /// emit_same_body_alias - Turn a same-body alias into LLVM IR.
 static void emit_same_body_alias(struct cgraph_node *alias,
-                                 struct cgraph_node *target ATTRIBUTE_UNUSED) {
+                                 struct cgraph_node *target) {
+  (void)target; // Otherwise unused - avoid compiler warning.
+
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
@@ -1965,11 +1968,13 @@ static struct ipa_opt_pass_d pass_emit_functions = {
 };
 
 /// emit_variables - Output GCC global variables to the LLVM IR.
-static void emit_variables(cgraph_node_set set ATTRIBUTE_UNUSED
+static void emit_variables(cgraph_node_set set
 #if (GCC_MINOR > 5)
                            , varpool_node_set vset ATTRIBUTE_UNUSED
 #endif
                            ) {
+  (void)set; // Otherwise unused - avoid compiler warning.
+
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
@@ -2099,15 +2104,16 @@ static struct rtl_opt_pass pass_rtl_emit_function =
 
 
 /// llvm_finish - Run shutdown code when GCC exits.
-static void llvm_finish(void *gcc_data ATTRIBUTE_UNUSED,
-                        void *user_data ATTRIBUTE_UNUSED) {
+static void llvm_finish(void *gcc_data, void *user_data) {
+  (void)gcc_data; (void)user_data; // Otherwise unused - avoid compiler warning.
   FinalizePlugin();
 }
 
 /// llvm_finish_unit - Finish the .s file.  This is called by GCC once the
 /// compilation unit has been completely processed.
-static void llvm_finish_unit(void *gcc_data ATTRIBUTE_UNUSED,
-                             void *user_data ATTRIBUTE_UNUSED) {
+static void llvm_finish_unit(void *gcc_data, void *user_data) {
+  (void)gcc_data; (void)user_data; // Otherwise unused - avoid compiler warning.
+
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
