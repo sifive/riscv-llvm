@@ -1895,7 +1895,7 @@ static void emit_file_scope_asm(tree string) {
 /// emit_functions - Turn all functions in the compilation unit into LLVM IR.
 static void emit_functions(cgraph_node_set set
 #if (GCC_MINOR > 5)
-                           , varpool_node_set vset ATTRIBUTE_UNUSED
+                           , varpool_node_set vset LLVM_ATTRIBUTE_UNUSED
 #endif
                            ) {
   if (errorcount || sorrycount)
@@ -1970,7 +1970,7 @@ static struct ipa_opt_pass_d pass_emit_functions = {
 /// emit_variables - Output GCC global variables to the LLVM IR.
 static void emit_variables(cgraph_node_set set
 #if (GCC_MINOR > 5)
-                           , varpool_node_set vset ATTRIBUTE_UNUSED
+                           , varpool_node_set vset LLVM_ATTRIBUTE_UNUSED
 #endif
                            ) {
   (void)set; // Otherwise unused - avoid compiler warning.
