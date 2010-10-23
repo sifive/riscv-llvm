@@ -296,7 +296,7 @@ static unsigned GuessAtInliningThreshold() {
 // SizeOfGlobalMatchesDecl - Whether the size of the given global value is the
 // same as that of the given GCC declaration.  Conservatively returns 'true' if
 // the answer is unclear.
-static ATTRIBUTE_UNUSED // Only called from asserts.
+static LLVM_ATTRIBUTE_UNUSED // Only called from asserts.
 bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
   // If the GCC declaration has no size then nothing useful can be said here.
   if (!DECL_SIZE(decl))
