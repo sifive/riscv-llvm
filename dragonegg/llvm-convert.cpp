@@ -952,15 +952,16 @@ Function *TreeToLLVM::FinishFunctionBody() {
 
   // If the function returns a value, get it into a register and return it now.
   if (!Fn->getReturnType()->isVoidTy()) {
-    if (!AGGREGATE_TYPE_P(TREE_TYPE(DECL_RESULT(FnDecl)))) {
+    tree TreeRetVal = DECL_RESULT(FnDecl);
+    if (!AGGREGATE_TYPE_P(TREE_TYPE(TreeRetVal)) &&
+        TREE_CODE(TREE_TYPE(TreeRetVal)) != COMPLEX_TYPE) {
       // If the DECL_RESULT is a scalar type, just load out the return value
       // and return it.
-      tree TreeRetVal = DECL_RESULT(FnDecl);
       Value *RetVal = Builder.CreateLoad(DECL_LOCAL(TreeRetVal), "retval");
       RetVal = Builder.CreateBitCast(RetVal, Fn->getReturnType());
       RetVals.push_back(RetVal);
     } else {
-      Value *RetVal = DECL_LOCAL(DECL_RESULT(FnDecl));
+      Value *RetVal = DECL_LOCAL(TreeRetVal);
       if (const StructType *STy = dyn_cast<StructType>(Fn->getReturnType())) {
         Value *R1 = Builder.CreateBitCast(RetVal, STy->getPointerTo());
 
@@ -2911,30 +2912,39 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     return 0;
 
   if (Client.isAggrReturn()) {
+    MemRef Target;
+    if (DestLoc)
+      Target = *DestLoc;
+    else
+      // Destination is a first class value (eg: a complex number).  Extract to
+      // a temporary then load the value out later.
+      Target = CreateTempLoc(ConvertType(gimple_call_return_type(stmt)));
+
     if (TD.getTypeAllocSize(Call->getType()) <=
-        TD.getTypeAllocSize(cast<PointerType>(DestLoc->Ptr->getType())
+        TD.getTypeAllocSize(cast<PointerType>(Target.Ptr->getType())
                                              ->getElementType())) {
-      Value *Dest = Builder.CreateBitCast(DestLoc->Ptr,
+      Value *Dest = Builder.CreateBitCast(Target.Ptr,
                                           Call->getType()->getPointerTo());
-      LLVM_EXTRACT_MULTIPLE_RETURN_VALUE(Call,Dest,DestLoc->Volatile,Builder);
+      LLVM_EXTRACT_MULTIPLE_RETURN_VALUE(Call, Dest, Target.Volatile,
+                                         Builder);
     } else {
       // The call will return an aggregate value in registers, but
-      // those registers are bigger than DestLoc.  Allocate a
+      // those registers are bigger than Target.  Allocate a
       // temporary to match the registers, store the registers there,
       // cast the temporary into the correct (smaller) type, and using
-      // the correct type, copy the value into DestLoc.  Assume the
+      // the correct type, copy the value into Target.  Assume the
       // optimizer will delete the temporary and clean this up.
       AllocaInst *biggerTmp = CreateTemporary(Call->getType());
       LLVM_EXTRACT_MULTIPLE_RETURN_VALUE(Call,biggerTmp,/*Volatile=*/false,
                                        Builder);
-      EmitAggregateCopy(*DestLoc,
+      EmitAggregateCopy(Target,
                         MemRef(Builder.CreateBitCast(biggerTmp,Call->getType()->
                                                      getPointerTo()),
-                               DestLoc->getAlignment(),
-                               DestLoc->Volatile),
+                               Target.getAlignment(), Target.Volatile),
                         gimple_call_return_type(stmt));
     }
-    return 0;
+
+    return DestLoc ? 0 : Builder.CreateLoad(Target.Ptr);
   }
 
   // If the caller expects an aggregate, we have a situation where the ABI for
@@ -2943,8 +2953,23 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   // to the destination aggregate type.  We do this by casting the DestLoc
   // pointer and storing into it.  The store does not necessarily start at the
   // beginning of the aggregate (x86-64).
-  if (!DestLoc)
-    return Call;   // Normal scalar return.
+  if (!DestLoc) {
+    const Type *RetTy = ConvertType(gimple_call_return_type(stmt));
+    if (Call->getType() == RetTy)
+      return Call;   // Normal scalar return.
+
+    // May be something as simple as a float being returned as an integer, or
+    // something trickier like a complex int type { i32, i32 } being returned
+    // as an i64.
+    if (Call->getType()->canLosslesslyBitCastTo(RetTy))
+      return Builder.CreateBitCast(Call, RetTy); // Simple case.
+    // Probably a scalar to complex conversion.
+    assert(TD.getTypeAllocSize(Call->getType()) == TD.getTypeAllocSize(RetTy) &&
+           "Size mismatch in scalar to scalar conversion!");
+    Value *Tmp = CreateTemporary(Call->getType());
+    Builder.CreateStore(Call, Tmp);
+    return Builder.CreateLoad(Builder.CreateBitCast(Tmp,RetTy->getPointerTo()));
+  }
 
   Value *Ptr = DestLoc->Ptr;
   if (Client.Offset) {

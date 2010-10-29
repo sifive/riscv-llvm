@@ -34,13 +34,15 @@ bool doNotUseShadowReturn(tree type, tree fndecl, CallingConv::ID /*CC*/) {
 
 /// isSingleElementStructOrArray - If this is (recursively) a structure with one
 /// field or an array with one element, return the field type, otherwise return
-/// null.  If ignoreZeroLength, the struct (recursively) may include zero-length
-/// fields in addition to the single element that has data.  If
-/// rejectFatBitField, and the single element is a bitfield of a type that's
-/// bigger than the struct, return null anyway.
+/// null.  Returns null for complex number types.  If ignoreZeroLength, the
+/// struct (recursively) may include zero-length fields in addition to the
+/// single element that has data.  If rejectFatBitField, and the single element
+/// is a bitfield of a type that's bigger than the struct, return null anyway.
 tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
                                   bool rejectFatBitfield) {
-  // Scalars are good.
+  // Complex numbers have two fields.
+  if (TREE_CODE(type) == COMPLEX_TYPE) return 0;
+  // All other scalars are good.
   if (!AGGREGATE_TYPE_P(type)) return type;
 
   tree FoundField = 0;
