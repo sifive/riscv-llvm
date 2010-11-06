@@ -78,6 +78,15 @@
       <li>GNU OMP constructs no longer crash the compiler.</li>
       </ul>
       </li>
+      <p>Known problems with the DragonEgg-2.8 release:</p>
+      <ul>
+      <li>Functions returning complex numbers are not handled in an ABI
+          conformant way.  This means for example that if code compiled with
+          dragonegg calls a function in a system library that returns a complex
+          number then you get a bogus result.  This was fixed in
+          <a href="http://llvm.org/viewvc/llvm-project?view=rev&revision=117649">subversion commit 117649</a>.
+          That patch applies correctly to the dragonegg-2.8 source.</li>
+      </ul>
   <li><p>DragonEgg-2.7 was the first ever DragonEgg release. It works with
       <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
