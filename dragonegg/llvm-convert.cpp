@@ -210,6 +210,21 @@ static void NameValue(Value *V, tree t, Twine Prefix = Twine(),
   }
 }
 
+/// SelectFPName - Helper for choosing a name depending on whether a floating
+/// point type is float, double or long double.
+static StringRef SelectFPName(tree type, StringRef FloatName,
+                              StringRef DoubleName, StringRef LongDoubleName) {
+  assert(SCALAR_FLOAT_TYPE_P(type) && "Expected a floating point type!");
+  if (TYPE_MODE(type) == TYPE_MODE(float_type_node))
+    return FloatName;
+  if (TYPE_MODE(type) == TYPE_MODE(double_type_node))
+    return DoubleName;
+  assert(TYPE_MODE(type) == TYPE_MODE(long_double_type_node) &&
+         "Unknown floating point type!");
+  return LongDoubleName;
+}
+
+
 //===----------------------------------------------------------------------===//
 //                         ... High-Level Methods ...
 //===----------------------------------------------------------------------===//
@@ -2983,6 +2998,67 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   return 0;
 }
 
+/// EmitSimpleCall - Emit a call to the function with the given name and return
+/// type, passing the provided arguments (which should all be gimple registers
+/// or local constants of register type).  No marshalling is done: the arguments
+/// are directly passed through.
+CallInst *TreeToLLVM::EmitSimpleCall(StringRef CalleeName, tree_node *ret_type,
+                                     /* arguments */ ...) {
+  va_list ops;
+  va_start(ops, ret_type);
+
+  // Build the list of arguments.
+  std::vector<Value*> Args;
+#ifdef TARGET_ADJUST_LLVM_CC
+  // Build the list of GCC argument types.
+  tree arg_types;
+  tree *chainp = &arg_types;
+#endif
+  while (tree arg = va_arg(ops, tree)) {
+    Args.push_back(EmitRegister(arg));
+#ifdef TARGET_ADJUST_LLVM_CC
+    *chainp = build_tree_list(NULL, TREE_TYPE(arg));
+    chainp = &TREE_CHAIN(*chainp);
+#endif
+  }
+#ifdef TARGET_ADJUST_LLVM_CC
+  // Indicate that this function is not varargs.
+  *chainp = void_list_node;
+#endif
+  va_end(ops);
+
+  const Type *RetTy = TREE_CODE(ret_type) == VOID_TYPE ?
+    Type::getVoidTy(Context) : GetRegType(ret_type);
+
+  // The LLVM argument types.
+  std::vector<const Type*> ArgTys;
+  ArgTys.reserve(Args.size());
+  for (unsigned i = 0, e = Args.size(); i != e; ++i)
+    ArgTys.push_back(Args[i]->getType());
+
+  // Determine the calling convention.
+  CallingConv::ID CC = CallingConv::C;
+#ifdef TARGET_ADJUST_LLVM_CC
+  // Query the target for the calling convention to use.
+  tree fntype = build_function_type(ret_type, arg_types);
+  TARGET_ADJUST_LLVM_CC(CC, fntype);
+#endif
+
+  // Get the function declaration for the callee.
+  const FunctionType *FTy = FunctionType::get(RetTy, ArgTys, /*isVarArg*/false);
+  Constant *Func = TheModule->getOrInsertFunction(CalleeName, FTy);
+
+  // If the function already existed with the wrong prototype then don't try to
+  // muck with its calling convention.  Otherwise, set the calling convention.
+  if (Function *F = dyn_cast<Function>(Func))
+    F->setCallingConv(CC);
+
+  // Finally, call the function.
+  CallInst *CI = Builder.CreateCall(Func, Args.begin(), Args.end());
+  CI->setCallingConv(CC);
+  return CI;
+}
+
 
 //===----------------------------------------------------------------------===//
 //               ... Inline Assembly and Register Variables ...
@@ -3950,6 +4026,22 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
                                   Result);
     return true;
   }
+  case BUILT_IN_LCEIL:
+  case BUILT_IN_LCEILF:
+  case BUILT_IN_LCEILL:
+  case BUILT_IN_LLCEIL:
+  case BUILT_IN_LLCEILF:
+  case BUILT_IN_LLCEILL:
+    Result = EmitBuiltinLCEIL(stmt);
+    return true;
+  case BUILT_IN_LFLOOR:
+  case BUILT_IN_LFLOORF:
+  case BUILT_IN_LFLOORL:
+  case BUILT_IN_LLFLOOR:
+  case BUILT_IN_LLFLOORF:
+  case BUILT_IN_LLFLOORL:
+    Result = EmitBuiltinLFLOOR(stmt);
+    return true;
 //TODO  case BUILT_IN_FLT_ROUNDS: {
 //TODO    Result =
 //TODO      Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
@@ -4550,6 +4642,44 @@ Value *TreeToLLVM::EmitBuiltinPOW(gimple stmt) {
   return Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
                                                       Intrinsic::pow, &Ty, 1),
                             Args.begin(), Args.end());
+}
+
+Value *TreeToLLVM::EmitBuiltinLCEIL(gimple stmt) {
+  if (!validate_gimple_arglist(stmt, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  // Cast the result of "ceil" to the appropriate integer type.
+  // First call the appropriate version of "ceil".
+  tree op = gimple_call_arg(stmt, 0);
+  StringRef Name = SelectFPName(TREE_TYPE(op), "ceilf", "ceil", "ceill");
+  CallInst *Call = EmitSimpleCall(Name, TREE_TYPE(op), op, NULL);
+  Call->setDoesNotThrow();
+  Call->setDoesNotAccessMemory();
+
+  // Then type cast the result of the "ceil" call.
+  tree type = gimple_call_return_type(stmt);
+  const Type *RetTy = GetRegType(type);
+  return TYPE_UNSIGNED(type) ? Builder.CreateFPToUI(Call, RetTy) :
+    Builder.CreateFPToSI(Call, RetTy);
+}
+
+Value *TreeToLLVM::EmitBuiltinLFLOOR(gimple stmt) {
+  if (!validate_gimple_arglist(stmt, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  // Cast the result of "floor" to the appropriate integer type.
+  // First call the appropriate version of "floor".
+  tree op = gimple_call_arg(stmt, 0);
+  StringRef Name = SelectFPName(TREE_TYPE(op), "floorf", "floor", "floorl");
+  CallInst *Call = EmitSimpleCall(Name, TREE_TYPE(op), op, NULL);
+  Call->setDoesNotThrow();
+  Call->setDoesNotAccessMemory();
+
+  // Then type cast the result of the "floor" call.
+  tree type = gimple_call_return_type(stmt);
+  const Type *RetTy = GetRegType(type);
+  return TYPE_UNSIGNED(type) ? Builder.CreateFPToUI(Call, RetTy) :
+    Builder.CreateFPToSI(Call, RetTy);
 }
 
 bool TreeToLLVM::EmitBuiltinConstantP(gimple stmt, Value *&Result) {
@@ -5926,8 +6056,8 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
 
 // Unary expressions.
 Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
-  Value *Op = EmitRegister(op);
-  if (!Op->getType()->isFloatingPointTy()) {
+  if (!FLOAT_TYPE_P(TREE_TYPE(op))) {
+    Value *Op = EmitRegister(op);
     Value *OpN = Builder.CreateNeg(Op, Op->getName()+"neg");
     ICmpInst::Predicate pred = TYPE_UNSIGNED(TREE_TYPE(op)) ?
       ICmpInst::ICMP_UGE : ICmpInst::ICMP_SGE;
@@ -5937,42 +6067,10 @@ Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
   }
 
   // Turn FP abs into fabs/fabsf.
-  const char *Name = 0;
-
-  tree ArgType;
-  switch (Op->getType()->getTypeID()) {
-  default: assert(0 && "Unknown FP type!");
-  case Type::FloatTyID:
-    Name = "fabsf";
-    ArgType = float_type_node;
-    break;
-  case Type::DoubleTyID:
-    Name = "fabs";
-    ArgType = double_type_node;
-    break;
-  case Type::X86_FP80TyID:
-  case Type::PPC_FP128TyID:
-  case Type::FP128TyID:
-    Name = "fabsl";
-    ArgType = long_double_type_node;
-    break;
-  }
-
-  Value *V = TheModule->getOrInsertFunction(Name, Op->getType(), Op->getType(),
-                                            NULL);
-  // Determine the calling convention.
-  CallingConv::ID CallingConvention = CallingConv::C;
-#ifdef TARGET_ADJUST_LLVM_CC
-  tree FunctionType = build_function_type_list(ArgType, ArgType, NULL);
-  TARGET_ADJUST_LLVM_CC(CallingConvention, FunctionType);
-#endif
-
-  Function *F = cast<Function>(V);
-  F->setCallingConv(CallingConvention);
-  CallInst *Call = Builder.CreateCall(V, Op);
+  StringRef Name = SelectFPName(TREE_TYPE(op), "fabsf", "fabs", "fabsl");
+  CallInst *Call = EmitSimpleCall(Name, TREE_TYPE(op), op, NULL);
   Call->setDoesNotThrow();
   Call->setDoesNotAccessMemory();
-  Call->setCallingConv(CallingConvention);
   return Call;
 }
 

@@ -693,6 +693,8 @@ private:
   Value *EmitADDR_EXPR(tree_node *exp);
   Value *EmitCallOf(Value *Callee, gimple_statement_d *stmt,
                     const MemRef *DestLoc, const AttrListPtr &PAL);
+  CallInst *EmitSimpleCall(StringRef CalleeName, tree_node *ret_type,
+                           /* arguments */ ...) END_WITH_NULL;
   Value *EmitFieldAnnotation(Value *FieldPtr, tree_node *FieldDecl);
 
   // Inline Assembly and Register Variables.
@@ -718,6 +720,8 @@ private:
   Value *EmitBuiltinSQRT(gimple_statement_d *stmt);
   Value *EmitBuiltinPOWI(gimple_statement_d *stmt);
   Value *EmitBuiltinPOW(gimple_statement_d *stmt);
+  Value *EmitBuiltinLCEIL(gimple_statement_d *stmt);
+  Value *EmitBuiltinLFLOOR(gimple_statement_d *stmt);
 
   bool EmitBuiltinConstantP(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinAlloca(gimple_statement_d *stmt, Value *&Result);
