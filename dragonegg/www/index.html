@@ -83,9 +83,15 @@
       <li>Functions returning complex numbers are not handled in an ABI
           conformant way.  This means for example that if code compiled with
           dragonegg calls a function in a system library that returns a complex
-          number then you get a bogus result.  This was fixed in
-          <a href="http://llvm.org/viewvc/llvm-project?view=rev&revision=117649">subversion commit 117649</a>.
-          That patch applies correctly to the dragonegg-2.8 source.</li>
+          number then you get a bogus result.  The fix in
+          <a href="http://llvm.org/viewvc/llvm-project?view=rev&revision=117649">subversion commit 117649</a>
+          can be applied to the dragonegg-2.8 source to resolve the problem.</li>
+      <li>Calling <tt>floor</tt> then converting the result to a long integer
+          type can result in link failures due to an undefined reference to
+          <tt>__builtin_lfloor</tt>.  Likewise for <tt>ceil</tt> and variants
+          like <tt>floorf</tt>.  The fix in
+          <a href="http://llvm.org/viewvc/llvm-project?view=rev&revision=118499">subversion commit 118499</a>
+          can be applied to the dragonegg-2.8 source to resolve the problem.</li>
       </ul>
   <li><p>DragonEgg-2.7 was the first ever DragonEgg release. It works with
       <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7</a> and
