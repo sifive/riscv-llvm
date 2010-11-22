@@ -92,6 +92,9 @@
           like <tt>floorf</tt>.  The fix in
           <a href="http://llvm.org/viewvc/llvm-project?view=rev&revision=118499">subversion commit 118499</a>
           can be applied to the dragonegg-2.8 source to resolve the problem.</li>
+      <li>Some OpenMP programs fail to work when compiled without optimization.
+          This has been fixed in the development version of LLVM.  Compile at
+          <tt>-O1</tt> or better to workaround this.</li>
       </ul>
   <li><p>DragonEgg-2.7 was the first ever DragonEgg release. It works with
       <a href="http://llvm.org/releases/download.html#2.7">LLVM-2.7</a> and
