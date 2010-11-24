@@ -2050,25 +2050,33 @@ void TreeToLLVM::EmitLandingPads() {
     Args.push_back(Builder.CreateBitCast(DECL_LLVM(personality),
                                          Type::getInt8PtrTy(Context)));
 
-    // The representation of a catch-all is language specific.
-    // TODO: Remove this hack.
-    Constant *CatchAll;
-    StringRef LanguageName = lang_hooks.name;
-    if (LanguageName == "GNU Ada") {
-      StringRef Name = "__gnat_all_others_value";
-      CatchAll = TheModule->getGlobalVariable(Name);
-      if (!CatchAll)
-        CatchAll = new GlobalVariable(*TheModule,
-                                      ConvertType(integer_type_node),
-                                      /*isConstant*/true,
-                                      GlobalValue::ExternalLinkage,
-                                      /*Initializer*/NULL, Name);
-    } else {
-      // Other languages use a null pointer.
-      CatchAll = Constant::getNullValue(Type::getInt8PtrTy(Context));
+    Constant *CatchAll = TheModule->getGlobalVariable("llvm.eh.catch.all.value");
+    if (!CatchAll) {
+      // The representation of a catch-all is language specific.
+      // TODO: Remove this hack.
+      Constant *Init = 0;
+      StringRef LanguageName = lang_hooks.name;
+      if (LanguageName == "GNU Ada") {
+        StringRef Name = "__gnat_all_others_value";
+        Init = TheModule->getGlobalVariable(Name);
+        if (!Init)
+          Init = new GlobalVariable(*TheModule, ConvertType(integer_type_node),
+                                    /*isConstant*/true,
+                                    GlobalValue::ExternalLinkage,
+                                    /*Initializer*/NULL, Name);
+      } else {
+        // Other languages use a null pointer.
+        Init = Constant::getNullValue(Type::getInt8PtrTy(Context));
+      }
+      CatchAll = new GlobalVariable(*TheModule, Init->getType(), true,
+                                    GlobalVariable::LinkOnceAnyLinkage,
+                                    Init, "llvm.eh.catch.all.value");
+      cast<GlobalVariable>(CatchAll)->setSection("llvm.metadata");
+      AttributeUsedGlobals.insert(CatchAll);
     }
 
     bool AllCaught = false; // Did we saw a catch-all or no-throw?
+    bool HasCleanup = false; // Did we see a cleanup?
     SmallSet<Constant *, 8> AlreadyCaught; // Typeinfos known caught already.
     for (; region && !AllCaught; region = region->outer)
       switch (region->type) {
@@ -2100,6 +2108,7 @@ void TreeToLLVM::EmitLandingPads() {
         break;
       }
       case ERT_CLEANUP:
+        HasCleanup = true;
         break;
       case ERT_MUST_NOT_THROW:
         // Same as a zero-length filter.
@@ -2130,13 +2139,18 @@ void TreeToLLVM::EmitLandingPads() {
         break;
       }
 
-    if (!AllCaught)
-      // Some exceptions from this region may not be caught by any handler.
-      // Since invokes are required to branch to the unwind label no matter
-      // what exception is being unwound, append a catch-all.  I have a plan
-      // that will make all such horrible hacks unnecessary, but unfortunately
-      // this comment is too short to explain it.
-      Args.push_back(CatchAll);
+    if (HasCleanup) {
+      if (Args.size() == 2)
+        // Insert a sentinel indicating that this is a cleanup-only selector.
+        Args.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+      else if (!AllCaught)
+        // Some exceptions from this region may not be caught by any handler.
+        // Since invokes are required to branch to the unwind label no matter
+        // what exception is being unwound, append a catch-all.  I have a plan
+        // that will make all such horrible hacks unnecessary, but unfortunately
+        // this comment is too short to explain it.
+        Args.push_back(CatchAll);
+    }
 
     // Emit the selector call.
     Value *Filter = Builder.CreateCall(SlctrIntr, Args.begin(), Args.end(),
