@@ -38,7 +38,7 @@ REVISION:=$(shell svnversion -n $(SRC_DIR))
 
 PLUGIN=dragonegg.so
 PLUGIN_OBJECTS=llvm-cache.o llvm-convert.o llvm-backend.o llvm-debug.o \
-	       llvm-types.o bits_and_bobs.o llvm-abi-default.o
+	       llvm-types.o bits_and_bobs.o llvm-abi-default.o llvm-tree.o
 
 TARGET_OBJECT=llvm-target.o
 TARGET_SOURCE=$(SRC_DIR)/$(shell $(TARGET_UTIL) -p)/llvm-target.cpp

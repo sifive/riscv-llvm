@@ -27,6 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "llvm-abi.h"
 #include "llvm-debug.h"
 #include "llvm-internal.h"
+#include "llvm-tree.h"
 
 // LLVM headers
 #include "llvm/CallingConv.h"
@@ -166,47 +167,11 @@ static bool isSSAPlaceholder(Value *V) {
 /// NameValue - Try to name the given value after the given GCC tree node.  If
 /// the GCC tree node has no sensible name then it does nothing.  If the value
 /// already has a name then it is not changed.
-static void NameValue(Value *V, tree t, Twine Prefix = Twine(),
-                      Twine Postfix = Twine()) {
-  // If the value already has a name, do not change it.
-  if (V->hasName())
-    return;
-
-  // No sensible name - give up, discarding any pre- and post-fixes.
-  if (!t)
-    return;
-
-  switch (TREE_CODE(t)) {
-  default:
-    // Unhandled case - give up.
-    return;
-
-  case CONST_DECL:
-  case FIELD_DECL:
-  case FUNCTION_DECL:
-  case NAMESPACE_DECL:
-  case PARM_DECL:
-  case VAR_DECL: {
-    if (DECL_NAME(t)) {
-      StringRef Ident(IDENTIFIER_POINTER(DECL_NAME(t)),
-                      IDENTIFIER_LENGTH(DECL_NAME(t)));
-      V->setName(Prefix + Ident + Postfix);
-      return;
-    }
-    const char *Annotation = TREE_CODE(t) == CONST_DECL ? "C." : "D.";
-    Twine UID(DECL_UID(t));
-    V->setName(Prefix + Annotation + UID + Postfix);
-    return;
-  }
-
-  case RESULT_DECL:
-    V->setName(Prefix + "<retval>" + Postfix);
-    return;
-
-  case SSA_NAME:
-    Twine NameVersion(SSA_NAME_VERSION(t));
-    NameValue(V, SSA_NAME_VAR(t), Prefix, "_" + NameVersion + Postfix);
-    return;
+static void NameValue(Value *V, tree t) {
+  if (!V->hasName()) {
+    const std::string &Name = getDescriptiveName(t);
+    if (!Name.empty())
+      V->setName(Name);
   }
 }
 
@@ -1069,19 +1034,9 @@ BasicBlock *TreeToLLVM::getBasicBlock(basic_block bb) {
     gimple stmt = first_stmt(bb);
     if (stmt && gimple_code(stmt) == GIMPLE_LABEL) {
       tree label = gimple_label_label(stmt);
-      if (tree name = DECL_NAME(label)) {
-        // If the label has a name then use it.
-        StringRef Ident(IDENTIFIER_POINTER(name), IDENTIFIER_LENGTH(name));
-        BB->setName(Ident);
-      } else if (LABEL_DECL_UID(label) != -1) {
-        // If the label has a UID then use it.
-        Twine UID(LABEL_DECL_UID(label));
-        BB->setName("<L" + UID + ">");
-      } else {
-        // Otherwise use the generic UID.
-        Twine UID(DECL_UID(label));
-        BB->setName("<D." + UID + ">");
-      }
+      const std::string &LabelName = getDescriptiveName(label);
+      if (!LabelName.empty())
+        BB->setName("<" + LabelName + ">");
     } else {
       // When there is no label, use the same name scheme as the GCC tree dumps.
       Twine Index(bb->index);

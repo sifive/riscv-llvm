@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 // Plugin headers
 #include "llvm-abi.h"
+#include "llvm-tree.h"
 extern "C" {
 #include "llvm-cache.h"
 }
@@ -278,74 +279,6 @@ bool isSequentialCompatible(tree type) {
 /// start of the record by a constant amount which is not humongously big.
 bool OffsetIsLLVMCompatible(tree field_decl) {
   return isInt64(DECL_FIELD_OFFSET(field_decl), true);
-}
-
-/// NameType - Try to name the given type after the given GCC tree node.  If
-/// the GCC tree node has no sensible name then it does nothing.
-static void NameType(const Type *Ty, tree t, Twine Prefix = Twine(),
-                     Twine Postfix = Twine()) {
-  // No sensible name - give up, discarding any pre- and post-fixes.
-  if (!t)
-    return;
-
-  switch (TREE_CODE(t)) {
-  default:
-    // Unhandled case - give up.
-    return;
-
-    case ARRAY_TYPE:
-      // If the element type is E, name the array E[] (regardless of the number
-      // of dimensions).
-      for (; TREE_CODE(t) == ARRAY_TYPE; t = TREE_TYPE(t)) ;
-      NameType(Ty, t, Prefix, "[]" + Postfix);
-      return;
-
-    case BOOLEAN_TYPE:
-    case COMPLEX_TYPE:
-    case ENUMERAL_TYPE:
-    case FIXED_POINT_TYPE:
-    case FUNCTION_TYPE:
-    case INTEGER_TYPE:
-    case METHOD_TYPE:
-    case QUAL_UNION_TYPE:
-    case REAL_TYPE:
-    case RECORD_TYPE:
-    case UNION_TYPE:
-    case VECTOR_TYPE: {
-      // If the type has a name then use that, otherwise bail out.
-      if (!TYPE_NAME(t))
-        return; // Unnamed type.
-
-      tree identifier = NULL_TREE;
-      if (TREE_CODE(TYPE_NAME(t)) == IDENTIFIER_NODE)
-        identifier = TYPE_NAME(t);
-      else if (TREE_CODE(TYPE_NAME(t)) == TYPE_DECL)
-        identifier = DECL_NAME(TYPE_NAME(t));
-
-      if (identifier) {
-        const char *Class = "";
-        if (TREE_CODE(t) == ENUMERAL_TYPE)
-          Class = "enum ";
-        if (TREE_CODE(t) == RECORD_TYPE)
-          Class = "struct ";
-        else if (TREE_CODE(t) == UNION_TYPE)
-          Class = "union ";
-        StringRef Ident(IDENTIFIER_POINTER(identifier),
-                        IDENTIFIER_LENGTH(identifier));
-        TheModule->addTypeName((Prefix + Class + Ident + Postfix).str(), Ty);
-      }
-      return;
-    }
-
-    case POINTER_TYPE:
-      // If the element type is E, LLVM already calls this E*.
-      return;
-
-    case REFERENCE_TYPE:
-      // If the element type is E, name the reference E&.
-      NameType(Ty, TREE_TYPE(t), Prefix, "&" + Postfix);
-      return;
-  }
 }
 
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
@@ -943,7 +876,15 @@ const Type *TypeConverter::ConvertType(tree type) {
     }
   }
 
-  NameType(Ty, type);
+  // Try to give the type a helpful name.  There is no point in doing this for
+  // array and pointer types since LLVM automatically gives them a useful name
+  // based on the element type.
+  if (!isa<SequentialType>(Ty)) {
+    const std::string &TypeName = getDescriptiveName(type);
+    if (!TypeName.empty())
+      TheModule->addTypeName(TypeName, Ty);
+  }
+
   return Ty;
 }
 
