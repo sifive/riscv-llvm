@@ -1,22 +1,24 @@
-/* Linux specific definitions
-Copyright (C) 2009 Free Software Foundation, Inc.
-
-This file is part of GCC.
-
-GCC is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
-version.
-
-GCC is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
-
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+//===---------- llvm-os.h - Linux specific definitions ----------*- C++ -*-===//
+//
+// Copyright (C) 2009, 2010  Duncan Sands et al.
+//
+// This file is part of DragonEgg.
+//
+// DragonEgg is free software; you can redistribute it and/or modify it under
+// the terms of the GNU General Public License as published by the Free Software
+// Foundation; either version 2, or (at your option) any later version.
+//
+// DragonEgg is distributed in the hope that it will be useful, but WITHOUT ANY
+// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+// A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along with
+// DragonEgg; see the file COPYING.  If not, write to the Free Software
+// Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110-1335, USA.
+//
+//===----------------------------------------------------------------------===//
+// This file provides Linux specific declarations.
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_OS_H
 #define LLVM_OS_H
