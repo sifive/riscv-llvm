@@ -24,21 +24,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "llvm-abi.h"
 #include "llvm-debug.h"
-#include "llvm-internal.h"
 
 // LLVM headers
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instructions.h"
-#include "llvm/Intrinsics.h"
 #include "llvm/Module.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Analysis/DebugInfo.h"
-#include "llvm/Support/Dwarf.h"
-#include "llvm/Target/TargetMachine.h"
 
 // System headers
 #include <gmp.h>

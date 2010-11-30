@@ -33,13 +33,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 // LLVM headers
 #include "llvm/Analysis/DebugInfo.h"
 #include "llvm/Support/Allocator.h"
-#include "llvm/Support/Dwarf.h"
 #include "llvm/Support/ValueHandle.h"
 
 // System headers
 #include <map>
-#include <string>
-#include <vector>
 
 namespace llvm {
 

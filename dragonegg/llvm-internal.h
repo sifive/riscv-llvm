@@ -28,20 +28,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define LLVM_INTERNAL_H
 
 // LLVM headers
-#include "llvm/CallingConv.h"
 #include "llvm/Intrinsics.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Support/IRBuilder.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/TargetFolder.h"
-
-// System headers
-#include <cassert>
-#include <string>
-#include <vector>
 
 struct basic_block_def;
 union gimple_statement_d;

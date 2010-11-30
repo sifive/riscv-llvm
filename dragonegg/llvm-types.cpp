@@ -31,17 +31,10 @@ extern "C" {
 }
 
 // LLVM headers
-#include "llvm/CallingConv.h"
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
 #include "llvm/Module.h"
-#include "llvm/TypeSymbolTable.h"
 #include "llvm/Assembly/Writer.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
 
 // System headers

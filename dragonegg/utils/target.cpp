@@ -1,4 +1,3 @@
-#include <cstring>
 #include <iostream>
 
 #include <llvm/ADT/Triple.h>

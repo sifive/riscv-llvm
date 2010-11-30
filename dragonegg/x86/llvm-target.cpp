@@ -25,14 +25,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 // Plugin headers
 #include "llvm-abi.h"
-#include "llvm-internal.h"
 #include "llvm-target.h"
 
 // LLVM headers
-#include "llvm/DerivedTypes.h"
-#include "llvm/Instructions.h"
-#include "llvm/Intrinsics.h"
-#include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/Support/ErrorHandling.h"
 
