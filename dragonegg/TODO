@@ -76,3 +76,5 @@ bitcode in ELF sections like gcc does for gimple when doing LTO.
 Add support for address spaces.
 
 Add support for non-temporal stores.
+
+Generate LLVM type based alias analysis information from gcc's.
