@@ -870,7 +870,7 @@ const Type *TypeConverter::ConvertType(tree type) {
   // Try to give the type a helpful name.  There is no point in doing this for
   // array and pointer types since LLVM automatically gives them a useful name
   // based on the element type.
-  if (!isa<SequentialType>(Ty)) {
+  if (!Ty->isVoidTy() && !isa<SequentialType>(Ty)) {
     const std::string &TypeName = getDescriptiveName(type);
     if (!TypeName.empty())
       TheModule->addTypeName(TypeName, Ty);
