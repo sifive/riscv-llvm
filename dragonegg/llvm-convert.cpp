@@ -8479,7 +8479,7 @@ AddBitFieldToRecordConstant(ConstantInt *ValC, uint64_t GCCFieldOffsetInBits) {
         Val = Val.lshr(8);
       } else {
         // Big endian lays out high bits first.
-        APInt Tmp = Val.lshr(Tmp.getBitWidth()-8).trunc(8);
+        APInt Tmp = Val.lshr(Val.getBitWidth()-8).trunc(8);
         ValToAppend = ConstantInt::get(Context, Tmp);
       }
     } else if (Val.getBitWidth() == 8) {
