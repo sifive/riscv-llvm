@@ -77,20 +77,19 @@
       <li>Fortran programs using common variables now link correctly.</li>
       <li>GNU OMP constructs no longer crash the compiler.</li>
       </ul>
-      </li>
       <p>Known problems with the DragonEgg-2.8 release:</p>
       <ul>
       <li>Functions returning complex numbers are not handled in an ABI
           conformant way.  This means for example that if code compiled with
           dragonegg calls a function in a system library that returns a complex
           number then you get a bogus result.  The fix in
-          <a href="http://llvm.org/viewvc/llvm-project?view=rev&revision=117649">subversion commit 117649</a>
+          <a href="http://llvm.org/viewvc/llvm-project?view=rev&amp;revision=117649">subversion commit 117649</a>
           can be applied to the dragonegg-2.8 source to resolve the problem.</li>
       <li>Calling <tt>floor</tt> then converting the result to a long integer
           type can result in link failures due to an undefined reference to
           <tt>__builtin_lfloor</tt>.  Likewise for <tt>ceil</tt> and variants
           like <tt>floorf</tt>.  The fix in
-          <a href="http://llvm.org/viewvc/llvm-project?view=rev&revision=118499">subversion commit 118499</a>
+          <a href="http://llvm.org/viewvc/llvm-project?view=rev&amp;revision=118499">subversion commit 118499</a>
           can be applied to the dragonegg-2.8 source to resolve the problem.</li>
       <li>Some OpenMP programs fail to work when compiled without optimization.
           This has been fixed in the development version of LLVM.  Compile at
@@ -98,7 +97,7 @@
       <li>Programs that throw an uncaught exception when there are destructors
           to be run when unwinding would crash rather than terminating cleanly.
           The fix in
-          <a href="http://llvm.org/viewvc/llvm-project?view=rev&revision=120096">subversion commit 120096</a>
+          <a href="http://llvm.org/viewvc/llvm-project?view=rev&amp;revision=120096">subversion commit 120096</a>
           can be applied to the dragonegg-2.8 source to resolve the problem.</li>
       </ul>
   <li><p>DragonEgg-2.7 was the first ever DragonEgg release. It works with
@@ -220,11 +219,19 @@ declare i32 @puts(i8* nocapture) nounwind
   source:</p>
      <pre>	patch -d gcc-4.5.1 -p1 < dragonegg-2.8/gcc-patches/i386_static.diff</pre>
   <p><a href="http://gcc.gnu.org/install/">Build and install gcc-4.5</a> in the
-  usual way.</p>
+  usual way, except that you should add the configure options <tt>--enable-plugin</tt>
+  and <tt>--enable-lto</tt>.</p>
   <p>Doing</p>
-     <pre>	GCC=path_to_just_installed_gcc make</pre>
+     <pre>	GCC=directory_where_gcc_installed/bin/gcc make</pre>
   <p>in the <tt>dragonegg-2.8</tt> directory should then build <tt>dragonegg.so</tt>.
-     See the <tt>README</tt> file for more details.</p>
+     If you have arranged for the gcc executable to occur in your path with the
+     name <tt>gcc-4.5</tt> (using a symbolic link for example) then there is no
+     need to set the GCC variable: you can just do "<tt>make</tt>".
+     If the LLVM binaries are not in your path then you can use</p>
+     <pre>	GCC=directory_where_gcc_installed/bin/gcc LLVM_CONFIG=directory_where_llvm_installed/bin/llvm-config make</pre>
+   <p>If you only built LLVM and did not install it then you can still build
+     dragonegg by setting LLVM_CONFIG to point to the copy of llvm-config in the
+     build tree.</p>
   <p>To use <tt>dragonegg.so</tt>, compile something with your just-installed
      version of <tt>gcc</tt>, adding <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt>
      to the command line.  See the <tt>README</tt> file for more details and useful
