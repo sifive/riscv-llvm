@@ -1258,6 +1258,11 @@ LValue TreeToLLVM::EmitLV(tree exp) {
     LV = LValue(Ptr, get_constant_alignment(exp) / 8);
     break;
   }
+  case REAL_CST: {
+    Value *Ptr = TreeConstantToLLVM::EmitLV_REAL_CST(exp);
+    LV = LValue(Ptr, get_constant_alignment(exp) / 8);
+    break;
+  }
   case STRING_CST: {
     Value *Ptr = TreeConstantToLLVM::EmitLV_STRING_CST(exp);
     LV = LValue(Ptr, get_constant_alignment(exp) / 8);
@@ -8717,6 +8722,9 @@ Constant *TreeConstantToLLVM::EmitLV(tree exp) {
   case COMPLEX_CST:
     LV = EmitLV_COMPLEX_CST(exp);
     break;
+  case REAL_CST:
+    LV = EmitLV_REAL_CST(exp);
+    break;
   case STRING_CST:
     LV = EmitLV_STRING_CST(exp);
     break;
@@ -8793,6 +8801,21 @@ Constant *TreeConstantToLLVM::EmitLV_COMPLEX_CST(tree exp) {
   // Create a new complex global.
   Slot = new GlobalVariable(*TheModule, Init->getType(), true,
                             GlobalVariable::PrivateLinkage, Init, ".cpx");
+  return Slot;
+}
+
+Constant *TreeConstantToLLVM::EmitLV_REAL_CST(tree exp) {
+  Constant *Init = TreeConstantToLLVM::ConvertREAL_CST(exp);
+
+  // Cache the constants to avoid making obvious duplicates that have to be
+  // folded by the optimizer.
+  static std::map<Constant*, GlobalVariable*> RealCSTCache;
+  GlobalVariable *&Slot = RealCSTCache[Init];
+  if (Slot) return Slot;
+
+  // Create a new real global.
+  Slot = new GlobalVariable(*TheModule, Init->getType(), true,
+                            GlobalVariable::PrivateLinkage, Init, ".rl");
   return Slot;
 }
 

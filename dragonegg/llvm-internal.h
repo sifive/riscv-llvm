@@ -844,6 +844,7 @@ public:
   static Constant *EmitLV_Decl(tree_node *exp);
   static Constant *EmitLV_LABEL_DECL(tree_node *exp);
   static Constant *EmitLV_COMPLEX_CST(tree_node *exp);
+  static Constant *EmitLV_REAL_CST(tree_node *exp);
   static Constant *EmitLV_STRING_CST(tree_node *exp);
   static Constant *EmitLV_COMPONENT_REF(tree_node *exp);
   static Constant *EmitLV_ARRAY_REF(tree_node *exp);
