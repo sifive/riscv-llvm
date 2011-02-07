@@ -6665,9 +6665,9 @@ Value *TreeToLLVM::EmitReg_TRUNC_DIV_EXPR(tree op0, tree op1, bool isExact) {
 
   assert(LHS->getType()->isIntOrIntVectorTy() && "TRUNC_DIV_EXPR not integer!");
   if (TYPE_UNSIGNED(type)) {
-//    if (isExact)
-//      return Builder.CreateExactUDiv(LHS, RHS);
-//    else
+    if (isExact)
+      return Builder.CreateExactUDiv(LHS, RHS);
+    else
       return Builder.CreateUDiv(LHS, RHS);
   } else {
     if (isExact)
