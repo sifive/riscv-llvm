@@ -126,6 +126,18 @@ static unsigned int getPointerAlignment(tree exp) {
   return align ? align : 1;
 }
 
+/// hasNUW - Return whether overflowing unsigned operations on this type result
+/// in undefined behaviour.
+static bool hasNUW(tree type) {
+  return TYPE_UNSIGNED(type) && !TYPE_OVERFLOW_WRAPS(type);
+}
+
+/// hasNSW - Return whether overflowing signed operations on this type result
+/// in undefined behaviour.
+static bool hasNSW(tree type) {
+  return !TYPE_UNSIGNED(type) && !TYPE_OVERFLOW_WRAPS(type);
+}
+
 /// getSSAPlaceholder - A fake value associated with an SSA name when the name
 /// is used before being defined (this can occur because basic blocks are not
 /// output in dominator order).  Replaced with the correct value when the SSA
@@ -8849,9 +8861,9 @@ Constant *TreeConstantToLLVM::EmitLV_ARRAY_REF(tree exp) {
   Constant *IndexVal = Convert(Index);
   tree LowerBound = array_ref_low_bound(exp);
   if (!integer_zerop(LowerBound))
-    IndexVal = TYPE_UNSIGNED(TREE_TYPE(Index)) ?
-      TheFolder->CreateSub(IndexVal, Convert(LowerBound)) :
-      TheFolder->CreateNSWSub(IndexVal, Convert(LowerBound));
+    IndexVal = TheFolder->CreateSub(IndexVal, Convert(LowerBound),
+                                    /*HasNUW*/hasNUW(TREE_TYPE(Index)),
+                                    /*HasNSW*/hasNSW(TREE_TYPE(Index)));
 
   const Type *IntPtrTy = getTargetData().getIntPtrType(Context);
   IndexVal = TheFolder->CreateIntCast(IndexVal, IntPtrTy,
