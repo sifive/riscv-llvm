@@ -1349,11 +1349,7 @@ Value *TreeToLLVM::CastToFPType(Value *V, const Type* Ty) {
 Value *TreeToLLVM::CreateAnyAdd(Value *LHS, Value *RHS, tree_node *type) {
   if (FLOAT_TYPE_P(type))
     return Builder.CreateFAdd(LHS, RHS);
-  if (TYPE_OVERFLOW_WRAPS(type))
-    return Builder.CreateAdd(LHS, RHS);
-  if (TYPE_UNSIGNED(type))
-    return Builder.CreateNUWAdd(LHS, RHS);
-  return Builder.CreateNSWAdd(LHS, RHS);
+  return Builder.CreateAdd(LHS, RHS, "", hasNUW(type), hasNSW(type));
 }
 
 /// CreateAnyMul - Multiply two LLVM scalar values with the given GCC type.
@@ -1361,11 +1357,7 @@ Value *TreeToLLVM::CreateAnyAdd(Value *LHS, Value *RHS, tree_node *type) {
 Value *TreeToLLVM::CreateAnyMul(Value *LHS, Value *RHS, tree_node *type) {
   if (FLOAT_TYPE_P(type))
     return Builder.CreateFMul(LHS, RHS);
-  if (TYPE_OVERFLOW_WRAPS(type))
-    return Builder.CreateMul(LHS, RHS);
-  if (TYPE_UNSIGNED(type))
-    return Builder.CreateNUWMul(LHS, RHS);
-  return Builder.CreateNSWMul(LHS, RHS);
+  return Builder.CreateMul(LHS, RHS, "", hasNUW(type), hasNSW(type));
 }
 
 /// CreateAnyNeg - Negate an LLVM scalar value with the given GCC type.  Does
@@ -1373,11 +1365,7 @@ Value *TreeToLLVM::CreateAnyMul(Value *LHS, Value *RHS, tree_node *type) {
 Value *TreeToLLVM::CreateAnyNeg(Value *V, tree_node *type) {
   if (FLOAT_TYPE_P(type))
     return Builder.CreateFNeg(V);
-  if (TYPE_OVERFLOW_WRAPS(type))
-    return Builder.CreateNeg(V);
-  if (TYPE_UNSIGNED(type))
-    return Builder.CreateNUWNeg(V);
-  return Builder.CreateNSWNeg(V);
+  return Builder.CreateNeg(V, "", hasNUW(type), hasNSW(type));
 }
 
 /// CreateAnySub - Subtract two LLVM scalar values with the given GCC type.
@@ -1385,11 +1373,7 @@ Value *TreeToLLVM::CreateAnyNeg(Value *V, tree_node *type) {
 Value *TreeToLLVM::CreateAnySub(Value *LHS, Value *RHS, tree_node *type) {
   if (FLOAT_TYPE_P(type))
     return Builder.CreateFSub(LHS, RHS);
-  if (TYPE_OVERFLOW_WRAPS(type))
-    return Builder.CreateSub(LHS, RHS);
-  if (TYPE_UNSIGNED(type))
-    return Builder.CreateNUWSub(LHS, RHS);
-  return Builder.CreateNSWSub(LHS, RHS);
+  return Builder.CreateSub(LHS, RHS, "", hasNUW(type), hasNSW(type));
 }
 
 /// CreateTemporary - Create a new alloca instruction of the specified type,
@@ -5356,9 +5340,9 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
   Value *IndexVal = EmitRegister(Index);
   tree LowerBound = array_ref_low_bound(exp);
   if (!integer_zerop(LowerBound))
-    IndexVal = TYPE_UNSIGNED(TREE_TYPE(Index)) ?
-      Builder.CreateSub(IndexVal, EmitRegister(LowerBound)) :
-      Builder.CreateNSWSub(IndexVal, EmitRegister(LowerBound));
+    IndexVal = Builder.CreateSub(IndexVal, EmitRegister(LowerBound), "",
+                                 hasNUW(TREE_TYPE(Index)),
+                                 hasNSW(TREE_TYPE(Index)));
 
   LValue ArrayAddrLV = EmitLV(Array);
   assert(!ArrayAddrLV.isBitfield() && "Arrays cannot be bitfields!");
@@ -8862,8 +8846,8 @@ Constant *TreeConstantToLLVM::EmitLV_ARRAY_REF(tree exp) {
   tree LowerBound = array_ref_low_bound(exp);
   if (!integer_zerop(LowerBound))
     IndexVal = TheFolder->CreateSub(IndexVal, Convert(LowerBound),
-                                    /*HasNUW*/hasNUW(TREE_TYPE(Index)),
-                                    /*HasNSW*/hasNSW(TREE_TYPE(Index)));
+                                    hasNUW(TREE_TYPE(Index)),
+                                    hasNSW(TREE_TYPE(Index)));
 
   const Type *IntPtrTy = getTargetData().getIntPtrType(Context);
   IndexVal = TheFolder->CreateIntCast(IndexVal, IntPtrTy,
