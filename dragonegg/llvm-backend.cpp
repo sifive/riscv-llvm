@@ -1859,7 +1859,25 @@ static void emit_same_body_alias(struct cgraph_node *alias,
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
-  emit_alias(alias->decl, alias->thunk.alias);
+  // If the target is not "extern inline" then output an ordinary alias.
+  tree target = alias->thunk.alias;
+  if (!DECL_EXTERNAL(target)) {
+    emit_alias(alias->decl, target);
+    return;
+  }
+
+  // Same body aliases have the property that if the body of the aliasee is not
+  // output then neither are the aliases.  To arrange this for "extern inline"
+  // functions, which have AvailableExternally linkage in LLVM, make all users
+  // of the alias directly use the aliasee instead.
+  GlobalValue *Alias = cast<GlobalValue>(DECL_LLVM(alias->decl));
+  GlobalValue *Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target));
+  Alias->replaceAllUsesWith(ConstantExpr::getBitCast(Aliasee,Alias->getType()));
+  changeLLVMConstant(Alias, Aliasee);
+  Alias->eraseFromParent();
+
+  // Mark the alias as written so gcc doesn't waste time outputting it.
+  TREE_ASM_WRITTEN(alias->decl) = 1;
 }
 
 /// emit_file_scope_asm - Emit the specified string as a file-scope inline
