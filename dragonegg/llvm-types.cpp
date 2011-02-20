@@ -1249,8 +1249,13 @@ ConvertFunctionType(tree type, tree decl, tree static_chain,
   if (HasByVal)
     FnAttributes &= ~(Attribute::ReadNone | Attribute::ReadOnly);
 
-  // If the argument list ends with a void type node, it isn't vararg.
-  isVarArg = (Args == 0);
+  if (flag_force_vararg_prototypes)
+    // If forcing prototypes to be varargs, make all function types varargs
+    // except those for builtin functions.
+    isVarArg = decl ? !DECL_BUILT_IN(decl) : true;
+  else
+    // If the argument list ends with a void type node, it isn't vararg.
+    isVarArg = (Args == 0);
   assert(RetTy && "Return type not specified!");
 
   if (FnAttributes != Attribute::None)

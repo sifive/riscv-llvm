@@ -93,6 +93,11 @@ extern bool flag_odr;
 /// "T foo() {}" will be treated like "T foo(void) {}" and not "T foo(...) {}".
 extern bool flag_vararg_requires_arguments;
 
+/// flag_force_vararg_prototypes - Force prototypes to take a variable number of
+/// arguments (...).  This is helpful if the language front-end sometimes emits
+/// calls where the call arguments do not match the callee function declaration.
+extern bool flag_force_vararg_prototypes;
+
 /// AttributeUsedGlobals - The list of globals that are marked attribute(used).
 extern SmallSetVector<Constant *,32> AttributeUsedGlobals;
 

@@ -509,6 +509,11 @@ bool flag_odr;
 /// "T foo() {}" will be treated like "T foo(void) {}" and not "T foo(...) {}".
 bool flag_vararg_requires_arguments;
 
+/// flag_force_vararg_prototypes - Force prototypes to take a variable number of
+/// arguments (...).  This is helpful if the language front-end sometimes emits
+/// calls where the call arguments do not match the callee function declaration.
+bool flag_force_vararg_prototypes;
+
 /// InstallLanguageSettings - Do any language-specific back-end configuration.
 static void InstallLanguageSettings() {
   // The principal here is that not doing any language-specific configuration
@@ -524,6 +529,7 @@ static void InstallLanguageSettings() {
   } else if (LanguageName == "GNU C++") {
     flag_odr = true; // C++ obeys the one-definition-rule
   } else if (LanguageName == "GNU Fortran") {
+    flag_force_vararg_prototypes = true;
   } else if (LanguageName == "GNU GIMPLE") { // LTO gold plugin
   } else if (LanguageName == "GNU Java") {
   } else if (LanguageName == "GNU Objective-C") {

@@ -541,6 +541,8 @@ void TreeToLLVM::StartFunctionBody() {
   CallingConv::ID CallingConv;
   AttrListPtr PAL;
 
+  bool getFunctionTypeFromArgList = false;
+
   // If the function has no arguments and is varargs (...), turn it into a
   // non-varargs function by scanning the param list for the function.  This
   // allows C functions declared as "T foo() {}" to be treated like
@@ -549,18 +551,30 @@ void TreeToLLVM::StartFunctionBody() {
   //
   // Note that we only do this in C/Objective-C.  Doing this in C++ for
   // functions explicitly declared as taking (...) is bad.
-  if (TYPE_ARG_TYPES(TREE_TYPE(FnDecl)) == 0 && flag_vararg_requires_arguments){
+  if (TYPE_ARG_TYPES(TREE_TYPE(FnDecl)) == 0 && flag_vararg_requires_arguments)
+    getFunctionTypeFromArgList = true;
+
+  // When forcing vararg prototypes ensure that the function only gets a varargs
+  // part if it was originally declared varargs.
+  if (flag_force_vararg_prototypes) {
+    tree Args = TYPE_ARG_TYPES(TREE_TYPE(FnDecl));
+    while (Args && TREE_VALUE(Args) != void_type_node)
+      Args = TREE_CHAIN(Args);
+    if (Args != 0)
+      getFunctionTypeFromArgList = true;
+  }
+
+  if (getFunctionTypeFromArgList)
     FTy = TheTypeConverter->ConvertArgListToFnType(TREE_TYPE(FnDecl),
                                                    DECL_ARGUMENTS(FnDecl),
                                                    static_chain,
                                                    CallingConv, PAL);
-  } else {
+  else
     // Otherwise, just get the type from the function itself.
     FTy = TheTypeConverter->ConvertFunctionType(TREE_TYPE(FnDecl),
                                                 FnDecl,
                                                 static_chain,
                                                 CallingConv, PAL);
-  }
 
   // If we've already seen this function and created a prototype, and if the
   // proto has the right LLVM type, just use it.
