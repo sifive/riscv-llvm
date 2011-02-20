@@ -43,6 +43,7 @@ extern "C" {
 #include "llvm/Support/StandardPasses.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetRegistry.h"
 
 // System headers
@@ -689,6 +690,13 @@ static void createPerFunctionOptimizationPasses() {
 
   if (optimize > 0 && !DisableLLVMOptimizations) {
     HasPerFunctionPasses = true;
+
+    TargetLibraryInfo *TLI =
+      new TargetLibraryInfo(Triple(TheModule->getTargetTriple()));
+    if (flag_no_simplify_libcalls)
+      TLI->disableAllFunctions();
+    PerFunctionPasses->add(TLI);
+
     PerFunctionPasses->add(createCFGSimplificationPass());
     if (optimize == 1)
       PerFunctionPasses->add(createPromoteMemoryToRegisterPass());
@@ -754,6 +762,12 @@ static void createPerModuleOptimizationPasses() {
   bool HasPerModulePasses = false;
 
   if (!DisableLLVMOptimizations) {
+    TargetLibraryInfo *TLI =
+      new TargetLibraryInfo(Triple(TheModule->getTargetTriple()));
+    if (flag_no_simplify_libcalls)
+      TLI->disableAllFunctions();
+    PerModulePasses->add(TLI);
+
     bool NeedAlwaysInliner = false;
     llvm::Pass *InliningPass = 0;
     if (flag_inline_small_functions && !flag_no_inline) {
