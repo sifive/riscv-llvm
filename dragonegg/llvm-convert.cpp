@@ -3112,8 +3112,7 @@ void TreeToLLVM::EmitModifyOfRegisterVariable(tree decl, Value *RHS) {
 ///       punctuation.
 /// Other %xN expressions are turned into LLVM ${N:x} operands.
 ///
-static std::string ConvertInlineAsmStr(gimple stmt, tree outputs, tree inputs,
-                                       tree labels, unsigned NumOperands) {
+static std::string ConvertInlineAsmStr(gimple stmt, unsigned NumOperands) {
   const char *AsmStr = gimple_asm_string(stmt);
 
   // gimple_asm_input_p - This flag is set if this is a non-extended ASM,
@@ -3131,17 +3130,11 @@ static std::string ConvertInlineAsmStr(gimple stmt, tree outputs, tree inputs,
     }
   }
 
-  // Expand [name] symbolic operand names.
-  tree str = resolve_asm_operand_names(build_string (strlen (AsmStr), AsmStr),
-                                       outputs, inputs, labels);
-
-  const char *InStr = TREE_STRING_POINTER(str);
-
   std::string Result;
   while (1) {
-    switch (*InStr++) {
+    switch (*AsmStr++) {
     case 0: return Result;                 // End of string.
-    default: Result += InStr[-1]; break;   // Normal character.
+    default: Result += AsmStr[-1]; break;  // Normal character.
     case '$': Result += "$$"; break;       // Escape '$' characters.
 #ifdef ASSEMBLER_DIALECT
     // Note that we can't escape to ${, because that is the syntax for vars.
@@ -3150,23 +3143,23 @@ static std::string ConvertInlineAsmStr(gimple stmt, tree outputs, tree inputs,
     case '|': Result += "$|"; break;       // Escape '|' character.
 #endif
     case '%':                              // GCC escape character.
-      char EscapedChar = *InStr++;
+      char EscapedChar = *AsmStr++;
       if (EscapedChar == '%') {            // Escaped '%' character
         Result += '%';
       } else if (EscapedChar == '=') {     // Unique ID for the asm instance.
         Result += "${:uid}";
       }
 #ifdef LLVM_ASM_EXTENSIONS
-      LLVM_ASM_EXTENSIONS(EscapedChar, InStr, Result)
+      LLVM_ASM_EXTENSIONS(EscapedChar, AsmStr, Result)
 #endif
       else if (ISALPHA(EscapedChar)) {
         // % followed by a letter and some digits. This outputs an operand in a
         // special way depending on the letter.  We turn this into LLVM ${N:o}
         // syntax.
         char *EndPtr;
-        unsigned long OpNum = strtoul(InStr, &EndPtr, 10);
+        unsigned long OpNum = strtoul(AsmStr, &EndPtr, 10);
 
-        if (InStr == EndPtr) {
+        if (AsmStr == EndPtr) {
           error_at(gimple_location(stmt),
                    "operand number missing after %%-letter");
           return Result;
@@ -3175,11 +3168,11 @@ static std::string ConvertInlineAsmStr(gimple stmt, tree outputs, tree inputs,
           return Result;
         }
         Result += "${" + utostr(OpNum) + ":" + EscapedChar + "}";
-        InStr = EndPtr;
+        AsmStr = EndPtr;
       } else if (ISDIGIT(EscapedChar)) {
         char *EndPtr;
-        unsigned long OpNum = strtoul(InStr-1, &EndPtr, 10);
-        InStr = EndPtr;
+        unsigned long OpNum = strtoul(AsmStr-1, &EndPtr, 10);
+        AsmStr = EndPtr;
         Result += "$" + utostr(OpNum);
 #ifdef PRINT_OPERAND_PUNCT_VALID_P
       } else if (PRINT_OPERAND_PUNCT_VALID_P((unsigned char)EscapedChar)) {
@@ -3460,8 +3453,9 @@ ChooseConstraintTuple(const char **Constraints, tree outputs, tree inputs,
 
 static void FreeConstTupleStrings(const char **ReplacementStrings,
                                   unsigned int Size) {
-  for (unsigned int i=0; i<Size; i++)
-    free(const_cast<char *>(ReplacementStrings[i]));
+  if (ReplacementStrings)
+    for (unsigned int i=0; i<Size; i++)
+      free(const_cast<char *>(ReplacementStrings[i]));
 }
 
 
@@ -6699,6 +6693,51 @@ Value *TreeToLLVM::EmitReg_TRUNC_MOD_EXPR(tree op0, tree op1) {
 //===----------------------------------------------------------------------===//
 
 void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
+  // A gimple asm statement consists of an asm string, a list of outputs, a list
+  // of inputs, a list of clobbers, a list of labels and a "volatile" flag.
+  // These correspond directly to the elements of an asm statement.  For example
+  //   asm ("combine %2,%0" : "=r" (x) : "0" (x), "g" (y));
+  // Here the asm string is "combine %2,%0" and can be obtained as a const char*
+  // by calling gimple_asm_string.  The only output is "=r" (x).  The number of
+  // outputs is given by gimple_asm_noutputs, 1 in this case, and the outputs
+  // themselves can be obtained by calling gimple_asm_output_op.  This returns a
+  // TREE_LIST node with an SSA name for "x" as the TREE_VALUE; the TREE_PURPOSE
+  // is also a TREE_LIST with TREE_VALUE a string constant holding "=r".  There
+  // are two inputs, "0" (x) and "g" (y), so gimple_asm_ninputs returns 2.  The
+  // routine gimple_asm_input_op returns them in the same format as for outputs.
+  // The number of clobbers is returned by gimple_asm_nclobbers, 0 in this case.
+  // To get the clobbers use gimple_asm_clobber_op.  This returns a TREE_LIST
+  // node with TREE_VALUE a string constant holding the clobber.  To find out if
+  // the asm is volatile call gimple_asm_volatile_p, which returns true if so.
+  // See below for labels (this example does not have any).
+
+  // Note that symbolic names have been substituted before getting here.  For
+  // example this
+  //   asm ("cmoveq %1,%2,%[result]" : [result] "=r"(result)
+  //        : "r"(test), "r"(new), "[result]"(old));
+  // turns up as
+  //   asm ("cmoveq %1,%2,%0" : "=r"(result) : "r"(test), "r"(new), "0"(old));
+
+  // Note that clobbers may not turn up in the same order as in the original, eg
+  //   asm volatile ("movc3 %0,%1,%2" : /* no outputs */
+  //                 : "g" (from), "g" (to), "g" (count)
+  //                 : "r0", "r1", "r2", "r3", "r4", "r5");
+  // The clobbers turn up as "r5", "r4", "r3", "r2", "r1", "r0".
+
+  // Here is an example of the "asm goto" construct (not yet supported by LLVM):
+  //   int frob(int x) {
+  //     int y;
+  //     asm goto ("frob %%r5, %1; jc %l[error]; mov (%2), %%r5"
+  //               : : "r"(x), "r"(&y) : "r5", "memory" : error);
+  //     return y;
+  //   error:
+  //     return -1;
+  //   }
+  // The number of labels, one in this case, is returned by gimple_asm_nlabels.
+  // The labels themselves are returned by gimple_asm_label_op as a TREE_LIST
+  // node with TREE_PURPOSE a string constant holding the label name ("error")
+  // and TREE_VALUE holding the appropriate LABEL_DECL.
+
   // TODO: Add support for labels.
   if (gimple_asm_nlabels(stmt) > 0) {
     sorry("'asm goto' not supported");
@@ -6820,8 +6859,6 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
 
   std::vector<Value*> CallOps;
   std::vector<const Type*> CallArgTypes;
-  std::string NewAsmStr = ConvertInlineAsmStr(stmt, outputs, inputs, labels,
-                                              NumOutputs+NumInputs);
   std::string ConstraintStr;
   bool HasSideEffects = gimple_asm_volatile_p(stmt) || !outputs;
 
@@ -6843,8 +6880,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     bool IsInOut, AllowsReg, AllowsMem;
     if (!parse_output_constraint(&Constraint, ValNum, NumInputs, NumOutputs,
                                  &AllowsMem, &AllowsReg, &IsInOut)) {
-      if (NumChoices>1)
-        FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
+      FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
       return;
     }
     assert(Constraint[0] == '=' && "Not an output constraint?");
@@ -6930,8 +6966,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     if (!parse_input_constraint(Constraints+ValNum, ValNum-NumOutputs,
                                 NumInputs, NumOutputs, NumInOut,
                                 Constraints, &AllowsMem, &AllowsReg)) {
-      if (NumChoices>1)
-        FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
+      FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
       return;
     }
     bool isIndirect = false;
@@ -7008,8 +7043,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
             error_at(gimple_location(stmt),
                      "unsupported inline asm: input constraint with a matching "
                      "output constraint of incompatible type!");
-            if (NumChoices>1)
-              FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
+            FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
             return;
           }
           unsigned OTyBits = TD.getTypeSizeInBits(OTy);
@@ -7089,8 +7123,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     case -2:     // Invalid.
       error_at(gimple_location(stmt), "unknown register name %qs in %<asm%>",
                RegName);
-      if (NumChoices>1)
-        FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
+      FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
       return;
     case -3:     // cc
       ConstraintStr += ",~{cc}";
@@ -7128,11 +7161,11 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   // Make sure we're created a valid inline asm expression.
   if (!InlineAsm::Verify(FTy, ConstraintStr)) {
     error_at(gimple_location(stmt), "Invalid or unsupported inline assembly!");
-    if (NumChoices>1)
-      FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
+    FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
     return;
   }
 
+  std::string NewAsmStr = ConvertInlineAsmStr(stmt, NumOutputs+NumInputs);
   Value *Asm = InlineAsm::get(FTy, NewAsmStr, ConstraintStr, HasSideEffects);
   CallInst *CV = Builder.CreateCall(Asm, CallOps.begin(), CallOps.end(),
                                     CallResultTypes.empty() ? "" : "asmtmp");
@@ -7162,8 +7195,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   if (const TargetLowering *TLI = TheTarget->getTargetLowering())
     TLI->ExpandInlineAsm(CV);
 
-  if (NumChoices>1)
-    FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
+  FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
 }
 
 void TreeToLLVM::RenderGIMPLE_ASSIGN(gimple stmt) {
