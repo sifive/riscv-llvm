@@ -6699,6 +6699,12 @@ Value *TreeToLLVM::EmitReg_TRUNC_MOD_EXPR(tree op0, tree op1) {
 //===----------------------------------------------------------------------===//
 
 void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
+  // TODO: Add support for labels.
+  if (gimple_asm_nlabels(stmt) > 0) {
+    sorry("'asm goto' not supported");
+    return;
+  }
+
   // Some of the GCC utilities we use still want lists and not gimple, so create
   // input, output and clobber lists for their benefit.
   unsigned NumOutputs = gimple_asm_noutputs (stmt);
