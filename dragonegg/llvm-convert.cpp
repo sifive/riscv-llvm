@@ -3349,10 +3349,9 @@ static int MatchWeight(const char *Constraint, tree Operand) {
 /// gcc's algorithm for picking "the best" tuple is quite complicated, and
 /// is performed after things like SROA, not before.  At the moment we are
 /// just trying to pick one that will work.  This may get refined.
-static void
-ChooseConstraintTuple(gimple stmt, const char **Constraints,
-                      unsigned NumChoices, const char **ReplacementStrings)
-{
+static void ChooseConstraintTuple(gimple stmt, const char **Constraints,
+                                  unsigned NumChoices,
+                                  BumpPtrAllocator &ReplacementStrings) {
   unsigned NumInputs = gimple_asm_ninputs(stmt);
   unsigned NumOutputs = gimple_asm_noutputs(stmt);
 
@@ -3437,25 +3436,17 @@ ChooseConstraintTuple(gimple stmt, const char **Constraints,
     // For outputs, copy the leading = or +.
     char *newstring;
     if (i<NumOutputs) {
-      newstring = (char *)xmalloc(end-start+1+1);
+      newstring = ReplacementStrings.Allocate<char>(end-start+1+1);
       newstring[0] = *(Constraints[i]);
       strncpy(newstring+1, start, end-start);
       newstring[end-start+1] = 0;
     } else {
-      newstring = (char *)xmalloc(end-start+1);
+      newstring = ReplacementStrings.Allocate<char>(end-start+1);
       strncpy(newstring, start, end-start);
       newstring[end-start] = 0;
     }
     Constraints[i] = (const char *)newstring;
-    ReplacementStrings[i] = (const char*)newstring;
   }
-}
-
-static void FreeConstTupleStrings(const char **ReplacementStrings,
-                                  unsigned int Size) {
-  if (ReplacementStrings)
-    for (unsigned int i=0; i<Size; i++)
-      free(const_cast<char *>(ReplacementStrings[i]));
 }
 
 
@@ -6748,6 +6739,33 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   const unsigned NumInputs = gimple_asm_ninputs(stmt);
   const unsigned NumClobbers = gimple_asm_nclobbers (stmt);
 
+  /// Constraints - The output/input constraints, concatenated together in array
+  /// form instead of list form.  This way of doing things is forced on us by
+  /// GCC routines like parse_output_constraint which rummage around inside the
+  /// array.
+  const char **Constraints =
+    (const char **)alloca((NumOutputs + NumInputs) * sizeof(const char *));
+
+  // Initialize the Constraints array.
+  for (unsigned i = 0; i != NumOutputs; ++i) {
+    tree Output = gimple_asm_output_op(stmt, i);
+    // If there's an erroneous arg then bail out.
+    if (TREE_TYPE(TREE_VALUE(Output)) == error_mark_node) return;
+    // Record the output constraint.
+    const char *Constraint =
+      TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Output)));
+    Constraints[i] = Constraint;
+  }
+  for (unsigned i = 0; i != NumInputs; ++i) {
+    tree Input = gimple_asm_input_op(stmt, i);
+    // If there's an erroneous arg then bail out.
+    if (TREE_TYPE(TREE_VALUE(Input)) == error_mark_node) return;
+    // Record the input constraint.
+    const char *Constraint =
+      TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Input)));
+    Constraints[NumOutputs+i] = Constraint;
+  }
+
   // Look for multiple alternative constraints: multiple alternatives separated
   // by commas.
   unsigned NumChoices = 0;    // sentinal; real value is always at least 1.
@@ -6776,42 +6794,12 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       NumChoices = NumOutputChoices;
   }
 
-  /// Constraints - The output/input constraints, concatenated together in array
-  /// form instead of list form.  This way of doing things is forced on us by
-  /// GCC routines like parse_output_constraint which rummage around inside the
-  /// array.
-  const char **Constraints =
-    (const char **)alloca((NumOutputs + NumInputs) * sizeof(const char *));
-
-  // Initialize the Constraints array.
-  for (unsigned i = 0; i != NumOutputs; ++i) {
-    tree Output = gimple_asm_output_op(stmt, i);
-    // If there's an erroneous arg then bail out.
-    if (TREE_TYPE(TREE_VALUE(Output)) == error_mark_node) return;
-    // Record the output constraint.
-    const char *Constraint =
-      TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Output)));
-    Constraints[i] = Constraint;
-  }
-  for (unsigned i = 0; i != NumInputs; ++i) {
-    tree Input = gimple_asm_input_op(stmt, i);
-    // If there's an erroneous arg then bail out.
-    if (TREE_TYPE(TREE_VALUE(Input)) == error_mark_node) return;
-    // Record the input constraint.
-    const char *Constraint =
-      TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Input)));
-    Constraints[NumOutputs+i] = Constraint;
-  }
-
   // If there are multiple constraint tuples, pick one.  Constraints is
   // altered to point to shorter strings (which are malloc'ed), and everything
   // below Just Works as in the NumChoices==1 case.
-  const char** ReplacementStrings = 0;
-  if (NumChoices>1) {
-    ReplacementStrings =
-      (const char **)alloca((NumOutputs + NumInputs) * sizeof(const char *));
+  BumpPtrAllocator ReplacementStrings;
+  if (NumChoices > 1)
     ChooseConstraintTuple(stmt, Constraints, NumChoices, ReplacementStrings);
-  }
 
   std::vector<Value*> CallOps;
   std::vector<const Type*> CallArgTypes;
@@ -6835,10 +6823,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     const char *Constraint = Constraints[i];
     bool IsInOut, AllowsReg, AllowsMem;
     if (!parse_output_constraint(&Constraint, i, NumInputs, NumOutputs,
-                                 &AllowsMem, &AllowsReg, &IsInOut)) {
-      FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
+                                 &AllowsMem, &AllowsReg, &IsInOut))
       return;
-    }
     assert(Constraint[0] == '=' && "Not an output constraint?");
     assert(!IsInOut && "asm expression not gimplified?");
 
@@ -6914,10 +6900,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     bool AllowsReg, AllowsMem;
     if (!parse_input_constraint(Constraints+NumOutputs+i, i,
                                 NumInputs, NumOutputs, 0,
-                                Constraints, &AllowsMem, &AllowsReg)) {
-      FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
+                                Constraints, &AllowsMem, &AllowsReg))
       return;
-    }
     bool isIndirect = false;
     if (AllowsReg || !AllowsMem) {    // Register operand.
       const Type *LLVMTy = ConvertType(type);
@@ -6992,7 +6976,6 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
             error_at(gimple_location(stmt),
                      "unsupported inline asm: input constraint with a matching "
                      "output constraint of incompatible type!");
-            FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
             return;
           }
           unsigned OTyBits = TD.getTypeSizeInBits(OTy);
@@ -7012,7 +6995,6 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
             error_at(gimple_location(stmt),
                      "unsupported inline asm: input constraint with a matching "
                      "output constraint of incompatible type!");
-            FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
             return;
           } else if (OTyBits > OpTyBits) {
             Op = CastToAnyType(Op, !TYPE_UNSIGNED(type),
@@ -7105,7 +7087,6 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     case -2:     // Invalid.
       error_at(gimple_location(stmt), "unknown register name %qs in %<asm%>",
                RegName);
-      FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
       return;
     case -3:     // cc
       ConstraintStr += ",~{cc}";
@@ -7143,7 +7124,6 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   // Make sure we're created a valid inline asm expression.
   if (!InlineAsm::Verify(FTy, ConstraintStr)) {
     error_at(gimple_location(stmt), "Invalid or unsupported inline assembly!");
-    FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
     return;
   }
 
@@ -7176,8 +7156,6 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   // llvm.bswap.
   if (const TargetLowering *TLI = TheTarget->getTargetLowering())
     TLI->ExpandInlineAsm(CV);
-
-  FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
 }
 
 void TreeToLLVM::RenderGIMPLE_ASSIGN(gimple stmt) {
