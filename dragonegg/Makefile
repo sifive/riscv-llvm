@@ -54,7 +54,7 @@ CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -DGCC_MAJOR=$(GCC_MAJOR) -DGCC_MINOR=$(GCC_MINOR) \
 	     -I$(SRC_DIR) -I$(GCC_PLUGIN_DIR)/include
 
-LD_OPTIONS+=$(LDFLAGS) $(shell $(LLVM_CONFIG) --ldflags)
+LD_OPTIONS+=$(shell $(LLVM_CONFIG) --ldflags) $(LDFLAGS)
 
 # NOTE: The following flags can only be used after TARGET_UTIL has been built.
 TARGET_HEADERS+=-DTARGET_NAME=\"$(shell $(TARGET_UTIL) -t)\" \
@@ -71,8 +71,8 @@ $(TARGET_UTIL_OBJECTS): %.o : $(SRC_DIR)/utils/%.cpp
 
 $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
 	@echo Linking $@
-	$(QUIET)$(CXX) -o $@ $^ $(LD_OPTIONS) \
-	$(shell $(LLVM_CONFIG) --libs support)
+	$(QUIET)$(CXX) -o $@ $^ $(shell $(LLVM_CONFIG) --libs support) \
+	$(LD_OPTIONS)
 
 %.o : $(SRC_DIR)/%.c $(TARGET_UTIL)
 	@echo Compiling $*.c
@@ -90,9 +90,9 @@ $(TARGET_OBJECT): $(TARGET_UTIL)
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 	@echo Linking $@
 	$(QUIET)$(CXX) -o $@ $(LOADABLE_MODULE_OPTIONS) $(CXXFLAGS) \
-	$(LD_OPTIONS) $(PLUGIN_OBJECTS) $(TARGET_OBJECT) \
-	$(shell $(LLVM_CONFIG) --libs analysis core ipo scalaropts target \
-	$(shell $(TARGET_UTIL) -p))
+	$(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(shell $(LLVM_CONFIG) --libs \
+	analysis core ipo scalaropts target $(shell $(TARGET_UTIL) -p)) \
+	$(LD_OPTIONS)
 
 clean::
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
