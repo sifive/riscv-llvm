@@ -3350,10 +3350,12 @@ static int MatchWeight(const char *Constraint, tree Operand) {
 /// is performed after things like SROA, not before.  At the moment we are
 /// just trying to pick one that will work.  This may get refined.
 static void
-ChooseConstraintTuple(const char **Constraints, tree outputs, tree inputs,
-                      unsigned NumOutputs, unsigned NumInputs,
+ChooseConstraintTuple(gimple stmt, const char **Constraints,
                       unsigned NumChoices, const char **ReplacementStrings)
 {
+  unsigned NumInputs = gimple_asm_ninputs(stmt);
+  unsigned NumOutputs = gimple_asm_noutputs(stmt);
+
   int MaxWeight = -1;
   unsigned int CommasToSkip = 0;
   int *Weights = (int *)alloca(NumChoices * sizeof(int));
@@ -3365,11 +3367,10 @@ ChooseConstraintTuple(const char **Constraints, tree outputs, tree inputs,
   memcpy(RunningConstraints, Constraints,
          (NumInputs+NumOutputs) * sizeof(const char*));
   // The entire point of this loop is to compute CommasToSkip.
-  for (unsigned int i=0; i<NumChoices; i++) {
+  for (unsigned i = 0; i != NumChoices; ++i) {
     Weights[i] = 0;
-    unsigned int j = 0;
-    for (tree Output = outputs; j<NumOutputs;
-         j++, Output = TREE_CHAIN(Output)) {
+    for (unsigned j = 0; j != NumOutputs; ++j) {
+      tree Output = gimple_asm_output_op(stmt, j);
       if (i==0)
         RunningConstraints[j]++;    // skip leading =
       const char* p = RunningConstraints[j];
@@ -3394,10 +3395,9 @@ ChooseConstraintTuple(const char **Constraints, tree outputs, tree inputs,
       }
       RunningConstraints[j] = p;
     }
-    assert(j==NumOutputs);
-    for (tree Input = inputs; j<NumInputs+NumOutputs;
-         j++, Input = TREE_CHAIN(Input)) {
-      const char* p = RunningConstraints[j];
+    for (unsigned j = 0; j != NumInputs; ++j) {
+      tree Input = gimple_asm_input_op(stmt, j);
+      const char* p = RunningConstraints[NumOutputs + j];
       if (Weights[i] != -1) {
         int w = MatchWeight(p, TREE_VALUE(Input));
         if (w < 0)
@@ -3409,7 +3409,7 @@ ChooseConstraintTuple(const char **Constraints, tree outputs, tree inputs,
         p++;
       if (*p!=0)
         p++;
-      RunningConstraints[j] = p;
+      RunningConstraints[NumOutputs + j] = p;
     }
     if (Weights[i]>MaxWeight) {
       CommasToSkip = i;
@@ -6744,106 +6744,63 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     return;
   }
 
-  // Some of the GCC utilities we use still want lists and not gimple, so create
-  // input, output and clobber lists for their benefit.
-  unsigned NumOutputs = gimple_asm_noutputs (stmt);
-  tree outputs = NULL_TREE;
-  if (NumOutputs) {
-    tree t = outputs = gimple_asm_output_op (stmt, 0);
-    for (unsigned i = 1; i < NumOutputs; i++) {
-      TREE_CHAIN (t) = gimple_asm_output_op (stmt, i);
-      t = gimple_asm_output_op (stmt, i);
-    }
-  }
-
-  unsigned NumInputs = gimple_asm_ninputs(stmt);
-  tree inputs = NULL_TREE;
-  if (NumInputs) {
-    tree t = inputs = gimple_asm_input_op (stmt, 0);
-    for (unsigned i = 1; i < NumInputs; i++) {
-      TREE_CHAIN (t) = gimple_asm_input_op (stmt, i);
-      t = gimple_asm_input_op (stmt, i);
-    }
-  }
-
-  unsigned NumClobbers = gimple_asm_nclobbers (stmt);
-  tree clobbers = NULL_TREE;
-  if (NumClobbers) {
-    tree t = clobbers = gimple_asm_clobber_op (stmt, 0);
-    for (unsigned i = 1; i < NumClobbers; i++) {
-      TREE_CHAIN (t) = gimple_asm_clobber_op (stmt, i);
-      t = gimple_asm_clobber_op (stmt, i);
-    }
-  }
-
-  // TODO: Understand what these labels are about, and handle them properly.
-  unsigned NumLabels = gimple_asm_nlabels (stmt);
-  tree labels = NULL_TREE;
-  if (NumLabels) {
-    tree t = labels = gimple_asm_label_op (stmt, 0);
-    for (unsigned i = 1; i < NumLabels; i++) {
-      TREE_CHAIN (t) = gimple_asm_label_op (stmt, i);
-      t = gimple_asm_label_op (stmt, i);
-    }
-  }
-
-  unsigned NumInOut = 0;
+  const unsigned NumOutputs = gimple_asm_noutputs (stmt);
+  const unsigned NumInputs = gimple_asm_ninputs(stmt);
+  const unsigned NumClobbers = gimple_asm_nclobbers (stmt);
 
   // Look for multiple alternative constraints: multiple alternatives separated
   // by commas.
   unsigned NumChoices = 0;    // sentinal; real value is always at least 1.
-  const char* p;
-  for (tree t = inputs; t; t = TREE_CHAIN(t)) {
+  for (unsigned i = 0; i != NumInputs; ++i) {
+    tree Input = gimple_asm_input_op(stmt, i);
     unsigned NumInputChoices = 1;
-    for (p = TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(t))); *p; p++) {
+    for (const char *p = TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Input)));
+         *p; ++p)
       if (*p == ',')
-        NumInputChoices++;
-    }
-    if (NumChoices==0)
+        ++NumInputChoices;
+    assert((!NumChoices || NumChoices == NumInputChoices) &&
+           "invalid constraints!");
+    if (NumChoices == 0)
       NumChoices = NumInputChoices;
-    else if (NumChoices != NumInputChoices)
-      llvm_unreachable("invalid constraints");
   }
-  for (tree t = outputs; t; t = TREE_CHAIN(t)) {
+  for (unsigned i = 0; i != NumOutputs; ++i) {
+    tree Output = gimple_asm_output_op(stmt, i);
     unsigned NumOutputChoices = 1;
-    for (p = TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(t))); *p; p++) {
+    for (const char *p = TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Output)));
+         *p; ++p)
       if (*p == ',')
-        NumOutputChoices++;
-    }
-    if (NumChoices==0)
+        ++NumOutputChoices;
+    assert((!NumChoices || NumChoices == NumOutputChoices) &&
+           "invalid constraints!");
+    if (NumChoices == 0)
       NumChoices = NumOutputChoices;
-    else if (NumChoices != NumOutputChoices)
-      llvm_unreachable("invalid constraints");
   }
 
   /// Constraints - The output/input constraints, concatenated together in array
-  /// form instead of list form.
+  /// form instead of list form.  This way of doing things is forced on us by
+  /// GCC routines like parse_output_constraint which rummage around inside the
+  /// array.
   const char **Constraints =
     (const char **)alloca((NumOutputs + NumInputs) * sizeof(const char *));
 
-  // Process outputs.
-  int ValNum = 0;
-  for (tree Output = outputs; Output; Output = TREE_CHAIN(Output), ++ValNum) {
-    tree Operand = TREE_VALUE(Output);
-    tree type = TREE_TYPE(Operand);
-    // If there's an erroneous arg, emit no insn.
-    if (type == error_mark_node) return;
-
-    // Parse the output constraint.
+  // Initialize the Constraints array.
+  for (unsigned i = 0; i != NumOutputs; ++i) {
+    tree Output = gimple_asm_output_op(stmt, i);
+    // If there's an erroneous arg then bail out.
+    if (TREE_TYPE(TREE_VALUE(Output)) == error_mark_node) return;
+    // Record the output constraint.
     const char *Constraint =
       TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Output)));
-    Constraints[ValNum] = Constraint;
+    Constraints[i] = Constraint;
   }
-  // Process inputs.
-  for (tree Input = inputs; Input; Input = TREE_CHAIN(Input),++ValNum) {
-    tree Val = TREE_VALUE(Input);
-    tree type = TREE_TYPE(Val);
-    // If there's an erroneous arg, emit no insn.
-    if (type == error_mark_node) return;
-
+  for (unsigned i = 0; i != NumInputs; ++i) {
+    tree Input = gimple_asm_input_op(stmt, i);
+    // If there's an erroneous arg then bail out.
+    if (TREE_TYPE(TREE_VALUE(Input)) == error_mark_node) return;
+    // Record the input constraint.
     const char *Constraint =
       TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Input)));
-    Constraints[ValNum] = Constraint;
+    Constraints[NumOutputs+i] = Constraint;
   }
 
   // If there are multiple constraint tuples, pick one.  Constraints is
@@ -6853,14 +6810,13 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   if (NumChoices>1) {
     ReplacementStrings =
       (const char **)alloca((NumOutputs + NumInputs) * sizeof(const char *));
-    ChooseConstraintTuple(Constraints, outputs, inputs, NumOutputs, NumInputs,
-                          NumChoices, ReplacementStrings);
+    ChooseConstraintTuple(stmt, Constraints, NumChoices, ReplacementStrings);
   }
 
   std::vector<Value*> CallOps;
   std::vector<const Type*> CallArgTypes;
   std::string ConstraintStr;
-  bool HasSideEffects = gimple_asm_volatile_p(stmt) || !outputs;
+  bool HasSideEffects = gimple_asm_volatile_p(stmt) || (NumOutputs == 0);
 
   // StoreCallResultAddr - The pointer to store the result of the call through.
   SmallVector<Value *, 4> StoreCallResultAddrs;
@@ -6871,28 +6827,20 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   SmallVector<MemRef, 4> CallResultSSATemps;
 
   // Process outputs.
-  ValNum = 0;
-  for (tree Output = outputs; Output; Output = TREE_CHAIN(Output), ++ValNum) {
+  for (unsigned i = 0; i != NumOutputs; ++i) {
+    tree Output = gimple_asm_output_op(stmt, i);
     tree Operand = TREE_VALUE(Output);
 
     // Parse the output constraint.
-    const char *Constraint = Constraints[ValNum];
+    const char *Constraint = Constraints[i];
     bool IsInOut, AllowsReg, AllowsMem;
-    if (!parse_output_constraint(&Constraint, ValNum, NumInputs, NumOutputs,
+    if (!parse_output_constraint(&Constraint, i, NumInputs, NumOutputs,
                                  &AllowsMem, &AllowsReg, &IsInOut)) {
       FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
       return;
     }
     assert(Constraint[0] == '=' && "Not an output constraint?");
-
-    // Output constraints must be addressable if they aren't simple register
-    // constraints (this emits "address of register var" errors, etc).
-    if (!AllowsReg && (AllowsMem || IsInOut))
-      mark_addressable(Operand);
-
-    // Count the number of "+" constraints.
-    if (IsInOut)
-      ++NumInOut, ++NumInputs;
+    assert(!IsInOut && "asm expression not gimplified?");
 
     std::string SimplifiedConstraint;
     // If this output register is pinned to a machine register, use that machine
@@ -6956,15 +6904,16 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   }
 
   // Process inputs.
-  for (tree Input = inputs; Input; Input = TREE_CHAIN(Input),++ValNum) {
+  for (unsigned i = 0; i != NumInputs; ++i) {
+    tree Input = gimple_asm_input_op(stmt, i);
     tree Val = TREE_VALUE(Input);
     tree type = TREE_TYPE(Val);
 
-    const char *Constraint = Constraints[ValNum];
+    const char *Constraint = Constraints[NumOutputs+i];
 
     bool AllowsReg, AllowsMem;
-    if (!parse_input_constraint(Constraints+ValNum, ValNum-NumOutputs,
-                                NumInputs, NumOutputs, NumInOut,
+    if (!parse_input_constraint(Constraints+NumOutputs+i, i,
+                                NumInputs, NumOutputs, 0,
                                 Constraints, &AllowsMem, &AllowsReg)) {
       FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
       return;
@@ -7063,6 +7012,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
             error_at(gimple_location(stmt),
                      "unsupported inline asm: input constraint with a matching "
                      "output constraint of incompatible type!");
+            FreeConstTupleStrings(ReplacementStrings, NumInputs+NumOutputs);
             return;
           } else if (OTyBits > OpTyBits) {
             Op = CastToAnyType(Op, !TYPE_UNSIGNED(type),
@@ -7113,7 +7063,39 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   // Process clobbers.
 
   // Some targets automatically clobber registers across an asm.
-  tree Clobbers = targetm.md_asm_clobbers(outputs, inputs, clobbers);
+  tree Clobbers;
+  {
+    // Create input, output & clobber lists for the benefit of md_asm_clobbers.
+    tree outputs = NULL_TREE;
+    if (NumOutputs) {
+      tree t = outputs = gimple_asm_output_op (stmt, 0);
+      for (unsigned i = 1; i < NumOutputs; i++) {
+        TREE_CHAIN (t) = gimple_asm_output_op (stmt, i);
+        t = gimple_asm_output_op (stmt, i);
+      }
+    }
+
+    tree inputs = NULL_TREE;
+    if (NumInputs) {
+      tree t = inputs = gimple_asm_input_op (stmt, 0);
+      for (unsigned i = 1; i < NumInputs; i++) {
+        TREE_CHAIN (t) = gimple_asm_input_op (stmt, i);
+        t = gimple_asm_input_op (stmt, i);
+      }
+    }
+
+    tree clobbers = NULL_TREE;
+    if (NumClobbers) {
+      tree t = clobbers = gimple_asm_clobber_op (stmt, 0);
+      for (unsigned i = 1; i < NumClobbers; i++) {
+        TREE_CHAIN (t) = gimple_asm_clobber_op (stmt, i);
+        t = gimple_asm_clobber_op (stmt, i);
+      }
+    }
+
+    Clobbers = targetm.md_asm_clobbers(outputs, inputs, clobbers);
+  }
+
   for (; Clobbers; Clobbers = TREE_CHAIN(Clobbers)) {
     const char *RegName = TREE_STRING_POINTER(TREE_VALUE(Clobbers));
     int RegCode = decode_reg_name(RegName);
