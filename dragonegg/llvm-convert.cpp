@@ -6960,12 +6960,14 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
         // This output might have gotten put in either CallResult or CallArg
         // depending whether it's a register or not.  Find its type.
         const Type *OTy = 0;
+        unsigned OutputIndex = ~0U;
         if (Match < OutputLocations.size()) {
           // Indices here known to be within range.
+          OutputIndex = OutputLocations[Match].second;
           if (OutputLocations[Match].first)
-            OTy = CallResultTypes[OutputLocations[Match].second];
+            OTy = CallResultTypes[OutputIndex];
           else {
-            OTy = CallArgTypes[OutputLocations[Match].second];
+            OTy = CallArgTypes[OutputIndex];
             assert(OTy->isPointerTy() && "Expected pointer type!");
             OTy = cast<PointerType>(OTy)->getElementType();
           }
@@ -6998,7 +7000,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
             return;
           } else if (OTyBits > OpTyBits) {
             Op = CastToAnyType(Op, !TYPE_UNSIGNED(type),
-                               OTy, CallResultIsSigned[Match]);
+                               OTy, CallResultIsSigned[OutputIndex]);
             if (BYTES_BIG_ENDIAN) {
               Constant *ShAmt = ConstantInt::get(Op->getType(),
                                                  OTyBits-OpTyBits);
