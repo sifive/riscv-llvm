@@ -3342,7 +3342,7 @@ static int MatchWeight(const char *Constraint, tree Operand) {
 /// in Constraints[] with the shorter strings from that tuple (malloc'ed,
 /// caller is responsible for cleaning it up).  Later processing can alter what
 /// Constraints points to, so to make sure we delete everything, the addresses
-/// of everything we allocated also are returned in ReplacementStrings.
+/// of everything we allocated also are returned in StringStorage.
 /// Casting back and forth from char* to const char* is Ugly, but we have to
 /// interface with C code that expects const char*.
 ///
@@ -3351,7 +3351,7 @@ static int MatchWeight(const char *Constraint, tree Operand) {
 /// just trying to pick one that will work.  This may get refined.
 static void ChooseConstraintTuple(gimple stmt, const char **Constraints,
                                   unsigned NumChoices,
-                                  BumpPtrAllocator &ReplacementStrings) {
+                                  BumpPtrAllocator &StringStorage) {
   unsigned NumInputs = gimple_asm_ninputs(stmt);
   unsigned NumOutputs = gimple_asm_noutputs(stmt);
 
@@ -3436,12 +3436,12 @@ static void ChooseConstraintTuple(gimple stmt, const char **Constraints,
     // For outputs, copy the leading = or +.
     char *newstring;
     if (i<NumOutputs) {
-      newstring = ReplacementStrings.Allocate<char>(end-start+1+1);
+      newstring = StringStorage.Allocate<char>(end-start+1+1);
       newstring[0] = *(Constraints[i]);
       strncpy(newstring+1, start, end-start);
       newstring[end-start+1] = 0;
     } else {
-      newstring = ReplacementStrings.Allocate<char>(end-start+1);
+      newstring = StringStorage.Allocate<char>(end-start+1);
       strncpy(newstring, start, end-start);
       newstring[end-start] = 0;
     }
@@ -6797,9 +6797,9 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   // If there are multiple constraint tuples, pick one.  Constraints is
   // altered to point to shorter strings (which are malloc'ed), and everything
   // below Just Works as in the NumChoices==1 case.
-  BumpPtrAllocator ReplacementStrings;
+  BumpPtrAllocator StringStorage(256, 256);
   if (NumChoices > 1)
-    ChooseConstraintTuple(stmt, Constraints, NumChoices, ReplacementStrings);
+    ChooseConstraintTuple(stmt, Constraints, NumChoices, StringStorage);
 
   std::vector<Value*> CallOps;
   std::vector<const Type*> CallArgTypes;
