@@ -6814,13 +6814,17 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   std::vector<Value*> CallOps;
   std::vector<const Type*> CallArgTypes;
 
-  // StoreCallResultAddr - The pointer to store the result of the call through.
-  SmallVector<Value *, 4> StoreCallResultAddrs;
-
   // CallResultTypes - The inline asm call may return one or more results.  The
   // types of the results are recorded here along with a flag indicating whether
   // the corresponding GCC type is signed.
   SmallVector<std::pair<const Type *, bool>, 4> CallResultTypes;
+
+  // CallResultDests - Each result returned by the inline asm call is stored in
+  // a memory location.  These are listed here along with a flag indicating if
+  // the GCC type corresponding to the memory location is signed.  The type of
+  // the memory location is allowed to differ from the type of the call result,
+  // in which case the result is converted before being stored.
+  SmallVector<std::pair<Value *, bool>, 4> CallResultDests;
 
   SmallVector<std::pair<bool, unsigned>, 4> OutputLocations;
 
@@ -6877,25 +6881,25 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     }
 
     LValue Dest;
-    const Type *DestValTy;
+    const Type *DestValTy = ConvertType(TREE_TYPE(Operand));
     if (TREE_CODE(Operand) == SSA_NAME) {
       // The ASM is defining an ssa name.  Store the output to a temporary, then
       // load it out again later as the ssa name.
-      DestValTy = ConvertType(TREE_TYPE(Operand));
       MemRef TmpLoc = CreateTempLoc(DestValTy);
       SSADefinitions.push_back(std::make_pair(Operand, TmpLoc));
       Dest = LValue(TmpLoc);
     } else {
       Dest = EmitLV(Operand);
-      DestValTy = cast<PointerType>(Dest.Ptr->getType())->getElementType();
+      assert(cast<PointerType>(Dest.Ptr->getType())->getElementType() ==
+             DestValTy && "LValue has wrong type!");
     }
 
     assert(!Dest.isBitfield() && "Cannot assign into a bitfield!");
     if (!AllowsMem && DestValTy->isSingleValueType()) {// Reg dest -> asm return
-      StoreCallResultAddrs.push_back(Dest.Ptr);
       ConstraintStr += ",=";
       ConstraintStr += SimplifiedConstraint;
       bool IsSigned = !TYPE_UNSIGNED(TREE_TYPE(Operand));
+      CallResultDests.push_back(std::make_pair(Dest.Ptr, IsSigned));
       CallResultTypes.push_back(std::make_pair(DestValTy, IsSigned));
       OutputLocations.push_back(std::make_pair(true, CallResultTypes.size()-1));
     } else {
@@ -7160,13 +7164,17 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   CV->setDoesNotThrow();
 
   // If the call produces a value, store it into the destination.
-  if (StoreCallResultAddrs.size() == 1)
-    Builder.CreateStore(CV, StoreCallResultAddrs[0]);
-  else if (unsigned NumResults = StoreCallResultAddrs.size()) {
-    for (unsigned i = 0; i != NumResults; ++i) {
-      Value *ValI = Builder.CreateExtractValue(CV, i, "asmresult");
-      Builder.CreateStore(ValI, StoreCallResultAddrs[i]);
-    }
+  for (unsigned i = 0, NumResults = CallResultTypes.size(); i != NumResults;
+       ++i) {
+    Value *Val = NumResults == 1 ?
+      CV : Builder.CreateExtractValue(CV, i, "asmresult");
+    bool ValIsSigned = CallResultTypes[i].second;
+
+    Value *Dest = CallResultDests[i].first;
+    const Type *DestTy = cast<PointerType>(Dest->getType())->getElementType();
+    bool DestIsSigned = CallResultDests[i].second;
+    Val = CastToAnyType(Val, ValIsSigned, DestTy, DestIsSigned);
+    Builder.CreateStore(Val, Dest);
   }
 
   // If the call defined any ssa names, associate them with their value.
