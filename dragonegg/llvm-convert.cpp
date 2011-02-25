@@ -6807,13 +6807,19 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
 
   std::vector<Value*> CallOps;
   std::vector<const Type*> CallArgTypes;
-  std::string ConstraintStr;
 
   // StoreCallResultAddr - The pointer to store the result of the call through.
   SmallVector<Value *, 4> StoreCallResultAddrs;
-  SmallVector<const Type *, 4> CallResultTypes;
-  SmallVector<bool, 4> CallResultIsSigned;
+
+  // CallResultTypes - The inline asm call may return one or more results.  The
+  // types of the results are recorded here along with a flag indicating whether
+  // the corresponding GCC type is signed.
+  SmallVector<std::pair<const Type *, bool>, 4> CallResultTypes;
+
   SmallVector<std::pair<bool, unsigned>, 4> OutputLocations;
+
+  // ConstraintStr - The string of constraints in LLVM format.
+  std::string ConstraintStr;
 
   // SSADefinitions - If the asm defines an SSA name then the SSA name and a
   // memory location are recorded here.  The asm result defining the SSA name
@@ -6883,8 +6889,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       StoreCallResultAddrs.push_back(Dest.Ptr);
       ConstraintStr += ",=";
       ConstraintStr += SimplifiedConstraint;
-      CallResultTypes.push_back(DestValTy);
-      CallResultIsSigned.push_back(!TYPE_UNSIGNED(TREE_TYPE(Operand)));
+      bool IsSigned = !TYPE_UNSIGNED(TREE_TYPE(Operand));
+      CallResultTypes.push_back(std::make_pair(DestValTy, IsSigned));
       OutputLocations.push_back(std::make_pair(true, CallResultTypes.size()-1));
     } else {
       ConstraintStr += ",=*";
@@ -6971,7 +6977,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
           // Indices here known to be within range.
           OutputIndex = OutputLocations[Match].second;
           if (OutputLocations[Match].first)
-            OTy = CallResultTypes[OutputIndex];
+            OTy = CallResultTypes[OutputIndex].first;
           else {
             OTy = CallArgTypes[OutputIndex];
             assert(OTy->isPointerTy() && "Expected pointer type!");
@@ -7006,7 +7012,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
             return;
           } else if (OTyBits > OpTyBits) {
             Op = CastToAnyType(Op, !TYPE_UNSIGNED(type),
-                               OTy, CallResultIsSigned[OutputIndex]);
+                               OTy, CallResultTypes[OutputIndex].second);
             if (BYTES_BIG_ENDIAN) {
               Constant *ShAmt = ConstantInt::get(Op->getType(),
                                                  OTyBits-OpTyBits);
@@ -7111,14 +7117,20 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     }
   }
 
+  // Compute the return type to use for the asm call.
   const Type *CallResultType;
   switch (CallResultTypes.size()) {
+  // If there are no results then the return type is void!
   case 0: CallResultType = Type::getVoidTy(Context); break;
-  case 1: CallResultType = CallResultTypes[0]; break;
+  // If there is one result then use the result's type as the return type.
+  case 1: CallResultType = CallResultTypes[0].first; break;
+  // If the asm returns multiple results then create a struct type with the
+  // result types as its fields, and use it for the return type.
   default:
-    std::vector<const Type*> TmpVec(CallResultTypes.begin(),
-                                    CallResultTypes.end());
-    CallResultType = StructType::get(Context, TmpVec);
+    std::vector<const Type*> Fields(CallResultTypes.size());
+    for (unsigned i = 0, e = CallResultTypes.size(); i != e; ++i)
+      Fields[i] = CallResultTypes[i].first;
+    CallResultType = StructType::get(Context, Fields);
     break;
   }
 
