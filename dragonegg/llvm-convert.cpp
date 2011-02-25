@@ -6776,8 +6776,11 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
          *p; ++p)
       if (*p == ',')
         ++NumInputChoices;
-    assert((!NumChoices || NumChoices == NumInputChoices) &&
-           "invalid constraints!");
+    if (NumChoices && (NumInputChoices != NumChoices)) {
+      error_at(gimple_location(stmt), "operand constraints for %<asm%> differ "
+               "in number of alternatives");
+      return;
+    }
     if (NumChoices == 0)
       NumChoices = NumInputChoices;
   }
@@ -6788,8 +6791,11 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
          *p; ++p)
       if (*p == ',')
         ++NumOutputChoices;
-    assert((!NumChoices || NumChoices == NumOutputChoices) &&
-           "invalid constraints!");
+    if (NumChoices && (NumOutputChoices != NumChoices)) {
+      error_at(gimple_location(stmt), "operand constraints for %<asm%> differ "
+               "in number of alternatives");
+      return;
+    }
     if (NumChoices == 0)
       NumChoices = NumOutputChoices;
   }
