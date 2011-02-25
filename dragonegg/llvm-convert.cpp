@@ -6801,18 +6801,25 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   if (NumChoices > 1)
     ChooseConstraintTuple(stmt, Constraints, NumChoices, StringStorage);
 
+  // HasSideEffects - Whether the LLVM inline asm should be marked as having
+  // side effects.
+  bool HasSideEffects = gimple_asm_volatile_p(stmt) || (NumOutputs == 0);
+
   std::vector<Value*> CallOps;
   std::vector<const Type*> CallArgTypes;
   std::string ConstraintStr;
-  bool HasSideEffects = gimple_asm_volatile_p(stmt) || (NumOutputs == 0);
 
   // StoreCallResultAddr - The pointer to store the result of the call through.
   SmallVector<Value *, 4> StoreCallResultAddrs;
   SmallVector<const Type *, 4> CallResultTypes;
   SmallVector<bool, 4> CallResultIsSigned;
   SmallVector<std::pair<bool, unsigned>, 4> OutputLocations;
-  SmallVector<tree, 4> CallResultSSANames;
-  SmallVector<MemRef, 4> CallResultSSATemps;
+
+  // SSADefinitions - If the asm defines an SSA name then the SSA name and a
+  // memory location are recorded here.  The asm result defining the SSA name
+  // will be stored to the memory memory location, and loaded out afterwards
+  // to define the SSA name.
+  SmallVector<std::pair<tree, MemRef>, 4> SSADefinitions;
 
   // Process outputs.
   for (unsigned i = 0; i != NumOutputs; ++i) {
@@ -6864,8 +6871,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       // load it out again later as the ssa name.
       DestValTy = ConvertType(TREE_TYPE(Operand));
       MemRef TmpLoc = CreateTempLoc(DestValTy);
-      CallResultSSANames.push_back(Operand);
-      CallResultSSATemps.push_back(TmpLoc);
+      SSADefinitions.push_back(std::make_pair(Operand, TmpLoc));
       Dest = LValue(TmpLoc);
     } else {
       Dest = EmitLV(Operand);
@@ -7146,11 +7152,11 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   }
 
   // If the call defined any ssa names, associate them with their value.
-  for (unsigned i = 0, e = CallResultSSANames.size(); i != e; ++i) {
-    tree Op = CallResultSSANames[i];
-    Value *Val = LoadRegisterFromMemory(CallResultSSATemps[i], TREE_TYPE(Op),
-                                        Builder);
-    DefineSSAName(Op, Val);
+  for (unsigned i = 0, e = SSADefinitions.size(); i != e; ++i) {
+    tree Name = SSADefinitions[i].first;
+    MemRef Loc = SSADefinitions[i].second;
+    Value *Val = LoadRegisterFromMemory(Loc, TREE_TYPE(Name), Builder);
+    DefineSSAName(Name, Val);
   }
 
   // Give the backend a chance to upgrade the inline asm to LLVM code.  This
