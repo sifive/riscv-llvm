@@ -3206,6 +3206,39 @@ static std::string ConvertInlineAsmStr(gimple stmt, unsigned NumOperands) {
   }
 }
 
+/// isOperandMentioned - Return true if the given operand is explicitly
+/// mentioned in the asm string.  For example if passed operand 1 then
+/// this routine checks that the asm string does not contain "%1".
+static bool isOperandMentioned(gimple stmt, unsigned OpNum) {
+  // If this is a non-extended ASM then the contents of the asm string are not
+  // to be interpreted.
+  if (gimple_asm_input_p(stmt))
+    return false;
+  // Search for a non-escaped '%' character followed by OpNum.
+  for (const char *AsmStr = gimple_asm_string(stmt); *AsmStr; ++AsmStr) {
+    if (*AsmStr != '%')
+      // Not a '%', move on to next character.
+      continue;
+    char Next = AsmStr[1];
+    // If this is "%%" then the '%' is escaped - skip both '%' characters.
+    if (Next == '%') {
+      ++AsmStr;
+      continue;
+    }
+    // Whitespace is not allowed between the '%' and the number, so check that
+    // the next character is a digit.
+    if (!ISDIGIT(Next))
+      continue;
+    char *EndPtr;
+    // If this is an explicit reference to OpNum then we are done.
+    if (OpNum == strtoul(AsmStr+1, &EndPtr, 10))
+      return true;
+    // Otherwise, skip over the number and keep scanning.
+    AsmStr = EndPtr - 1;
+  }
+  return false;
+}
+
 /// CanonicalizeConstraint - If we can canonicalize the constraint into
 /// something simpler, do so now.  This turns register classes with a single
 /// register into the register itself, expands builtin constraints to multiple
@@ -6934,6 +6967,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     tree Input = gimple_asm_input_op(stmt, i);
     tree Val = TREE_VALUE(Input);
     tree type = TREE_TYPE(Val);
+    bool IsSigned = !TYPE_UNSIGNED(type);
 
     const char *Constraint = Constraints[NumOutputs+i];
 
@@ -7022,25 +7056,38 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
           }
           unsigned OTyBits = TD.getTypeSizeInBits(OTy);
           unsigned OpTyBits = TD.getTypeSizeInBits(OpTy);
-          if (OTyBits == 0 || OpTyBits == 0 || OTyBits < OpTyBits) {
-            // It's tempting to implement the OTyBits < OpTyBits case by 
-            // truncating Op down to OTy, however that breaks in the case of an 
-            // inline asm constraint that corresponds to a single register, 
-            // because the user can write code that assumes the whole register 
-            // is defined, despite the output operand being only a subset of the
-            // register. For example:
-            //
-            //   asm ("sarl $10, %%eax" : "=a"(c) : "0"(1000000));
-            //
-            // The expected behavior is for %eax to be fully defined with the 
-            // value 1000000 immediately before the asm.
-            error_at(gimple_location(stmt),
-                     "unsupported inline asm: input constraint with a matching "
-                     "output constraint of incompatible type!");
+          if (OTyBits == 0 || OpTyBits == 0) {
+            error_at(gimple_location(stmt), "unsupported inline asm: input "
+                     "constraint with a matching output constraint of "
+                     "incompatible type!");
             return;
+          } else if (OTyBits < OpTyBits) {
+            // The output is smaller than the input.  If the output is not a
+            // register then bail out.  Likewise, if the output is explicitly
+            // mentioned in the asm string then we cannot safely promote it,
+            // so bail out in this case too.
+            if (!OutputLocations[Match].first ||
+                isOperandMentioned(stmt, Match)) {
+              error_at(gimple_location(stmt), "unsupported inline asm: input "
+                       "constraint with a matching output constraint of "
+                       "incompatible type!");
+              return;
+            }
+            // Use the input type for the output, and arrange for the result to
+            // be truncated to the original output type after the asm call.
+            CallResultTypes[OutputIndex] = std::make_pair(OpTy, IsSigned);
           } else if (OTyBits > OpTyBits) {
-            Op = CastToAnyType(Op, !TYPE_UNSIGNED(type),
-                               OTy, CallResultTypes[OutputIndex].second);
+            // The input is smaller than the output.  If the input is explicitly
+            // mentioned in the asm string then we cannot safely promote it, so
+            // bail out.
+            if (isOperandMentioned(stmt, NumOutputs + i)) {
+              error_at(gimple_location(stmt), "unsupported inline asm: input "
+                       "constraint with a matching output constraint of "
+                       "incompatible type!");
+              return;
+            }
+            Op = CastToAnyType(Op, IsSigned, OTy,
+                               CallResultTypes[OutputIndex].second);
             if (BYTES_BIG_ENDIAN) {
               Constant *ShAmt = ConstantInt::get(Op->getType(),
                                                  OTyBits-OpTyBits);
