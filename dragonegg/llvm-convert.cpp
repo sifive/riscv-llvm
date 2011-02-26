@@ -1008,15 +1008,33 @@ Function *TreeToLLVM::FinishFunctionBody() {
     TheDebugInfo->EmitFunctionEnd(true);
   }
 
-#ifndef NDEBUG
-  if (!errorcount && !sorrycount)
+#ifdef NDEBUG
+  // When processing broken code it can be awkward to ensure that every SSA name
+  // that was used has a definition.  So in this case we play it cool and create
+  // an artificial definition for such SSA names.  The choice of definition does
+  // not matter because the compiler is going to exit with an error anyway.
+  if (errorcount || sorrycount)
+#else
+  // When checks are enabled, complain if an SSA name was used but not defined.
+#endif
     for (DenseMap<tree,TrackingVH<Value> >::const_iterator I = SSANames.begin(),
-         E = SSANames.end(); I != E; ++I)
-      if (isSSAPlaceholder(I->second)) {
+         E = SSANames.end(); I != E; ++I) {
+      Value *NameDef = I->second;
+      // If this is not a placeholder then the SSA name was defined.
+      if (!isSSAPlaceholder(NameDef))
+        continue;
+
+      // If an error occurred then replace the placeholder with undef.  Thanks
+      // to this we can just bail out on errors, without having to worry about
+      // whether we defined every SSA name.
+      if (errorcount || sorrycount) {
+        NameDef->replaceAllUsesWith(UndefValue::get(NameDef->getType()));
+        delete NameDef;
+      } else {
         debug_tree(I->first);
         llvm_unreachable("SSA name never defined!");
       }
-#endif
+    }
 
   return Fn;
 }
