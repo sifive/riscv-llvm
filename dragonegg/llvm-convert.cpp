@@ -6862,8 +6862,6 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   // side effects.
   bool HasSideEffects = gimple_asm_volatile_p(stmt) || (NumOutputs == 0);
 
-  std::vector<Value*> CallOps;
-
   // CallResultTypes - The inline asm call may return one or more results.  The
   // types of the results are recorded here along with a flag indicating whether
   // the corresponding GCC type is signed.
@@ -6876,16 +6874,24 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   // in which case the result is converted before being stored.
   SmallVector<std::pair<Value *, bool>, 4> CallResultDests;
 
-  SmallVector<std::pair<bool, unsigned>, 4> OutputLocations;
+  // CallOps - The operands pass to the inline asm call.
+  std::vector<Value*> CallOps;
 
-  // ConstraintStr - The string of constraints in LLVM format.
-  std::string ConstraintStr;
+  // OutputLocations - For each output holds an index into CallOps (if the flag
+  // is false) or into CallResultTypes (if the flag is true).  Outputs returned
+  // in memory are passed to the asm as an operand and thus appear in CallOps.
+  // Those returned in registers are obtained as one of the results of the asm
+  // call and thus correspond to an entry in CallResultTypes.
+  SmallVector<std::pair<bool, unsigned>, 4> OutputLocations;
 
   // SSADefinitions - If the asm defines an SSA name then the SSA name and a
   // memory location are recorded here.  The asm result defining the SSA name
   // will be stored to the memory memory location, and loaded out afterwards
   // to define the SSA name.
   SmallVector<std::pair<tree, MemRef>, 4> SSADefinitions;
+
+  // ConstraintStr - The string of constraints in LLVM format.
+  std::string ConstraintStr;
 
   // Process outputs.
   for (unsigned i = 0; i != NumOutputs; ++i) {
