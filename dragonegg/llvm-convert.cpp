@@ -6863,7 +6863,6 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   bool HasSideEffects = gimple_asm_volatile_p(stmt) || (NumOutputs == 0);
 
   std::vector<Value*> CallOps;
-  std::vector<const Type*> CallArgTypes;
 
   // CallResultTypes - The inline asm call may return one or more results.  The
   // types of the results are recorded here along with a flag indicating whether
@@ -6957,8 +6956,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       ConstraintStr += ",=*";
       ConstraintStr += SimplifiedConstraint;
       CallOps.push_back(Dest.Ptr);
-      CallArgTypes.push_back(Dest.Ptr->getType());
-      OutputLocations.push_back(std::make_pair(false, CallArgTypes.size()-1));
+      OutputLocations.push_back(std::make_pair(false, CallOps.size()-1));
     }
   }
 
@@ -7041,7 +7039,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
           if (OutputLocations[Match].first)
             OTy = CallResultTypes[OutputIndex].first;
           else {
-            OTy = CallArgTypes[OutputIndex];
+            OTy = CallOps[OutputIndex]->getType();
             assert(OTy->isPointerTy() && "Expected pointer type!");
             OTy = cast<PointerType>(OTy)->getElementType();
           }
@@ -7098,14 +7096,12 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       }
 
       CallOps.push_back(Op);
-      CallArgTypes.push_back(Op->getType());
     } else {                          // Memory operand.
       mark_addressable(TREE_VALUE(Input));
       isIndirect = true;
       LValue Src = EmitLV(Val);
       assert(!Src.isBitfield() && "Cannot read from a bitfield!");
       CallOps.push_back(Src.Ptr);
-      CallArgTypes.push_back(Src.Ptr->getType());
     }
 
     ConstraintStr += ',';
@@ -7209,6 +7205,12 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     break;
   }
 
+  // Compute the types of the arguments to the asm call.
+  std::vector<const Type*> CallArgTypes(CallOps.size());
+  for (unsigned i = 0, e = CallOps.size(); i != e; ++i)
+    CallArgTypes[i] = CallOps[i]->getType();
+
+  // Get the type of the called asm "function".
   const FunctionType *FTy =
     FunctionType::get(CallResultType, CallArgTypes, false);
 
