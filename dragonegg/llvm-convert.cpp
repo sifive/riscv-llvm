@@ -7092,11 +7092,6 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
             }
             Op = CastToAnyType(Op, IsSigned, OTy,
                                CallResultTypes[OutputIndex].second);
-            if (BYTES_BIG_ENDIAN) {
-              Constant *ShAmt = ConstantInt::get(Op->getType(),
-                                                 OTyBits-OpTyBits);
-              Op = Builder.CreateLShr(Op, ShAmt);
-            }
           }
         }
       }
