@@ -608,9 +608,8 @@ void TreeToLLVM::StartFunctionBody() {
     // If a previous proto existed with the wrong type, replace any uses of it
     // with the actual function and delete the proto.
     if (FnEntry) {
-      FnEntry->replaceAllUsesWith(
-        Builder.getFolder().CreateBitCast(Fn, FnEntry->getType())
-      );
+      FnEntry->replaceAllUsesWith
+        (TheFolder->CreateBitCast(Fn, FnEntry->getType()));
       changeLLVMConstant(FnEntry, Fn);
       FnEntry->eraseFromParent();
     }
@@ -1724,7 +1723,7 @@ void TreeToLLVM::EmitAnnotateIntrinsic(Value *V, tree decl) {
     ConstantInt::get(Type::getInt32Ty(Context), DECL_SOURCE_LINE(decl));
   Constant *file = ConvertMetadataStringToGV(DECL_SOURCE_FILE(decl));
   const Type *SBP = Type::getInt8PtrTy(Context);
-  file = Builder.getFolder().CreateBitCast(file, SBP);
+  file = TheFolder->CreateBitCast(file, SBP);
 
   // There may be multiple annotate attributes. Pass return of lookup_attr
   //  to successive lookups.
@@ -4067,7 +4066,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 //TODO    Constant *lineNo = ConstantInt::get(Type::getInt32Ty, LOCATION_LINE(locus));
 //TODO    Constant *file = ConvertMetadataStringToGV(LOCATION_FILE(locus));
 //TODO    const Type *SBP= Type::getInt8PtrTy(Context);
-//TODO    file = Builder.getFolder().CreateBitCast(file, SBP);
+//TODO    file = TheFolder->CreateBitCast(file, SBP);
 //TODO
 //TODO    // Get arguments.
 //TODO    tree arglist = CALL_EXPR_ARGS(stmt);
@@ -4823,9 +4822,9 @@ bool TreeToLLVM::EmitBuiltinPrefetch(gimple stmt) {
                " using zero");
       ReadWrite = 0;
     } else {
-      ReadWrite = Builder.getFolder().CreateIntCast(cast<Constant>(ReadWrite),
-                                                    Type::getInt32Ty(Context),
-                                                    /*isSigned*/false);
+      ReadWrite = TheFolder->CreateIntCast(cast<Constant>(ReadWrite),
+                                           Type::getInt32Ty(Context),
+                                           /*isSigned*/false);
     }
 
     if (gimple_call_num_args(stmt) > 2) {
@@ -4837,9 +4836,9 @@ bool TreeToLLVM::EmitBuiltinPrefetch(gimple stmt) {
         warning(0, "invalid third argument to %<__builtin_prefetch%>; using 3");
         Locality = 0;
       } else {
-        Locality = Builder.getFolder().CreateIntCast(cast<Constant>(Locality),
-                                                     Type::getInt32Ty(Context),
-                                                     /*isSigned*/false);
+        Locality = TheFolder->CreateIntCast(cast<Constant>(Locality),
+                                            Type::getInt32Ty(Context),
+                                            /*isSigned*/false);
       }
     }
   }
