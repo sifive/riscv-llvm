@@ -7959,21 +7959,32 @@ Constant *TreeConstantToLLVM::ConvertINTEGER_CST(tree exp) {
 }
 
 Constant *TreeConstantToLLVM::ConvertREAL_CST(tree exp) {
+  // TODO: Test new implementation on a big-endian machine.
+
   // Encode the constant in Buffer in target format.
   SmallVector<unsigned char, 16> Buffer;
   EncodeExpr(exp, Buffer);
 
-  // Ensure that the value is always stored little-endian wise, as we are going
-  // to make an APInt out of it, and APInts are always little-endian.
+  // Discard any alignment padding, which we assume comes at the end.
   unsigned Precision = TYPE_PRECISION(TREE_TYPE(exp));
-  if (FLOAT_WORDS_BIG_ENDIAN)
-    std::reverse(Buffer.begin(), Buffer.begin() + (Precision + 7) / 8);
+  assert((Precision & 7) == 0 && "Unsupported real number precision!");
+  Buffer.resize(Precision / 8);
 
   // We are going to view the buffer as an array of APInt words.  Ensure that
   // the buffer contains a whole number of words by extending it if necessary.
-  unsigned Words = (Buffer.size() * 8 + integerPartWidth - 1)/integerPartWidth;
+  unsigned Words = (Precision + integerPartWidth - 1) / integerPartWidth;
+  // On a little-endian machine extend the buffer by adding bytes to the end.
   Buffer.resize(Words * (integerPartWidth / 8));
+  // On a big-endian machine extend the buffer by adding bytes to the beginning.
+  if (BYTES_BIG_ENDIAN)
+    std::copy_backward(Buffer.begin(), Buffer.begin() + Precision / 8,
+                       Buffer.end());
+
+  // Ensure that the least significant word comes first: we are going to make an
+  // APInt, and the APInt constructor wants the least significant word first.
   integerPart *Parts = (integerPart *)&Buffer[0];
+  if (BYTES_BIG_ENDIAN)
+    std::reverse(Parts, Parts + Words);
 
   bool isPPC_FP128 = ConvertType(TREE_TYPE(exp))->isPPC_FP128Ty();
   if (isPPC_FP128) {
