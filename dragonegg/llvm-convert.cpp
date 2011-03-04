@@ -7918,6 +7918,21 @@ Constant *TreeConstantToLLVM::Convert(tree exp) {
   }
 }
 
+/// EncodeExpr - Write the given expression into Buffer as it would appear in
+/// memory on the target (the buffer is resized to contain exactly the bytes
+/// written).  Return the number of bytes written; this can also be obtained
+/// by querying the buffer's size.
+/// The following kinds of expressions are currently supported: INTEGER_CST,
+/// REAL_CST, COMPLEX_CST, VECTOR_CST, STRING_CST.
+static unsigned EncodeExpr(tree exp, SmallVectorImpl<unsigned char> &Buffer) {
+  const tree type = TREE_TYPE(exp);
+  unsigned SizeInBytes = (TREE_INT_CST_LOW(TYPE_SIZE(type)) + 7) / 8;
+  Buffer.resize(SizeInBytes);
+  unsigned BytesWritten = native_encode_expr(exp, &Buffer[0], SizeInBytes);
+  assert(BytesWritten == SizeInBytes && "Failed to fully encode expression!");
+  return BytesWritten;
+}
+
 Constant *TreeConstantToLLVM::ConvertINTEGER_CST(tree exp) {
   const Type *Ty = ConvertType(TREE_TYPE(exp));
 
@@ -7944,61 +7959,35 @@ Constant *TreeConstantToLLVM::ConvertINTEGER_CST(tree exp) {
 }
 
 Constant *TreeConstantToLLVM::ConvertREAL_CST(tree exp) {
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
-  assert(Ty->isFloatingPointTy() && "Integer REAL_CST?");
-  long RealArr[2];
-  union {
-    int UArr[2];
-    double V;
-  };
-  if (Ty->isFloatTy() || Ty->isDoubleTy()) {
-    REAL_VALUE_TO_TARGET_DOUBLE(TREE_REAL_CST(exp), RealArr);
+  // Encode the constant in Buffer in target format.
+  SmallVector<unsigned char, 16> Buffer;
+  EncodeExpr(exp, Buffer);
 
-    // Here's how this works:
-    // REAL_VALUE_TO_TARGET_DOUBLE() will generate the floating point number
-    // as an array of integers in the target's representation.  Each integer
-    // in the array will hold 32 bits of the result REGARDLESS OF THE HOST'S
-    // INTEGER SIZE.
-    //
-    // This, then, makes the conversion pretty simple.  The tricky part is
-    // getting the byte ordering correct and make sure you don't print any
-    // more than 32 bits per integer on platforms with ints > 32 bits.
-    //
-    // We want to switch the words of UArr if host and target endianness
-    // do not match.  FLOAT_WORDS_BIG_ENDIAN describes the target endianness.
-    // The host's used to be available in HOST_WORDS_BIG_ENDIAN, but the gcc
-    // maintainers removed this in a fit of cleanliness between 4.0
-    // and 4.2. llvm::sys has a substitute.
+  // Ensure that the value is always stored little-endian wise, as we are going
+  // to make an APInt out of it, and APInts are always little-endian.
+  unsigned Precision = TYPE_PRECISION(TREE_TYPE(exp));
+  if (FLOAT_WORDS_BIG_ENDIAN)
+    std::reverse(Buffer.begin(), Buffer.begin() + (Precision + 7) / 8);
 
-    UArr[0] = RealArr[0];   // Long -> int convert
-    UArr[1] = RealArr[1];
+  // We are going to view the buffer as an array of APInt words.  Ensure that
+  // the buffer contains a whole number of words by extending it if necessary.
+  unsigned Words = (Buffer.size() * 8 + integerPartWidth - 1)/integerPartWidth;
+  Buffer.resize(Words * (integerPartWidth / 8));
+  integerPart *Parts = (integerPart *)&Buffer[0];
 
-    if (llvm::sys::isBigEndianHost() != FLOAT_WORDS_BIG_ENDIAN)
-      std::swap(UArr[0], UArr[1]);
-
-    return ConstantFP::get(Context, Ty->isFloatTy() ?
-                           APFloat((float)V) : APFloat(V));
-  } else if (Ty->isX86_FP80Ty()) {
-    long RealArr[4];
-    uint64_t UArr[2];
-    REAL_VALUE_TO_TARGET_LONG_DOUBLE(TREE_REAL_CST(exp), RealArr);
-    UArr[0] = ((uint64_t)((uint32_t)RealArr[0])) |
-              ((uint64_t)((uint32_t)RealArr[1]) << 32);
-    UArr[1] = (uint16_t)RealArr[2];
-    return ConstantFP::get(Context, APFloat(APInt(80, 2, UArr)));
-  } else if (Ty->isPPC_FP128Ty()) {
-    long RealArr[4];
-    uint64_t UArr[2];
-    REAL_VALUE_TO_TARGET_LONG_DOUBLE(TREE_REAL_CST(exp), RealArr);
-
-    UArr[0] = ((uint64_t)((uint32_t)RealArr[0]) << 32) |
-              ((uint64_t)((uint32_t)RealArr[1]));
-    UArr[1] = ((uint64_t)((uint32_t)RealArr[2]) << 32) |
-              ((uint64_t)((uint32_t)RealArr[3]));
-    return ConstantFP::get(Context, APFloat(APInt(128, 2, UArr)));
+  bool isPPC_FP128 = ConvertType(TREE_TYPE(exp))->isPPC_FP128Ty();
+  if (isPPC_FP128) {
+    // This type is actually a pair of doubles in disguise.  They turn up the
+    // wrong way round here, so flip them.
+    assert(FLOAT_WORDS_BIG_ENDIAN && "PPC not big endian!");
+    assert(Words == 2 && Precision == 128 && "Strange size for PPC_FP128!");
+    std::swap(Parts[0], Parts[1]);
   }
-  assert(0 && "Floating point type not handled yet");
-  return 0;   // outwit compiler warning
+
+  // Form an APInt from the buffer, an APFloat from the APInt, and the desired
+  // floating point constant from the APFloat, phew!
+  const APInt &I = APInt(Precision, Words, Parts);
+  return ConstantFP::get(Context, APFloat(I, !isPPC_FP128));
 }
 
 Constant *TreeConstantToLLVM::ConvertVECTOR_CST(tree exp) {
