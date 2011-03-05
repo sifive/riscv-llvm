@@ -1851,6 +1851,19 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
 //                           ... Control Flow ...
 //===----------------------------------------------------------------------===//
 
+/// ConvertTypeInfo - Convert an exception handling type info into a pointer to
+/// the associated runtime type info object.
+static Constant *ConvertTypeInfo(tree type) {
+  // TODO: Once pass_ipa_free_lang is made a default pass, remove the call to
+  // lookup_type_for_runtime below.
+  if (TYPE_P (type))
+    type = lookup_type_for_runtime (type);
+  STRIP_NOPS(type);
+  if (TREE_CODE(type) == ADDR_EXPR)
+    type = TREE_OPERAND(type, 0);
+  return TreeConstantToLLVM::EmitLV(type);
+}
+
 /// getExceptionPtr - Return the local holding the exception pointer for the
 /// given exception handling region, creating it if necessary.
 AllocaInst *TreeToLLVM::getExceptionPtr(unsigned RegionNo) {
@@ -2062,8 +2075,7 @@ void TreeToLLVM::EmitLandingPads() {
         AllCaught = true;
         for (tree type = region->u.allowed.type_list; type;
              type = TREE_CHAIN(type)) {
-          tree value = lookup_type_for_runtime(TREE_VALUE(type));
-          Constant *TypeInfo = TreeConstantToLLVM::Convert(value);
+          Constant *TypeInfo = ConvertTypeInfo(TREE_VALUE(type));
           // No point in permitting a typeinfo to be thrown if we know it can
           // never reach the filter.
           if (AlreadyCaught.count(TypeInfo))
@@ -2095,8 +2107,7 @@ void TreeToLLVM::EmitLandingPads() {
           } else {
             // Add the type infos.
             for (tree type = c->type_list; type; type = TREE_CHAIN(type)) {
-              tree value = lookup_type_for_runtime(TREE_VALUE(type));
-              Constant *TypeInfo = TreeConstantToLLVM::Convert(value);
+              Constant *TypeInfo = ConvertTypeInfo(TREE_VALUE(type));
               // No point in trying to catch a typeinfo that was already caught.
               if (!AlreadyCaught.insert(TypeInfo))
                 continue;
@@ -7364,8 +7375,7 @@ void TreeToLLVM::RenderGIMPLE_EH_DISPATCH(gimple stmt) {
 
       Value *Cond = NULL;
       for (tree type = c->type_list; type; type = TREE_CHAIN (type)) {
-        tree value = lookup_type_for_runtime(TREE_VALUE(type));
-        Value *TypeInfo = TreeConstantToLLVM::Convert(value);
+        Value *TypeInfo = ConvertTypeInfo(TREE_VALUE(type));
         // No point in trying to catch a typeinfo that was already caught.
         if (!AlreadyCaught.insert(TypeInfo))
           continue;
