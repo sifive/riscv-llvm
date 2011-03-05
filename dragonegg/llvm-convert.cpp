@@ -5886,6 +5886,8 @@ Constant *TreeToLLVM::EmitRegisterConstant(tree reg) {
   case REAL_CST:
     C = TreeConstantToLLVM::ConvertREAL_CST(reg);
     break;
+  //case FIXED_CST: // Fixed point constant - not yet supported.
+  //case STRING_CST: // Allowed by is_gimple_constant, but no known testcase.
   case COMPLEX_CST:
     C = TreeConstantToLLVM::ConvertCOMPLEX_CST(reg);
     break;
@@ -5893,6 +5895,8 @@ Constant *TreeToLLVM::EmitRegisterConstant(tree reg) {
     C = TreeConstantToLLVM::ConvertVECTOR_CST(reg);
     break;
   case CONSTRUCTOR:
+    // Vector constant constructors are gimple invariant.  See GCC testcase
+    // pr34856.c.
     C = TreeConstantToLLVM::ConvertCONSTRUCTOR(reg);
     break;
   }
