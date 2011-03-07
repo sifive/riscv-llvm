@@ -782,6 +782,10 @@ private:
   /// to an LLVM constant.  Creates no code, only constants.
   Constant *EmitRegisterConstant(tree_node *reg);
 
+  /// EmitRegisterIntegerConstant - Turn the given INTEGER_CST into an LLVM
+  /// constant of the corresponding register type.
+  Constant *EmitRegisterIntegerConstant(tree_node *reg);
+
   /// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
   /// to in-register type (that given by GetRegType).  TODO: Eliminate these
   /// methods: "memory" values should never be held in registers.  Currently

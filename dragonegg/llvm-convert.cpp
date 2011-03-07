@@ -5881,8 +5881,7 @@ Constant *TreeToLLVM::EmitRegisterConstant(tree reg) {
     llvm_unreachable("Unhandled GIMPLE constant!");
 
   case INTEGER_CST:
-    C = TreeConstantToLLVM::ConvertINTEGER_CST(reg);
-    break;
+    return EmitRegisterIntegerConstant(reg);
   case REAL_CST:
     C = TreeConstantToLLVM::ConvertREAL_CST(reg);
     break;
@@ -5903,6 +5902,34 @@ Constant *TreeToLLVM::EmitRegisterConstant(tree reg) {
 
   // Convert from in-memory to in-register type.
   return Mem2Reg(C, TREE_TYPE(reg), *TheFolder);
+}
+
+/// EmitRegisterIntegerConstant - Turn the given INTEGER_CST into an LLVM
+/// constant of the corresponding register type.
+Constant *TreeToLLVM::EmitRegisterIntegerConstant(tree reg) {
+  unsigned Precision = TYPE_PRECISION(TREE_TYPE(reg));
+
+  ConstantInt *CI;
+  if (HOST_BITS_PER_WIDE_INT < integerPartWidth) {
+    assert(2 * HOST_BITS_PER_WIDE_INT <= integerPartWidth &&
+           "Unsupported host integer precision!");
+    unsigned ShiftAmt = HOST_BITS_PER_WIDE_INT;
+    integerPart Val = (integerPart)(unsigned HOST_WIDE_INT)TREE_INT_CST_LOW(reg)
+      + ((integerPart)(unsigned HOST_WIDE_INT)TREE_INT_CST_HIGH(reg) << ShiftAmt);
+    CI = ConstantInt::get(Context, APInt(Precision, Val));
+  } else {
+    assert(HOST_BITS_PER_WIDE_INT == integerPartWidth &&
+           "The engines cannae' take it captain!");
+    integerPart Parts[] = { TREE_INT_CST_LOW(reg), TREE_INT_CST_HIGH(reg) };
+    CI = ConstantInt::get(Context, APInt(Precision, 2, Parts));
+  }
+
+  // The destination can be a pointer, integer or floating point type so we need
+  // a generalized cast here
+  const Type *Ty = GetRegType(TREE_TYPE(reg));
+  Instruction::CastOps opcode = CastInst::getCastOpcode(CI, false, Ty,
+    !TYPE_UNSIGNED(TREE_TYPE(reg)));
+  return TheFolder->CreateCast(opcode, CI, Ty);
 }
 
 /// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
