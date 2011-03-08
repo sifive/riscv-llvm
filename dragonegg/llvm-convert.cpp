@@ -2957,12 +2957,6 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     return DestLoc ? 0 : Builder.CreateLoad(Target.Ptr);
   }
 
-  // If the caller expects an aggregate, we have a situation where the ABI for
-  // the current target specifies that the aggregate be returned in scalar
-  // registers even though it is an aggregate.  We must bitconvert the scalar
-  // to the destination aggregate type.  We do this by casting the DestLoc
-  // pointer and storing into it.  The store does not necessarily start at the
-  // beginning of the aggregate (x86-64).
   if (!DestLoc) {
     const Type *RetTy = ConvertType(gimple_call_return_type(stmt));
     if (Call->getType() == RetTy)
@@ -2981,14 +2975,43 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     return Builder.CreateLoad(Builder.CreateBitCast(Tmp,RetTy->getPointerTo()));
   }
 
+  // If the caller expects an aggregate, we have a situation where the ABI for
+  // the current target specifies that the aggregate be returned in scalar
+  // registers even though it is an aggregate.  We must bitconvert the scalar
+  // to the destination aggregate type.  We do this by casting the DestLoc
+  // pointer and storing into it.  The store does not necessarily start at the
+  // beginning of the aggregate (x86-64).
   Value *Ptr = DestLoc->Ptr;
+  // AggTy - The type of the aggregate being stored to.
+  const Type *AggTy = cast<PointerType>(Ptr->getType())->getElementType();
+  // MaxStoreSize - The maximum number of bytes we can store without overflowing
+  // the aggregate.
+  int64_t MaxStoreSize = TD.getTypeAllocSize(AggTy);
   if (Client.Offset) {
     Ptr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
     Ptr = Builder.CreateGEP(Ptr,
                     ConstantInt::get(TD.getIntPtrType(Context), Client.Offset));
+    MaxStoreSize -= Client.Offset;
   }
-  Ptr = Builder.CreateBitCast(Ptr, PointerType::getUnqual(Call->getType()));
-  StoreInst *St = Builder.CreateStore(Call, Ptr, DestLoc->Volatile);
+  assert(MaxStoreSize > 0 && "Storing off end of aggregate?");
+  Value *Val = Call;
+  // Check whether storing the scalar directly would overflow the aggregate.
+  if (TD.getTypeStoreSize(Call->getType()) > (uint64_t)MaxStoreSize) {
+    // Chop down the size of the scalar to the maximum number of bytes that can
+    // be stored without overflowing the destination.
+    // TODO: Check whether this works correctly on big-endian machines.
+    // Store the scalar to a temporary.
+    Value *Tmp = CreateTemporary(Call->getType());
+    Builder.CreateStore(Call, Tmp);
+    // Load the desired number of bytes back out again as an integer of the
+    // appropriate size.
+    const Type *SmallTy = IntegerType::get(Context, MaxStoreSize*8);
+    Tmp = Builder.CreateBitCast(Tmp, PointerType::getUnqual(SmallTy));
+    Val = Builder.CreateLoad(Tmp);
+    // Store the integer rather than the call result to the aggregate.
+  }
+  Ptr = Builder.CreateBitCast(Ptr, PointerType::getUnqual(Val->getType()));
+  StoreInst *St = Builder.CreateStore(Val, Ptr, DestLoc->Volatile);
   St->setAlignment(DestLoc->getAlignment());
   return 0;
 }
