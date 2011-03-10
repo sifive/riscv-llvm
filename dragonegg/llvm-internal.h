@@ -219,6 +219,14 @@ inline const Type *ConvertType(tree_node *type) {
   return TheTypeConverter->ConvertType(type);
 }
 
+/// getDefaultValue - Return the default value to use for a constant or global
+/// that has no value specified.  For example in C like languages such variables
+/// are initialized to zero, while in Ada they hold an undefined value.
+inline Constant *getDefaultValue(const Type *Ty) {
+  return flag_default_initialize_globals ?
+    Constant::getNullValue(Ty) : UndefValue::get(Ty);
+}
+
 /// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
 /// address unit wide.  For example, on a machine which has 16 bit bytes returns
 /// an i16*.
@@ -782,9 +790,21 @@ private:
   /// to an LLVM constant.  Creates no code, only constants.
   Constant *EmitRegisterConstant(tree_node *reg);
 
-  /// EmitRegisterIntegerConstant - Turn the given INTEGER_CST into an LLVM
+  /// EmitComplexRegisterConstant - Turn the given COMPLEX_CST into an LLVM
   /// constant of the corresponding register type.
-  Constant *EmitRegisterIntegerConstant(tree_node *reg);
+  Constant *EmitComplexRegisterConstant(tree_node *reg);
+
+  /// EmitIntegerRegisterConstant - Turn the given INTEGER_CST into an LLVM
+  /// constant of the corresponding register type.
+  Constant *EmitIntegerRegisterConstant(tree_node *reg);
+
+  /// EmitRealRegisterConstant - Turn the given REAL_CST into an LLVM constant
+  /// of the corresponding register type.
+  Constant *EmitRealRegisterConstant(tree_node *reg);
+
+  /// EmitVectorRegisterConstant - Turn the given VECTOR_CST into an LLVM
+  // constant of the corresponding register type.
+  Constant *EmitVectorRegisterConstant(tree_node *reg);
 
   /// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
   /// to in-register type (that given by GetRegType).  TODO: Eliminate these

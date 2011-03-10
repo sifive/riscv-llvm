@@ -1007,11 +1007,7 @@ static void emit_global(tree decl) {
     // Reconvert the type in case the forward def of the global and the real def
     // differ in type (e.g. declared as 'int A[]', and defined as 'int A[100]').
     const Type *Ty = ConvertType(TREE_TYPE(decl));
-
-    if (flag_default_initialize_globals)
-      Init = Constant::getNullValue(Ty);
-    else
-      Init = UndefValue::get(Ty);
+    Init = getDefaultValue(Ty);
   } else {
     assert((TREE_CONSTANT(DECL_INITIAL(decl)) ||
             TREE_CODE(DECL_INITIAL(decl)) == STRING_CST) &&

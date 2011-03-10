@@ -802,7 +802,7 @@ void TreeToLLVM::StartFunctionBody() {
 
 /// DefineSSAName - Use the given value as the definition of the given SSA name.
 /// Returns the provided value as a convenience.
-Value *TreeToLLVM::DefineSSAName(tree_node *reg, Value *Val) {
+Value *TreeToLLVM::DefineSSAName(tree reg, Value *Val) {
   assert(TREE_CODE(reg) == SSA_NAME && "Not an SSA name!");
   if (Value *ExistingValue = SSANames[reg]) {
     if (Val != ExistingValue) {
@@ -1377,7 +1377,7 @@ Value *TreeToLLVM::CastToFPType(Value *V, const Type* Ty) {
 
 /// CreateAnyAdd - Add two LLVM scalar values with the given GCC type.  Does not
 /// support complex numbers.  The type is used to set overflow flags.
-Value *TreeToLLVM::CreateAnyAdd(Value *LHS, Value *RHS, tree_node *type) {
+Value *TreeToLLVM::CreateAnyAdd(Value *LHS, Value *RHS, tree type) {
   if (FLOAT_TYPE_P(type))
     return Builder.CreateFAdd(LHS, RHS);
   return Builder.CreateAdd(LHS, RHS, "", hasNUW(type), hasNSW(type));
@@ -1385,7 +1385,7 @@ Value *TreeToLLVM::CreateAnyAdd(Value *LHS, Value *RHS, tree_node *type) {
 
 /// CreateAnyMul - Multiply two LLVM scalar values with the given GCC type.
 /// Does not support complex numbers.  The type is used to set overflow flags.
-Value *TreeToLLVM::CreateAnyMul(Value *LHS, Value *RHS, tree_node *type) {
+Value *TreeToLLVM::CreateAnyMul(Value *LHS, Value *RHS, tree type) {
   if (FLOAT_TYPE_P(type))
     return Builder.CreateFMul(LHS, RHS);
   return Builder.CreateMul(LHS, RHS, "", hasNUW(type), hasNSW(type));
@@ -1393,7 +1393,7 @@ Value *TreeToLLVM::CreateAnyMul(Value *LHS, Value *RHS, tree_node *type) {
 
 /// CreateAnyNeg - Negate an LLVM scalar value with the given GCC type.  Does
 /// not support complex numbers.  The type is used to set overflow flags.
-Value *TreeToLLVM::CreateAnyNeg(Value *V, tree_node *type) {
+Value *TreeToLLVM::CreateAnyNeg(Value *V, tree type) {
   if (FLOAT_TYPE_P(type))
     return Builder.CreateFNeg(V);
   return Builder.CreateNeg(V, "", hasNUW(type), hasNSW(type));
@@ -1401,7 +1401,7 @@ Value *TreeToLLVM::CreateAnyNeg(Value *V, tree_node *type) {
 
 /// CreateAnySub - Subtract two LLVM scalar values with the given GCC type.
 /// Does not support complex numbers.  The type is used to set overflow flags.
-Value *TreeToLLVM::CreateAnySub(Value *LHS, Value *RHS, tree_node *type) {
+Value *TreeToLLVM::CreateAnySub(Value *LHS, Value *RHS, tree type) {
   if (FLOAT_TYPE_P(type))
     return Builder.CreateFSub(LHS, RHS);
   return Builder.CreateSub(LHS, RHS, "", hasNUW(type), hasNSW(type));
@@ -3020,7 +3020,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
 /// type, passing the provided arguments (which should all be gimple registers
 /// or local constants of register type).  No marshalling is done: the arguments
 /// are directly passed through.
-CallInst *TreeToLLVM::EmitSimpleCall(StringRef CalleeName, tree_node *ret_type,
+CallInst *TreeToLLVM::EmitSimpleCall(StringRef CalleeName, tree ret_type,
                                      /* arguments */ ...) {
   va_list ops;
   va_start(ops, ret_type);
@@ -5897,39 +5897,57 @@ Constant *TreeToLLVM::EmitRegisterConstant(tree reg) {
 #endif
   assert(is_gimple_reg_type(TREE_TYPE(reg)) && "Not of register type!");
 
-  Constant *C;
   switch (TREE_CODE(reg)) {
   default:
     debug_tree(reg);
     llvm_unreachable("Unhandled GIMPLE constant!");
 
   case INTEGER_CST:
-    return EmitRegisterIntegerConstant(reg);
+    return EmitIntegerRegisterConstant(reg);
   case REAL_CST:
-    C = TreeConstantToLLVM::ConvertREAL_CST(reg);
-    break;
+    return EmitRealRegisterConstant(reg);
   //case FIXED_CST: // Fixed point constant - not yet supported.
-  //case STRING_CST: // Allowed by is_gimple_constant, but no known testcase.
+  //case STRING_CST: // Allowed by is_gimple_constant, but no known examples.
   case COMPLEX_CST:
-    C = TreeConstantToLLVM::ConvertCOMPLEX_CST(reg);
-    break;
+    return EmitComplexRegisterConstant(reg);
   case VECTOR_CST:
-    C = TreeConstantToLLVM::ConvertVECTOR_CST(reg);
-    break;
+    return EmitVectorRegisterConstant(reg);
   case CONSTRUCTOR:
     // Vector constant constructors are gimple invariant.  See GCC testcase
     // pr34856.c.
-    C = TreeConstantToLLVM::ConvertCONSTRUCTOR(reg);
-    break;
+    return Mem2Reg(TreeConstantToLLVM::ConvertCONSTRUCTOR(reg), TREE_TYPE(reg),
+                   *TheFolder);
   }
-
-  // Convert from in-memory to in-register type.
-  return Mem2Reg(C, TREE_TYPE(reg), *TheFolder);
 }
 
-/// EmitRegisterIntegerConstant - Turn the given INTEGER_CST into an LLVM
+/// EncodeExpr - Write the given expression into Buffer as it would appear in
+/// memory on the target (the buffer is resized to contain exactly the bytes
+/// written).  Return the number of bytes written; this can also be obtained
+/// by querying the buffer's size.
+/// The following kinds of expressions are currently supported: INTEGER_CST,
+/// REAL_CST, COMPLEX_CST, VECTOR_CST, STRING_CST.
+static unsigned EncodeExpr(tree exp, SmallVectorImpl<unsigned char> &Buffer) {
+  const tree type = TREE_TYPE(exp);
+  unsigned SizeInBytes = (TREE_INT_CST_LOW(TYPE_SIZE(type)) + 7) / 8;
+  Buffer.resize(SizeInBytes);
+  unsigned BytesWritten = native_encode_expr(exp, &Buffer[0], SizeInBytes);
+  assert(BytesWritten == SizeInBytes && "Failed to fully encode expression!");
+  return BytesWritten;
+}
+
+/// EmitComplexRegisterConstant - Turn the given COMPLEX_CST into an LLVM
 /// constant of the corresponding register type.
-Constant *TreeToLLVM::EmitRegisterIntegerConstant(tree reg) {
+Constant *TreeToLLVM::EmitComplexRegisterConstant(tree reg) {
+  Constant *Elts[2] = {
+    EmitRegisterConstant(TREE_REALPART(reg)),
+    EmitRegisterConstant(TREE_IMAGPART(reg))
+  };
+  return ConstantStruct::get(Context, Elts, 2, false);
+}
+
+/// EmitIntegerRegisterConstant - Turn the given INTEGER_CST into an LLVM
+/// constant of the corresponding register type.
+Constant *TreeToLLVM::EmitIntegerRegisterConstant(tree reg) {
   unsigned Precision = TYPE_PRECISION(TREE_TYPE(reg));
 
   ConstantInt *CI;
@@ -5955,9 +5973,81 @@ Constant *TreeToLLVM::EmitRegisterIntegerConstant(tree reg) {
   return TheFolder->CreateCast(opcode, CI, Ty);
 }
 
+/// EmitRealRegisterConstant - Turn the given REAL_CST into an LLVM constant
+/// of the corresponding register type.
+Constant *TreeToLLVM::EmitRealRegisterConstant(tree reg) {
+  // TODO: Rather than going through memory, construct the APFloat directly from
+  // the real_value.  This works fine for zero, inf and nan values, but APFloat
+  // has no constructor for normal numbers, i.e. constructing a normal number
+  // from the exponent and significand.
+  // TODO: Test implementation on a big-endian machine.
+
+  // Encode the constant in Buffer in target format.
+  SmallVector<unsigned char, 16> Buffer;
+  EncodeExpr(reg, Buffer);
+
+  // Discard any alignment padding, which we assume comes at the end.
+  unsigned Precision = TYPE_PRECISION(TREE_TYPE(reg));
+  assert((Precision & 7) == 0 && "Unsupported real number precision!");
+  Buffer.resize(Precision / 8);
+
+  // We are going to view the buffer as an array of APInt words.  Ensure that
+  // the buffer contains a whole number of words by extending it if necessary.
+  unsigned Words = (Precision + integerPartWidth - 1) / integerPartWidth;
+  // On a little-endian machine extend the buffer by adding bytes to the end.
+  Buffer.resize(Words * (integerPartWidth / 8));
+  // On a big-endian machine extend the buffer by adding bytes to the beginning.
+  if (BYTES_BIG_ENDIAN)
+    std::copy_backward(Buffer.begin(), Buffer.begin() + Precision / 8,
+                       Buffer.end());
+
+  // Ensure that the least significant word comes first: we are going to make an
+  // APInt, and the APInt constructor wants the least significant word first.
+  integerPart *Parts = (integerPart *)&Buffer[0];
+  if (BYTES_BIG_ENDIAN)
+    std::reverse(Parts, Parts + Words);
+
+  bool isPPC_FP128 = ConvertType(TREE_TYPE(reg))->isPPC_FP128Ty();
+  if (isPPC_FP128) {
+    // This type is actually a pair of doubles in disguise.  They turn up the
+    // wrong way round here, so flip them.
+    assert(FLOAT_WORDS_BIG_ENDIAN && "PPC not big endian!");
+    assert(Words == 2 && Precision == 128 && "Strange size for PPC_FP128!");
+    std::swap(Parts[0], Parts[1]);
+  }
+
+  // Form an APInt from the buffer, an APFloat from the APInt, and the desired
+  // floating point constant from the APFloat, phew!
+  const APInt &I = APInt(Precision, Words, Parts);
+  return ConstantFP::get(Context, APFloat(I, !isPPC_FP128));
+}
+
+/// EmitVectorRegisterConstant - Turn the given VECTOR_CST into an LLVM constant
+/// of the corresponding register type.
+Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
+  // If there are no elements then immediately return the default value for a
+  // small speedup.
+  if (!TREE_VECTOR_CST_ELTS(reg))
+    return getDefaultValue(GetRegType(TREE_TYPE(reg)));
+
+  // Convert the elements.
+  SmallVector<Constant*, 8> Elts;
+  for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt))
+    Elts.push_back(EmitRegisterConstant(TREE_VALUE(elt)));
+
+  // If there weren't enough elements then set the rest of the vector to the
+  // default value.
+  if (Elts.size() < TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg))) {
+    Constant *Default = getDefaultValue(GetRegType(TREE_TYPE(TREE_TYPE(reg))));
+    Elts.append(TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg)) - Elts.size(), Default);
+  }
+
+  return ConstantVector::get(Elts);
+}
+
 /// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
 /// to in-register type (that given by GetRegType).
-Value *TreeToLLVM::Mem2Reg(Value *V, tree_node *type, LLVMBuilder &Builder) {
+Value *TreeToLLVM::Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
   const Type *MemTy = V->getType();
   const Type *RegTy = GetRegType(type);
   assert(MemTy == ConvertType(type) && "Not of memory type!");
@@ -5969,8 +6059,7 @@ Value *TreeToLLVM::Mem2Reg(Value *V, tree_node *type, LLVMBuilder &Builder) {
          "Unexpected type mismatch!");
   return Builder.CreateIntCast(V, RegTy, /*isSigned*/!TYPE_UNSIGNED(type));
 }
-Constant *TreeToLLVM::Mem2Reg(Constant *C, tree_node *type,
-                              TargetFolder &Folder) {
+Constant *TreeToLLVM::Mem2Reg(Constant *C, tree type, TargetFolder &Folder) {
   const Type *MemTy = C->getType();
   const Type *RegTy = GetRegType(type);
   assert(MemTy == ConvertType(type) && "Not of memory type!");
@@ -5985,7 +6074,7 @@ Constant *TreeToLLVM::Mem2Reg(Constant *C, tree_node *type,
 
 /// Reg2Mem - Convert a value of in-register type (that given by GetRegType)
 /// to in-memory type (that given by ConvertType).
-Value *TreeToLLVM::Reg2Mem(Value *V, tree_node *type, LLVMBuilder &Builder) {
+Value *TreeToLLVM::Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
   const Type *RegTy = V->getType();
   const Type *MemTy = ConvertType(type);
   assert(RegTy == GetRegType(type) && "Not of register type!");
@@ -6014,7 +6103,7 @@ Value *TreeToLLVM::LoadRegisterFromMemory(MemRef Loc, tree type,
 /// StoreRegisterToMemory - Stores the given value to the memory pointed to by
 /// Loc.  Takes care of adjusting for any differences between the value's type
 /// (which is the in-register type given by GetRegType) and the in-memory type.
-void TreeToLLVM::StoreRegisterToMemory(Value *V, MemRef Loc, tree_node *type,
+void TreeToLLVM::StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
                                        LLVMBuilder &Builder) {
   const Type *MemTy = ConvertType(type);
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, MemTy->getPointerTo());
@@ -7980,21 +8069,6 @@ Constant *TreeConstantToLLVM::Convert(tree exp) {
     return TheFolder->CreateBitCast(EmitLV(TREE_OPERAND(exp, 0)),
                                     ConvertType(TREE_TYPE(exp)));
   }
-}
-
-/// EncodeExpr - Write the given expression into Buffer as it would appear in
-/// memory on the target (the buffer is resized to contain exactly the bytes
-/// written).  Return the number of bytes written; this can also be obtained
-/// by querying the buffer's size.
-/// The following kinds of expressions are currently supported: INTEGER_CST,
-/// REAL_CST, COMPLEX_CST, VECTOR_CST, STRING_CST.
-static unsigned EncodeExpr(tree exp, SmallVectorImpl<unsigned char> &Buffer) {
-  const tree type = TREE_TYPE(exp);
-  unsigned SizeInBytes = (TREE_INT_CST_LOW(TYPE_SIZE(type)) + 7) / 8;
-  Buffer.resize(SizeInBytes);
-  unsigned BytesWritten = native_encode_expr(exp, &Buffer[0], SizeInBytes);
-  assert(BytesWritten == SizeInBytes && "Failed to fully encode expression!");
-  return BytesWritten;
 }
 
 Constant *TreeConstantToLLVM::ConvertINTEGER_CST(tree exp) {
