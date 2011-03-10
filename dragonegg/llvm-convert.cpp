@@ -5914,9 +5914,8 @@ Constant *TreeToLLVM::EmitRegisterConstant(tree reg) {
     return EmitVectorRegisterConstant(reg);
   case CONSTRUCTOR:
     // Vector constant constructors are gimple invariant.  See GCC testcase
-    // pr34856.c.
-    return Mem2Reg(TreeConstantToLLVM::ConvertCONSTRUCTOR(reg), TREE_TYPE(reg),
-                   *TheFolder);
+    // pr34856.c for an example.
+    return EmitConstantVectorConstructor(reg);
   }
 }
 
@@ -6020,6 +6019,13 @@ Constant *TreeToLLVM::EmitRealRegisterConstant(tree reg) {
   // floating point constant from the APFloat, phew!
   const APInt &I = APInt(Precision, Words, Parts);
   return ConstantFP::get(Context, APFloat(I, !isPPC_FP128));
+}
+
+/// EmitConstantVectorConstructor - Turn the given constant CONSTRUCTOR into
+/// an LLVM constant of the corresponding vector register type.
+Constant *TreeToLLVM::EmitConstantVectorConstructor(tree reg) {
+  Constant *C = TreeConstantToLLVM::ConvertCONSTRUCTOR(reg);
+  return Mem2Reg(C, TREE_TYPE(reg), *TheFolder);
 }
 
 /// EmitVectorRegisterConstant - Turn the given VECTOR_CST into an LLVM constant

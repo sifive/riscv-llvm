@@ -802,8 +802,12 @@ private:
   /// of the corresponding register type.
   Constant *EmitRealRegisterConstant(tree_node *reg);
 
+  /// EmitConstantVectorConstructor - Turn the given constant CONSTRUCTOR into
+  /// an LLVM constant of the corresponding vector register type.
+  Constant *EmitConstantVectorConstructor(tree_node *reg);
+
   /// EmitVectorRegisterConstant - Turn the given VECTOR_CST into an LLVM
-  // constant of the corresponding register type.
+  /// constant of the corresponding register type.
   Constant *EmitVectorRegisterConstant(tree_node *reg);
 
   /// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
