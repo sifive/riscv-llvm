@@ -1,6 +1,6 @@
 //===---- llvm-tree.cpp - Utility functions for working with GCC trees ----===//
 //
-// Copyright (C) 2010  Duncan Sands.
+// Copyright (C) 2010, 2011  Duncan Sands.
 //
 // This file is part of DragonEgg.
 //
@@ -38,6 +38,8 @@ extern "C" {
 #include "coretypes.h"
 #include "target.h"
 #include "tree.h"
+
+#include "flags.h"
 }
 
 using namespace llvm;
@@ -54,7 +56,7 @@ static std::string concatIfNotEmpty(const std::string &Left,
 /// getDescriptiveName - Return a helpful name for the given tree, or an empty
 /// string if no sensible name was found.  These names are used to make the IR
 /// more readable, and have no official status.
-std::string llvm::getDescriptiveName(tree t) {
+std::string getDescriptiveName(tree t) {
   if (!t) return std::string(); // Occurs when recursing.
 
   // Name identifier nodes after their contents.  This gives the desired effect
@@ -126,4 +128,16 @@ std::string llvm::getDescriptiveName(tree t) {
 
   // A mysterious tree, just give up.
   return std::string();
+}
+
+/// hasNUW - Return whether overflowing unsigned operations on this type result
+/// in undefined behaviour.
+bool hasNUW(tree type) {
+  return TYPE_UNSIGNED(type) && !TYPE_OVERFLOW_WRAPS(type);
+}
+
+/// hasNSW - Return whether overflowing signed operations on this type result
+/// in undefined behaviour.
+bool hasNSW(tree type) {
+  return !TYPE_UNSIGNED(type) && !TYPE_OVERFLOW_WRAPS(type);
 }

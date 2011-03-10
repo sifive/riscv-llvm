@@ -1,7 +1,7 @@
 //=-- llvm-internal.h - Interface between the backend components --*- C++ -*-=//
 //
-// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010  Chris Lattner, Duncan Sands
-// et al.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011  Chris Lattner,
+// Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //
@@ -855,40 +855,6 @@ private:
 public:
   // Helper for taking the address of a label.
   Constant *EmitLV_LABEL_DECL(tree_node *exp);
-};
-
-/// TreeConstantToLLVM - An instance of this class is created and used to
-/// convert tree constant values to LLVM.  This is primarily for things like
-/// global variable initializers.
-///
-class TreeConstantToLLVM {
-public:
-  // Constant Expressions
-  static Constant *Convert(tree_node *exp);
-  static Constant *ConvertINTEGER_CST(tree_node *exp);
-  static Constant *ConvertREAL_CST(tree_node *exp);
-  static Constant *ConvertVECTOR_CST(tree_node *exp);
-  static Constant *ConvertSTRING_CST(tree_node *exp);
-  static Constant *ConvertCOMPLEX_CST(tree_node *exp);
-  static Constant *ConvertNOP_EXPR(tree_node *exp);
-  static Constant *ConvertCONVERT_EXPR(tree_node *exp);
-  static Constant *ConvertBinOp_CST(tree_node *exp);
-  static Constant *ConvertCONSTRUCTOR(tree_node *exp);
-  static Constant *ConvertArrayCONSTRUCTOR(tree_node *exp);
-  static Constant *ConvertRecordCONSTRUCTOR(tree_node *exp);
-  static Constant *ConvertUnionCONSTRUCTOR(tree_node *exp);
-  static Constant *ConvertPOINTER_PLUS_EXPR(tree_node *exp);
-
-  // Constant Expression l-values.
-  static Constant *EmitLV(tree_node *exp);
-  static Constant *EmitLV_Decl(tree_node *exp);
-  static Constant *EmitLV_LABEL_DECL(tree_node *exp);
-  static Constant *EmitLV_COMPLEX_CST(tree_node *exp);
-  static Constant *EmitLV_REAL_CST(tree_node *exp);
-  static Constant *EmitLV_STRING_CST(tree_node *exp);
-  static Constant *EmitLV_COMPONENT_REF(tree_node *exp);
-  static Constant *EmitLV_ARRAY_REF(tree_node *exp);
-
 };
 
 #endif /* LLVM_INTERNAL_H */

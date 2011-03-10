@@ -1,7 +1,7 @@
 //===-------- llvm-backend.cpp - High-level LLVM backend interface --------===//
 //
-// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010  Chris Lattner, Duncan Sands
-// et al.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011  Chris Lattner,
+// Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //
@@ -25,6 +25,7 @@
 extern "C" {
 #include "llvm-cache.h"
 }
+#include "llvm-constant.h"
 #include "llvm-debug.h"
 #include "llvm-os.h"
 #include "llvm-target.h"
@@ -963,7 +964,7 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
       // Assert its a string, and then get that string.
       assert(TREE_CODE(val) == STRING_CST &&
              "Annotate attribute arg should always be a string");
-      Constant *strGV = TreeConstantToLLVM::EmitLV_STRING_CST(val);
+      Constant *strGV = EmitAddressOf(val);
       Constant *Element[4] = {
         TheFolder->CreateBitCast(GV,SBP),
         TheFolder->CreateBitCast(strGV,SBP),
@@ -1019,7 +1020,7 @@ static void emit_global(tree decl) {
     // When constructing the initializer it might refer to itself.
     // This can happen for things like void *G = &G;
     GV->setInitializer(UndefValue::get(GV->getType()->getElementType()));
-    Init = TreeConstantToLLVM::Convert(DECL_INITIAL(decl));
+    Init = ConvertConstant(DECL_INITIAL(decl));
   }
 
   // If we had a forward definition that has a type that disagrees with our

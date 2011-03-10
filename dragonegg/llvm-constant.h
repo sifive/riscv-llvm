@@ -1,6 +1,6 @@
-//=-- llvm-tree.h - Utility functions for working with GCC trees --*- C++ -*-=//
+//=--- llvm-constant.h - Converting and working with constants --*- C++ -*---=//
 //
-// Copyright (C) 2010, 2011  Duncan Sands.
+// Copyright (C) 2011  Duncan Sands.
 //
 // This file is part of DragonEgg.
 //
@@ -17,28 +17,23 @@
 // Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110-1335, USA.
 //
 //===----------------------------------------------------------------------===//
-// This file declares utility functions for working with GCC trees.
+// This file declares functions for converting GCC constants to LLVM and working
+// with them.
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TREE_H
-#define LLVM_TREE_H
-
-// System headers
-#include <string>
+#ifndef DRAGONEGG_CONSTANT_H
+#define DRAGONEGG_CONSTANT_H
 
 union tree_node;
 
-/// getDescriptiveName - Return a helpful name for the given tree, or an empty
-/// string if no sensible name was found.  These names are used to make the IR
-/// more readable, and have no official status.
-std::string getDescriptiveName(union tree_node *t);
+namespace llvm {
+  class Constant;
+}
 
-/// hasNUW - Return whether overflowing unsigned operations on this type result
-/// in undefined behaviour.
-bool hasNUW(tree_node *type);
+// Constant Expressions
+extern llvm::Constant *ConvertConstant(tree_node *exp);
 
-/// hasNSW - Return whether overflowing signed operations on this type result
-/// in undefined behaviour.
-bool hasNSW(tree_node *type);
+// Constant Expression l-values.
+extern llvm::Constant *EmitAddressOf(tree_node *exp);
 
-#endif /* LLVM_TREE_H */
+#endif /* DRAGONEGG_CONSTANT_H */

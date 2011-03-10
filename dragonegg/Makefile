@@ -37,8 +37,9 @@ TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
 REVISION:=$(shell svnversion -n $(SRC_DIR))
 
 PLUGIN=dragonegg.so
-PLUGIN_OBJECTS=llvm-cache.o llvm-convert.o llvm-backend.o llvm-debug.o \
-	       llvm-types.o bits_and_bobs.o llvm-abi-default.o llvm-tree.o
+PLUGIN_OBJECTS=llvm-abi-default.o llvm-backend.o llvm-cache.o llvm-constant.o \
+	       llvm-convert.o llvm-debug.o llvm-tree.o llvm-types.o \
+	       bits_and_bobs.o
 
 TARGET_OBJECT=llvm-target.o
 TARGET_SOURCE=$(SRC_DIR)/$(shell $(TARGET_UTIL) -p)/llvm-target.cpp
