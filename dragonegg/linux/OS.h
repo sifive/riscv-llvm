@@ -1,6 +1,6 @@
-//=-- llvm-tree.h - Utility functions for working with GCC trees --*- C++ -*-=//
+//===------------- OS.h - Linux specific definitions ------------*- C++ -*-===//
 //
-// Copyright (C) 2010, 2011  Duncan Sands.
+// Copyright (C) 2009, 2010, 2011  Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //
@@ -17,28 +17,17 @@
 // Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110-1335, USA.
 //
 //===----------------------------------------------------------------------===//
-// This file declares utility functions for working with GCC trees.
+// This file provides Linux specific declarations.
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TREE_H
-#define LLVM_TREE_H
+#ifndef DRAGONEGG_OS_H
+#define DRAGONEGG_OS_H
 
-// System headers
-#include <string>
+/* Yes, we support PIC codegen for linux targets! */
+#define LLVM_SET_TARGET_OPTIONS(argvec)              \
+  if (flag_pic)                                      \
+    argvec.push_back ("--relocation-model=pic");     \
+  else                                               \
+    argvec.push_back ("--relocation-model=static");
 
-union tree_node;
-
-/// getDescriptiveName - Return a helpful name for the given tree, or an empty
-/// string if no sensible name was found.  These names are used to make the IR
-/// more readable, and have no official status.
-std::string getDescriptiveName(union tree_node *t);
-
-/// hasNUW - Return whether overflowing unsigned operations on this type result
-/// in undefined behaviour.
-bool hasNUW(tree_node *type);
-
-/// hasNSW - Return whether overflowing signed operations on this type result
-/// in undefined behaviour.
-bool hasNSW(tree_node *type);
-
-#endif /* LLVM_TREE_H */
+#endif /* DRAGONEGG_OS_H */

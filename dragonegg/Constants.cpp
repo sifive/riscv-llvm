@@ -1,4 +1,4 @@
-//===----- llvm-constant.cpp - Converting and working with constants ------===//
+//===------- Constants.cpp - Converting and working with constants --------===//
 //
 // Copyright (C) 2011  Duncan Sands
 //
@@ -21,9 +21,9 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "llvm-constant.h"
-#include "llvm-internal.h"
-#include "llvm-tree.h"
+#include "Constants.h"
+#include "Internals.h"
+#include "Trees.h"
 
 // LLVM headers
 #include "llvm/GlobalVariable.h"

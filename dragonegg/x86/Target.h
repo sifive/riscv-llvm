@@ -1,4 +1,4 @@
-//==-- llvm-target.h - Target hooks for GCC to LLVM conversion ---*- C++ -*-==//
+//==----- Target.h - Target hooks for GCC to LLVM conversion -----*- C++ -*-==//
 //
 // Copyright (C) 2007, 2008, 2009, 2010, 2011  Anton Korobeynikov, Duncan Sands
 // et al.
@@ -21,8 +21,8 @@
 // This file declares some target-specific hooks for GCC to LLVM conversion.
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TARGET_H
-#define LLVM_TARGET_H
+#ifndef DRAGONEGG_TARGET_H
+#define DRAGONEGG_TARGET_H
 
 /* LLVM specific stuff for supporting calling convention output */
 #define TARGET_ADJUST_LLVM_CC(CC, type)                         \
@@ -96,7 +96,7 @@ extern "C" int ix86_regparm;
   if (TARGET_64BIT && TARGET_NO_RED_ZONE)                       \
     disable_red_zone = 1;
 
-#ifdef LLVM_ABI_H
+#ifdef DRAGONEGG_ABI_H
 
 /* On x86-32 objects containing SSE vectors are 16 byte aligned, everything
    else 4.  On x86-64 vectors are 8-byte aligned, everything else can
@@ -225,7 +225,7 @@ bool llvm_x86_64_aggregate_partially_passed_in_regs(std::vector<const Type*>&,
    llvm_x86_64_aggregate_partially_passed_in_regs((E), (SE), (ISR)) : \
    false)
 
-#endif /* LLVM_ABI_H */
+#endif /* DRAGONEGG_ABI_H */
 
 /* Register class used for passing given 64bit part of the argument.
    These represent classes as documented by the PS ABI, with the exception
@@ -400,4 +400,4 @@ enum x86_64_reg_class
       argvec.push_back("-force-align-stack");           \
   } while (0)
 
-#endif /* LLVM_TARGET_H */
+#endif /* DRAGONEGG_TARGET_H */

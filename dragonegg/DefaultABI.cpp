@@ -1,4 +1,4 @@
-//===--------- llvm-abi-default.cpp - Default ABI implementation ----------===//
+//===------------ DefaultABI.cpp - Default ABI implementation -------------===//
 //
 // Copyright (C) 2010, 2011  Rafael Espindola, Duncan Sands et al.
 //
@@ -21,7 +21,7 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "llvm-abi.h"
+#include "ABI.h"
 
 // System headers
 #include <gmp.h>

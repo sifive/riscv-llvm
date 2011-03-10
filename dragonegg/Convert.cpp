@@ -1,4 +1,4 @@
-//===---------- llvm-convert.cpp - Converting gimple to LLVM IR -----------===//
+//===------------- Convert.cpp - Converting gimple to LLVM IR -------------===//
 //
 // Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011  Chris Lattner,
 // Duncan Sands et al.
@@ -22,10 +22,10 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "llvm-abi.h"
-#include "llvm-constant.h"
-#include "llvm-debug.h"
-#include "llvm-tree.h"
+#include "ABI.h"
+#include "Constants.h"
+#include "Debug.h"
+#include "Trees.h"
 
 // LLVM headers
 #include "llvm/Module.h"

@@ -1,6 +1,6 @@
-//=--- llvm-constant.h - Converting and working with constants --*- C++ -*---=//
+//===------------ OS.h - FreeBSD specific definitions -----------*- C++ -*-===//
 //
-// Copyright (C) 2011  Duncan Sands.
+// Copyright (C) 2009, 2010, 2011  Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //
@@ -17,23 +17,10 @@
 // Foundation, 51 Franklin Street, Suite 500, Boston, MA 02110-1335, USA.
 //
 //===----------------------------------------------------------------------===//
-// This file declares functions for converting GCC constants to LLVM and working
-// with them.
+// This file provides FreeBSD specific declarations.
 //===----------------------------------------------------------------------===//
 
-#ifndef DRAGONEGG_CONSTANT_H
-#define DRAGONEGG_CONSTANT_H
+#ifndef DRAGONEGG_OS_H
+#define DRAGONEGG_OS_H
 
-union tree_node;
-
-namespace llvm {
-  class Constant;
-}
-
-// Constant Expressions
-extern llvm::Constant *ConvertConstant(tree_node *exp);
-
-// Constant Expression l-values.
-extern llvm::Constant *EmitAddressOf(tree_node *exp);
-
-#endif /* DRAGONEGG_CONSTANT_H */
+#endif /* DRAGONEGG_OS_H */

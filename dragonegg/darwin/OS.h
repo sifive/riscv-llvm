@@ -1,4 +1,4 @@
-//===--------- llvm-os.h - Darwin specific definitions ----------*- C++ -*-===//
+//===------------ OS.h - Darwin specific definitions ------------*- C++ -*-===//
 //
 // Copyright (C) 2009, 2010, 2011  Duncan Sands et al.
 //
@@ -20,8 +20,8 @@
 // This file provides Darwin specific declarations.
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_OS_H
-#define LLVM_OS_H
+#ifndef DRAGONEGG_OS_H
+#define DRAGONEGG_OS_H
 
 /* Darwin X86-64 only supports PIC code generation. */
 #if defined (TARGET_386)
@@ -53,4 +53,4 @@
     }                                                                   \
   } while (0)
 
-#endif /* LLVM_OS_H */
+#endif /* DRAGONEGG_OS_H */

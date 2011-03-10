@@ -1,4 +1,4 @@
-//===--------- llvm-type.cpp - Converting GCC types to LLVM types ---------===//
+//===----------- Types.cpp - Converting GCC types to LLVM types -----------===//
 //
 // Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011  Chris Lattner,
 // Duncan Sands et al.
@@ -22,10 +22,10 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "llvm-abi.h"
-#include "llvm-tree.h"
+#include "ABI.h"
+#include "Trees.h"
 extern "C" {
-#include "llvm-cache.h"
+#include "cache.h"
 }
 
 // LLVM headers

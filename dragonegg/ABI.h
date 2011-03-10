@@ -1,4 +1,4 @@
-//===------ llvm-abi.h - Processor ABI customization hooks ------*- C++ -*-===//
+//===--------- ABI.h - Processor ABI customization hooks --------*- C++ -*-===//
 //
 // Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011  Chris Lattner,
 // Duncan Sands et al.
@@ -23,12 +23,12 @@
 // structures are passed by-value.
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_ABI_H
-#define LLVM_ABI_H
+#ifndef DRAGONEGG_ABI_H
+#define DRAGONEGG_ABI_H
 
 // Plugin headers
-#include "llvm-internal.h"
-#include "llvm-target.h"
+#include "Internals.h"
+#include "Target.h"
 
 // LLVM headers
 #include "llvm/LLVMContext.h"
@@ -348,4 +348,4 @@ public:
                             std::vector<const Type*> &ScalarElts);
 };
 
-#endif /* LLVM_ABI_H */
+#endif /* DRAGONEGG_ABI_H */

@@ -37,15 +37,14 @@ TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
 REVISION:=$(shell svnversion -n $(SRC_DIR))
 
 PLUGIN=dragonegg.so
-PLUGIN_OBJECTS=llvm-abi-default.o llvm-backend.o llvm-cache.o llvm-constant.o \
-	       llvm-convert.o llvm-debug.o llvm-tree.o llvm-types.o \
-	       bits_and_bobs.o
+PLUGIN_OBJECTS=cache.o Backend.o Constants.o Convert.o Debug.o DefaultABI.o \
+	       Trees.o Types.o bits_and_bobs.o
 
-TARGET_OBJECT=llvm-target.o
-TARGET_SOURCE=$(SRC_DIR)/$(shell $(TARGET_UTIL) -p)/llvm-target.cpp
+TARGET_OBJECT=Target.o
+TARGET_SOURCE=$(SRC_DIR)/$(shell $(TARGET_UTIL) -p)/Target.cpp
 
-TARGET_UTIL_OBJECTS=target.o
-TARGET_UTIL=./target
+TARGET_UTIL_OBJECTS=TargetInfo.o
+TARGET_UTIL=./TargetInfo
 
 ALL_OBJECTS=$(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL_OBJECTS)
 
@@ -84,7 +83,7 @@ $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
 	$(QUIET)$(CXX) -c $(CPP_OPTIONS) $(TARGET_HEADERS) $(CXXFLAGS) $<
 
 $(TARGET_OBJECT): $(TARGET_UTIL)
-	@echo Compiling $(shell $(TARGET_UTIL) -p)/llvm-target.cpp
+	@echo Compiling $(shell $(TARGET_UTIL) -p)/Target.cpp
 	$(QUIET)$(CXX) -o $@ -c $(CPP_OPTIONS) $(TARGET_HEADERS) $(CXXFLAGS) \
 	$(TARGET_SOURCE)
 
@@ -103,11 +102,11 @@ clean::
 
 # The following target exists for the benefit of the dragonegg maintainers, and
 # is not used in a normal build.
-GENGTYPE_INPUT=$(SRC_DIR)/llvm-cache.c
-GENGTYPE_OUTPUT=$(SRC_DIR)/gt-llvm-cache.h
-gt-llvm-cache.h::
+GENGTYPE_INPUT=$(SRC_DIR)/cache.c
+GENGTYPE_OUTPUT=$(SRC_DIR)/gt-cache.h
+gt-cache.h::
 	cd $(HOME)/GCC/objects/gcc && ./build/gengtype \
 	  -P $(GENGTYPE_OUTPUT) $(GCC_PLUGIN_DIR) gtyp-input.list \
 	    $(GENGTYPE_INPUT)
-	sed -i "s/ggc_cache_tab .*\[\]/ggc_cache_tab gt_ggc_rc__gt_llvm_cache_h[]/" $(GENGTYPE_OUTPUT)
-	sed -i "s/ggc_root_tab .*\[\]/ggc_root_tab gt_pch_rc__gt_llvm_cache_h[]/" $(GENGTYPE_OUTPUT)
+	sed -i "s/ggc_cache_tab .*\[\]/ggc_cache_tab gt_ggc_rc__gt_cache_h[]/" $(GENGTYPE_OUTPUT)
+	sed -i "s/ggc_root_tab .*\[\]/ggc_root_tab gt_pch_rc__gt_cache_h[]/" $(GENGTYPE_OUTPUT)

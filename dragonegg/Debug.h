@@ -1,4 +1,4 @@
-//===---- llvm-debug.h - Interface for generating debug info ----*- C++ -*-===//
+//===------ Debug.h - Interface for generating debug info ----*- C++ -*----===//
 //
 // Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011  Jim Laskey, Duncan Sands
 // et al.
@@ -21,11 +21,11 @@
 // This file declares the debug interfaces shared among the dragonegg files.
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_DEBUG_H
-#define LLVM_DEBUG_H
+#ifndef DRAGONEGG_DEBUG_H
+#define DRAGONEGG_DEBUG_H
 
 // Plugin headers
-#include "llvm-internal.h"
+#include "Internals.h"
 
 // LLVM headers
 #include "llvm/Analysis/DebugInfo.h"
@@ -364,4 +364,4 @@ public:
 
 } // end namespace llvm
 
-#endif /* LLVM_DEBUG_H */
+#endif /* DRAGONEGG_DEBUG_H */

@@ -1,4 +1,4 @@
-//===-------- llvm-backend.cpp - High-level LLVM backend interface --------===//
+//===----------- Backend.cpp - High-level LLVM backend interface ----------===//
 //
 // Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011  Chris Lattner,
 // Duncan Sands et al.
@@ -23,12 +23,12 @@
 
 // Plugin headers
 extern "C" {
-#include "llvm-cache.h"
+#include "cache.h"
 }
-#include "llvm-constant.h"
-#include "llvm-debug.h"
-#include "llvm-os.h"
-#include "llvm-target.h"
+#include "Constants.h"
+#include "Debug.h"
+#include "OS.h"
+#include "Target.h"
 
 // LLVM headers
 #define DEBUG_TYPE "plugin"

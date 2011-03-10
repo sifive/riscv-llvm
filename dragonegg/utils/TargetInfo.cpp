@@ -1,4 +1,4 @@
-//===---- llvm-target.cpp - Utility for getting info about the target -----===//
+//===----- TargetInfo.cpp - Utility for getting info about the target -----===//
 //
 // Copyright (C) 2009, 2010, 2011  Duncan Sands.
 //

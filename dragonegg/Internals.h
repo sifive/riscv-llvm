@@ -1,4 +1,4 @@
-//=-- llvm-internal.h - Interface between the backend components --*- C++ -*-=//
+//=---- Internals.h - Interface between the backend components --*- C++ -*---=//
 //
 // Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011  Chris Lattner,
 // Duncan Sands et al.
@@ -21,8 +21,8 @@
 // This file declares the internal interfaces shared among the dragonegg files.
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_INTERNAL_H
-#define LLVM_INTERNAL_H
+#ifndef DRAGONEGG_INTERNALS_H
+#define DRAGONEGG_INTERNALS_H
 
 // LLVM headers
 #include "llvm/Intrinsics.h"
@@ -857,4 +857,4 @@ public:
   Constant *EmitLV_LABEL_DECL(tree_node *exp);
 };
 
-#endif /* LLVM_INTERNAL_H */
+#endif /* DRAGONEGG_INTERNALS_H */

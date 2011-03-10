@@ -1,4 +1,4 @@
-//===---- llvm-tree.cpp - Utility functions for working with GCC trees ----===//
+//===------ Trees.cpp - Utility functions for working with GCC trees ------===//
 //
 // Copyright (C) 2010, 2011  Duncan Sands.
 //
@@ -21,7 +21,7 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "llvm-tree.h"
+#include "Trees.h"
 
 // LLVM headers
 #include "llvm/ADT/Twine.h"

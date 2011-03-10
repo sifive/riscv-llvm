@@ -1,4 +1,4 @@
-/*===-------- llvm-cache.h - Caching values "in" GCC trees --------*- C -*-===*\
+/*===----------- cache.h - Caching values "in" GCC trees ----------*- C -*-===*\
 |*                                                                            *|
 |* Copyright (C) 2009, 2010, 2011  Duncan Sands.                              *|
 |*                                                                            *|
@@ -23,8 +23,8 @@
 |* the cached value will have been cleared.                                   *|
 \*===----------------------------------------------------------------------===*/
 
-#ifndef LLVM_CACHE_H
-#define LLVM_CACHE_H
+#ifndef DRAGONEGG_CACHE_H
+#define DRAGONEGG_CACHE_H
 
 union tree_node;
 
@@ -42,4 +42,4 @@ extern const void *llvm_set_cached(union tree_node *tree, const void *val);
 /* llvm_replace_cached - Replaces all occurrences of old_val with new_val.  */
 extern void llvm_replace_cached(const void *old_val, const void *new_val);
 
-#endif /* LLVM_CACHE_H */
+#endif /* DRAGONEGG_CACHE_H */
