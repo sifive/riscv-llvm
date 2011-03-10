@@ -1,7 +1,7 @@
 //===------------ llvm-target.cpp - Implements the IA-32 ABI. -------------===//
 //
-// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010  Evan Cheng, Duncan Sands
-// et al.
+// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011  Evan Cheng,
+// Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //

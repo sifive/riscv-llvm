@@ -1,6 +1,6 @@
 /*===-------- llvm-cache.h - Caching values "in" GCC trees --------*- C -*-===*\
 |*                                                                            *|
-|* Copyright (C) 2009, 2010  Duncan Sands.                                    *|
+|* Copyright (C) 2009, 2010, 2011  Duncan Sands.                              *|
 |*                                                                            *|
 |* This file is part of DragonEgg.                                            *|
 |*                                                                            *|

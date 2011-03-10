@@ -1,6 +1,6 @@
 //===--------- llvm-os.h - Darwin specific definitions ----------*- C++ -*-===//
 //
-// Copyright (C) 2009, 2010  Duncan Sands et al.
+// Copyright (C) 2009, 2010, 2011  Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //
