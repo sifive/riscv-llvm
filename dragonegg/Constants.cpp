@@ -1221,9 +1221,10 @@ Constant *AddressOf(tree exp) {
   // Check that the type of the lvalue is indeed that of a pointer to the tree
   // node.  Since LLVM has no void* type, don't insist that void* be converted
   // to a specific LLVM type.
-  assert((VOID_TYPE_P(TREE_TYPE(exp)) ||
-          LV->getType() == ConvertType(TREE_TYPE(exp))->getPointerTo()) &&
-         "LValue of constant has wrong type!");
+  assert(isa<PointerType>(LV->getType()) &&
+         (VOID_TYPE_P(TREE_TYPE(exp)) ||
+          cast<PointerType>(LV->getType())->getElementType() ==
+          ConvertType(TREE_TYPE(exp))) && "Constant LValue has wrong type!");
 
   return LV;
 }

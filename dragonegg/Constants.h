@@ -33,7 +33,11 @@ namespace llvm {
 // Constant Expressions
 extern llvm::Constant *ConvertConstant(tree_node *exp);
 
-// Constant Expression l-values.
+/// AddressOf - Given an expression with a constant address such as a constant,
+/// a global variable or a label, returns the address.  The type of the returned
+/// is always a pointer type and, as long as 'exp' does not have void type, the
+/// type of the pointee is the memory type that corresponds to the type of exp
+/// (see ConvertType).
 extern llvm::Constant *AddressOf(tree_node *exp);
 
 #endif /* DRAGONEGG_CONSTANTS_H */
