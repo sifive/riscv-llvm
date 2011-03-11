@@ -1282,13 +1282,13 @@ LValue TreeToLLVM::EmitLV(tree exp) {
 
   // Constants.
   case LABEL_DECL: {
-    LV = LValue(EmitLV_LABEL_DECL(exp), 1);
+    LV = LValue(AddressOfLABEL_DECL(exp), 1);
     break;
   }
   case COMPLEX_CST:
   case REAL_CST:
   case STRING_CST: {
-    Value *Ptr = EmitAddressOf(exp);
+    Value *Ptr = AddressOf(exp);
     LV = LValue(Ptr, get_constant_alignment(exp) / 8);
     break;
   }
@@ -1724,7 +1724,7 @@ void TreeToLLVM::EmitAnnotateIntrinsic(Value *V, tree decl) {
       assert(TREE_CODE(val) == STRING_CST &&
              "Annotate attribute arg should always be a string");
       const Type *SBP = Type::getInt8PtrTy(Context);
-      Constant *strGV = EmitAddressOf(val);
+      Constant *strGV = AddressOf(val);
       Value *Ops[4] = {
         Builder.CreateBitCast(V, SBP),
         Builder.CreateBitCast(strGV, SBP),
@@ -1842,7 +1842,7 @@ static Constant *ConvertTypeInfo(tree type) {
   STRIP_NOPS(type);
   if (TREE_CODE(type) == ADDR_EXPR)
     type = TREE_OPERAND(type, 0);
-  return EmitAddressOf(type);
+  return AddressOf(type);
 }
 
 /// getExceptionPtr - Return the local holding the exception pointer for the
@@ -5357,7 +5357,7 @@ Value *TreeToLLVM::EmitFieldAnnotation(Value *FieldPtr, tree FieldDecl) {
       assert(TREE_CODE(val) == STRING_CST &&
              "Annotate attribute arg should always be a string");
 
-      Constant *strGV = EmitAddressOf(val);
+      Constant *strGV = AddressOf(val);
 
       // We can not use the IRBuilder because it will constant fold away
       // the GEP that is critical to distinguish between an annotate
@@ -5805,7 +5805,7 @@ LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
   return Ref;
 }
 
-Constant *TreeToLLVM::EmitLV_LABEL_DECL(tree exp) {
+Constant *TreeToLLVM::AddressOfLABEL_DECL(tree exp) {
   return BlockAddress::get(Fn, getLabelDeclBlock(exp));
 }
 

@@ -34,6 +34,6 @@ namespace llvm {
 extern llvm::Constant *ConvertConstant(tree_node *exp);
 
 // Constant Expression l-values.
-extern llvm::Constant *EmitAddressOf(tree_node *exp);
+extern llvm::Constant *AddressOf(tree_node *exp);
 
 #endif /* DRAGONEGG_CONSTANTS_H */

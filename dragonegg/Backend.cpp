@@ -964,7 +964,7 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
       // Assert its a string, and then get that string.
       assert(TREE_CODE(val) == STRING_CST &&
              "Annotate attribute arg should always be a string");
-      Constant *strGV = EmitAddressOf(val);
+      Constant *strGV = AddressOf(val);
       Constant *Element[4] = {
         TheFolder->CreateBitCast(GV,SBP),
         TheFolder->CreateBitCast(strGV,SBP),

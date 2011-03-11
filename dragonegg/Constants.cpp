@@ -956,7 +956,7 @@ Constant *ConvertConstant(tree exp) {
   case VIEW_CONVERT_EXPR: return ConvertConstant(TREE_OPERAND(exp, 0));
   case POINTER_PLUS_EXPR: return ConvertPOINTER_PLUS_EXPR(exp);
   case ADDR_EXPR:
-    return TheFolder->CreateBitCast(EmitAddressOf(TREE_OPERAND(exp, 0)),
+    return TheFolder->CreateBitCast(AddressOf(TREE_OPERAND(exp, 0)),
                                     ConvertType(TREE_TYPE(exp)));
   }
 }
@@ -972,7 +972,7 @@ get_constant_alignment (tree exp)
         return align;
 }
 
-static Constant *EmitAddressOfDecl(tree exp) {
+static Constant *AddressOfDecl(tree exp) {
   GlobalValue *Val = cast<GlobalValue>(DEFINITION_LLVM(exp));
 
   // The type of the global value output for exp need not match that of exp.
@@ -985,8 +985,8 @@ static Constant *EmitAddressOfDecl(tree exp) {
   return TheFolder->CreateBitCast(Val, Ty->getPointerTo());
 }
 
-/// EmitAddressOfLABEL_DECL - Someone took the address of a label.
-static Constant *EmitAddressOfLABEL_DECL(tree exp) {
+/// AddressOfLABEL_DECL - Someone took the address of a label.
+static Constant *AddressOfLABEL_DECL(tree exp) {
   extern TreeToLLVM *TheTreeToLLVM;
 
   assert(TheTreeToLLVM &&
@@ -1000,10 +1000,10 @@ static Constant *EmitAddressOfLABEL_DECL(tree exp) {
            "Taking the address of a label that isn't in the current fn!?");
   }
 
-  return TheTreeToLLVM->EmitLV_LABEL_DECL(exp);
+  return TheTreeToLLVM->AddressOfLABEL_DECL(exp);
 }
 
-static Constant *EmitAddressOfCOMPLEX_CST(tree exp) {
+static Constant *AddressOfCOMPLEX_CST(tree exp) {
   Constant *Init = ConvertCOMPLEX_CST(exp);
 
   // Cache the constants to avoid making obvious duplicates that have to be
@@ -1020,7 +1020,7 @@ static Constant *EmitAddressOfCOMPLEX_CST(tree exp) {
   return Slot;
 }
 
-static Constant *EmitAddressOfREAL_CST(tree exp) {
+static Constant *AddressOfREAL_CST(tree exp) {
   Constant *Init = ConvertREAL_CST(exp);
 
   // Cache the constants to avoid making obvious duplicates that have to be
@@ -1037,7 +1037,7 @@ static Constant *EmitAddressOfREAL_CST(tree exp) {
   return Slot;
 }
 
-static Constant *EmitAddressOfSTRING_CST(tree exp) {
+static Constant *AddressOfSTRING_CST(tree exp) {
   Constant *Init = ConvertSTRING_CST(exp);
 
   GlobalVariable **SlotP = 0;
@@ -1059,7 +1059,7 @@ static Constant *EmitAddressOfSTRING_CST(tree exp) {
   return GV;
 }
 
-static Constant *EmitAddressOfARRAY_REF(tree exp) {
+static Constant *AddressOfARRAY_REF(tree exp) {
   tree Array = TREE_OPERAND(exp, 0);
   tree Index = TREE_OPERAND(exp, 1);
   tree IndexType = TREE_TYPE(Index);
@@ -1084,7 +1084,7 @@ static Constant *EmitAddressOfARRAY_REF(tree exp) {
 
   // Avoid any assumptions about how the array type is represented in LLVM by
   // doing the GEP on a pointer to the first array element.
-  Constant *ArrayAddr = EmitAddressOf(Array);
+  Constant *ArrayAddr = AddressOf(Array);
   const Type *EltTy = ConvertType(TREE_TYPE(TREE_TYPE(Array)));
   ArrayAddr = TheFolder->CreateBitCast(ArrayAddr, EltTy->getPointerTo());
 
@@ -1093,8 +1093,8 @@ static Constant *EmitAddressOfARRAY_REF(tree exp) {
     TheFolder->CreateGetElementPtr(ArrayAddr, &IndexVal, 1);
 }
 
-static Constant *EmitAddressOfCOMPONENT_REF(tree exp) {
-  Constant *StructAddrLV = EmitAddressOf(TREE_OPERAND(exp, 0));
+static Constant *AddressOfCOMPONENT_REF(tree exp) {
+  Constant *StructAddrLV = AddressOf(TREE_OPERAND(exp, 0));
 
   tree FieldDecl = TREE_OPERAND(exp, 1);
   const Type *StructTy = ConvertType(DECL_CONTEXT(FieldDecl));
@@ -1171,7 +1171,7 @@ static Constant *EmitAddressOfCOMPONENT_REF(tree exp) {
   return FieldPtr;
 }
 
-Constant *EmitAddressOf(tree exp) {
+Constant *AddressOf(tree exp) {
   Constant *LV;
 
   switch (TREE_CODE(exp)) {
@@ -1182,26 +1182,26 @@ Constant *EmitAddressOf(tree exp) {
   case FUNCTION_DECL:
   case CONST_DECL:
   case VAR_DECL:
-    LV = EmitAddressOfDecl(exp);
+    LV = AddressOfDecl(exp);
     break;
   case LABEL_DECL:
-    LV = EmitAddressOfLABEL_DECL(exp);
+    LV = AddressOfLABEL_DECL(exp);
     break;
   case COMPLEX_CST:
-    LV = EmitAddressOfCOMPLEX_CST(exp);
+    LV = AddressOfCOMPLEX_CST(exp);
     break;
   case REAL_CST:
-    LV = EmitAddressOfREAL_CST(exp);
+    LV = AddressOfREAL_CST(exp);
     break;
   case STRING_CST:
-    LV = EmitAddressOfSTRING_CST(exp);
+    LV = AddressOfSTRING_CST(exp);
     break;
   case COMPONENT_REF:
-    LV = EmitAddressOfCOMPONENT_REF(exp);
+    LV = AddressOfCOMPONENT_REF(exp);
     break;
   case ARRAY_RANGE_REF:
   case ARRAY_REF:
-    LV = EmitAddressOfARRAY_REF(exp);
+    LV = AddressOfARRAY_REF(exp);
     break;
   case INDIRECT_REF:
     // The lvalue is just the address.
@@ -1209,12 +1209,12 @@ Constant *EmitAddressOf(tree exp) {
     break;
   case COMPOUND_LITERAL_EXPR: // FIXME: not gimple - defined by C front-end
     /* This used to read
-       return EmitAddressOf(COMPOUND_LITERAL_EXPR_DECL(exp));
+       return AddressOf(COMPOUND_LITERAL_EXPR_DECL(exp));
        but gcc warns about that and there doesn't seem to be any way to stop it
        with casts or the like.  The following is equivalent with no checking
        (since we know TREE_CODE(exp) is COMPOUND_LITERAL_EXPR the checking
        doesn't accomplish anything anyway). */
-    LV = EmitAddressOf(DECL_EXPR_DECL (TREE_OPERAND (exp, 0)));
+    LV = AddressOf(DECL_EXPR_DECL (TREE_OPERAND (exp, 0)));
     break;
   }
 

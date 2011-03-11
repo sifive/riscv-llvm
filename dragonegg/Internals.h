@@ -854,7 +854,7 @@ private:
 
 public:
   // Helper for taking the address of a label.
-  Constant *EmitLV_LABEL_DECL(tree_node *exp);
+  Constant *AddressOfLABEL_DECL(tree_node *exp);
 };
 
 #endif /* DRAGONEGG_INTERNALS_H */
