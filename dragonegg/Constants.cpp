@@ -935,8 +935,7 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
 }
 
 Constant *ConvertConstant(tree exp) {
-  assert((TREE_CONSTANT(exp) || TREE_CODE(exp) == STRING_CST) &&
-         "Isn't a constant!");
+  assert(TREE_CONSTANT(exp) && "Isn't a constant!");
   switch (TREE_CODE(exp)) {
   case FDESC_EXPR:    // Needed on itanium
   default:
