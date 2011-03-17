@@ -1334,29 +1334,6 @@ static Constant *AddressOfCST(tree exp) {
   return Slot;
 }
 
-/// AddressOfDecl - Return the address of a global.
-static Constant *AddressOfDecl(tree exp) {
-  return cast<GlobalValue>(DEFINITION_LLVM(exp));
-}
-
-/// AddressOfLABEL_DECL - Return the address of a label.
-static Constant *AddressOfLABEL_DECL(tree exp) {
-  extern TreeToLLVM *TheTreeToLLVM;
-
-  assert(TheTreeToLLVM &&
-         "taking the address of a label while not compiling the function!");
-
-  // Figure out which function this is for, verify it's the one we're compiling.
-  if (DECL_CONTEXT(exp)) {
-    assert(TREE_CODE(DECL_CONTEXT(exp)) == FUNCTION_DECL &&
-           "Address of label in nested function?");
-    assert(TheTreeToLLVM->getFUNCTION_DECL() == DECL_CONTEXT(exp) &&
-           "Taking the address of a label that isn't in the current fn!?");
-  }
-
-  return TheTreeToLLVM->AddressOfLABEL_DECL(exp);
-}
-
 /// AddressOfARRAY_REF - Return the address of an array element or slice.
 static Constant *AddressOfARRAY_REF(tree exp) {
   tree array = TREE_OPERAND(exp, 0);
@@ -1437,6 +1414,29 @@ static Constant *AddressOfCOMPONENT_REF(tree exp) {
   FieldPtr = TheFolder->CreateInBoundsGetElementPtr(FieldPtr, &Offset, 1);
 
   return FieldPtr;
+}
+
+/// AddressOfDecl - Return the address of a global.
+static Constant *AddressOfDecl(tree exp) {
+  return cast<GlobalValue>(DEFINITION_LLVM(exp));
+}
+
+/// AddressOfLABEL_DECL - Return the address of a label.
+static Constant *AddressOfLABEL_DECL(tree exp) {
+  extern TreeToLLVM *TheTreeToLLVM;
+
+  assert(TheTreeToLLVM &&
+         "taking the address of a label while not compiling the function!");
+
+  // Figure out which function this is for, verify it's the one we're compiling.
+  if (DECL_CONTEXT(exp)) {
+    assert(TREE_CODE(DECL_CONTEXT(exp)) == FUNCTION_DECL &&
+           "Address of label in nested function?");
+    assert(TheTreeToLLVM->getFUNCTION_DECL() == DECL_CONTEXT(exp) &&
+           "Taking the address of a label that isn't in the current fn!?");
+  }
+
+  return TheTreeToLLVM->AddressOfLABEL_DECL(exp);
 }
 
 Constant *AddressOf(tree exp) {
