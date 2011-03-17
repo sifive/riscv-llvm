@@ -1297,6 +1297,11 @@ Constant *ConvertInitializer(tree exp) {
   }
 }
 
+//===----------------------------------------------------------------------===//
+//                            ... AddressOf ...
+//===----------------------------------------------------------------------===//
+
+/// AddressOfCST - Return the address of a simple constant, eg a of number.
 static Constant *AddressOfCST(tree exp) {
   Constant *Init = ConvertInitializer(exp);
 
@@ -1304,36 +1309,27 @@ static Constant *AddressOfCST(tree exp) {
   // folded by the optimizer.
   static std::map<Constant*, GlobalVariable*> CSTCache;
   GlobalVariable *&Slot = CSTCache[Init];
-  if (!Slot) {
-    // Create a new global variable.
-    Slot = new GlobalVariable(*TheModule, Init->getType(), true,
-                              GlobalVariable::PrivateLinkage, Init, ".cst");
-    unsigned align = TYPE_ALIGN (TREE_TYPE (exp));
+  if (Slot)
+    return Slot;
+
+  // Create a new global variable.
+  Slot = new GlobalVariable(*TheModule, Init->getType(), true,
+                            GlobalVariable::PrivateLinkage, Init, ".cst");
+  unsigned align = TYPE_ALIGN (TREE_TYPE (exp));
 #ifdef CONSTANT_ALIGNMENT
-    align = CONSTANT_ALIGNMENT (exp, align);
+  align = CONSTANT_ALIGNMENT (exp, align);
 #endif
-    Slot->setAlignment(align);
-  }
+  Slot->setAlignment(align);
 
-  // The initializer may have any type.  Return a pointer of the expected type.
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
-  return TheFolder->CreateBitCast(Slot, Ty->getPointerTo());
+  return Slot;
 }
 
+/// AddressOfDecl - Return the address of a global.
 static Constant *AddressOfDecl(tree exp) {
-  GlobalValue *Val = cast<GlobalValue>(DEFINITION_LLVM(exp));
-
-  // The type of the global value output for exp need not match that of exp.
-  // For example if the global's initializer has a different type to the global
-  // itself (allowed in GCC but not in LLVM) then the global is changed to have
-  // the type of the initializer.  Correct for this now.
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
-  if (Ty->isVoidTy()) Ty = Type::getInt8Ty(Context);  // void* -> i8*.
-
-  return TheFolder->CreateBitCast(Val, Ty->getPointerTo());
+  return cast<GlobalValue>(DEFINITION_LLVM(exp));
 }
 
-/// AddressOfLABEL_DECL - Someone took the address of a label.
+/// AddressOfLABEL_DECL - Return the address of a label.
 static Constant *AddressOfLABEL_DECL(tree exp) {
   extern TreeToLLVM *TheTreeToLLVM;
 
@@ -1351,33 +1347,38 @@ static Constant *AddressOfLABEL_DECL(tree exp) {
   return TheTreeToLLVM->AddressOfLABEL_DECL(exp);
 }
 
+/// AddressOfARRAY_REF - Return the address of an array element or slice.
 static Constant *AddressOfARRAY_REF(tree exp) {
-  tree Array = TREE_OPERAND(exp, 0);
-  tree Index = TREE_OPERAND(exp, 1);
-  tree IndexType = TREE_TYPE(Index);
-  assert(TREE_CODE(TREE_TYPE(Array)) == ARRAY_TYPE && "Unknown ARRAY_REF!");
+  tree array = TREE_OPERAND(exp, 0);
+  tree index = TREE_OPERAND(exp, 1);
+  tree index_type = TREE_TYPE(index);
+  assert(TREE_CODE(TREE_TYPE(array)) == ARRAY_TYPE && "Unknown ARRAY_REF!");
 
   // Check for variable sized reference.
   // FIXME: add support for array types where the size doesn't fit into 64 bits
-  assert(isSequentialCompatible(TREE_TYPE(Array)) &&
+  assert(isSequentialCompatible(TREE_TYPE(array)) &&
          "Global with variable size?");
 
-  // First subtract the lower bound, if any, in the type of the index.
-  Constant *IndexVal = ConvertInitializer(Index);
-  tree LowerBound = array_ref_low_bound(exp);
-  if (!integer_zerop(LowerBound))
-    IndexVal = TheFolder->CreateSub(IndexVal, ConvertInitializer(LowerBound),
-                                    hasNUW(TREE_TYPE(Index)),
-                                    hasNSW(TREE_TYPE(Index)));
+  // Get the index into the array as an LLVM constant.  The type of the constant
+  // returned by ConvertInitializer could be anything; turn it into an integer.
+  Constant *IndexVal = ConvertInitializer(index);
+  const Type *IndexTy = IntegerType::get(Context, TYPE_PRECISION(index_type));
+  IndexVal = InterpretAsType(IndexVal, IndexTy, 0);
 
-  const Type *IntPtrTy = getTargetData().getIntPtrType(Context);
-  IndexVal = TheFolder->CreateIntCast(IndexVal, IntPtrTy,
-                                      /*isSigned*/!TYPE_UNSIGNED(IndexType));
+  // First subtract the lower bound, if any, in the type of the index.
+  tree LowerBound = array_ref_low_bound(exp);
+  if (!integer_zerop(LowerBound)) {
+    // Get the lower bound as an integer LLVM constant.
+    Constant *LowerBoundVal = ConvertInitializer(LowerBound);
+    LowerBoundVal = InterpretAsType(LowerBoundVal, IndexTy, 0);
+    IndexVal = TheFolder->CreateSub(IndexVal, LowerBoundVal, hasNUW(index_type),
+                                    hasNSW(index_type));
+  }
 
   // Avoid any assumptions about how the array type is represented in LLVM by
   // doing the GEP on a pointer to the first array element.
-  Constant *ArrayAddr = AddressOf(Array);
-  const Type *EltTy = ConvertType(TREE_TYPE(TREE_TYPE(Array)));
+  Constant *ArrayAddr = AddressOf(array);
+  const Type *EltTy = ConvertType(TREE_TYPE(TREE_TYPE(array)));
   ArrayAddr = TheFolder->CreateBitCast(ArrayAddr, EltTy->getPointerTo());
 
   return POINTER_TYPE_OVERFLOW_UNDEFINED ?
@@ -1479,43 +1480,36 @@ Constant *AddressOf(tree exp) {
   case VECTOR_CST:
     LV = AddressOfCST(exp);
     break;
-  case FUNCTION_DECL:
+  case ARRAY_RANGE_REF:
+  case ARRAY_REF:
+    LV = AddressOfARRAY_REF(exp);
+    break;
+  case COMPONENT_REF:
+    LV = AddressOfCOMPONENT_REF(exp);
+    break;
   case CONST_DECL:
+  case FUNCTION_DECL:
   case VAR_DECL:
     LV = AddressOfDecl(exp);
     break;
   case LABEL_DECL:
     LV = AddressOfLABEL_DECL(exp);
     break;
-  case COMPONENT_REF:
-    LV = AddressOfCOMPONENT_REF(exp);
-    break;
-  case ARRAY_RANGE_REF:
-  case ARRAY_REF:
-    LV = AddressOfARRAY_REF(exp);
-    break;
   case INDIRECT_REF:
     // The lvalue is just the address.
     LV = ConvertInitializer(TREE_OPERAND(exp, 0));
     break;
   case COMPOUND_LITERAL_EXPR: // FIXME: not gimple - defined by C front-end
-    /* This used to read
-       return AddressOf(COMPOUND_LITERAL_EXPR_DECL(exp));
-       but gcc warns about that and there doesn't seem to be any way to stop it
-       with casts or the like.  The following is equivalent with no checking
-       (since we know TREE_CODE(exp) is COMPOUND_LITERAL_EXPR the checking
-       doesn't accomplish anything anyway). */
     LV = AddressOf(DECL_EXPR_DECL (TREE_OPERAND (exp, 0)));
     break;
   }
 
-  // Check that the type of the lvalue is indeed that of a pointer to the tree
-  // node.  Since LLVM has no void* type, don't insist that void* be converted
-  // to a specific LLVM type.
-  assert(isa<PointerType>(LV->getType()) &&
-         (VOID_TYPE_P(TREE_TYPE(exp)) ||
-          cast<PointerType>(LV->getType())->getElementType() ==
-          ConvertType(TREE_TYPE(exp))) && "Constant LValue has wrong type!");
-
-  return LV;
+  // Ensure that the address has the expected type.  It is simpler to do this
+  // once here rather than in every AddressOf helper.
+  const Type *Ty;
+  if (VOID_TYPE_P(TREE_TYPE(exp)))
+    Ty = Type::getInt8Ty(Context); // void* -> i8*.
+  else
+    Ty = ConvertType(TREE_TYPE(exp));
+  return TheFolder->CreateBitCast(LV, Ty->getPointerTo());
 }
