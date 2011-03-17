@@ -1301,6 +1301,16 @@ Constant *ConvertInitializer(tree exp) {
 //                            ... AddressOf ...
 //===----------------------------------------------------------------------===//
 
+/// getAsInteger - Given a constant of integer type, return its value as an LLVM
+/// integer constant.
+static Constant *getAsInteger(tree exp) {
+  tree type = TREE_TYPE(exp);
+  assert(INTEGRAL_TYPE_P(type) && "Constant does not have integer type!");
+  Constant *C = ConvertInitializer(exp);
+  const Type *IntTy = IntegerType::get(Context, TYPE_PRECISION(type));
+  return InterpretAsType(C, IntTy, 0);
+}
+
 /// AddressOfCST - Return the address of a simple constant, eg a of number.
 static Constant *AddressOfCST(tree exp) {
   Constant *Init = ConvertInitializer(exp);
@@ -1355,22 +1365,17 @@ static Constant *AddressOfARRAY_REF(tree exp) {
   assert(TREE_CODE(TREE_TYPE(array)) == ARRAY_TYPE && "Unknown ARRAY_REF!");
 
   // Check for variable sized reference.
-  // FIXME: add support for array types where the size doesn't fit into 64 bits
   assert(isSequentialCompatible(TREE_TYPE(array)) &&
          "Global with variable size?");
 
-  // Get the index into the array as an LLVM constant.  The type of the constant
-  // returned by ConvertInitializer could be anything; turn it into an integer.
-  Constant *IndexVal = ConvertInitializer(index);
-  const Type *IndexTy = IntegerType::get(Context, TYPE_PRECISION(index_type));
-  IndexVal = InterpretAsType(IndexVal, IndexTy, 0);
+  // Get the index into the array as an LLVM integer constant.
+  Constant *IndexVal = getAsInteger(index);
 
-  // First subtract the lower bound, if any, in the type of the index.
-  tree LowerBound = array_ref_low_bound(exp);
-  if (!integer_zerop(LowerBound)) {
-    // Get the lower bound as an integer LLVM constant.
-    Constant *LowerBoundVal = ConvertInitializer(LowerBound);
-    LowerBoundVal = InterpretAsType(LowerBoundVal, IndexTy, 0);
+  // Subtract off the lower bound, if any.
+  tree lower_bound = array_ref_low_bound(exp);
+  if (!integer_zerop(lower_bound)) {
+    // Get the lower bound as an LLVM integer constant.
+    Constant *LowerBoundVal = getAsInteger(lower_bound);
     IndexVal = TheFolder->CreateSub(IndexVal, LowerBoundVal, hasNUW(index_type),
                                     hasNSW(index_type));
   }
@@ -1386,81 +1391,51 @@ static Constant *AddressOfARRAY_REF(tree exp) {
     TheFolder->CreateGetElementPtr(ArrayAddr, &IndexVal, 1);
 }
 
+/// AddressOfCOMPONENT_REF - Return the address of a field in a record.
 static Constant *AddressOfCOMPONENT_REF(tree exp) {
-  Constant *StructAddrLV = AddressOf(TREE_OPERAND(exp, 0));
+  assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
+  tree field_decl = TREE_OPERAND(exp, 1);
 
-  tree FieldDecl = TREE_OPERAND(exp, 1);
-  const Type *StructTy = ConvertType(DECL_CONTEXT(FieldDecl));
-
-  StructAddrLV = TheFolder->CreateBitCast(StructAddrLV,
-                                          StructTy->getPointerTo());
-  const Type *FieldTy = ConvertType(TREE_TYPE(FieldDecl));
-
-  // BitStart - This is the actual offset of the field from the start of the
-  // struct, in bits.  For bitfields this may be on a non-byte boundary.
-  unsigned BitStart;
-  Constant *FieldPtr;
-
-  // If the GCC field directly corresponds to an LLVM field, handle it.
-  unsigned MemberIndex = GetFieldIndex(FieldDecl, StructTy);
-  if (MemberIndex < INT_MAX) {
-    // Get a pointer to the byte in which the GCC field starts.
-    Constant *Ops[] = {
-      Constant::getNullValue(Type::getInt32Ty(Context)),
-      ConstantInt::get(Type::getInt32Ty(Context), MemberIndex)
-    };
-    FieldPtr = TheFolder->CreateInBoundsGetElementPtr(StructAddrLV, Ops, 2);
-    // Within that byte, the bit at which the GCC field starts.
-    BitStart = TREE_INT_CST_LOW(DECL_FIELD_BIT_OFFSET(TREE_OPERAND(exp, 1)));
-    BitStart &= 7;
-  } else {
-    // Offset will hold the field offset in octets.
-    Constant *Offset;
-
-    assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
-    if (TREE_OPERAND(exp, 2)) {
-      Offset = ConvertInitializer(TREE_OPERAND(exp, 2));
-      // At this point the offset is measured in units divided by (exactly)
-      // (DECL_OFFSET_ALIGN / BITS_PER_UNIT).  Convert to octets.
-      unsigned factor = DECL_OFFSET_ALIGN(FieldDecl) / 8;
-      if (factor != 1)
-        Offset = TheFolder->CreateMul(Offset,
-                                      ConstantInt::get(Offset->getType(),
-                                                       factor));
-    } else {
-      assert(DECL_FIELD_OFFSET(FieldDecl) && "Field offset not available!");
-      Offset = ConvertInitializer(DECL_FIELD_OFFSET(FieldDecl));
-      // At this point the offset is measured in units.  Convert to octets.
-      unsigned factor = BITS_PER_UNIT / 8;
-      if (factor != 1)
-        Offset = TheFolder->CreateMul(Offset,
-                                      ConstantInt::get(Offset->getType(),
-                                                       factor));
-    }
-
-    // Here BitStart gives the offset of the field in bits from Offset.
-    BitStart = getInt64(DECL_FIELD_BIT_OFFSET(FieldDecl), true);
-    // Incorporate as much of it as possible into the pointer computation.
-    unsigned ByteOffset = BitStart/8;
-    if (ByteOffset > 0) {
-      Offset = TheFolder->CreateAdd(Offset,
+  // Compute the field offset in octets from the start of the record.
+  Constant *Offset;
+  if (TREE_OPERAND(exp, 2)) {
+    Offset = getAsInteger(TREE_OPERAND(exp, 2));
+    // At this point the offset is measured in units divided by (exactly)
+    // (DECL_OFFSET_ALIGN / BITS_PER_UNIT).  Convert to octets.
+    unsigned factor = DECL_OFFSET_ALIGN(field_decl) / 8;
+    if (factor != 1)
+      Offset = TheFolder->CreateMul(Offset,
                                     ConstantInt::get(Offset->getType(),
-                                                     ByteOffset));
-      BitStart -= ByteOffset*8;
-    }
-
-    const Type *BytePtrTy = Type::getInt8PtrTy(Context);
-    FieldPtr = TheFolder->CreateBitCast(StructAddrLV, BytePtrTy);
-    FieldPtr = TheFolder->CreateInBoundsGetElementPtr(FieldPtr, &Offset, 1);
-    FieldPtr = TheFolder->CreateBitCast(FieldPtr, FieldTy->getPointerTo());
+                                                     factor));
+  } else {
+    assert(DECL_FIELD_OFFSET(field_decl) && "Field offset not available!");
+    Offset = getAsInteger(DECL_FIELD_OFFSET(field_decl));
+    // At this point the offset is measured in units.  Convert to octets.
+    unsigned factor = BITS_PER_UNIT / 8;
+    if (factor != 1)
+      Offset = TheFolder->CreateMul(Offset,
+                                    ConstantInt::get(Offset->getType(),
+                                                     factor));
   }
 
-  // Make sure we return a pointer to the right type.
-  const Type *EltTy = ConvertType(TREE_TYPE(exp));
-  FieldPtr = TheFolder->CreateBitCast(FieldPtr, EltTy->getPointerTo());
-
+  // Here BitStart gives the offset of the field in bits from Offset.
+  uint64_t BitStart = getInt64(DECL_FIELD_BIT_OFFSET(field_decl), true);
+  // Incorporate as much of it as possible into the pointer computation.
+  uint64_t ByteOffset = BitStart / 8;
+  if (ByteOffset > 0) {
+    Offset = TheFolder->CreateAdd(Offset,
+                                  ConstantInt::get(Offset->getType(),
+                                                   ByteOffset));
+    BitStart -= ByteOffset*8;
+  }
   assert(BitStart == 0 &&
          "It's a bitfield reference or we didn't get to the field!");
+
+  const Type *BytePtrTy = Type::getInt8PtrTy(Context);
+  Constant *StructAddr = AddressOf(TREE_OPERAND(exp, 0));
+  Constant *FieldPtr = TheFolder->CreateBitCast(StructAddr, BytePtrTy);
+  FieldPtr = TheFolder->CreateInBoundsGetElementPtr(FieldPtr, &Offset, 1);
+
   return FieldPtr;
 }
 
