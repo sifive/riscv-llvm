@@ -1297,15 +1297,27 @@ Constant *ConvertInitializer(tree exp) {
   }
 }
 
-/// get_constant_alignment - Return the alignment of constant EXP in bits.
-static unsigned int
-get_constant_alignment (tree exp)
-{
-    unsigned int align = TYPE_ALIGN (TREE_TYPE (exp));
+static Constant *AddressOfCST(tree exp) {
+  Constant *Init = ConvertInitializer(exp);
+
+  // Cache the constants to avoid making obvious duplicates that have to be
+  // folded by the optimizer.
+  static std::map<Constant*, GlobalVariable*> CSTCache;
+  GlobalVariable *&Slot = CSTCache[Init];
+  if (!Slot) {
+    // Create a new global variable.
+    Slot = new GlobalVariable(*TheModule, Init->getType(), true,
+                              GlobalVariable::PrivateLinkage, Init, ".cst");
+    unsigned align = TYPE_ALIGN (TREE_TYPE (exp));
 #ifdef CONSTANT_ALIGNMENT
-      align = CONSTANT_ALIGNMENT (exp, align);
+    align = CONSTANT_ALIGNMENT (exp, align);
 #endif
-        return align;
+    Slot->setAlignment(align);
+  }
+
+  // The initializer may have any type.  Return a pointer of the expected type.
+  const Type *Ty = ConvertType(TREE_TYPE(exp));
+  return TheFolder->CreateBitCast(Slot, Ty->getPointerTo());
 }
 
 static Constant *AddressOfDecl(tree exp) {
@@ -1337,62 +1349,6 @@ static Constant *AddressOfLABEL_DECL(tree exp) {
   }
 
   return TheTreeToLLVM->AddressOfLABEL_DECL(exp);
-}
-
-static Constant *AddressOfCOMPLEX_CST(tree exp) {
-  Constant *Init = ConvertCOMPLEX_CST(exp);
-
-  // Cache the constants to avoid making obvious duplicates that have to be
-  // folded by the optimizer.
-  static std::map<Constant*, GlobalVariable*> ComplexCSTCache;
-  GlobalVariable *&Slot = ComplexCSTCache[Init];
-  if (Slot) return Slot;
-
-  // Create a new complex global.
-  Slot = new GlobalVariable(*TheModule, Init->getType(), true,
-                            GlobalVariable::PrivateLinkage, Init, ".cpx");
-  Slot->setAlignment(get_constant_alignment(exp) / 8);
-
-  return Slot;
-}
-
-static Constant *AddressOfREAL_CST(tree exp) {
-  Constant *Init = ConvertREAL_CST(exp);
-
-  // Cache the constants to avoid making obvious duplicates that have to be
-  // folded by the optimizer.
-  static std::map<Constant*, GlobalVariable*> RealCSTCache;
-  GlobalVariable *&Slot = RealCSTCache[Init];
-  if (Slot) return Slot;
-
-  // Create a new real global.
-  Slot = new GlobalVariable(*TheModule, Init->getType(), true,
-                            GlobalVariable::PrivateLinkage, Init, ".rl");
-  Slot->setAlignment(get_constant_alignment(exp) / 8);
-
-  return Slot;
-}
-
-static Constant *AddressOfSTRING_CST(tree exp) {
-  Constant *Init = ConvertSTRING_CST(exp);
-
-  GlobalVariable **SlotP = 0;
-
-  // Cache the string constants to avoid making obvious duplicate strings that
-  // have to be folded by the optimizer.
-  static std::map<Constant*, GlobalVariable*> StringCSTCache;
-  GlobalVariable *&Slot = StringCSTCache[Init];
-  if (Slot) return Slot;
-  SlotP = &Slot;
-
-  // Create a new string global.
-  GlobalVariable *GV = new GlobalVariable(*TheModule, Init->getType(), true,
-                                          GlobalVariable::PrivateLinkage, Init,
-                                          ".str");
-  GV->setAlignment(get_constant_alignment(exp) / 8);
-
-  if (SlotP) *SlotP = GV;
-  return GV;
 }
 
 static Constant *AddressOfARRAY_REF(tree exp) {
@@ -1515,6 +1471,14 @@ Constant *AddressOf(tree exp) {
     debug_tree(exp);
     assert(0 && "Unknown constant lvalue to convert!");
     abort();
+  case COMPLEX_CST:
+  case FIXED_CST:
+  case INTEGER_CST:
+  case REAL_CST:
+  case STRING_CST:
+  case VECTOR_CST:
+    LV = AddressOfCST(exp);
+    break;
   case FUNCTION_DECL:
   case CONST_DECL:
   case VAR_DECL:
@@ -1522,15 +1486,6 @@ Constant *AddressOf(tree exp) {
     break;
   case LABEL_DECL:
     LV = AddressOfLABEL_DECL(exp);
-    break;
-  case COMPLEX_CST:
-    LV = AddressOfCOMPLEX_CST(exp);
-    break;
-  case REAL_CST:
-    LV = AddressOfREAL_CST(exp);
-    break;
-  case STRING_CST:
-    LV = AddressOfSTRING_CST(exp);
     break;
   case COMPONENT_REF:
     LV = AddressOfCOMPONENT_REF(exp);
