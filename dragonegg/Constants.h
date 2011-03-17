@@ -24,14 +24,12 @@
 #ifndef DRAGONEGG_CONSTANTS_H
 #define DRAGONEGG_CONSTANTS_H
 
-union tree_node;
-
+// Forward declarations.
 namespace llvm {
   class Constant;
+  class Type;
 }
-
-// Constant Expressions
-extern llvm::Constant *ConvertConstant(tree_node *exp);
+union tree_node;
 
 /// AddressOf - Given an expression with a constant address such as a constant,
 /// a global variable or a label, returns the address.  The type of the returned
@@ -39,5 +37,20 @@ extern llvm::Constant *ConvertConstant(tree_node *exp);
 /// type of the pointee is the memory type that corresponds to the type of exp
 /// (see ConvertType).
 extern llvm::Constant *AddressOf(tree_node *exp);
+
+/// ConvertInitializer - Convert the initial value for a global variable to an
+/// equivalent LLVM constant.  Also handles constant constructors.  The type of
+/// the returned value may be pretty much anything.  All that is guaranteed is
+/// that it has the same alloc size as the original expression and has alignment
+/// equal to or less than that of the original expression.
+extern llvm::Constant *ConvertInitializer(tree_node *exp);
+
+/// InterpretAsType - Interpret the bits of the given constant (starting from
+/// StartingBit) as representing a constant of type 'Ty'.  This results in the
+/// same constant as you would get by storing the bits of 'C' to memory (with
+/// the first bit stored being 'StartingBit') and then loading out a (constant)
+/// value of type 'Ty' from the stored to memory location.
+extern llvm::Constant *InterpretAsType(llvm::Constant *C, const llvm::Type* Ty,
+                                       unsigned StartingBit);
 
 #endif /* DRAGONEGG_CONSTANTS_H */

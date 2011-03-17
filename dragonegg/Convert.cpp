@@ -6005,8 +6005,20 @@ Constant *TreeToLLVM::EmitRealRegisterConstant(tree reg) {
 /// EmitConstantVectorConstructor - Turn the given constant CONSTRUCTOR into
 /// an LLVM constant of the corresponding vector register type.
 Constant *TreeToLLVM::EmitConstantVectorConstructor(tree reg) {
-  Constant *C = ConvertConstant(reg);
-  return Mem2Reg(C, TREE_TYPE(reg), *TheFolder);
+  // Get the constructor as an LLVM constant.
+  Constant *C = ConvertInitializer(reg);
+  // The constant may have pretty much any type, for example it could be a bunch
+  // of bytes.  Extract the vector elements from the constant.
+  tree elt_type = TREE_TYPE (TREE_TYPE (reg));
+  const Type *EltTy = GetRegType(elt_type);
+  unsigned NumElts = TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg));
+  // Get the spacing between consecutive vector elements.  Obtain this from the
+  // GCC type in case the LLVM type is something funky like i1.
+  unsigned Stride = GET_MODE_BITSIZE (TYPE_MODE (elt_type));
+  SmallVector<Constant*, 16> Vals(NumElts);
+  for (unsigned i = 0; i != NumElts; ++i)
+    Vals[i] = InterpretAsType(C, EltTy, i*Stride);
+  return ConstantVector::get(Vals);
 }
 
 /// EmitVectorRegisterConstant - Turn the given VECTOR_CST into an LLVM constant

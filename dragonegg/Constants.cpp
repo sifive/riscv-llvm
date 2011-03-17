@@ -28,6 +28,7 @@
 // LLVM headers
 #include "llvm/GlobalVariable.h"
 #include "llvm/LLVMContext.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Target/TargetData.h"
 
@@ -50,6 +51,342 @@ extern "C" {
 }
 
 static LLVMContext &Context = getGlobalContext();
+
+/// BitSlice - A contiguous range of bits held in memory.
+class BitSlice {
+  int First, Last; // Range [First, Last)
+  Constant *Contents; // May be null for an empty range.
+
+  /// ExtendRange - Extend the slice to a wider range.  All added bits are zero.
+  BitSlice ExtendRange(int WideFirst, int WideLast) const {
+    // Quick exit if the range did not actually increase.
+    if (WideFirst == First && WideLast == Last)
+      return *this;
+    if (WideFirst > First || WideLast < Last || WideLast <= WideFirst) {
+      assert(empty() && WideLast <= WideFirst && "Not an extension!");
+      // The trivial case of extending an empty range to an empty range.
+      return BitSlice();
+    }
+    const Type *WideTy = IntegerType::get(Context, WideLast - WideFirst);
+    // If the slice contains no bits then every bit of the extension is zero.
+    if (empty())
+      return BitSlice(WideFirst, WideLast, Constant::getNullValue(WideTy));
+    // Zero extend the contents to the new type;
+    Constant *C = TheFolder->CreateZExtOrBitCast(Contents, WideTy);
+    // Position the old contents correctly inside the new contents.
+    if (BYTES_BIG_ENDIAN && WideLast > Last) {
+      Constant *ShiftAmt = ConstantInt::get(C->getType(), WideLast - Last);
+      C = TheFolder->CreateShl(C, ShiftAmt);
+    } else if (!BYTES_BIG_ENDIAN && WideFirst < First) {
+      Constant *ShiftAmt = ConstantInt::get(C->getType(), First - WideFirst);
+      C = TheFolder->CreateShl(C, ShiftAmt);
+    }
+    return BitSlice(WideFirst, WideLast, C);
+  }
+
+  /// ReduceRange - Reduce the slice to a smaller range.
+  BitSlice ReduceRange(int NarrowFirst, int NarrowLast) const {
+    // Quick exit if the range did not actually decrease.
+    if (NarrowFirst == First && NarrowLast == Last)
+      return *this;
+    // The trivial case of reducing to an empty range.
+    if (NarrowLast <= NarrowFirst)
+      return BitSlice();
+    assert(NarrowFirst >= First && NarrowLast <= Last && "Not a reduction!");
+    // Move the least-significant bit to the correct position.
+    Constant *C = Contents;
+    if (BYTES_BIG_ENDIAN && NarrowLast < Last) {
+      Constant *ShiftAmt = ConstantInt::get(C->getType(), Last - NarrowLast);
+      C = TheFolder->CreateLShr(C, ShiftAmt);
+    } else if (!BYTES_BIG_ENDIAN && NarrowFirst > First) {
+      Constant *ShiftAmt = ConstantInt::get(C->getType(), NarrowFirst - First);
+      C = TheFolder->CreateLShr(C, ShiftAmt);
+    }
+    // Truncate to the new type.
+    const Type *NarrowTy = IntegerType::get(Context, NarrowLast - NarrowFirst);
+    C = TheFolder->CreateTruncOrBitCast(C, NarrowTy);
+    return BitSlice(NarrowFirst, NarrowLast, C);
+  }
+
+public:
+  /// BitSlice - Default constructor: empty bit range.
+  BitSlice() : First(0), Last(0), Contents(0) {}
+
+  /// BitSlice - Constructor for the range of bits ['first', 'last').  The bits
+  /// themselves are supplied in 'contents' as a constant of integer type.  On
+  /// little-endian machines the least significant bit of 'contents corresponds
+  /// to the first bit of the range (aka 'first'), while on big-endian machines
+  /// it corresponds to the last bit of the range (aka 'last'-1).
+  BitSlice(int first, int last, Constant *contents)
+    : First(first), Last(last), Contents(contents) {
+    assert((empty() || isa<IntegerType>(Contents->getType())) &&
+           "Not an integer type!");
+    assert((empty() || getBitWidth() ==
+            Contents->getType()->getPrimitiveSizeInBits()) &&
+           "Bitwidth mismatch!");
+  }
+
+  /// empty - Return whether the range is empty.
+  bool empty() const {
+    return Last <= First;
+  }
+
+  /// getBitWidth - Return the number of bits in the range.
+  unsigned getBitWidth() {
+    return empty() ? 0 : Last - First;
+  }
+
+  /// Displace - Return the result of sliding all bits by the given offset.
+  BitSlice Displace(int Offset) const {
+    return BitSlice(First + Offset, Last + Offset, Contents);
+  }
+
+  /// getBits - Return the bits in the range [first, last).  This range need not
+  /// be contained in the range of the slice, but if not then the bits outside
+  /// the slice get an undefined value.  The bits are returned as a constant of
+  /// integer type.  On little-endian machine the least significant bit of the
+  /// returned value corresponds to the first bit of the range (aka 'first'),
+  /// while on big-endian machines it corresponds to the last bit of the range
+  /// (aka 'last'-1).
+  Constant *getBits(int first, int last) {
+    assert(first < last && "Bit range is empty!");
+    // Quick exit if the desired range matches that of the slice.
+    if (First == first && Last == last)
+      return Contents;
+    const Type *RetTy = IntegerType::get(Context, last - first);
+    // If the slice contains no bits then every returned bit is undefined.
+    if (empty())
+      return UndefValue::get(RetTy);
+    // Extend to the convex hull of the two ranges.
+    int WideFirst = first < First ? first : First;
+    int WideLast = last > Last ? last : Last;
+    BitSlice Slice = ExtendRange(WideFirst, WideLast);
+    // Chop the slice down to the requested range.
+    Slice = Slice.ReduceRange(first, last);
+    // Now we can just return the bits contained in the slice.
+    return Slice.Contents;
+  }
+
+  /// Merge - Join the slice with another (which must be disjoint), forming the
+  /// convex hull of the ranges.  The bits in the range of one of the slices are
+  /// those of that slice.  Any other bits have an undefined value.
+  void Merge(const BitSlice &that) {
+    // If the other slice is empty, the result is this slice.
+    if (that.empty())
+      return;
+    // If this slice is empty, the result is the other slice.
+    if (empty()) {
+      *this = that;
+      return;
+    }
+    assert((that.Last <= First || that.First >= Last) && "Slices overlap!");
+    // Zero extend each slice to the convex hull of the ranges.
+    int JoinFirst = that.First < First ? that.First : First;
+    int JoinLast = that.Last > Last ? that.Last : Last;
+    BitSlice ThisExtended = ExtendRange(JoinFirst, JoinLast);
+    BitSlice ThatExtended = that.ExtendRange(JoinFirst, JoinLast);
+    // Since the slices are disjoint and all added bits are zero they can be
+    // joined via a simple 'or'.
+    Constant *Join = TheFolder->CreateOr(ThisExtended.Contents,
+                                         ThatExtended.Contents);
+    *this = BitSlice(JoinFirst, JoinLast, Join);
+  }
+};
+
+/// ViewAsBits - View the given constant as a bunch of bits, i.e. as one big
+/// integer.  Only the bits in the range [First, Last) are needed, so there
+/// is no need to supply bits outside this range though it is harmless to do
+/// so.  There is also no need to supply undefined bits inside this range.
+static BitSlice ViewAsBits(Constant *C, int First, int Last) {
+  assert(First < Last && "Empty range!");
+
+  // Sanitize the range to make life easier in what follows.
+  const Type *Ty = C->getType();
+  int StoreSize = getTargetData().getTypeStoreSizeInBits(Ty);
+  First = First < 0 ? 0 : First;
+  Last = Last > StoreSize ? StoreSize : Last;
+
+  // Quick exit if it is clear that there are no bits in the range.
+  if (Last <= 0 || First >= StoreSize)
+    return BitSlice();
+  assert(StoreSize > 0 && "Empty range not eliminated?");
+
+  switch (Ty->getTypeID()) {
+  default:
+    llvm_unreachable("Unsupported type!");
+  case Type::DoubleTyID:
+  case Type::FloatTyID:
+  case Type::FP128TyID:
+  case Type::IntegerTyID:
+  case Type::PointerTyID:
+  case Type::PPC_FP128TyID:
+  case Type::X86_FP80TyID:
+  case Type::X86_MMXTyID: {
+    // Bitcast to an integer with the same number of bits and return that.
+    unsigned Size = Ty->getPrimitiveSizeInBits();
+    const IntegerType *IntTy = IntegerType::get(Context, Size);
+    C = isa<PointerType>(Ty) ?
+      TheFolder->CreatePtrToInt(C, IntTy) : TheFolder->CreateBitCast(C, IntTy);
+    // Be careful about where the bits are placed in case this is a funky type
+    // like i1.  If the width is a multiple of the address unit then there is
+    // nothing to worry about: the bits occupy the range [0, StoreSize).  But
+    // if not then endianness matters: on big-endian machines there are padding
+    // bits at the start, while on little-endian machines they are at the end.
+    return BYTES_BIG_ENDIAN ?
+      BitSlice(StoreSize - Size, StoreSize, C) : BitSlice(0, Size, C);
+  }
+
+  case Type::ArrayTyID: {
+    const ArrayType *ATy = cast<ArrayType>(Ty);
+    const Type *EltTy = ATy->getElementType();
+    const unsigned NumElts = ATy->getNumElements();
+    const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
+    assert(Stride > 0 && "Store size smaller than alloc size?");
+    // Elements with indices in [FirstElt, LastElt) overlap the range.
+    unsigned FirstElt = First / Stride;
+    unsigned LastElt = (Last + Stride - 1) / Stride;
+    assert(LastElt <= NumElts && "Store size bigger than array?");
+    // Visit all elements that overlap the requested range, accumulating their
+    // bits in Bits.
+    BitSlice Bits;
+    for (unsigned i = FirstElt; i < LastElt; ++i) {
+      // Extract the element.
+      Constant *Elt = TheFolder->CreateExtractValue(C, &i, 1);
+      // View it as a bunch of bits.
+      BitSlice EltBits = ViewAsBits(Elt, 0, Stride);
+      // Add to the already known bits.
+      Bits.Merge(EltBits.Displace(i * Stride));
+    }
+    return Bits;
+  }
+
+  case Type::StructTyID: {
+    const StructType *STy = cast<StructType>(Ty);
+    const StructLayout *SL = getTargetData().getStructLayout(STy);
+    // Fields with indices in [FirstIdx, LastIdx) overlap the range.
+    unsigned FirstIdx = SL->getElementContainingOffset((First+7)/8);
+    unsigned LastIdx = 1 + SL->getElementContainingOffset((Last+6)/8);
+    // Visit all fields that overlap the requested range, accumulating their
+    // bits in Bits.
+    BitSlice Bits;
+    for (unsigned i = FirstIdx; i < LastIdx; ++i) {
+      // Extract the field.
+      Constant *Field = TheFolder->CreateExtractValue(C, &i, 1);
+      // View it as a bunch of bits.
+      const Type *FieldTy = Field->getType();
+      unsigned FieldStoreSize = getTargetData().getTypeStoreSizeInBits(FieldTy);
+      BitSlice FieldBits = ViewAsBits(Field, 0, FieldStoreSize);
+      // Add to the already known bits.
+      Bits.Merge(FieldBits.Displace(SL->getElementOffset(i)*8));
+    }
+    return Bits;
+  }
+
+  case Type::VectorTyID: {
+    const VectorType *VTy = cast<VectorType>(Ty);
+    const Type *EltTy = VTy->getElementType();
+    const unsigned NumElts = VTy->getNumElements();
+    const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
+    assert(Stride > 0 && "Store size smaller than alloc size?");
+    // Elements with indices in [FirstElt, LastElt) overlap the range.
+    unsigned FirstElt = First / Stride;
+    unsigned LastElt = (Last + Stride - 1) / Stride;
+    assert(LastElt <= NumElts && "Store size bigger than vector?");
+    // Visit all elements that overlap the requested range, accumulating their
+    // bits in Bits.
+    BitSlice Bits;
+    for (unsigned i = FirstElt; i < LastElt; ++i) {
+      // Extract the element.
+      ConstantInt *Idx = ConstantInt::get(Type::getInt32Ty(Context), i);
+      Constant *Elt = TheFolder->CreateExtractElement(C, Idx);
+      // View it as a bunch of bits.
+      BitSlice EltBits = ViewAsBits(Elt, 0, Stride);
+      // Add to the already known bits.
+      Bits.Merge(EltBits.Displace(i * Stride));
+    }
+    return Bits;
+  }
+  }
+}
+
+/// InterpretAsType - Interpret the bits of the given constant (starting from
+/// StartingBit) as representing a constant of type 'Ty'.  This results in the
+/// same constant as you would get by storing the bits of 'C' to memory (with
+/// the first bit stored being 'StartingBit') and then loading out a (constant)
+/// value of type 'Ty' from the stored to memory location.
+Constant *InterpretAsType(Constant *C, const Type* Ty, unsigned StartingBit) {
+  switch (Ty->getTypeID()) {
+  default:
+    llvm_unreachable("Unsupported type!");
+  case Type::IntegerTyID: {
+    unsigned BitWidth = Ty->getPrimitiveSizeInBits();
+    unsigned StoreSize = getTargetData().getTypeStoreSizeInBits(Ty);
+    // Convert the constant into a bunch of bits.  Only the bits to be "loaded"
+    // out are needed, so rather than converting the entire constant this only
+    // converts enough to get all of the required bits.
+    BitSlice Bits = ViewAsBits(C, StartingBit, StartingBit + StoreSize);
+    // Extract the bits used by the integer.  If the integer width is a multiple
+    // of the address unit then the endianness of the target doesn't matter.  If
+    // not then the padding bits come at the start on big-endian machines and at
+    // the end on little-endian machines.
+    Bits = Bits.Displace(-StartingBit);
+    return BYTES_BIG_ENDIAN ?
+      Bits.getBits(StoreSize - BitWidth, StoreSize) : Bits.getBits(0, BitWidth);
+  }
+
+  case Type::DoubleTyID:
+  case Type::FloatTyID:
+  case Type::FP128TyID:
+  case Type::PointerTyID:
+  case Type::PPC_FP128TyID:
+  case Type::X86_FP80TyID:
+  case Type::X86_MMXTyID: {
+    // Interpret as an integer with the same number of bits then cast back to
+    // the original type.
+    unsigned BitWidth = Ty->getPrimitiveSizeInBits();
+    const IntegerType *IntTy = IntegerType::get(Context, BitWidth);
+    C = InterpretAsType(C, IntTy, StartingBit);
+    return isa<PointerType>(Ty) ?
+      TheFolder->CreateIntToPtr(C, Ty) : TheFolder->CreateBitCast(C, Ty);
+  }
+
+  case Type::ArrayTyID: {
+    // Interpret each array element in turn.
+    const ArrayType *ATy = cast<ArrayType>(Ty);
+    const Type *EltTy = ATy->getElementType();
+    const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
+    const unsigned NumElts = ATy->getNumElements();
+    std::vector<Constant*> Vals(NumElts);
+    for (unsigned i = 0; i != NumElts; ++i)
+      Vals[i] = InterpretAsType(C, EltTy, StartingBit + i*Stride);
+    return ConstantArray::get(ATy, Vals); // TODO: Use ArrayRef constructor.
+  }
+
+  case Type::StructTyID: {
+    // Interpret each struct field in turn.
+    const StructType *STy = cast<StructType>(Ty);
+    const StructLayout *SL = getTargetData().getStructLayout(STy);
+    unsigned NumElts = STy->getNumElements();
+    std::vector<Constant*> Vals(NumElts);
+    for (unsigned i = 0; i != NumElts; ++i)
+      Vals[i] = InterpretAsType(C, STy->getElementType(i),
+                                StartingBit + SL->getElementOffsetInBits(i));
+    return ConstantStruct::get(STy, Vals); // TODO: Use ArrayRef constructor.
+  }
+
+  case Type::VectorTyID: {
+    // Interpret each vector element in turn.
+    const VectorType *VTy = cast<VectorType>(Ty);
+    const Type *EltTy = VTy->getElementType();
+    const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
+    const unsigned NumElts = VTy->getNumElements();
+    SmallVector<Constant*, 16> Vals(NumElts);
+    for (unsigned i = 0; i != NumElts; ++i)
+      Vals[i] = InterpretAsType(C, EltTy, StartingBit + i*Stride);
+    return ConstantVector::get(Vals);
+  }
+  }
+}
 
 /// EncodeExpr - Write the given expression into Buffer as it would appear in
 /// memory on the target (the buffer is resized to contain exactly the bytes
@@ -140,7 +477,7 @@ static Constant *ConvertVECTOR_CST(tree exp) {
 
   std::vector<Constant*> Elts;
   for (tree elt = TREE_VECTOR_CST_ELTS(exp); elt; elt = TREE_CHAIN(elt))
-    Elts.push_back(ConvertConstant(TREE_VALUE(elt)));
+    Elts.push_back(ConvertInitializer(TREE_VALUE(elt)));
 
   // The vector should be zero filled if insufficient elements are provided.
   if (Elts.size() < TYPE_VECTOR_SUBPARTS(TREE_TYPE(exp))) {
@@ -226,14 +563,14 @@ static Constant *ConvertSTRING_CST(tree exp) {
 
 static Constant *ConvertCOMPLEX_CST(tree exp) {
   Constant *Elts[2] = {
-    ConvertConstant(TREE_REALPART(exp)),
-    ConvertConstant(TREE_IMAGPART(exp))
+    ConvertInitializer(TREE_REALPART(exp)),
+    ConvertInitializer(TREE_IMAGPART(exp))
   };
   return ConstantStruct::get(Context, Elts, 2, false);
 }
 
 static Constant *ConvertNOP_EXPR(tree exp) {
-  Constant *Elt = ConvertConstant(TREE_OPERAND(exp, 0));
+  Constant *Elt = ConvertInitializer(TREE_OPERAND(exp, 0));
   const Type *Ty = ConvertType(TREE_TYPE(exp));
   bool EltIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 0)));
   bool TyIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
@@ -249,7 +586,7 @@ static Constant *ConvertNOP_EXPR(tree exp) {
 }
 
 static Constant *ConvertCONVERT_EXPR(tree exp) {
-  Constant *Elt = ConvertConstant(TREE_OPERAND(exp, 0));
+  Constant *Elt = ConvertInitializer(TREE_OPERAND(exp, 0));
   bool EltIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 0)));
   const Type *Ty = ConvertType(TREE_TYPE(exp));
   bool TyIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
@@ -259,8 +596,8 @@ static Constant *ConvertCONVERT_EXPR(tree exp) {
 }
 
 static Constant *ConvertPOINTER_PLUS_EXPR(tree exp) {
-  Constant *Ptr = ConvertConstant(TREE_OPERAND(exp, 0)); // The pointer.
-  Constant *Idx = ConvertConstant(TREE_OPERAND(exp, 1)); // The offset in bytes.
+  Constant *Ptr = ConvertInitializer(TREE_OPERAND(exp, 0)); // The pointer.
+  Constant *Idx = ConvertInitializer(TREE_OPERAND(exp, 1)); // Offset in bytes.
 
   // Convert the pointer into an i8* and add the offset to it.
   Ptr = TheFolder->CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
@@ -273,9 +610,9 @@ static Constant *ConvertPOINTER_PLUS_EXPR(tree exp) {
 }
 
 static Constant *ConvertBinOp_CST(tree exp) {
-  Constant *LHS = ConvertConstant(TREE_OPERAND(exp, 0));
+  Constant *LHS = ConvertInitializer(TREE_OPERAND(exp, 0));
   bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp,0)));
-  Constant *RHS = ConvertConstant(TREE_OPERAND(exp, 1));
+  Constant *RHS = ConvertInitializer(TREE_OPERAND(exp, 1));
   bool RHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp,1)));
   Instruction::CastOps opcode;
   if (LHS->getType()->isPointerTy()) {
@@ -332,7 +669,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
   Constant *SomeVal = 0;
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (exp), ix, elt_index, elt_value) {
     // Find and decode the constructor's value.
-    Constant *Val = ConvertConstant(elt_value);
+    Constant *Val = ConvertInitializer(elt_value);
     SomeVal = Val;
 
     // Get the index position of the element within the array.  Note that this
@@ -798,7 +1135,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
     }
 
     // Decode the field's value.
-    Constant *Val = ConvertConstant(FieldValue);
+    Constant *Val = ConvertInitializer(FieldValue);
 
     // GCCFieldOffsetInBits is where GCC is telling us to put the current field.
     uint64_t GCCFieldOffsetInBits = getFieldOffsetInBits(Field);
@@ -870,7 +1207,7 @@ static Constant *ConvertUnionCONSTRUCTOR(tree exp) {
   ConstantLayoutInfo LayoutInfo(getTargetData());
 
   // Convert the constant itself.
-  Constant *Val = ConvertConstant(VEC_index(constructor_elt, elt, 0)->value);
+  Constant *Val = ConvertInitializer(VEC_index(constructor_elt, elt, 0)->value);
 
   // Unions are initialized using the first member field.  Find it.
   tree Field = TYPE_FIELDS(TREE_TYPE(exp));
@@ -934,7 +1271,7 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
   }
 }
 
-Constant *ConvertConstant(tree exp) {
+Constant *ConvertInitializer(tree exp) {
   assert(TREE_CONSTANT(exp) && "Isn't a constant!");
   switch (TREE_CODE(exp)) {
   case FDESC_EXPR:    // Needed on itanium
@@ -952,7 +1289,7 @@ Constant *ConvertConstant(tree exp) {
   case PLUS_EXPR:
   case MINUS_EXPR:    return ConvertBinOp_CST(exp);
   case CONSTRUCTOR:   return ConvertCONSTRUCTOR(exp);
-  case VIEW_CONVERT_EXPR: return ConvertConstant(TREE_OPERAND(exp, 0));
+  case VIEW_CONVERT_EXPR: return ConvertInitializer(TREE_OPERAND(exp, 0));
   case POINTER_PLUS_EXPR: return ConvertPOINTER_PLUS_EXPR(exp);
   case ADDR_EXPR:
     return TheFolder->CreateBitCast(AddressOf(TREE_OPERAND(exp, 0)),
@@ -1070,10 +1407,10 @@ static Constant *AddressOfARRAY_REF(tree exp) {
          "Global with variable size?");
 
   // First subtract the lower bound, if any, in the type of the index.
-  Constant *IndexVal = ConvertConstant(Index);
+  Constant *IndexVal = ConvertInitializer(Index);
   tree LowerBound = array_ref_low_bound(exp);
   if (!integer_zerop(LowerBound))
-    IndexVal = TheFolder->CreateSub(IndexVal, ConvertConstant(LowerBound),
+    IndexVal = TheFolder->CreateSub(IndexVal, ConvertInitializer(LowerBound),
                                     hasNUW(TREE_TYPE(Index)),
                                     hasNSW(TREE_TYPE(Index)));
 
@@ -1125,7 +1462,7 @@ static Constant *AddressOfCOMPONENT_REF(tree exp) {
 
     assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
     if (TREE_OPERAND(exp, 2)) {
-      Offset = ConvertConstant(TREE_OPERAND(exp, 2));
+      Offset = ConvertInitializer(TREE_OPERAND(exp, 2));
       // At this point the offset is measured in units divided by (exactly)
       // (DECL_OFFSET_ALIGN / BITS_PER_UNIT).  Convert to octets.
       unsigned factor = DECL_OFFSET_ALIGN(FieldDecl) / 8;
@@ -1135,7 +1472,7 @@ static Constant *AddressOfCOMPONENT_REF(tree exp) {
                                                        factor));
     } else {
       assert(DECL_FIELD_OFFSET(FieldDecl) && "Field offset not available!");
-      Offset = ConvertConstant(DECL_FIELD_OFFSET(FieldDecl));
+      Offset = ConvertInitializer(DECL_FIELD_OFFSET(FieldDecl));
       // At this point the offset is measured in units.  Convert to octets.
       unsigned factor = BITS_PER_UNIT / 8;
       if (factor != 1)
@@ -1204,7 +1541,7 @@ Constant *AddressOf(tree exp) {
     break;
   case INDIRECT_REF:
     // The lvalue is just the address.
-    LV = ConvertConstant(TREE_OPERAND(exp, 0));
+    LV = ConvertInitializer(TREE_OPERAND(exp, 0));
     break;
   case COMPOUND_LITERAL_EXPR: // FIXME: not gimple - defined by C front-end
     /* This used to read

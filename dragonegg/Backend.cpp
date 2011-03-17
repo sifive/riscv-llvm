@@ -1020,7 +1020,7 @@ static void emit_global(tree decl) {
     // When constructing the initializer it might refer to itself.
     // This can happen for things like void *G = &G;
     GV->setInitializer(UndefValue::get(GV->getType()->getElementType()));
-    Init = ConvertConstant(DECL_INITIAL(decl));
+    Init = ConvertInitializer(DECL_INITIAL(decl));
   }
 
   // If we had a forward definition that has a type that disagrees with our
