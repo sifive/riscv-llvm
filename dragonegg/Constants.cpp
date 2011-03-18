@@ -214,26 +214,29 @@ static BitSlice ViewAsBits(Constant *C, int First, int Last) {
   switch (Ty->getTypeID()) {
   default:
     llvm_unreachable("Unsupported type!");
+  case Type::PointerTyID: {
+    // Cast to an integer with the same number of bits and return that.
+    const IntegerType *IntTy = getTargetData().getIntPtrType(Context);
+    return BitSlice(0, StoreSize, TheFolder->CreatePtrToInt(C, IntTy));
+  }
   case Type::DoubleTyID:
   case Type::FloatTyID:
   case Type::FP128TyID:
   case Type::IntegerTyID:
-  case Type::PointerTyID:
   case Type::PPC_FP128TyID:
   case Type::X86_FP80TyID:
   case Type::X86_MMXTyID: {
     // Bitcast to an integer with the same number of bits and return that.
-    unsigned Size = Ty->getPrimitiveSizeInBits();
-    const IntegerType *IntTy = IntegerType::get(Context, Size);
-    C = isa<PointerType>(Ty) ?
-      TheFolder->CreatePtrToInt(C, IntTy) : TheFolder->CreateBitCast(C, IntTy);
+    unsigned BitWidth = Ty->getPrimitiveSizeInBits();
+    const IntegerType *IntTy = IntegerType::get(Context, BitWidth);
+    C = TheFolder->CreateBitCast(C, IntTy);
     // Be careful about where the bits are placed in case this is a funky type
     // like i1.  If the width is a multiple of the address unit then there is
     // nothing to worry about: the bits occupy the range [0, StoreSize).  But
     // if not then endianness matters: on big-endian machines there are padding
     // bits at the start, while on little-endian machines they are at the end.
     return BYTES_BIG_ENDIAN ?
-      BitSlice(StoreSize - Size, StoreSize, C) : BitSlice(0, Size, C);
+      BitSlice(StoreSize - BitWidth, StoreSize, C) : BitSlice(0, BitWidth, C);
   }
 
   case Type::ArrayTyID: {
@@ -334,10 +337,16 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, unsigned StartingBit) {
       Bits.getBits(StoreSize - BitWidth, StoreSize) : Bits.getBits(0, BitWidth);
   }
 
+  case Type::PointerTyID: {
+    // Interpret as an integer with the same number of bits then cast back to
+    // the original type.
+    const IntegerType *IntTy = getTargetData().getIntPtrType(Context);
+    C = InterpretAsType(C, IntTy, StartingBit);
+    return TheFolder->CreateIntToPtr(C, Ty);
+  }
   case Type::DoubleTyID:
   case Type::FloatTyID:
   case Type::FP128TyID:
-  case Type::PointerTyID:
   case Type::PPC_FP128TyID:
   case Type::X86_FP80TyID:
   case Type::X86_MMXTyID: {
@@ -345,9 +354,7 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, unsigned StartingBit) {
     // the original type.
     unsigned BitWidth = Ty->getPrimitiveSizeInBits();
     const IntegerType *IntTy = IntegerType::get(Context, BitWidth);
-    C = InterpretAsType(C, IntTy, StartingBit);
-    return isa<PointerType>(Ty) ?
-      TheFolder->CreateIntToPtr(C, Ty) : TheFolder->CreateBitCast(C, Ty);
+    return TheFolder->CreateBitCast(InterpretAsType(C, IntTy, StartingBit), Ty);
   }
 
   case Type::ArrayTyID: {
@@ -1421,6 +1428,14 @@ static Constant *AddressOfDecl(tree exp) {
   return cast<GlobalValue>(DEFINITION_LLVM(exp));
 }
 
+/// AddressOfINDIRECT_REF - Return the address of a dereference.
+static Constant *AddressOfINDIRECT_REF(tree exp) {
+  // The address is just the operand.  Get it as an LLVM constant.
+  Constant *C = ConvertInitializer(TREE_OPERAND(exp, 0));
+  // Make no assumptions about the type of the constant.
+  return InterpretAsType(C, ConvertType(TREE_TYPE(TREE_OPERAND(exp, 0))), 0);
+}
+
 /// AddressOfLABEL_DECL - Return the address of a label.
 static Constant *AddressOfLABEL_DECL(tree exp) {
   extern TreeToLLVM *TheTreeToLLVM;
@@ -1440,7 +1455,7 @@ static Constant *AddressOfLABEL_DECL(tree exp) {
 }
 
 Constant *AddressOf(tree exp) {
-  Constant *LV;
+  Constant *Addr;
 
   switch (TREE_CODE(exp)) {
   default:
@@ -1453,29 +1468,28 @@ Constant *AddressOf(tree exp) {
   case REAL_CST:
   case STRING_CST:
   case VECTOR_CST:
-    LV = AddressOfCST(exp);
+    Addr = AddressOfCST(exp);
     break;
   case ARRAY_RANGE_REF:
   case ARRAY_REF:
-    LV = AddressOfARRAY_REF(exp);
+    Addr = AddressOfARRAY_REF(exp);
     break;
   case COMPONENT_REF:
-    LV = AddressOfCOMPONENT_REF(exp);
+    Addr = AddressOfCOMPONENT_REF(exp);
     break;
   case CONST_DECL:
   case FUNCTION_DECL:
   case VAR_DECL:
-    LV = AddressOfDecl(exp);
+    Addr = AddressOfDecl(exp);
     break;
   case LABEL_DECL:
-    LV = AddressOfLABEL_DECL(exp);
+    Addr = AddressOfLABEL_DECL(exp);
     break;
   case INDIRECT_REF:
-    // The lvalue is just the address.
-    LV = ConvertInitializer(TREE_OPERAND(exp, 0));
+    Addr = AddressOfINDIRECT_REF(exp);
     break;
   case COMPOUND_LITERAL_EXPR: // FIXME: not gimple - defined by C front-end
-    LV = AddressOf(DECL_EXPR_DECL (TREE_OPERAND (exp, 0)));
+    Addr = AddressOf(DECL_EXPR_DECL (TREE_OPERAND (exp, 0)));
     break;
   }
 
@@ -1486,5 +1500,5 @@ Constant *AddressOf(tree exp) {
     Ty = Type::getInt8Ty(Context); // void* -> i8*.
   else
     Ty = ConvertType(TREE_TYPE(exp));
-  return TheFolder->CreateBitCast(LV, Ty->getPointerTo());
+  return TheFolder->CreateBitCast(Addr, Ty->getPointerTo());
 }
