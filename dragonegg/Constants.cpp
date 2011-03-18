@@ -52,6 +52,10 @@ extern "C" {
 
 static LLVMContext &Context = getGlobalContext();
 
+//===----------------------------------------------------------------------===//
+//                           ... InterpretAsType ...
+//===----------------------------------------------------------------------===//
+
 /// BitSlice - A contiguous range of bits held in memory.
 class BitSlice {
   int First, Last; // Range [First, Last)
@@ -394,6 +398,11 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, unsigned StartingBit) {
   }
   }
 }
+
+
+//===----------------------------------------------------------------------===//
+//                       ... ConvertInitializer ...
+//===----------------------------------------------------------------------===//
 
 /// EncodeExpr - Write the given expression into Buffer as it would appear in
 /// memory on the target (the buffer is resized to contain exactly the bytes
@@ -1278,6 +1287,11 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
   }
 }
 
+/// ConvertInitializer - Convert the initial value for a global variable to an
+/// equivalent LLVM constant.  Also handles constant constructors.  The type of
+/// the returned value may be pretty much anything.  All that is guaranteed is
+/// that it has the same alloc size as the original expression and has alignment
+/// equal to or less than that of the original expression.
 Constant *ConvertInitializer(tree exp) {
   assert(TREE_CONSTANT(exp) && "Isn't a constant!");
   switch (TREE_CODE(exp)) {
@@ -1303,6 +1317,7 @@ Constant *ConvertInitializer(tree exp) {
                                     ConvertType(TREE_TYPE(exp)));
   }
 }
+
 
 //===----------------------------------------------------------------------===//
 //                            ... AddressOf ...
@@ -1430,7 +1445,7 @@ static Constant *AddressOfDecl(tree exp) {
 
 /// AddressOfINDIRECT_REF - Return the address of a dereference.
 static Constant *AddressOfINDIRECT_REF(tree exp) {
-  // The address is just the operand.  Get it as an LLVM constant.
+  // The address is just the dereferenced operand.  Get it as an LLVM constant.
   Constant *C = ConvertInitializer(TREE_OPERAND(exp, 0));
   // Make no assumptions about the type of the constant.
   return InterpretAsType(C, ConvertType(TREE_TYPE(TREE_OPERAND(exp, 0))), 0);
@@ -1454,6 +1469,11 @@ static Constant *AddressOfLABEL_DECL(tree exp) {
   return TheTreeToLLVM->AddressOfLABEL_DECL(exp);
 }
 
+/// AddressOf - Given an expression with a constant address such as a constant,
+/// a global variable or a label, returns the address.  The type of the returned
+/// is always a pointer type and, as long as 'exp' does not have void type, the
+/// type of the pointee is the memory type that corresponds to the type of exp
+/// (see ConvertType).
 Constant *AddressOf(tree exp) {
   Constant *Addr;
 
@@ -1500,5 +1520,6 @@ Constant *AddressOf(tree exp) {
     Ty = Type::getInt8Ty(Context); // void* -> i8*.
   else
     Ty = ConvertType(TREE_TYPE(exp));
+
   return TheFolder->CreateBitCast(Addr, Ty->getPointerTo());
 }
