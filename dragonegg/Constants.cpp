@@ -1294,27 +1294,61 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
 /// equal to or less than that of the original expression.
 Constant *ConvertInitializer(tree exp) {
   assert(TREE_CONSTANT(exp) && "Isn't a constant!");
+
+  Constant *Init;
   switch (TREE_CODE(exp)) {
   default:
     debug_tree(exp);
     assert(0 && "Unknown constant to convert!");
     abort();
-  case INTEGER_CST:   return ConvertINTEGER_CST(exp);
-  case REAL_CST:      return ConvertREAL_CST(exp);
-  case VECTOR_CST:    return ConvertVECTOR_CST(exp);
-  case STRING_CST:    return ConvertSTRING_CST(exp);
-  case COMPLEX_CST:   return ConvertCOMPLEX_CST(exp);
-  case NOP_EXPR:      return ConvertNOP_EXPR(exp);
-  case CONVERT_EXPR:  return ConvertCONVERT_EXPR(exp);
+  case INTEGER_CST:
+    Init = ConvertINTEGER_CST(exp);
+    break;
+  case REAL_CST:
+    Init = ConvertREAL_CST(exp);
+    break;
+  case VECTOR_CST:
+    Init = ConvertVECTOR_CST(exp);
+    break;
+  case STRING_CST:
+    Init = ConvertSTRING_CST(exp);
+    break;
+  case COMPLEX_CST:
+    Init = ConvertCOMPLEX_CST(exp);
+    break;
+  case NOP_EXPR:
+    Init = ConvertNOP_EXPR(exp);
+    break;
+  case CONVERT_EXPR:
+    Init = ConvertCONVERT_EXPR(exp);
+    break;
   case PLUS_EXPR:
-  case MINUS_EXPR:    return ConvertBinOp_CST(exp);
-  case CONSTRUCTOR:   return ConvertCONSTRUCTOR(exp);
-  case VIEW_CONVERT_EXPR: return ConvertInitializer(TREE_OPERAND(exp, 0));
-  case POINTER_PLUS_EXPR: return ConvertPOINTER_PLUS_EXPR(exp);
+  case MINUS_EXPR:
+    Init = ConvertBinOp_CST(exp);
+    break;
+  case CONSTRUCTOR:
+    Init = ConvertCONSTRUCTOR(exp);
+    break;
+  case VIEW_CONVERT_EXPR:
+    Init = ConvertInitializer(TREE_OPERAND(exp, 0));
+    break;
+  case POINTER_PLUS_EXPR:
+    Init = ConvertPOINTER_PLUS_EXPR(exp);
+    break;
   case ADDR_EXPR:
-    return TheFolder->CreateBitCast(AddressOf(TREE_OPERAND(exp, 0)),
+    Init = TheFolder->CreateBitCast(AddressOf(TREE_OPERAND(exp, 0)),
                                     ConvertType(TREE_TYPE(exp)));
+    break;
   }
+
+  assert((!ConvertType(TREE_TYPE(exp))->isSized() ||
+          getTargetData().getTypeAllocSizeInBits(ConvertType(TREE_TYPE(exp))) <=
+          getTargetData().getTypeAllocSizeInBits(Init->getType())) &&
+         "Constant too small for type!");
+  assert(getTargetData().getABITypeAlignment(Init->getType()) * 8 <=
+         TYPE_ALIGN(TREE_TYPE(exp)) && "Constant over aligned!");
+
+  return Init;
 }
 
 

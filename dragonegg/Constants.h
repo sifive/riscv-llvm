@@ -41,8 +41,12 @@ extern llvm::Constant *AddressOf(tree_node *exp);
 /// ConvertInitializer - Convert the initial value for a global variable to an
 /// equivalent LLVM constant.  Also handles constant constructors.  The type of
 /// the returned value may be pretty much anything.  All that is guaranteed is
-/// that it has the same alloc size as the original expression and has alignment
-/// equal to or less than that of the original expression.
+/// that its alloc size is equal to the size of the initial value and that its
+/// alignment is less than or equal to the initial value's GCC type alignment.
+/// Note that the GCC type may have variable size or no size, in which case the
+/// size is determined by the initial value.  When this happens the size of the
+/// initial value may exceed the alloc size of the LLVM memory type generated
+/// for the GCC type (see ConvertType); it is never smaller than the alloc size.
 extern llvm::Constant *ConvertInitializer(tree_node *exp);
 
 /// InterpretAsType - Interpret the bits of the given constant (starting from
