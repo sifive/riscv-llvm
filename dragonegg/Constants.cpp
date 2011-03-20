@@ -1391,16 +1391,15 @@ static Constant *AddressOfARRAY_REF(tree exp) {
 
 /// AddressOfCOMPONENT_REF - Return the address of a field in a record.
 static Constant *AddressOfCOMPONENT_REF(tree exp) {
-  assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
   tree field_decl = TREE_OPERAND(exp, 1);
 
-  // Compute the field offset in octets from the start of the record.
+  // Compute the field offset in units from the start of the record.
   Constant *Offset;
   if (TREE_OPERAND(exp, 2)) {
     Offset = getAsInteger(TREE_OPERAND(exp, 2));
     // At this point the offset is measured in units divided by (exactly)
-    // (DECL_OFFSET_ALIGN / BITS_PER_UNIT).  Convert to octets.
-    unsigned factor = DECL_OFFSET_ALIGN(field_decl) / 8;
+    // (DECL_OFFSET_ALIGN / BITS_PER_UNIT).  Convert to units.
+    unsigned factor = DECL_OFFSET_ALIGN(field_decl) / BITS_PER_UNIT;
     if (factor != 1)
       Offset = TheFolder->CreateMul(Offset,
                                     ConstantInt::get(Offset->getType(),
@@ -1408,30 +1407,24 @@ static Constant *AddressOfCOMPONENT_REF(tree exp) {
   } else {
     assert(DECL_FIELD_OFFSET(field_decl) && "Field offset not available!");
     Offset = getAsInteger(DECL_FIELD_OFFSET(field_decl));
-    // At this point the offset is measured in units.  Convert to octets.
-    unsigned factor = BITS_PER_UNIT / 8;
-    if (factor != 1)
-      Offset = TheFolder->CreateMul(Offset,
-                                    ConstantInt::get(Offset->getType(),
-                                                     factor));
   }
 
   // Here BitStart gives the offset of the field in bits from Offset.
   uint64_t BitStart = getInt64(DECL_FIELD_BIT_OFFSET(field_decl), true);
   // Incorporate as much of it as possible into the pointer computation.
-  uint64_t ByteOffset = BitStart / 8;
-  if (ByteOffset > 0) {
+  uint64_t Units = BitStart / BITS_PER_UNIT;
+  if (Units > 0) {
     Offset = TheFolder->CreateAdd(Offset,
                                   ConstantInt::get(Offset->getType(),
-                                                   ByteOffset));
-    BitStart -= ByteOffset*8;
+                                                   Units));
+    BitStart -= Units * BITS_PER_UNIT;
   }
   assert(BitStart == 0 &&
          "It's a bitfield reference or we didn't get to the field!");
 
-  const Type *BytePtrTy = Type::getInt8PtrTy(Context);
+  const Type *UnitPtrTy = GetUnitPointerType(Context);
   Constant *StructAddr = AddressOf(TREE_OPERAND(exp, 0));
-  Constant *FieldPtr = TheFolder->CreateBitCast(StructAddr, BytePtrTy);
+  Constant *FieldPtr = TheFolder->CreateBitCast(StructAddr, UnitPtrTy);
   FieldPtr = TheFolder->CreateInBoundsGetElementPtr(FieldPtr, &Offset, 1);
 
   return FieldPtr;
@@ -1479,7 +1472,7 @@ Constant *AddressOf(tree exp) {
   switch (TREE_CODE(exp)) {
   default:
     debug_tree(exp);
-    assert(0 && "Unknown constant lvalue to convert!");
+    assert(false && "Unknown constant to take the address of!");
     abort();
   case COMPLEX_CST:
   case FIXED_CST:
@@ -1516,9 +1509,9 @@ Constant *AddressOf(tree exp) {
   // once here rather than in every AddressOf helper.
   const Type *Ty;
   if (VOID_TYPE_P(TREE_TYPE(exp)))
-    Ty = Type::getInt8Ty(Context); // void* -> i8*.
+    Ty = GetUnitPointerType(Context); // void* -> i8*.
   else
-    Ty = ConvertType(TREE_TYPE(exp));
+    Ty = ConvertType(TREE_TYPE(exp))->getPointerTo();
 
-  return TheFolder->CreateBitCast(Addr, Ty->getPointerTo());
+  return TheFolder->CreateBitCast(Addr, Ty);
 }
