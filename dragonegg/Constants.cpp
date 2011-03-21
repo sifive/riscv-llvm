@@ -585,6 +585,10 @@ static Constant *ConvertCOMPLEX_CST(tree exp) {
   return ConstantStruct::get(Context, Elts, 2, false);
 }
 
+static Constant *ConvertADDR_EXPR(tree exp) {
+  return AddressOf(TREE_OPERAND(exp, 0));
+}
+
 static Constant *ConvertNOP_EXPR(tree exp) {
   Constant *Elt = ConvertInitializer(TREE_OPERAND(exp, 0));
   const Type *Ty = ConvertType(TREE_TYPE(exp));
@@ -1336,8 +1340,7 @@ Constant *ConvertInitializer(tree exp) {
     Init = ConvertPOINTER_PLUS_EXPR(exp);
     break;
   case ADDR_EXPR:
-    Init = TheFolder->CreateBitCast(AddressOf(TREE_OPERAND(exp, 0)),
-                                    ConvertType(TREE_TYPE(exp)));
+    Init = ConvertADDR_EXPR(exp);
     break;
   }
 
