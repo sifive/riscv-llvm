@@ -322,6 +322,9 @@ static BitSlice ViewAsBits(Constant *C, int First, int Last) {
 /// the first bit stored being 'StartingBit') and then loading out a (constant)
 /// value of type 'Ty' from the stored to memory location.
 Constant *InterpretAsType(Constant *C, const Type* Ty, unsigned StartingBit) {
+  if (C->getType() == Ty)
+    return C;
+
   switch (Ty->getTypeID()) {
   default:
     llvm_unreachable("Unsupported type!");
