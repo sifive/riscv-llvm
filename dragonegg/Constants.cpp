@@ -1347,12 +1347,10 @@ Constant *ConvertInitializer(tree exp) {
     break;
   }
 
-// FIXME: The call to ConvertType blows up on several objective C testcases,
-// also on vtable-layout.cpp.
-//  assert((!ConvertType(TREE_TYPE(exp))->isSized() ||
-//          getTargetData().getTypeAllocSizeInBits(ConvertType(TREE_TYPE(exp))) <=
-//          getTargetData().getTypeAllocSizeInBits(Init->getType())) &&
-//         "Constant too small for type!");
+  assert((!ConvertType(TREE_TYPE(exp))->isSized() ||
+          getTargetData().getTypeAllocSizeInBits(ConvertType(TREE_TYPE(exp))) <=
+          getTargetData().getTypeAllocSizeInBits(Init->getType())) &&
+         "Constant too small for type!");
 // FIXME: This check fails when building libdecnumber (self-host build).
 //  assert(getTargetData().getABITypeAlignment(Init->getType()) * 8 <=
 //         TYPE_ALIGN(TREE_TYPE(exp)) && "Constant over aligned!");
