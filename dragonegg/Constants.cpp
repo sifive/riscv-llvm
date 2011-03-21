@@ -407,106 +407,18 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, unsigned StartingBit) {
 //                       ... ConvertInitializer ...
 //===----------------------------------------------------------------------===//
 
-/// EncodeExpr - Write the given expression into Buffer as it would appear in
-/// memory on the target (the buffer is resized to contain exactly the bytes
-/// written).  Return the number of bytes written; this can also be obtained
-/// by querying the buffer's size.
-/// The following kinds of expressions are currently supported: INTEGER_CST,
-/// REAL_CST, COMPLEX_CST, VECTOR_CST, STRING_CST.
-static unsigned EncodeExpr(tree exp, SmallVectorImpl<unsigned char> &Buffer) {
+/// ConvertCST - Return the given simple constant as an array of bytes.  For the
+/// moment only INTEGER_CST, REAL_CST, COMPLEX_CST and VECTOR_CST are supported.
+static Constant *ConvertCST(tree exp) {
   const tree type = TREE_TYPE(exp);
   unsigned SizeInBytes = (TREE_INT_CST_LOW(TYPE_SIZE(type)) + 7) / 8;
-  Buffer.resize(SizeInBytes);
+  // Encode the constant in Buffer in target format.
+  std::vector<unsigned char> Buffer(SizeInBytes);
   unsigned BytesWritten = native_encode_expr(exp, &Buffer[0], SizeInBytes);
   assert(BytesWritten == SizeInBytes && "Failed to fully encode expression!");
-  return BytesWritten;
-}
-
-static Constant *ConvertINTEGER_CST(tree exp) {
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
-
-  // Handle i128 specially.
-  if (const IntegerType *IT = dyn_cast<IntegerType>(Ty)) {
-    if (IT->getBitWidth() == 128) {
-      // GCC only supports i128 on 64-bit systems.
-      assert(HOST_BITS_PER_WIDE_INT == 64 &&
-             "i128 only supported on 64-bit system");
-      uint64_t Bits[] = { TREE_INT_CST_LOW(exp), TREE_INT_CST_HIGH(exp) };
-      return ConstantInt::get(Context, APInt(128, 2, Bits));
-    }
-  }
-
-  // Build the value as a ulong constant, then constant fold it to the right
-  // type.  This handles overflow and other things appropriately.
-  uint64_t IntValue = getINTEGER_CSTVal(exp);
-  ConstantInt *C = ConstantInt::get(Type::getInt64Ty(Context), IntValue);
-  // The destination type can be a pointer, integer or floating point
-  // so we need a generalized cast here
-  Instruction::CastOps opcode = CastInst::getCastOpcode(C, false, Ty,
-      !TYPE_UNSIGNED(TREE_TYPE(exp)));
-  return TheFolder->CreateCast(opcode, C, Ty);
-}
-
-static Constant *ConvertREAL_CST(tree exp) {
-  // TODO: Test new implementation on a big-endian machine.
-
-  // Encode the constant in Buffer in target format.
-  SmallVector<unsigned char, 16> Buffer;
-  EncodeExpr(exp, Buffer);
-
-  // Discard any alignment padding, which we assume comes at the end.
-  unsigned Precision = TYPE_PRECISION(TREE_TYPE(exp));
-  assert((Precision & 7) == 0 && "Unsupported real number precision!");
-  Buffer.resize(Precision / 8);
-
-  // We are going to view the buffer as an array of APInt words.  Ensure that
-  // the buffer contains a whole number of words by extending it if necessary.
-  unsigned Words = (Precision + integerPartWidth - 1) / integerPartWidth;
-  // On a little-endian machine extend the buffer by adding bytes to the end.
-  Buffer.resize(Words * (integerPartWidth / 8));
-  // On a big-endian machine extend the buffer by adding bytes to the beginning.
-  if (BYTES_BIG_ENDIAN)
-    std::copy_backward(Buffer.begin(), Buffer.begin() + Precision / 8,
-                       Buffer.end());
-
-  // Ensure that the least significant word comes first: we are going to make an
-  // APInt, and the APInt constructor wants the least significant word first.
-  integerPart *Parts = (integerPart *)&Buffer[0];
-  if (BYTES_BIG_ENDIAN)
-    std::reverse(Parts, Parts + Words);
-
-  bool isPPC_FP128 = ConvertType(TREE_TYPE(exp))->isPPC_FP128Ty();
-  if (isPPC_FP128) {
-    // This type is actually a pair of doubles in disguise.  They turn up the
-    // wrong way round here, so flip them.
-    assert(FLOAT_WORDS_BIG_ENDIAN && "PPC not big endian!");
-    assert(Words == 2 && Precision == 128 && "Strange size for PPC_FP128!");
-    std::swap(Parts[0], Parts[1]);
-  }
-
-  // Form an APInt from the buffer, an APFloat from the APInt, and the desired
-  // floating point constant from the APFloat, phew!
-  const APInt &I = APInt(Precision, Words, Parts);
-  return ConstantFP::get(Context, APFloat(I, !isPPC_FP128));
-}
-
-static Constant *ConvertVECTOR_CST(tree exp) {
-  if (!TREE_VECTOR_CST_ELTS(exp))
-    return Constant::getNullValue(ConvertType(TREE_TYPE(exp)));
-
-  std::vector<Constant*> Elts;
-  for (tree elt = TREE_VECTOR_CST_ELTS(exp); elt; elt = TREE_CHAIN(elt))
-    Elts.push_back(ConvertInitializer(TREE_VALUE(elt)));
-
-  // The vector should be zero filled if insufficient elements are provided.
-  if (Elts.size() < TYPE_VECTOR_SUBPARTS(TREE_TYPE(exp))) {
-    tree EltType = TREE_TYPE(TREE_TYPE(exp));
-    Constant *Zero = Constant::getNullValue(ConvertType(EltType));
-    while (Elts.size() < TYPE_VECTOR_SUBPARTS(TREE_TYPE(exp)))
-      Elts.push_back(Zero);
-  }
-
-  return ConstantVector::get(Elts);
+  // Turn it into an LLVM byte array.
+  return ConstantArray::get(Context, StringRef((char *)&Buffer[0], SizeInBytes),
+                            /*AddNull*/false);
 }
 
 static Constant *ConvertSTRING_CST(tree exp) {
@@ -578,14 +490,6 @@ static Constant *ConvertSTRING_CST(tree exp) {
     }
   }
   return ConstantArray::get(StrTy, Elts);
-}
-
-static Constant *ConvertCOMPLEX_CST(tree exp) {
-  Constant *Elts[2] = {
-    ConvertInitializer(TREE_REALPART(exp)),
-    ConvertInitializer(TREE_IMAGPART(exp))
-  };
-  return ConstantStruct::get(Context, Elts, 2, false);
 }
 
 static Constant *ConvertADDR_EXPR(tree exp) {
@@ -1308,20 +1212,14 @@ Constant *ConvertInitializer(tree exp) {
     debug_tree(exp);
     assert(0 && "Unknown constant to convert!");
     abort();
+  case COMPLEX_CST:
   case INTEGER_CST:
-    Init = ConvertINTEGER_CST(exp);
-    break;
   case REAL_CST:
-    Init = ConvertREAL_CST(exp);
-    break;
   case VECTOR_CST:
-    Init = ConvertVECTOR_CST(exp);
+    Init = InterpretAsType(ConvertCST(exp), ConvertType(TREE_TYPE(exp)), 0);
     break;
   case STRING_CST:
     Init = ConvertSTRING_CST(exp);
-    break;
-  case COMPLEX_CST:
-    Init = ConvertCOMPLEX_CST(exp);
     break;
   case NOP_EXPR:
     Init = ConvertNOP_EXPR(exp);
