@@ -496,23 +496,13 @@ static Constant *ConvertADDR_EXPR(tree exp) {
   return AddressOf(TREE_OPERAND(exp, 0));
 }
 
-static Constant *ConvertNOP_EXPR(tree exp) {
-  Constant *Elt = ConvertInitializer(TREE_OPERAND(exp, 0));
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
-  bool EltIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 0)));
-  bool TyIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
-
-  // If this is a structure-to-structure cast, just return the uncasted value.
-  if (!Elt->getType()->isSingleValueType() || !Ty->isSingleValueType())
-    return Elt;
-
-  // Elt and Ty can be integer, float or pointer here: need generalized cast
-  Instruction::CastOps opcode = CastInst::getCastOpcode(Elt, EltIsSigned,
-                                                        Ty, TyIsSigned);
-  return TheFolder->CreateCast(opcode, Elt, Ty);
-}
-
 static Constant *ConvertCONVERT_EXPR(tree exp) {
+  if (AGGREGATE_TYPE_P(TREE_TYPE(exp)) ||
+      AGGREGATE_TYPE_P(TREE_TYPE(TREE_OPERAND(exp, 0)))) {
+    // A no-op record view conversion.  These do not change any of the bits in
+    // the constant so just ignore them.
+    return ConvertInitializer(TREE_OPERAND(exp, 0));
+  }
   Constant *Elt = ConvertInitializer(TREE_OPERAND(exp, 0));
   bool EltIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 0)));
   const Type *Ty = ConvertType(TREE_TYPE(exp));
@@ -1221,10 +1211,8 @@ Constant *ConvertInitializer(tree exp) {
   case STRING_CST:
     Init = ConvertSTRING_CST(exp);
     break;
-  case NOP_EXPR:
-    Init = ConvertNOP_EXPR(exp);
-    break;
   case CONVERT_EXPR:
+  case NOP_EXPR:
     Init = ConvertCONVERT_EXPR(exp);
     break;
   case PLUS_EXPR:
