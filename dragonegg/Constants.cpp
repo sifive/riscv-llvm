@@ -411,13 +411,14 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, unsigned StartingBit) {
 /// moment only INTEGER_CST, REAL_CST, COMPLEX_CST and VECTOR_CST are supported.
 static Constant *ConvertCST(tree exp) {
   const tree type = TREE_TYPE(exp);
-  unsigned SizeInBytes = (TREE_INT_CST_LOW(TYPE_SIZE(type)) + 7) / 8;
+  unsigned SizeInChars = (TREE_INT_CST_LOW(TYPE_SIZE(type)) + CHAR_BIT - 1) /
+    CHAR_BIT;
   // Encode the constant in Buffer in target format.
-  std::vector<unsigned char> Buffer(SizeInBytes);
-  unsigned BytesWritten = native_encode_expr(exp, &Buffer[0], SizeInBytes);
-  assert(BytesWritten == SizeInBytes && "Failed to fully encode expression!");
+  std::vector<unsigned char> Buffer(SizeInChars);
+  unsigned CharsWritten = native_encode_expr(exp, &Buffer[0], SizeInChars);
+  assert(CharsWritten == SizeInChars && "Failed to fully encode expression!");
   // Turn it into an LLVM byte array.
-  return ConstantArray::get(Context, StringRef((char *)&Buffer[0], SizeInBytes),
+  return ConstantArray::get(Context, StringRef((char *)&Buffer[0], SizeInChars),
                             /*AddNull*/false);
 }
 
