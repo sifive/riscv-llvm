@@ -1188,6 +1188,11 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
   }
 }
 
+static Constant *ConvertVIEW_CONVERT_EXPR(tree exp) {
+  // Does not change the bits, only the type they are considered to be.
+  return ConvertInitializer(TREE_OPERAND(exp, 0));
+}
+
 /// ConvertInitializer - Convert the initial value for a global variable to an
 /// equivalent LLVM constant.  Also handles constant constructors.  The type of
 /// the returned value may be pretty much anything.  All that is guaranteed is
@@ -1206,30 +1211,32 @@ Constant *ConvertInitializer(tree exp) {
   case INTEGER_CST:
   case REAL_CST:
   case VECTOR_CST:
+    // Make the IR easier to read by converting the bunch of bytes returned by
+    // ConvertCST into a less surprising type.
     Init = InterpretAsType(ConvertCST(exp), ConvertType(TREE_TYPE(exp)), 0);
     break;
   case STRING_CST:
     Init = ConvertSTRING_CST(exp);
     break;
-  case CONVERT_EXPR:
-  case NOP_EXPR:
-    Init = ConvertCONVERT_EXPR(exp);
-    break;
-  case PLUS_EXPR:
-  case MINUS_EXPR:
-    Init = ConvertBinOp_CST(exp);
+  case ADDR_EXPR:
+    Init = ConvertADDR_EXPR(exp);
     break;
   case CONSTRUCTOR:
     Init = ConvertCONSTRUCTOR(exp);
     break;
-  case VIEW_CONVERT_EXPR:
-    Init = ConvertInitializer(TREE_OPERAND(exp, 0));
+  case CONVERT_EXPR:
+  case NOP_EXPR:
+    Init = ConvertCONVERT_EXPR(exp);
+    break;
+  case MINUS_EXPR:
+  case PLUS_EXPR:
+    Init = ConvertBinOp_CST(exp);
     break;
   case POINTER_PLUS_EXPR:
     Init = ConvertPOINTER_PLUS_EXPR(exp);
     break;
-  case ADDR_EXPR:
-    Init = ConvertADDR_EXPR(exp);
+  case VIEW_CONVERT_EXPR:
+    Init = ConvertVIEW_CONVERT_EXPR(exp);
     break;
   }
 
@@ -1416,19 +1423,19 @@ Constant *AddressOf(tree exp) {
   case COMPONENT_REF:
     Addr = AddressOfCOMPONENT_REF(exp);
     break;
+  case COMPOUND_LITERAL_EXPR: // FIXME: not gimple - defined by C front-end
+    Addr = AddressOf(DECL_EXPR_DECL (TREE_OPERAND (exp, 0)));
+    break;
   case CONST_DECL:
   case FUNCTION_DECL:
   case VAR_DECL:
     Addr = AddressOfDecl(exp);
     break;
-  case LABEL_DECL:
-    Addr = AddressOfLABEL_DECL(exp);
-    break;
   case INDIRECT_REF:
     Addr = AddressOfINDIRECT_REF(exp);
     break;
-  case COMPOUND_LITERAL_EXPR: // FIXME: not gimple - defined by C front-end
-    Addr = AddressOf(DECL_EXPR_DECL (TREE_OPERAND (exp, 0)));
+  case LABEL_DECL:
+    Addr = AddressOfLABEL_DECL(exp);
     break;
   }
 
