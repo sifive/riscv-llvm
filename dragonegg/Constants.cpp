@@ -514,10 +514,10 @@ static Constant *ConvertCONVERT_EXPR(tree exp) {
 
 static Constant *ConvertPOINTER_PLUS_EXPR(tree exp) {
   Constant *Ptr = ConvertInitializer(TREE_OPERAND(exp, 0)); // The pointer.
-  Constant *Idx = ConvertInitializer(TREE_OPERAND(exp, 1)); // Offset in bytes.
+  Constant *Idx = ConvertInitializer(TREE_OPERAND(exp, 1)); // Offset in units.
 
   // Convert the pointer into an i8* and add the offset to it.
-  Ptr = TheFolder->CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
+  Ptr = TheFolder->CreateBitCast(Ptr, GetUnitPointerType(Context));
   Constant *GEP = POINTER_TYPE_OVERFLOW_UNDEFINED ?
     TheFolder->CreateInBoundsGetElementPtr(Ptr, &Idx, 1) :
     TheFolder->CreateGetElementPtr(Ptr, &Idx, 1);

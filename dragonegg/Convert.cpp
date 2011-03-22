@@ -6695,10 +6695,10 @@ Value *TreeToLLVM::EmitReg_PLUS_EXPR(tree op0, tree op1) {
 
 Value *TreeToLLVM::EmitReg_POINTER_PLUS_EXPR(tree type, tree op0, tree op1) {
   Value *Ptr = EmitRegister(op0); // The pointer.
-  Value *Idx = EmitRegister(op1); // The offset in bytes.
+  Value *Idx = EmitRegister(op1); // The offset in units.
 
   // Convert the pointer into an i8* and add the offset to it.
-  Ptr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
+  Ptr = Builder.CreateBitCast(Ptr, GetUnitPointerType(Context));
   Value *GEP = POINTER_TYPE_OVERFLOW_UNDEFINED ?
     Builder.CreateInBoundsGEP(Ptr, Idx) : Builder.CreateGEP(Ptr, Idx);
 
