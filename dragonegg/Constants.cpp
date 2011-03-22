@@ -496,63 +496,6 @@ static Constant *ConvertADDR_EXPR(tree exp) {
   return AddressOf(TREE_OPERAND(exp, 0));
 }
 
-static Constant *ConvertCONVERT_EXPR(tree exp) {
-  if (AGGREGATE_TYPE_P(TREE_TYPE(exp)) ||
-      AGGREGATE_TYPE_P(TREE_TYPE(TREE_OPERAND(exp, 0)))) {
-    // A no-op record view conversion.  These do not change any of the bits in
-    // the constant so just ignore them.
-    return ConvertInitializer(TREE_OPERAND(exp, 0));
-  }
-  Constant *Elt = ConvertInitializer(TREE_OPERAND(exp, 0));
-  bool EltIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 0)));
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
-  bool TyIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
-  Instruction::CastOps opcode = CastInst::getCastOpcode(Elt, EltIsSigned, Ty,
-                                                        TyIsSigned);
-  return TheFolder->CreateCast(opcode, Elt, Ty);
-}
-
-static Constant *ConvertPOINTER_PLUS_EXPR(tree exp) {
-  Constant *Ptr = ConvertInitializer(TREE_OPERAND(exp, 0)); // The pointer.
-  Constant *Idx = ConvertInitializer(TREE_OPERAND(exp, 1)); // Offset in units.
-
-  // Convert the pointer into an i8* and add the offset to it.
-  Ptr = TheFolder->CreateBitCast(Ptr, GetUnitPointerType(Context));
-  Constant *GEP = POINTER_TYPE_OVERFLOW_UNDEFINED ?
-    TheFolder->CreateInBoundsGetElementPtr(Ptr, &Idx, 1) :
-    TheFolder->CreateGetElementPtr(Ptr, &Idx, 1);
-
-  // The result may be of a different pointer type.
-  return TheFolder->CreateBitCast(GEP, ConvertType(TREE_TYPE(exp)));
-}
-
-static Constant *ConvertBinOp_CST(tree exp) {
-  Constant *LHS = ConvertInitializer(TREE_OPERAND(exp, 0));
-  bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp,0)));
-  Constant *RHS = ConvertInitializer(TREE_OPERAND(exp, 1));
-  bool RHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp,1)));
-  Instruction::CastOps opcode;
-  if (LHS->getType()->isPointerTy()) {
-    const Type *IntPtrTy = getTargetData().getIntPtrType(Context);
-    opcode = CastInst::getCastOpcode(LHS, LHSIsSigned, IntPtrTy, false);
-    LHS = TheFolder->CreateCast(opcode, LHS, IntPtrTy);
-    opcode = CastInst::getCastOpcode(RHS, RHSIsSigned, IntPtrTy, false);
-    RHS = TheFolder->CreateCast(opcode, RHS, IntPtrTy);
-  }
-
-  Constant *Result;
-  switch (TREE_CODE(exp)) {
-  default: assert(0 && "Unexpected case!");
-  case PLUS_EXPR:   Result = TheFolder->CreateAdd(LHS, RHS); break;
-  case MINUS_EXPR:  Result = TheFolder->CreateSub(LHS, RHS); break;
-  }
-
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
-  bool TyIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
-  opcode = CastInst::getCastOpcode(Result, LHSIsSigned, Ty, TyIsSigned);
-  return TheFolder->CreateCast(opcode, Result, Ty);
-}
-
 static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
   // Vectors are like arrays, but the domain is stored via an array
   // type indirectly.
@@ -1186,6 +1129,63 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
   case QUAL_UNION_TYPE:
   case UNION_TYPE:  return ConvertUnionCONSTRUCTOR(exp);
   }
+}
+
+static Constant *ConvertCONVERT_EXPR(tree exp) {
+  if (AGGREGATE_TYPE_P(TREE_TYPE(exp)) ||
+      AGGREGATE_TYPE_P(TREE_TYPE(TREE_OPERAND(exp, 0)))) {
+    // A no-op record view conversion.  These do not change any of the bits in
+    // the constant so just ignore them.
+    return ConvertInitializer(TREE_OPERAND(exp, 0));
+  }
+  Constant *Elt = ConvertInitializer(TREE_OPERAND(exp, 0));
+  bool EltIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 0)));
+  const Type *Ty = ConvertType(TREE_TYPE(exp));
+  bool TyIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
+  Instruction::CastOps opcode = CastInst::getCastOpcode(Elt, EltIsSigned, Ty,
+                                                        TyIsSigned);
+  return TheFolder->CreateCast(opcode, Elt, Ty);
+}
+
+static Constant *ConvertBinOp_CST(tree exp) {
+  Constant *LHS = ConvertInitializer(TREE_OPERAND(exp, 0));
+  bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp,0)));
+  Constant *RHS = ConvertInitializer(TREE_OPERAND(exp, 1));
+  bool RHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp,1)));
+  Instruction::CastOps opcode;
+  if (LHS->getType()->isPointerTy()) {
+    const Type *IntPtrTy = getTargetData().getIntPtrType(Context);
+    opcode = CastInst::getCastOpcode(LHS, LHSIsSigned, IntPtrTy, false);
+    LHS = TheFolder->CreateCast(opcode, LHS, IntPtrTy);
+    opcode = CastInst::getCastOpcode(RHS, RHSIsSigned, IntPtrTy, false);
+    RHS = TheFolder->CreateCast(opcode, RHS, IntPtrTy);
+  }
+
+  Constant *Result;
+  switch (TREE_CODE(exp)) {
+  default: assert(0 && "Unexpected case!");
+  case PLUS_EXPR:   Result = TheFolder->CreateAdd(LHS, RHS); break;
+  case MINUS_EXPR:  Result = TheFolder->CreateSub(LHS, RHS); break;
+  }
+
+  const Type *Ty = ConvertType(TREE_TYPE(exp));
+  bool TyIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
+  opcode = CastInst::getCastOpcode(Result, LHSIsSigned, Ty, TyIsSigned);
+  return TheFolder->CreateCast(opcode, Result, Ty);
+}
+
+static Constant *ConvertPOINTER_PLUS_EXPR(tree exp) {
+  Constant *Ptr = ConvertInitializer(TREE_OPERAND(exp, 0)); // The pointer.
+  Constant *Idx = ConvertInitializer(TREE_OPERAND(exp, 1)); // Offset in units.
+
+  // Convert the pointer into an i8* and add the offset to it.
+  Ptr = TheFolder->CreateBitCast(Ptr, GetUnitPointerType(Context));
+  Constant *GEP = POINTER_TYPE_OVERFLOW_UNDEFINED ?
+    TheFolder->CreateInBoundsGetElementPtr(Ptr, &Idx, 1) :
+    TheFolder->CreateGetElementPtr(Ptr, &Idx, 1);
+
+  // The result may be of a different pointer type.
+  return TheFolder->CreateBitCast(GEP, ConvertType(TREE_TYPE(exp)));
 }
 
 static Constant *ConvertVIEW_CONVERT_EXPR(tree exp) {
