@@ -23,4 +23,11 @@
 #ifndef DRAGONEGG_OS_H
 #define DRAGONEGG_OS_H
 
+/* Yes, we support PIC codegen for FreeBSD targets! */
+#define LLVM_SET_TARGET_OPTIONS(argvec)              \
+  if (flag_pic)                                      \
+    argvec.push_back ("--relocation-model=pic");     \
+  else                                               \
+    argvec.push_back ("--relocation-model=static");
+
 #endif /* DRAGONEGG_OS_H */
