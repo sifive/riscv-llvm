@@ -1,4 +1,4 @@
-//=---- Trees.h - Utility functions for working with GCC trees --*- C++ -*---=//
+//=---- Trees.h - Utility functions for working with GCC trees ----*- C++ -*-=//
 //
 // Copyright (C) 2010, 2011  Duncan Sands.
 //
