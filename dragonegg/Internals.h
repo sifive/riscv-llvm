@@ -1,4 +1,4 @@
-//=---- Internals.h - Interface between the backend components --*- C++ -*---=//
+//=---- Internals.h - Interface between the backend components ----*- C++ -*-=//
 //
 // Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011  Chris Lattner,
 // Duncan Sands et al.
@@ -226,6 +226,12 @@ inline Constant *getDefaultValue(const Type *Ty) {
   return flag_default_initialize_globals ?
     Constant::getNullValue(Ty) : UndefValue::get(Ty);
 }
+
+/// GetUnitType - Returns an integer one address unit wide if 'NumUnits' is 1;
+/// otherwise returns an array of such integers with 'NumUnits' elements.  For
+/// example, on a machine which has 16 bit bytes returns an i16 or an array of
+/// i16.
+extern const Type *GetUnitType(LLVMContext &C, unsigned NumUnits = 1);
 
 /// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
 /// address unit wide.  For example, on a machine which has 16 bit bytes returns

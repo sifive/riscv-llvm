@@ -230,12 +230,23 @@ uint64_t getFieldOffsetInBits(tree field) {
   return Result;
 }
 
+/// GetUnitType - Returns an integer one address unit wide if 'NumUnits' is 1;
+/// otherwise returns an array of such integers with 'NumUnits' elements.  For
+/// example, on a machine which has 16 bit bytes returns an i16 or an array of
+/// i16.
+const Type *GetUnitType(LLVMContext &C, unsigned NumUnits) {
+  assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
+  const Type *UnitTy = IntegerType::get(C, BITS_PER_UNIT);
+  if (NumUnits == 1)
+    return UnitTy;
+  return ArrayType::get(UnitTy, NumUnits);
+}
+
 /// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
 /// address unit wide.  For example, on a machine which has 16 bit bytes returns
 /// an i16*.
 const Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace) {
-  assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
-  return IntegerType::get(C, BITS_PER_UNIT)->getPointerTo(AddrSpace);
+  return GetUnitType(C)->getPointerTo(AddrSpace);
 }
 
 // isPassedByInvisibleReference - Return true if an argument of the specified
