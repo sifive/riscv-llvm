@@ -1,4 +1,4 @@
-//=----- Constants.h - Converting and working with constants --*- C++ -*-----=//
+//=----- Constants.h - Converting and working with constants ------*- C++ -*-=//
 //
 // Copyright (C) 2011  Duncan Sands.
 //
@@ -55,6 +55,6 @@ extern llvm::Constant *ConvertInitializer(tree_node *exp);
 /// the first bit stored being 'StartingBit') and then loading out a (constant)
 /// value of type 'Ty' from the stored to memory location.
 extern llvm::Constant *InterpretAsType(llvm::Constant *C, const llvm::Type* Ty,
-                                       unsigned StartingBit);
+                                       int StartingBit);
 
 #endif /* DRAGONEGG_CONSTANTS_H */

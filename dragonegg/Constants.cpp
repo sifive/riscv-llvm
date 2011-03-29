@@ -24,6 +24,8 @@
 #include "Constants.h"
 #include "Internals.h"
 #include "Trees.h"
+#include "ADT/IntervalList.h"
+#include "ADT/Range.h"
 
 // LLVM headers
 #include "llvm/GlobalVariable.h"
@@ -56,162 +58,231 @@ static LLVMContext &Context = getGlobalContext();
 //                           ... InterpretAsType ...
 //===----------------------------------------------------------------------===//
 
+typedef Range<int> SignedRange;
+
 /// BitSlice - A contiguous range of bits held in memory.
 class BitSlice {
-  int First, Last; // Range [First, Last)
-  Constant *Contents; // May be null for an empty range.
+  SignedRange R;
+  Constant *Contents; // Null if and only if the range is empty.
 
-  /// ExtendRange - Extend the slice to a wider range.  All added bits are zero.
-  BitSlice ExtendRange(int WideFirst, int WideLast) const {
-    // Quick exit if the range did not actually increase.
-    if (WideFirst == First && WideLast == Last)
-      return *this;
-    if (WideFirst > First || WideLast < Last || WideLast <= WideFirst) {
-      assert(empty() && WideLast <= WideFirst && "Not an extension!");
-      // The trivial case of extending an empty range to an empty range.
-      return BitSlice();
-    }
-    const Type *WideTy = IntegerType::get(Context, WideLast - WideFirst);
-    // If the slice contains no bits then every bit of the extension is zero.
+  bool contentsValid() const {
     if (empty())
-      return BitSlice(WideFirst, WideLast, Constant::getNullValue(WideTy));
-    // Zero extend the contents to the new type;
-    Constant *C = TheFolder->CreateZExtOrBitCast(Contents, WideTy);
-    // Position the old contents correctly inside the new contents.
-    if (BYTES_BIG_ENDIAN && WideLast > Last) {
-      Constant *ShiftAmt = ConstantInt::get(C->getType(), WideLast - Last);
-      C = TheFolder->CreateShl(C, ShiftAmt);
-    } else if (!BYTES_BIG_ENDIAN && WideFirst < First) {
-      Constant *ShiftAmt = ConstantInt::get(C->getType(), First - WideFirst);
-      C = TheFolder->CreateShl(C, ShiftAmt);
-    }
-    return BitSlice(WideFirst, WideLast, C);
-  }
-
-  /// ReduceRange - Reduce the slice to a smaller range.
-  BitSlice ReduceRange(int NarrowFirst, int NarrowLast) const {
-    // Quick exit if the range did not actually decrease.
-    if (NarrowFirst == First && NarrowLast == Last)
-      return *this;
-    // The trivial case of reducing to an empty range.
-    if (NarrowLast <= NarrowFirst)
-      return BitSlice();
-    assert(NarrowFirst >= First && NarrowLast <= Last && "Not a reduction!");
-    // Move the least-significant bit to the correct position.
-    Constant *C = Contents;
-    if (BYTES_BIG_ENDIAN && NarrowLast < Last) {
-      Constant *ShiftAmt = ConstantInt::get(C->getType(), Last - NarrowLast);
-      C = TheFolder->CreateLShr(C, ShiftAmt);
-    } else if (!BYTES_BIG_ENDIAN && NarrowFirst > First) {
-      Constant *ShiftAmt = ConstantInt::get(C->getType(), NarrowFirst - First);
-      C = TheFolder->CreateLShr(C, ShiftAmt);
-    }
-    // Truncate to the new type.
-    const Type *NarrowTy = IntegerType::get(Context, NarrowLast - NarrowFirst);
-    C = TheFolder->CreateTruncOrBitCast(C, NarrowTy);
-    return BitSlice(NarrowFirst, NarrowLast, C);
+      return !Contents;
+    return Contents && isa<IntegerType>(Contents->getType()) &&
+      getBitWidth() == Contents->getType()->getPrimitiveSizeInBits();
   }
 
 public:
   /// BitSlice - Default constructor: empty bit range.
-  BitSlice() : First(0), Last(0), Contents(0) {}
+  BitSlice() : R(), Contents(0) {}
 
-  /// BitSlice - Constructor for the range of bits ['first', 'last').  The bits
-  /// themselves are supplied in 'contents' as a constant of integer type.  On
-  /// little-endian machines the least significant bit of 'contents corresponds
-  /// to the first bit of the range (aka 'first'), while on big-endian machines
-  /// it corresponds to the last bit of the range (aka 'last'-1).
-  BitSlice(int first, int last, Constant *contents)
-    : First(first), Last(last), Contents(contents) {
-    assert((empty() || isa<IntegerType>(Contents->getType())) &&
-           "Not an integer type!");
-    assert((empty() || getBitWidth() ==
-            Contents->getType()->getPrimitiveSizeInBits()) &&
-           "Bitwidth mismatch!");
+  /// BitSlice - Constructor for the given range of bits.  The bits themselves
+  /// are supplied in 'contents' as a constant of integer type (if the range is
+  /// empty then 'contents' must be null).  On little-endian machines the least
+  /// significant bit of 'contents' corresponds to the first bit of the range
+  /// (aka "First"), while on big-endian machines it corresponds to the last bit
+  /// of the range (aka "Last-1").
+  BitSlice(SignedRange r, Constant *contents) : R(r), Contents(contents) {
+    assert(contentsValid() && "Contents do not match range");
   }
 
-  /// empty - Return whether the range is empty.
+  /// BitSlice - Constructor for the range of bits ['first', 'last').
+  BitSlice(int first, int last, Constant *contents)
+    : R(first, last), Contents(contents) {
+    assert(contentsValid() && "Contents do not match range");
+  }
+
+  /// empty - Return whether the bit range is empty.
   bool empty() const {
-    return Last <= First;
+    return R.empty();
   }
 
   /// getBitWidth - Return the number of bits in the range.
-  unsigned getBitWidth() {
-    return empty() ? 0 : Last - First;
+  unsigned getBitWidth() const {
+    return R.getWidth();
+  }
+
+  /// getFirst - Return the position of the first bit in the range.
+  unsigned getFirst() const {
+    return R.getFirst();
+  }
+
+  /// getLast - Return the position of the last bit defining the range.
+  unsigned getLast() const {
+    return R.getLast();
+  }
+
+  /// getRange - Return the range of bits in this slice.
+  SignedRange getRange() const {
+    return R;
   }
 
   /// Displace - Return the result of sliding all bits by the given offset.
   BitSlice Displace(int Offset) const {
-    return BitSlice(First + Offset, Last + Offset, Contents);
+    return BitSlice(R.Displace(Offset), Contents);
   }
 
-  /// getBits - Return the bits in the range [first, last).  This range need not
+  /// getBits - Return the bits in the given range.  The supplied range need not
   /// be contained in the range of the slice, but if not then the bits outside
   /// the slice get an undefined value.  The bits are returned as a constant of
   /// integer type.  On little-endian machine the least significant bit of the
-  /// returned value corresponds to the first bit of the range (aka 'first'),
+  /// returned value corresponds to the first bit of the range (aka "First"),
   /// while on big-endian machines it corresponds to the last bit of the range
-  /// (aka 'last'-1).
-  Constant *getBits(int first, int last) {
-    assert(first < last && "Bit range is empty!");
-    // Quick exit if the desired range matches that of the slice.
-    if (First == first && Last == last)
-      return Contents;
-    const Type *RetTy = IntegerType::get(Context, last - first);
-    // If the slice contains no bits then every returned bit is undefined.
-    if (empty())
-      return UndefValue::get(RetTy);
-    // Extend to the convex hull of the two ranges.
-    int WideFirst = first < First ? first : First;
-    int WideLast = last > Last ? last : Last;
-    BitSlice Slice = ExtendRange(WideFirst, WideLast);
-    // Chop the slice down to the requested range.
-    Slice = Slice.ReduceRange(first, last);
-    // Now we can just return the bits contained in the slice.
-    return Slice.Contents;
-  }
+  /// (aka "Last-1").
+  Constant *getBits(SignedRange r) const;
+
+  /// ExtendRange - Extend the slice to a wider range.  The value of the added
+  /// bits is undefined.
+  BitSlice ExtendRange(SignedRange r) const;
+
+  /// ReduceRange - Reduce the slice to a smaller range.
+  BitSlice ReduceRange(SignedRange r) const;
 
   /// Merge - Join the slice with another (which must be disjoint), forming the
   /// convex hull of the ranges.  The bits in the range of one of the slices are
   /// those of that slice.  Any other bits have an undefined value.
-  void Merge(const BitSlice &that) {
-    // If the other slice is empty, the result is this slice.
-    if (that.empty())
-      return;
-    // If this slice is empty, the result is the other slice.
-    if (empty()) {
-      *this = that;
-      return;
-    }
-    assert((that.Last <= First || that.First >= Last) && "Slices overlap!");
-    // Zero extend each slice to the convex hull of the ranges.
-    int JoinFirst = that.First < First ? that.First : First;
-    int JoinLast = that.Last > Last ? that.Last : Last;
-    BitSlice ThisExtended = ExtendRange(JoinFirst, JoinLast);
-    BitSlice ThatExtended = that.ExtendRange(JoinFirst, JoinLast);
-    // Since the slices are disjoint and all added bits are zero they can be
-    // joined via a simple 'or'.
-    Constant *Join = TheFolder->CreateOr(ThisExtended.Contents,
-                                         ThatExtended.Contents);
-    *this = BitSlice(JoinFirst, JoinLast, Join);
-  }
+  void Merge(const BitSlice &other);
 };
 
+/// ExtendRange - Extend the slice to a wider range.  The value of the added
+/// bits is undefined.
+BitSlice BitSlice::ExtendRange(SignedRange r) const {
+  assert(r.contains(R) && "Not an extension!");
+  // Quick exit if the range did not actually increase.
+  if (R == r)
+    return *this;
+  assert(!r.empty() && "Empty ranges did not evaluate as equal?");
+  const Type *ExtTy = IntegerType::get(Context, r.getWidth());
+  // If the slice contains no bits then every bit of the extension is undefined.
+  if (empty())
+    return BitSlice(r, UndefValue::get(ExtTy));
+  // Extend the contents to the new type.
+  Constant *C = TheFolder->CreateZExtOrBitCast(Contents, ExtTy);
+  // Position the old contents correctly inside the new contents.
+  unsigned deltaFirst = R.getFirst() - r.getFirst();
+  unsigned deltaLast = r.getLast() - R.getLast();
+  if (BYTES_BIG_ENDIAN && deltaLast) {
+    Constant *ShiftAmt = ConstantInt::get(C->getType(), deltaLast);
+    C = TheFolder->CreateShl(C, ShiftAmt);
+  } else if (!BYTES_BIG_ENDIAN && deltaFirst) {
+    Constant *ShiftAmt = ConstantInt::get(C->getType(), deltaFirst);
+    C = TheFolder->CreateShl(C, ShiftAmt);
+  }
+  return BitSlice(r, C);
+}
+
+/// getBits - Return the bits in the given range.  The supplied range need not
+/// be contained in the range of the slice, but if not then the bits outside
+/// the slice get an undefined value.  The bits are returned as a constant of
+/// integer type.  On little-endian machine the least significant bit of the
+/// returned value corresponds to the first bit of the range (aka "First"),
+/// while on big-endian machines it corresponds to the last bit of the range
+/// (aka "Last-1").
+Constant *BitSlice::getBits(SignedRange r) const {
+  assert(!r.empty() && "Bit range is empty!");
+  // Quick exit if the desired range matches that of the slice.
+  if (R == r)
+    return Contents;
+  const Type *RetTy = IntegerType::get(Context, r.getWidth());
+  // If the slice contains no bits then every returned bit is undefined.
+  if (empty())
+    return UndefValue::get(RetTy);
+  // Extend to the convex hull of the two ranges.
+  BitSlice Slice = ExtendRange(R.Join(r));
+  // Chop the slice down to the requested range.
+  Slice = Slice.ReduceRange(r);
+  // Now we can just return the bits contained in the slice.
+  return Slice.Contents;
+}
+
+/// Merge - Join the slice with another (which must be disjoint), forming the
+/// convex hull of the ranges.  The bits in the range of one of the slices are
+/// those of that slice.  Any other bits have an undefined value.
+void BitSlice::Merge(const BitSlice &other) {
+  // If the other slice is empty, the result is this slice.
+  if (other.empty())
+    return;
+  // If this slice is empty, the result is the other slice.
+  if (empty()) {
+    *this = other;
+    return;
+  }
+  assert(!R.intersects(other.getRange()) && "Slices overlap!");
+
+  // Extend each slice to the convex hull of the ranges.
+  SignedRange Hull = R.Join(other.getRange());
+  BitSlice ExtThis = ExtendRange(Hull);
+  BitSlice ExtOther = other.ExtendRange(Hull);
+
+  // The extra bits added when extending a slice may contain anything.  In each
+  // extended slice clear the bits corresponding to the other slice.
+  int HullFirst = Hull.getFirst(), HullLast = Hull.getLast();
+  unsigned HullWidth = Hull.getWidth();
+  // Compute masks with the bits for each slice set to 1.
+  APInt ThisBits, OtherBits;
+  if (BYTES_BIG_ENDIAN) {
+    ThisBits = APInt::getBitsSet(HullWidth, HullLast - getLast(),
+                                 HullLast - getFirst());
+    OtherBits = APInt::getBitsSet(HullWidth, HullLast - other.getLast(),
+                                  HullLast - other.getFirst());
+  } else {
+    ThisBits = APInt::getBitsSet(HullWidth, getFirst() - HullFirst,
+                                 getLast() - HullFirst);
+    OtherBits = APInt::getBitsSet(HullWidth, other.getFirst() - HullFirst,
+                                  other.getLast() - HullFirst);
+  }
+  // Clear bits which correspond to the other slice.
+  ConstantInt *ClearThis = ConstantInt::get(Context, ~ThisBits);
+  ConstantInt *ClearOther = ConstantInt::get(Context, ~OtherBits);
+  Constant *ThisPart = TheFolder->CreateAnd(ExtThis.Contents, ClearOther);
+  Constant *OtherPart = TheFolder->CreateAnd(ExtOther.Contents, ClearThis);
+
+  // The slices can now be joined via a simple 'or'.
+  *this = BitSlice(Hull, TheFolder->CreateOr(ThisPart, OtherPart));
+}
+
+/// ReduceRange - Reduce the slice to a smaller range.
+BitSlice BitSlice::ReduceRange(SignedRange r) const {
+  assert(R.contains(r) && "Not a reduction!");
+  // Quick exit if the range did not actually decrease.
+  if (R == r)
+    return *this;
+  // The trivial case of reducing to an empty range.
+  if (r.empty())
+    return BitSlice();
+  assert(!R.empty() && "Empty ranges did not evaluate as equal?");
+  // Move the least-significant bit to the correct position.
+  Constant *C = Contents;
+  unsigned deltaFirst = r.getFirst() - R.getFirst();
+  unsigned deltaLast = R.getLast() - r.getLast();
+  if (BYTES_BIG_ENDIAN && deltaLast) {
+    Constant *ShiftAmt = ConstantInt::get(C->getType(), deltaLast);
+    C = TheFolder->CreateLShr(C, ShiftAmt);
+  } else if (!BYTES_BIG_ENDIAN && deltaFirst) {
+    Constant *ShiftAmt = ConstantInt::get(C->getType(), deltaFirst);
+    C = TheFolder->CreateLShr(C, ShiftAmt);
+  }
+  // Truncate to the new type.
+  const Type *RedTy = IntegerType::get(Context, r.getWidth());
+  C = TheFolder->CreateTruncOrBitCast(C, RedTy);
+  return BitSlice(r, C);
+}
+
 /// ViewAsBits - View the given constant as a bunch of bits, i.e. as one big
-/// integer.  Only the bits in the range [First, Last) are needed, so there
-/// is no need to supply bits outside this range though it is harmless to do
-/// so.  There is also no need to supply undefined bits inside this range.
-static BitSlice ViewAsBits(Constant *C, int First, int Last) {
-  assert(First < Last && "Empty range!");
+/// integer.  Only the bits in the given range are needed, so there is no need
+/// to supply bits outside this range though it is harmless to do so.  There is
+/// also no need to supply undefined bits inside the range.
+static BitSlice ViewAsBits(Constant *C, SignedRange R) {
+  if (R.empty())
+    return BitSlice();
 
   // Sanitize the range to make life easier in what follows.
   const Type *Ty = C->getType();
   int StoreSize = getTargetData().getTypeStoreSizeInBits(Ty);
-  First = First < 0 ? 0 : First;
-  Last = Last > StoreSize ? StoreSize : Last;
+  R = R.Meet(SignedRange(0, StoreSize));
 
   // Quick exit if it is clear that there are no bits in the range.
-  if (Last <= 0 || First >= StoreSize)
+  if (R.empty())
     return BitSlice();
   assert(StoreSize > 0 && "Empty range not eliminated?");
 
@@ -250,17 +321,18 @@ static BitSlice ViewAsBits(Constant *C, int First, int Last) {
     const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
     assert(Stride > 0 && "Store size smaller than alloc size?");
     // Elements with indices in [FirstElt, LastElt) overlap the range.
-    unsigned FirstElt = First / Stride;
-    unsigned LastElt = (Last + Stride - 1) / Stride;
+    unsigned FirstElt = R.getFirst() / Stride;
+    unsigned LastElt = (R.getLast() + Stride - 1) / Stride;
     assert(LastElt <= NumElts && "Store size bigger than array?");
     // Visit all elements that overlap the requested range, accumulating their
     // bits in Bits.
     BitSlice Bits;
+    SignedRange StrideRange(0, Stride);
     for (unsigned i = FirstElt; i < LastElt; ++i) {
       // Extract the element.
       Constant *Elt = TheFolder->CreateExtractValue(C, &i, 1);
       // View it as a bunch of bits.
-      BitSlice EltBits = ViewAsBits(Elt, 0, Stride);
+      BitSlice EltBits = ViewAsBits(Elt, StrideRange);
       // Add to the already known bits.
       Bits.Merge(EltBits.Displace(i * Stride));
     }
@@ -271,8 +343,8 @@ static BitSlice ViewAsBits(Constant *C, int First, int Last) {
     const StructType *STy = cast<StructType>(Ty);
     const StructLayout *SL = getTargetData().getStructLayout(STy);
     // Fields with indices in [FirstIdx, LastIdx) overlap the range.
-    unsigned FirstIdx = SL->getElementContainingOffset((First+7)/8);
-    unsigned LastIdx = 1 + SL->getElementContainingOffset((Last+6)/8);
+    unsigned FirstIdx = SL->getElementContainingOffset((R.getFirst()+7)/8);
+    unsigned LastIdx = 1 + SL->getElementContainingOffset((R.getLast()+6)/8);
     // Visit all fields that overlap the requested range, accumulating their
     // bits in Bits.
     BitSlice Bits;
@@ -282,7 +354,7 @@ static BitSlice ViewAsBits(Constant *C, int First, int Last) {
       // View it as a bunch of bits.
       const Type *FieldTy = Field->getType();
       unsigned FieldStoreSize = getTargetData().getTypeStoreSizeInBits(FieldTy);
-      BitSlice FieldBits = ViewAsBits(Field, 0, FieldStoreSize);
+      BitSlice FieldBits = ViewAsBits(Field, SignedRange(0, FieldStoreSize));
       // Add to the already known bits.
       Bits.Merge(FieldBits.Displace(SL->getElementOffset(i)*8));
     }
@@ -296,18 +368,19 @@ static BitSlice ViewAsBits(Constant *C, int First, int Last) {
     const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
     assert(Stride > 0 && "Store size smaller than alloc size?");
     // Elements with indices in [FirstElt, LastElt) overlap the range.
-    unsigned FirstElt = First / Stride;
-    unsigned LastElt = (Last + Stride - 1) / Stride;
+    unsigned FirstElt = R.getFirst() / Stride;
+    unsigned LastElt = (R.getLast() + Stride - 1) / Stride;
     assert(LastElt <= NumElts && "Store size bigger than vector?");
     // Visit all elements that overlap the requested range, accumulating their
     // bits in Bits.
     BitSlice Bits;
+    SignedRange StrideRange(0, Stride);
     for (unsigned i = FirstElt; i < LastElt; ++i) {
       // Extract the element.
       ConstantInt *Idx = ConstantInt::get(Type::getInt32Ty(Context), i);
       Constant *Elt = TheFolder->CreateExtractElement(C, Idx);
       // View it as a bunch of bits.
-      BitSlice EltBits = ViewAsBits(Elt, 0, Stride);
+      BitSlice EltBits = ViewAsBits(Elt, StrideRange);
       // Add to the already known bits.
       Bits.Merge(EltBits.Displace(i * Stride));
     }
@@ -321,7 +394,7 @@ static BitSlice ViewAsBits(Constant *C, int First, int Last) {
 /// same constant as you would get by storing the bits of 'C' to memory (with
 /// the first bit stored being 'StartingBit') and then loading out a (constant)
 /// value of type 'Ty' from the stored to memory location.
-Constant *InterpretAsType(Constant *C, const Type* Ty, unsigned StartingBit) {
+Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit) {
   if (C->getType() == Ty)
     return C;
 
@@ -334,14 +407,16 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, unsigned StartingBit) {
     // Convert the constant into a bunch of bits.  Only the bits to be "loaded"
     // out are needed, so rather than converting the entire constant this only
     // converts enough to get all of the required bits.
-    BitSlice Bits = ViewAsBits(C, StartingBit, StartingBit + StoreSize);
+    BitSlice Bits = ViewAsBits(C, SignedRange(StartingBit,
+                                              StartingBit + StoreSize));
     // Extract the bits used by the integer.  If the integer width is a multiple
     // of the address unit then the endianness of the target doesn't matter.  If
     // not then the padding bits come at the start on big-endian machines and at
     // the end on little-endian machines.
     Bits = Bits.Displace(-StartingBit);
     return BYTES_BIG_ENDIAN ?
-      Bits.getBits(StoreSize - BitWidth, StoreSize) : Bits.getBits(0, BitWidth);
+      Bits.getBits(SignedRange(StoreSize - BitWidth, StoreSize)) :
+      Bits.getBits(SignedRange(0, BitWidth));
   }
 
   case Type::PointerTyID: {
@@ -624,492 +699,280 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
   return ConstantStruct::get(Context, PadElts, 2, false);
 }
 
+/// FieldContents - A constant restricted to a range of bits.  Any part of the
+/// constant outside of the range is discarded.  The range may be bigger than
+/// the constant in which case any extra bits have an undefined value.
+class FieldContents {
+  SignedRange R; // The range of bits occupied by the constant.
+  Constant *C;   // The constant.  May be null, in which case all bits are zero.
+  int Starts;    // The first bit of the constant is positioned at this offset.
 
-namespace {
-/// ConstantLayoutInfo - A helper class used by ConvertRecordCONSTRUCTOR to
-/// lay out struct inits.
-struct ConstantLayoutInfo {
-  const TargetData &TD;
+  FieldContents(SignedRange r, Constant *c, int starts)
+    : R(r), C(c), Starts(starts) {}
 
-  /// ResultElts - The initializer elements so far.
-  std::vector<Constant*> ResultElts;
-
-  /// StructIsPacked - This is set to true if we find out that we have to emit
-  /// the ConstantStruct as a Packed LLVM struct type (because the LLVM
-  /// alignment rules would prevent laying out the struct correctly).
-  bool StructIsPacked;
-
-  /// NextFieldByteStart - This field indicates the *byte* that the next field
-  /// will start at.  Put another way, this is the size of the struct as
-  /// currently laid out, but without any tail padding considered.
-  uint64_t NextFieldByteStart;
-
-  /// MaxLLVMFieldAlignment - This is the largest alignment of any IR field,
-  /// which is the alignment that the ConstantStruct will get.
-  unsigned MaxLLVMFieldAlignment;
-
-
-  ConstantLayoutInfo(const TargetData &TD) : TD(TD) {
-    StructIsPacked = false;
-    NextFieldByteStart = 0;
-    MaxLLVMFieldAlignment = 1;
+  /// getAsBits - Return the bits in the range as an integer (or null if the
+  /// range is empty).
+  Constant *getAsBits() const {
+    if (R.empty())
+      return 0;
+    const Type *IntTy = IntegerType::get(Context, R.getWidth());
+    if (!C) // Implicit zero.
+      return Constant::getNullValue(IntTy);
+    return InterpretAsType(C, IntTy, R.getFirst() - Starts);
   }
 
-  void ConvertToPacked();
-  void AddFieldToRecordConstant(Constant *Val, uint64_t GCCFieldOffsetInBits);
-  void AddBitFieldToRecordConstant(ConstantInt *Val,
-                                   uint64_t GCCFieldOffsetInBits);
-  void HandleTailPadding(uint64_t GCCStructBitSize);
+  /// isSafeToReturnContentsDirectly - Return whether the current value for the
+  /// constant properly represents the bits in the range and so can be handed to
+  /// the user as is.
+  bool isSafeToReturnContentsDirectly(const TargetData &TD) const {
+    // Implicit zeros need to be made explicit before being passed to the user.
+    if (!C)
+      return false;
+    // If the first bit of the constant is not the first bit of the range then
+    // it needs to be displaced before being passed to the user.
+    if (!R.empty() && R.getFirst() != Starts)
+      return false;
+    // If the constant is wider than the range then it needs to be truncated
+    // before being passed to the user.
+    const Type *Ty = C->getType();
+    unsigned AllocBits = TD.getTypeAllocSizeInBits(Ty);
+    return AllocBits <= (unsigned)R.getWidth();
+  }
+
+public:
+  /// FieldContents - Default constructor: empty bit range.
+  FieldContents() : R(), C(0), Starts(0) {}
+
+  /// getConstant - Fill the range [first, last) with the given constant.
+  static FieldContents getConstant(int first, int last, Constant *c) {
+    return FieldContents(SignedRange(first, last), c, first);
+  }
+
+  /// getZero - Fill the range [first, last) with zero.
+  static FieldContents getZero(int first, int last) {
+    return getConstant(first, last, 0);
+  }
+
+  /// getRange - Return the range occupied by this field.
+  SignedRange getRange() const { return R; }
+
+  /// ChangeRangeTo - Change the range occupied by this field.
+  void ChangeRangeTo(SignedRange r) { R = r; }
+
+  /// JoinWith - Form the union of this field with another field (which must be
+  /// disjoint from this one).  After this the range will be the convex hull of
+  /// the ranges of the two fields.
+  void JoinWith(const FieldContents &S);
+
+  /// extractContents - Return the contained bits as a constant which contains
+  /// every defined bit in the range, yet is guaranteed to have alloc size no
+  /// larger than the width of the range.  Unlike the other methods for this
+  /// class, this one requires that the width of the range be a multiple of an
+  /// address unit, which usually means a multiple of 8.
+  Constant *extractContents(const TargetData &TD) {
+    /// If the current value for the constant can be used to represent the bits
+    /// in the range then just return it.
+    if (isSafeToReturnContentsDirectly(TD))
+      return C;
+    assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
+    unsigned Units = R.getWidth() / BITS_PER_UNIT;
+    // If this was an implicit zero then make it an explicit zero.  This also
+    // handles the case of an empty range holding a constant of non-zero size.
+    if (!C || R.empty()) {
+      // Return an array of zero bytes.  Remember the returned value as an
+      // optimization in case we are called again.
+      C = Constant::getNullValue(GetUnitType(Context, Units));
+      Starts = R.empty() ? 0 : R.getFirst();
+      assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
+      return C;
+    }
+    // Turn the contents into a bunch of bits.  Remember the returned value as
+    // an optimization in case we are called again.
+    // TODO: If the contents only need to be truncated and have struct or array
+    // type then we could try to do the truncation by dropping or modifying the
+    // last elements of the constant, maybe yielding something less horrible.
+    C = getAsBits();
+    Starts = R.getFirst();
+    if (isSafeToReturnContentsDirectly(TD))
+      return C;
+    // The integer type used to hold the bits was too big (for example an i24
+    // typically occupies 32 bits so is too big for a range of 24 bits).  Turn
+    // it into an array of bytes instead.
+    C = InterpretAsType(C, GetUnitType(Context, Units), 0);
+    assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
+    return C;
+  }
 };
 
-}
-
-/// ConvertToPacked - Given a partially constructed initializer for a LLVM
-/// struct constant, change it to make all the implicit padding between elements
-/// be fully explicit.
-void ConstantLayoutInfo::ConvertToPacked() {
-  assert(!StructIsPacked && "Struct is already packed");
-  uint64_t EltOffs = 0;
-  for (unsigned i = 0, e = ResultElts.size(); i != e; ++i) {
-    Constant *Val = ResultElts[i];
-
-    // Check to see if this element has an alignment that would cause it to get
-    // offset.  If so, insert explicit padding for the offset.
-    unsigned ValAlign = TD.getABITypeAlignment(Val->getType());
-    uint64_t AlignedEltOffs = TargetData::RoundUpAlignment(EltOffs, ValAlign);
-
-    // If the alignment doesn't affect the element offset, then the value is ok.
-    // Accept the field and keep moving.
-    if (AlignedEltOffs == EltOffs) {
-      EltOffs += TD.getTypeAllocSize(Val->getType());
-      continue;
-    }
-
-    // Otherwise, there is padding here.  Insert explicit zeros.
-    const Type *PadTy = Type::getInt8Ty(Context);
-    if (AlignedEltOffs-EltOffs != 1)
-      PadTy = ArrayType::get(PadTy, AlignedEltOffs-EltOffs);
-    ResultElts.insert(ResultElts.begin()+i,
-                      Constant::getNullValue(PadTy));
-
-    // The padding is now element "i" and just bumped us up to "AlignedEltOffs".
-    EltOffs = AlignedEltOffs;
-    ++e;  // One extra element to scan.
-  }
-
-  // Packed now!
-  MaxLLVMFieldAlignment = 1;
-  StructIsPacked = true;
-}
-
-
-/// AddFieldToRecordConstant - As ConvertRecordCONSTRUCTOR builds up an LLVM
-/// constant to represent a GCC CONSTRUCTOR node, it calls this method to add
-/// fields.  The design of this is that it adds leading/trailing padding as
-/// needed to make the piece fit together and honor the GCC layout.  This does
-/// not handle bitfields.
-///
-/// The arguments are:
-///   Val: The value to add to the struct, with a size that matches the size of
-///        the corresponding GCC field.
-///   GCCFieldOffsetInBits: The offset that we have to put Val in the result.
-///
-void ConstantLayoutInfo::
-AddFieldToRecordConstant(Constant *Val, uint64_t GCCFieldOffsetInBits) {
-  // Figure out how to add this non-bitfield value to our constant struct so
-  // that it ends up at the right offset.  There are four cases we have to
-  // think about:
-  //   1. We may be able to just slap it onto the end of our struct and have
-  //      everything be ok.
-  //   2. We may have to insert explicit padding into the LLVM struct to get
-  //      the initializer over into the right space.  This is needed when the
-  //      GCC field has a larger alignment than the LLVM field.
-  //   3. The LLVM field may be too far over and we may be forced to convert
-  //      this to an LLVM packed struct.  This is required when the LLVM
-  //      alignment is larger than the GCC alignment.
-  //   4. We may have a bitfield that needs to be merged into a previous
-  //      field.
-  // Start by determining which case we have by looking at where LLVM and GCC
-  // would place the field.
-
-  // Verified that we haven't already laid out bytes that will overlap with
-  // this new field.
-  assert(NextFieldByteStart*8 <= GCCFieldOffsetInBits &&
-         "Overlapping LLVM fields!");
-
-  // Compute the offset the field would get if we just stuck 'Val' onto the
-  // end of our structure right now.  It is NextFieldByteStart rounded up to
-  // the LLVM alignment of Val's type.
-  unsigned ValLLVMAlign = 1;
-
-  if (!StructIsPacked) { // Packed structs ignore the alignment of members.
-    ValLLVMAlign = TD.getABITypeAlignment(Val->getType());
-    MaxLLVMFieldAlignment = std::max(MaxLLVMFieldAlignment, ValLLVMAlign);
-  }
-
-  // LLVMNaturalByteOffset - This is where LLVM would drop the field if we
-  // slap it onto the end of the struct.
-  uint64_t LLVMNaturalByteOffset
-    = TargetData::RoundUpAlignment(NextFieldByteStart, ValLLVMAlign);
-
-  // If adding the LLVM field would push it over too far, then we must have a
-  // case that requires the LLVM struct to be packed.  Do it now if so.
-  if (LLVMNaturalByteOffset*8 > GCCFieldOffsetInBits) {
-    // Switch to packed.
-    ConvertToPacked();
-    assert(NextFieldByteStart*8 <= GCCFieldOffsetInBits &&
-           "Packing didn't fix the problem!");
-
-    // Recurse to add the field after converting to packed.
-    return AddFieldToRecordConstant(Val, GCCFieldOffsetInBits);
-  }
-
-  // If the LLVM offset is not large enough, we need to insert explicit
-  // padding in the LLVM struct between the fields.
-  if (LLVMNaturalByteOffset*8 < GCCFieldOffsetInBits) {
-    // Insert enough padding to fully fill in the hole.  Insert padding from
-    // NextFieldByteStart (not LLVMNaturalByteOffset) because the padding will
-    // not get the same alignment as "Val".
-    const Type *FillTy = Type::getInt8Ty(Context);
-    if (GCCFieldOffsetInBits/8-NextFieldByteStart != 1)
-      FillTy = ArrayType::get(FillTy,
-                              GCCFieldOffsetInBits/8-NextFieldByteStart);
-    ResultElts.push_back(Constant::getNullValue(FillTy));
-
-    NextFieldByteStart = GCCFieldOffsetInBits/8;
-
-    // Recurse to add the field.  This handles the case when the LLVM struct
-    // needs to be converted to packed after inserting tail padding.
-    return AddFieldToRecordConstant(Val, GCCFieldOffsetInBits);
-  }
-
-  // Slap 'Val' onto the end of our ConstantStruct, it must be known to land
-  // at the right offset now.
-  assert(LLVMNaturalByteOffset*8 == GCCFieldOffsetInBits);
-  ResultElts.push_back(Val);
-  NextFieldByteStart = LLVMNaturalByteOffset;
-  NextFieldByteStart += TD.getTypeAllocSize(Val->getType());
-}
-
-/// AddBitFieldToRecordConstant - Bitfields can span multiple LLVM fields and
-/// have other annoying properties, thus requiring extra layout rules.  This
-/// routine handles the extra complexity and then forwards to
-/// AddFieldToRecordConstant.
-void ConstantLayoutInfo::
-AddBitFieldToRecordConstant(ConstantInt *ValC, uint64_t GCCFieldOffsetInBits) {
-  // If the GCC field starts after our current LLVM field then there must have
-  // been an anonymous bitfield or other thing that shoved it over.  No matter,
-  // just insert some i8 padding until there are bits to fill in.
-  while (GCCFieldOffsetInBits > NextFieldByteStart*8) {
-    ResultElts.push_back(ConstantInt::get(Type::getInt8Ty(Context), 0));
-    ++NextFieldByteStart;
-  }
-
-  // If the field is a bitfield, it could partially go in a previously
-  // laid out structure member, and may add elements to the end of the currently
-  // laid out structure.
-  //
-  // Since bitfields can only partially overlap other bitfields, because we
-  // always emit components of bitfields as i8, and because we never emit tail
-  // padding until we know it exists, this boils down to merging pieces of the
-  // bitfield values into i8's.  This is also simplified by the fact that
-  // bitfields can only be initialized by ConstantInts.  An interesting case is
-  // sharing of tail padding in C++ structures.  Because this can only happen
-  // in inheritance cases, and those are non-POD, we should never see them here.
-
-  // First handle any part of Val that overlaps an already laid out field by
-  // merging it into it.  By the above invariants, we know that it is an i8 that
-  // we are merging into.  Note that we may be inserting *all* of Val into the
-  // previous field.
-  if (GCCFieldOffsetInBits < NextFieldByteStart*8) {
-    unsigned ValBitSize = ValC->getBitWidth();
-    assert(!ResultElts.empty() && "Bitfield starts before first element?");
-    assert(ResultElts.back()->getType()->isIntegerTy(8) &&
-           isa<ConstantInt>(ResultElts.back()) &&
-           "Merging bitfield with non-bitfield value?");
-    assert(NextFieldByteStart*8 - GCCFieldOffsetInBits < 8 &&
-           "Bitfield overlaps backwards more than one field?");
-
-    // Figure out how many bits can fit into the previous field given the
-    // starting point in that field.
-    unsigned BitsInPreviousField =
-      unsigned(NextFieldByteStart*8 - GCCFieldOffsetInBits);
-    assert(BitsInPreviousField != 0 && "Previous field should not be null!");
-
-    // Split the bits that will be inserted into the previous element out of
-    // Val into a new constant.  If Val is completely contained in the previous
-    // element, this sets Val to null, otherwise we shrink Val to contain the
-    // bits to insert in the next element.
-    APInt ValForPrevField(ValC->getValue());
-    if (BitsInPreviousField >= ValBitSize) {
-      // The whole field fits into the previous field.
-      ValC = 0;
-    } else if (!BYTES_BIG_ENDIAN) {
-      // Little endian, take bits from the bottom of the field value.
-      ValForPrevField = ValForPrevField.trunc(BitsInPreviousField);
-      APInt Tmp = ValC->getValue();
-      Tmp = Tmp.lshr(BitsInPreviousField);
-      Tmp = Tmp.trunc(ValBitSize-BitsInPreviousField);
-      ValC = ConstantInt::get(Context, Tmp);
-    } else {
-      // Big endian, take bits from the top of the field value.
-      ValForPrevField = ValForPrevField.lshr(ValBitSize-BitsInPreviousField);
-      ValForPrevField = ValForPrevField.trunc(BitsInPreviousField);
-
-      APInt Tmp = ValC->getValue();
-      Tmp = Tmp.trunc(ValBitSize-BitsInPreviousField);
-      ValC = ConstantInt::get(Context, Tmp);
-    }
-
-    // Okay, we're going to insert ValForPrevField into the previous i8, extend
-    // it and shift into place.
-    ValForPrevField = ValForPrevField.zext(8);
-    if (!BYTES_BIG_ENDIAN) {
-      ValForPrevField = ValForPrevField.shl(8-BitsInPreviousField);
-    } else {
-      // On big endian, if the entire field fits into the remaining space, shift
-      // over to not take part of the next field's bits.
-      if (BitsInPreviousField > ValBitSize)
-        ValForPrevField = ValForPrevField.shl(BitsInPreviousField-ValBitSize);
-    }
-
-    // "or" in the previous value and install it.
-    const APInt &LastElt = cast<ConstantInt>(ResultElts.back())->getValue();
-    ResultElts.back() = ConstantInt::get(Context, ValForPrevField | LastElt);
-
-    // If the whole bit-field fit into the previous field, we're done.
-    if (ValC == 0) return;
-    GCCFieldOffsetInBits = NextFieldByteStart*8;
-  }
-
-  APInt Val = ValC->getValue();
-
-  // Okay, we know that we're plopping bytes onto the end of the struct.
-  // Iterate while there is stuff to do.
-  while (1) {
-    ConstantInt *ValToAppend;
-    if (Val.getBitWidth() > 8) {
-      if (!BYTES_BIG_ENDIAN) {
-        // Little endian lays out low bits first.
-        APInt Tmp = Val.trunc(8);
-        ValToAppend = ConstantInt::get(Context, Tmp);
-
-        Val = Val.lshr(8);
-      } else {
-        // Big endian lays out high bits first.
-        APInt Tmp = Val.lshr(Val.getBitWidth()-8).trunc(8);
-        ValToAppend = ConstantInt::get(Context, Tmp);
-      }
-    } else if (Val.getBitWidth() == 8) {
-      ValToAppend = ConstantInt::get(Context, Val);
-    } else {
-      APInt Tmp = Val.zext(8);
-
-      if (BYTES_BIG_ENDIAN)
-        Tmp = Tmp << 8-Val.getBitWidth();
-      ValToAppend = ConstantInt::get(Context, Tmp);
-    }
-
-    ResultElts.push_back(ValToAppend);
-    ++NextFieldByteStart;
-
-    if (Val.getBitWidth() <= 8)
-      break;
-    Val = Val.trunc(Val.getBitWidth()-8);
-  }
-}
-
-
-/// HandleTailPadding - Check to see if the struct fields, as laid out so far,
-/// will be large enough to make the generated constant struct have the right
-/// size.  If not, add explicit tail padding.  If rounding up based on the LLVM
-/// IR alignment would make the struct too large, convert it to a packed LLVM
-/// struct.
-void ConstantLayoutInfo::HandleTailPadding(uint64_t GCCStructBitSize) {
-  uint64_t GCCStructSize = (GCCStructBitSize+7)/8;
-  uint64_t LLVMNaturalSize =
-    TargetData::RoundUpAlignment(NextFieldByteStart, MaxLLVMFieldAlignment);
-
-  // If the total size of the laid out data is within the size of the GCC type
-  // but the rounded-up size (including the tail padding induced by LLVM
-  // alignment) is too big, convert to a packed struct type.  We don't do this
-  // if the size of the laid out fields is too large because initializers like
-  //
-  //    struct X { int A; char C[]; } x = { 4, "foo" };
-  //
-  // can occur and no amount of packing will help.
-  if (NextFieldByteStart <= GCCStructSize &&   // Not flexible init case.
-      LLVMNaturalSize > GCCStructSize) {       // Tail pad will overflow type.
-    assert(!StructIsPacked && "LLVM Struct type overflow!");
-
-    // Switch to packed.
-    ConvertToPacked();
-    LLVMNaturalSize = NextFieldByteStart;
-
-    // Verify that packing solved the problem.
-    assert(LLVMNaturalSize <= GCCStructSize &&
-           "Oversized should be handled by packing");
-  }
-
-  // If the LLVM Size is too small, add some tail padding to fill it in.
-  if (LLVMNaturalSize < GCCStructSize) {
-    const Type *FillTy = Type::getInt8Ty(Context);
-    if (GCCStructSize - NextFieldByteStart != 1)
-      FillTy = ArrayType::get(FillTy, GCCStructSize - NextFieldByteStart);
-    ResultElts.push_back(Constant::getNullValue(FillTy));
-    NextFieldByteStart = GCCStructSize;
-
-    // At this point, we know that our struct should have the right size.
-    // However, if the size of the struct is not a multiple of the largest
-    // element alignment, the rounding could bump up the struct more.  In this
-    // case, we have to convert the struct to being packed.
-    LLVMNaturalSize =
-      TargetData::RoundUpAlignment(NextFieldByteStart, MaxLLVMFieldAlignment);
-
-    // If the alignment will make the struct too big, convert it to being
-    // packed.
-    if (LLVMNaturalSize > GCCStructSize) {
-      assert(!StructIsPacked && "LLVM Struct type overflow!");
-      ConvertToPacked();
-    }
-  }
+/// JoinWith - Form the union of this field with another field (which must be
+/// disjoint from this one).  After this the range will be the convex hull of
+/// the ranges of the two fields.
+void FieldContents::JoinWith(const FieldContents &S) {
+  // Consider the contents of the fields to be bunches of bits and paste them
+  // together.  This can result in a nasty integer constant expression, but as
+  // we only get here for bitfields that's mostly harmless.
+  BitSlice Bits(R, getAsBits());
+  Bits.Merge (BitSlice(S.R, S.getAsBits()));
+  R = Bits.getRange();
+  C = Bits.getBits(R);
+  Starts = R.empty() ? 0 : R.getFirst();
 }
 
 static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
-  ConstantLayoutInfo LayoutInfo(getTargetData());
+  // FIXME: This new logic, especially the handling of bitfields, is untested
+  // and probably wrong on big-endian machines.
+  IntervalList<FieldContents, int, 8> Layout;
+  const TargetData &TD = getTargetData();
+  uint64_t TypeSize = TD.getTypeAllocSizeInBits(ConvertType(TREE_TYPE(exp)));
 
-  tree NextField = TYPE_FIELDS(TREE_TYPE(exp));
-  unsigned HOST_WIDE_INT CtorIndex;
-  tree FieldValue;
-  tree Field; // The FIELD_DECL for the field.
-  FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(exp), CtorIndex, Field, FieldValue){
-    // If an explicit field is specified, use it.
-    if (Field == 0) {
-      Field = NextField;
-      // Advance to the next FIELD_DECL, skipping over other structure members
-      // (e.g. enums).
-      while (1) {
-        assert(Field && "Fell off end of record!");
-        if (TREE_CODE(Field) == FIELD_DECL) break;
-        Field = TREE_CHAIN(Field);
+  // Ensure that fields without an initial value are default initialized by
+  // explicitly setting the starting value for all fields to be zero.  If an
+  // initial value is supplied for a field then the value will overwrite and
+  // replace the zero starting value later.
+  if (flag_default_initialize_globals) {
+    for (tree field = TYPE_FIELDS(TREE_TYPE(exp)); field;
+         field = TREE_CHAIN(field)) {
+      // Skip contained methods, types etc.
+      if (TREE_CODE(field) != FIELD_DECL)
+        continue;
+      // If the field has variable or unknown position then it cannot be default
+      // initialized - skip it.
+      if (!OffsetIsLLVMCompatible(field))
+        continue;
+      uint64_t FirstBit = getFieldOffsetInBits(field);
+      assert(FirstBit <= TypeSize && "Field off end of type!");
+      // Determine the width of the field.
+      uint64_t BitWidth;
+      if (DECL_SIZE(field) && isInt64(DECL_SIZE(field), true)) {
+        // The field has a size and it is a constant, so use it.  Note that
+        // this size may be smaller than the type size.  For example, if the
+        // next field starts inside alignment padding at the end of this one
+        // then DECL_SIZE will be the size with the padding used by the next
+        // field not included.
+        BitWidth = getInt64(DECL_SIZE(field), true);
+      } else {
+        // If the field has variable or unknown size then use the size of the
+        // LLVM type instead as it gives the minimum size the field may have.
+        const Type *FieldTy = ConvertType(TREE_TYPE(field));
+        if (!FieldTy->isSized())
+          // An incomplete type - this field cannot be default initialized.
+          continue;
+        BitWidth = TD.getTypeAllocSizeInBits(FieldTy);
+        if (FirstBit + BitWidth > TypeSize)
+          BitWidth = TypeSize - FirstBit;
       }
-    }
+      uint64_t LastBit = FirstBit + BitWidth;
 
-    // Decode the field's value.
-    Constant *Val = ConvertInitializer(FieldValue);
-
-    // GCCFieldOffsetInBits is where GCC is telling us to put the current field.
-    uint64_t GCCFieldOffsetInBits = getFieldOffsetInBits(Field);
-    NextField = TREE_CHAIN(Field);
-
-    uint64_t FieldSizeInBits = 0;
-    if (DECL_SIZE(Field))
-      FieldSizeInBits = getInt64(DECL_SIZE(Field), true);
-    uint64_t ValueSizeInBits = Val->getType()->getPrimitiveSizeInBits();
-    ConstantInt *ValC = dyn_cast<ConstantInt>(Val);
-    if (ValC && ValC->isZero() && DECL_SIZE(Field)) {
-      // G++ has various bugs handling {} initializers where it doesn't
-      // synthesize a zero node of the right type.  Instead of figuring out G++,
-      // just hack around it by special casing zero and allowing it to be the
-      // wrong size.
-      if (ValueSizeInBits != FieldSizeInBits) {
-        APInt ValAsInt = ValC->getValue();
-        ValC = ConstantInt::get(Context, ValueSizeInBits < FieldSizeInBits ?
-                                         ValAsInt.zext(FieldSizeInBits) :
-                                         ValAsInt.trunc(FieldSizeInBits));
-        ValueSizeInBits = FieldSizeInBits;
-        Val = ValC;
-      }
-    }
-
-    // If this is a non-bitfield value, just slap it onto the end of the struct
-    // with the appropriate padding etc.  If it is a bitfield, we have more
-    // processing to do.
-    if (!isBitfield(Field))
-      LayoutInfo.AddFieldToRecordConstant(Val, GCCFieldOffsetInBits);
-    else {
-      // Bitfields can only be initialized with constants (integer constant
-      // expressions).
-      assert(ValC);
-      assert(DECL_SIZE(Field));
-      assert(ValueSizeInBits >= FieldSizeInBits &&
-             "disagreement between LLVM and GCC on bitfield size");
-      if (ValueSizeInBits != FieldSizeInBits) {
-        // Fields are allowed to be smaller than their type.  Simply discard
-        // the unwanted upper bits in the field value.
-        APInt ValAsInt = ValC->getValue();
-        ValC = ConstantInt::get(Context, ValAsInt.trunc(FieldSizeInBits));
-      }
-      LayoutInfo.AddBitFieldToRecordConstant(ValC, GCCFieldOffsetInBits);
+      // Zero the bits occupied by the field.
+      Layout.AddInterval(FieldContents::getZero(FirstBit, LastBit));
     }
   }
 
-  // Check to see if the struct fields, as laid out so far, will be large enough
-  // to make the generated constant struct have the right size.  If not, add
-  // explicit tail padding.  If rounding up based on the LLVM IR alignment would
-  // make the struct too large, convert it to a packed LLVM struct.
-  tree StructTypeSizeTree = TYPE_SIZE(TREE_TYPE(exp));
-  if (StructTypeSizeTree && TREE_CODE(StructTypeSizeTree) == INTEGER_CST)
-    LayoutInfo.HandleTailPadding(getInt64(StructTypeSizeTree, true));
+  // For each field for which an initial value was specified, set the bits
+  // occupied by the field to that value.
+  unsigned HOST_WIDE_INT idx;
+  tree field, next_field, value;
+  next_field = TYPE_FIELDS(TREE_TYPE(exp));
+  FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(exp), idx, field, value) {
+    if (!field) {
+      // Move on to the next FIELD_DECL, skipping contained methods, types etc.
+      field = next_field;
+      while (1) {
+        assert(field && "Fell off end of record!");
+        if (TREE_CODE(field) == FIELD_DECL) break;
+        field = TREE_CHAIN(field);
+      }
+    }
+    next_field = TREE_CHAIN(field);
+
+    assert(TREE_CODE(field) == FIELD_DECL && "Initial value not for a field!");
+    assert(OffsetIsLLVMCompatible(field) && "Field position not known!");
+    // Turn the initial value for this field into an LLVM constant.
+    Constant *Init = ConvertInitializer(value);
+    // Work out the range of bits occupied by the field.
+    uint64_t FirstBit = getFieldOffsetInBits(field);
+    assert(FirstBit <= TypeSize && "Field off end of type!");
+    // If a size was specified for the field then use it.  Otherwise take the
+    // size from the initial value.
+    uint64_t BitWidth = DECL_SIZE(field) && isInt64(DECL_SIZE(field), true) ?
+      getInt64(DECL_SIZE(field), true) :
+      TD.getTypeAllocSizeInBits(Init->getType());
+    uint64_t LastBit = FirstBit + BitWidth;
+
+    // Set the bits occupied by the field to the initial value.
+    Layout.AddInterval(FieldContents::getConstant(FirstBit, LastBit, Init));
+  }
+
+  // Force all fields to begin and end on a byte boundary.  This automagically
+  // takes care of bitfields.
+  Layout.AlignBoundaries(BITS_PER_UNIT);
+
+  // Determine whether to return a packed struct.  If returning an ordinary
+  // struct would result in an initializer that is more aligned than its GCC
+  // type then return a packed struct instead.  If a field's alignment would
+  // make it start after its desired position then also use a packed struct.
+  bool Pack = false;
+  unsigned MaxAlign = TYPE_ALIGN(TREE_TYPE(exp));
+  for (unsigned i = 0, e = Layout.getNumIntervals(); i != e; ++i) {
+    FieldContents F = Layout.getInterval(i);
+    unsigned First = F.getRange().getFirst();
+    Constant *Val = F.extractContents(TD);
+    unsigned Alignment = TD.getABITypeAlignment(Val->getType()) * 8;
+    if (Alignment > MaxAlign || First % Alignment) {
+      Pack = true;
+      break;
+    }
+  }
+
+  // Create the elements that will make up the struct.  As well as the fields
+  // themselves there may also be padding elements.
+  std::vector<Constant*> Elts;
+  Elts.reserve(Layout.getNumIntervals());
+  unsigned EndOfPrevious = 0; // Offset of first bit after previous element.
+  for (unsigned i = 0, e = Layout.getNumIntervals(); i != e; ++i) {
+    FieldContents F = Layout.getInterval(i);
+    unsigned First = F.getRange().getFirst();
+    Constant *Val = F.extractContents(TD);
+    assert(EndOfPrevious <= First && "Previous field too big!");
+
+    // If there is a gap then we may need to fill it with padding.
+    if (First > EndOfPrevious) {
+      // There is a gap between the end of the previous field and the start of
+      // this one.  The alignment of the field contents may mean that it will
+      // start at the right offset anyway, but if not then insert padding.
+      bool NeedPadding = true;
+      if (!Pack) {
+        // If the field's alignment will take care of the gap then there is no
+        // need for padding.
+        unsigned Alignment = TD.getABITypeAlignment(Val->getType()) * 8;
+        if (First == (EndOfPrevious + Alignment - 1) / Alignment * Alignment)
+          NeedPadding = false;
+      }
+      if (NeedPadding) {
+        // Fill the gap with undefined bytes.
+        assert((First - EndOfPrevious) % BITS_PER_UNIT == 0 &&
+               "Non-unit field boundaries!");
+        unsigned Units = (First - EndOfPrevious) / BITS_PER_UNIT;
+        Elts.push_back(UndefValue::get(GetUnitType(Context, Units)));
+      }
+    }
+
+    // Append the field.
+    Elts.push_back(Val);
+    EndOfPrevious = First + TD.getTypeAllocSizeInBits(Val->getType());
+  }
+
+  // We guarantee that initializers are always at least as big as the LLVM type
+  // for the initializer.  If needed, append padding to ensure this.
+  if (EndOfPrevious < TypeSize) {
+    assert((TypeSize - EndOfPrevious) % BITS_PER_UNIT == 0 &&
+           "Non-unit type size?");
+    unsigned Units = (TypeSize - EndOfPrevious) / BITS_PER_UNIT;
+    Elts.push_back(UndefValue::get(GetUnitType(Context, Units)));
+  }
 
   // Okay, we're done, return the computed elements.
-  return ConstantStruct::get(Context, LayoutInfo.ResultElts,
-                             LayoutInfo.StructIsPacked);
-}
-
-static Constant *ConvertUnionCONSTRUCTOR(tree exp) {
-  assert(!VEC_empty(constructor_elt, CONSTRUCTOR_ELTS(exp))
-         && "Union CONSTRUCTOR has no elements? Zero?");
-
-  VEC(constructor_elt, gc) *elt = CONSTRUCTOR_ELTS(exp);
-  assert(VEC_length(constructor_elt, elt) == 1
-         && "Union CONSTRUCTOR with multiple elements?");
-
-  ConstantLayoutInfo LayoutInfo(getTargetData());
-
-  // Convert the constant itself.
-  Constant *Val = ConvertInitializer(VEC_index(constructor_elt, elt, 0)->value);
-
-  // Unions are initialized using the first member field.  Find it.
-  tree Field = TYPE_FIELDS(TREE_TYPE(exp));
-  assert(Field && "cannot initialize union with no fields");
-  while (TREE_CODE(Field) != FIELD_DECL) {
-    Field = TREE_CHAIN(Field);
-    assert(Field && "cannot initialize union with no fields");
-  }
-
-  // If this is a non-bitfield value, just slap it onto the end of the struct
-  // with the appropriate padding etc.  If it is a bitfield, we have more
-  // processing to do.
-  if (!isBitfield(Field))
-    LayoutInfo.AddFieldToRecordConstant(Val, 0);
-  else {
-    // Bitfields can only be initialized with constants (integer constant
-    // expressions).
-    ConstantInt *ValC = cast<ConstantInt>(Val);
-    uint64_t FieldSizeInBits = getInt64(DECL_SIZE(Field), true);
-    uint64_t ValueSizeInBits = Val->getType()->getPrimitiveSizeInBits();
-
-    assert(ValueSizeInBits >= FieldSizeInBits &&
-           "disagreement between LLVM and GCC on bitfield size");
-    if (ValueSizeInBits != FieldSizeInBits) {
-      // Fields are allowed to be smaller than their type.  Simply discard
-      // the unwanted upper bits in the field value.
-      APInt ValAsInt = ValC->getValue();
-      ValC = ConstantInt::get(Context, ValAsInt.trunc(FieldSizeInBits));
-    }
-    LayoutInfo.AddBitFieldToRecordConstant(ValC, 0);
-  }
-
-  // If the union has a fixed size, and if the value we converted isn't large
-  // enough to fill all the bits, add a zero initialized array at the end to pad
-  // it out.
-  tree UnionTypeSizeTree = TYPE_SIZE(TREE_TYPE(exp));
-  if (UnionTypeSizeTree && TREE_CODE(UnionTypeSizeTree) == INTEGER_CST)
-    LayoutInfo.HandleTailPadding(getInt64(UnionTypeSizeTree, true));
-
-  return ConstantStruct::get(Context, LayoutInfo.ResultElts,
-                             LayoutInfo.StructIsPacked);
+  return ConstantStruct::get(Context, Elts, Pack);
 }
 
 static Constant *ConvertCONSTRUCTOR(tree exp) {
@@ -1126,9 +989,9 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
     assert(0 && "Unknown ctor!");
   case VECTOR_TYPE:
   case ARRAY_TYPE:  return ConvertArrayCONSTRUCTOR(exp);
-  case RECORD_TYPE: return ConvertRecordCONSTRUCTOR(exp);
   case QUAL_UNION_TYPE:
-  case UNION_TYPE:  return ConvertUnionCONSTRUCTOR(exp);
+  case RECORD_TYPE:
+  case UNION_TYPE: return ConvertRecordCONSTRUCTOR(exp);
   }
 }
 
