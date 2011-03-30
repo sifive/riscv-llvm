@@ -908,7 +908,6 @@ void TreeToLLVM::PopulatePhiNodes() {
     }
 
     // Add the operands to the phi node.
-    P.PHI->reserveOperandSpace(PhiArguments.size());
     for (ValueVector::iterator I = PhiArguments.begin(), E = PhiArguments.end();
          I != E; ++I)
       P.PHI->addIncoming(I->second, I->first);
@@ -1102,7 +1101,7 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
 
     // Create the LLVM phi node.
     const Type *Ty = GetRegType(TREE_TYPE(gimple_phi_result(gcc_phi)));
-    PHINode *PHI = Builder.CreatePHI(Ty);
+    PHINode *PHI = Builder.CreatePHI(Ty, gimple_phi_num_args(gcc_phi));
 
     // The phi defines the associated ssa name.
     tree name = gimple_phi_result(gcc_phi);
@@ -1967,8 +1966,8 @@ void TreeToLLVM::EmitLandingPads() {
       if (InVal == 0) {
         // Different unwind edges have different values.  Create a new PHI node
         // in LPad.
-        PHINode *NewPN = PHINode::Create(PN->getType(), PN->getName()+".lpad",
-                                         LPad);
+        PHINode *NewPN = PHINode::Create(PN->getType(), std::distance(PB, PE),
+                                         PN->getName()+".lpad", LPad);
         // Add an entry for each unwind edge, using the value from the old PHI.
         for (pred_iterator PI = PB; PI != PE; ++PI)
           NewPN->addIncoming(PN->getIncomingValueForBlock(*PI), *PI);
