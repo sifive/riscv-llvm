@@ -578,6 +578,10 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
 
   // If we have a lower bound for the range of the type, get it.
   tree init_type = TREE_TYPE(exp);
+  tree elt_type = TREE_TYPE(init_type);
+  const Type *EltTy = ConvertType(elt_type);
+  bool EltIsSigned = !TYPE_UNSIGNED(elt_type);
+
   tree min_element = size_zero_node;
   std::vector<Constant*> ResultElts;
 
@@ -606,6 +610,18 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (exp), ix, elt_index, elt_value) {
     // Find and decode the constructor's value.
     Constant *Val = ConvertInitializer(elt_value);
+
+    // If needed, cast the value to the type of the array element.
+    if (TREE_TYPE(elt_value) != elt_type && !AGGREGATE_TYPE_P(elt_type) &&
+        !AGGREGATE_TYPE_P(TREE_TYPE(elt_value))) {
+      const Type *ValTy = ConvertType(TREE_TYPE(elt_value));
+      Val = InterpretAsType(Val, ValTy, 0);
+      bool ValIsSigned = !TYPE_UNSIGNED(TREE_TYPE(elt_value));
+      Instruction::CastOps opcode = CastInst::getCastOpcode(Val, ValIsSigned,
+                                                            EltTy, EltIsSigned);
+      Val = TheFolder->CreateCast(opcode, Val, EltTy);
+    }
+
     SomeVal = Val;
 
     // Get the index position of the element within the array.  Note that this
