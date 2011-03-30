@@ -1330,18 +1330,39 @@ void TreeToLLVM::TODO(tree exp) {
 /// CastToAnyType - Cast the specified value to the specified type making no
 /// assumptions about the types of the arguments. This creates an inferred cast.
 Value *TreeToLLVM::CastToAnyType(Value *V, bool VisSigned,
-                                 const Type* Ty, bool TyIsSigned) {
+                                 const Type* DestTy, bool DestIsSigned) {
+  const Type *SrcTy = V->getType();
+
   // Eliminate useless casts of a type to itself.
-  if (V->getType() == Ty)
+  if (SrcTy == DestTy)
     return V;
+
+  // Check whether the cast needs to be done in two steps, for example a pointer
+  // to float cast requires converting the pointer to an integer before casting
+  // to the float.
+  if (!CastInst::isCastable(SrcTy, DestTy)) {
+    unsigned SrcBits = SrcTy->getScalarSizeInBits();
+    unsigned DestBits = DestTy->getScalarSizeInBits();
+    if (SrcBits && !isa<IntegerType>(SrcTy)) {
+      const Type *IntTy = IntegerType::get(Context, SrcBits);
+      V = Builder.CreateBitCast(V, IntTy);
+      return CastToAnyType(V, VisSigned, DestTy, DestIsSigned);
+    }
+    if (DestBits && !isa<IntegerType>(DestTy)) {
+      const Type *IntTy = IntegerType::get(Context, DestBits);
+      V = CastToAnyType(V, VisSigned, IntTy, DestIsSigned);
+      return Builder.CreateBitCast(V, DestTy);
+    }
+    assert(false && "Unable to cast between these types!");
+  }
 
   // The types are different so we must cast. Use getCastOpcode to create an
   // inferred cast opcode.
   Instruction::CastOps opc =
-    CastInst::getCastOpcode(V, VisSigned, Ty, TyIsSigned);
+    CastInst::getCastOpcode(V, VisSigned, DestTy, DestIsSigned);
 
   // Generate the cast and return it.
-  return Builder.CreateCast(opc, V, Ty);
+  return Builder.CreateCast(opc, V, DestTy);
 }
 
 /// CastToFPType - Cast the specified value to the specified type assuming
