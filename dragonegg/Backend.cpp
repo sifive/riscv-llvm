@@ -1010,10 +1010,6 @@ static void emit_global(tree decl) {
     const Type *Ty = ConvertType(TREE_TYPE(decl));
     Init = getDefaultValue(Ty);
   } else {
-    assert((TREE_CONSTANT(DECL_INITIAL(decl)) ||
-            TREE_CODE(DECL_INITIAL(decl)) == STRING_CST) &&
-           "Global initializer should be constant!");
-
     // Temporarily set an initializer for the global, so we don't infinitely
     // recurse.  If we don't do this, we can hit cases where we see "oh a global
     // with an initializer hasn't been initialized yet, call emit_global on it".

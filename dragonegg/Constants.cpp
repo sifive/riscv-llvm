@@ -1063,8 +1063,6 @@ static Constant *ConvertVIEW_CONVERT_EXPR(tree exp) {
 /// that it has the same alloc size as the original expression and has alignment
 /// equal to or less than that of the original expression.
 Constant *ConvertInitializer(tree exp) {
-  assert(TREE_CONSTANT(exp) && "Isn't a constant!");
-
   Constant *Init;
   switch (TREE_CODE(exp)) {
   default:
