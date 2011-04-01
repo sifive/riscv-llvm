@@ -879,7 +879,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
       assert(FirstBit <= TypeSize && "Field off end of type!");
       // Determine the width of the field.
       uint64_t BitWidth;
-      if (DECL_SIZE(field) && isInt64(DECL_SIZE(field), true)) {
+      if (isInt64(DECL_SIZE(field), true)) {
         // The field has a size and it is a constant, so use it.  Note that
         // this size may be smaller than the type size.  For example, if the
         // next field starts inside alignment padding at the end of this one
@@ -930,7 +930,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
     assert(FirstBit <= TypeSize && "Field off end of type!");
     // If a size was specified for the field then use it.  Otherwise take the
     // size from the initial value.
-    uint64_t BitWidth = DECL_SIZE(field) && isInt64(DECL_SIZE(field), true) ?
+    uint64_t BitWidth = isInt64(DECL_SIZE(field), true) ?
       getInt64(DECL_SIZE(field), true) :
       TD.getTypeAllocSizeInBits(Init->getType());
     uint64_t LastBit = FirstBit + BitWidth;
@@ -1080,8 +1080,12 @@ static Constant *ConvertVIEW_CONVERT_EXPR(tree exp) {
 /// ConvertInitializer - Convert the initial value for a global variable to an
 /// equivalent LLVM constant.  Also handles constant constructors.  The type of
 /// the returned value may be pretty much anything.  All that is guaranteed is
-/// that it has the same alloc size as the original expression and has alignment
-/// equal to or less than that of the original expression.
+/// that its alloc size is equal to the size of the initial value and that its
+/// alignment is less than or equal to the initial value's GCC type alignment.
+/// Note that the GCC type may have variable size or no size, in which case the
+/// size is determined by the initial value.  When this happens the size of the
+/// initial value may exceed the alloc size of the LLVM memory type generated
+/// for the GCC type (see ConvertType); it is never smaller than the alloc size.
 Constant *ConvertInitializer(tree exp) {
   Constant *Init;
   switch (TREE_CODE(exp)) {
@@ -1122,13 +1126,28 @@ Constant *ConvertInitializer(tree exp) {
     break;
   }
 
-  assert((!ConvertType(TREE_TYPE(exp))->isSized() ||
-          getTargetData().getTypeAllocSizeInBits(ConvertType(TREE_TYPE(exp))) <=
-          getTargetData().getTypeAllocSizeInBits(Init->getType())) &&
-         "Constant too small for type!");
+#ifndef NDEBUG
+  // Check that the guarantees we make about the returned value actually hold.
+  // The initializer should always be at least as big as the constructor's type,
+  // and except in the cases of incomplete types or types with variable size the
+  // sizes should be the same.
+  const Type *Ty = ConvertType(TREE_TYPE(exp));
+  if (Ty->isSized()) {
+    uint64_t InitSize = getTargetData().getTypeAllocSizeInBits(Init->getType());
+    uint64_t TypeSize = getTargetData().getTypeAllocSizeInBits(Ty);
+    if (InitSize < TypeSize) {
+      debug_tree(exp);
+      llvm_unreachable("Constant too small for type!");
+    }
+    if (isInt64(TREE_TYPE(exp), true) && InitSize != TypeSize) {
+      debug_tree(exp);
+      llvm_unreachable("Constant too big for type!");
+    }
+  }
 // FIXME: This check fails when building libdecnumber (self-host build).
 //  assert(getTargetData().getABITypeAlignment(Init->getType()) * 8 <=
 //         TYPE_ALIGN(TREE_TYPE(exp)) && "Constant over aligned!");
+#endif
 
   return Init;
 }
