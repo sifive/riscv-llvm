@@ -482,6 +482,40 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit) {
 //                       ... ConvertInitializer ...
 //===----------------------------------------------------------------------===//
 
+/// ConvertInitializerWithCast - Convert the initial value for a global variable
+/// to an equivalent LLVM constant then cast to the given type if both the type
+/// and the initializer are scalar.  This is convenient for making explicit the
+/// implicit scalar casts that GCC allows in "assignments" such as initializing
+/// a record field.
+static Constant *ConvertInitializerWithCast(tree exp, tree type) {
+  // Convert the initializer.
+  Constant *C = ConvertInitializer(exp);
+
+  // If no cast is needed, or it would not be a scalar cast, then just return
+  // the initializer as is.
+  if (type == TREE_TYPE(exp) || AGGREGATE_TYPE_P(TREE_TYPE(exp)) ||
+      AGGREGATE_TYPE_P(type))
+    return C;
+  const Type *SrcTy = ConvertType(TREE_TYPE(exp));
+  const Type *DestTy = ConvertType(type);
+  // LLVM types are often the same even when the GCC types differ.
+  if (SrcTy == DestTy)
+    return C;
+
+  // First ensure that the initializer has a sensible type.  Note that it would
+  // be wrong to interpret the constant as being of type DestTy here since that
+  // would not perform a value extension (adding extra zeros or sign bits when
+  // casting to a larger integer type for example): any extra bits would get an
+  // undefined value instead.
+  C = InterpretAsType(C, SrcTy, 0);
+  // Now cast to the desired type.
+  bool SrcIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
+  bool DestIsSigned = !TYPE_UNSIGNED(type);
+  Instruction::CastOps opcode = CastInst::getCastOpcode(C, SrcIsSigned, DestTy,
+                                                        DestIsSigned);
+  return TheFolder->CreateCast(opcode, C, DestTy);
+}
+
 /// ConvertCST - Return the given simple constant as an array of bytes.  For the
 /// moment only INTEGER_CST, REAL_CST, COMPLEX_CST and VECTOR_CST are supported.
 static Constant *ConvertCST(tree exp) {
@@ -579,8 +613,6 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
   // If we have a lower bound for the range of the type, get it.
   tree init_type = TREE_TYPE(exp);
   tree elt_type = TREE_TYPE(init_type);
-  const Type *EltTy = ConvertType(elt_type);
-  bool EltIsSigned = !TYPE_UNSIGNED(elt_type);
 
   tree min_element = size_zero_node;
   std::vector<Constant*> ResultElts;
@@ -609,19 +641,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
   Constant *SomeVal = 0;
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (exp), ix, elt_index, elt_value) {
     // Find and decode the constructor's value.
-    Constant *Val = ConvertInitializer(elt_value);
-
-    // If needed, cast the value to the type of the array element.
-    if (TREE_TYPE(elt_value) != elt_type && !AGGREGATE_TYPE_P(elt_type) &&
-        !AGGREGATE_TYPE_P(TREE_TYPE(elt_value))) {
-      const Type *ValTy = ConvertType(TREE_TYPE(elt_value));
-      Val = InterpretAsType(Val, ValTy, 0);
-      bool ValIsSigned = !TYPE_UNSIGNED(TREE_TYPE(elt_value));
-      Instruction::CastOps opcode = CastInst::getCastOpcode(Val, ValIsSigned,
-                                                            EltTy, EltIsSigned);
-      Val = TheFolder->CreateCast(opcode, Val, EltTy);
-    }
-
+    Constant *Val = ConvertInitializerWithCast(elt_value, elt_type);
     SomeVal = Val;
 
     // Get the index position of the element within the array.  Note that this
@@ -904,7 +924,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
     assert(TREE_CODE(field) == FIELD_DECL && "Initial value not for a field!");
     assert(OffsetIsLLVMCompatible(field) && "Field position not known!");
     // Turn the initial value for this field into an LLVM constant.
-    Constant *Init = ConvertInitializer(value);
+    Constant *Init = ConvertInitializerWithCast(value, TREE_TYPE(field));
     // Work out the range of bits occupied by the field.
     uint64_t FirstBit = getFieldOffsetInBits(field);
     assert(FirstBit <= TypeSize && "Field off end of type!");
@@ -1011,22 +1031,6 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
   }
 }
 
-static Constant *ConvertCONVERT_EXPR(tree exp) {
-  if (AGGREGATE_TYPE_P(TREE_TYPE(exp)) ||
-      AGGREGATE_TYPE_P(TREE_TYPE(TREE_OPERAND(exp, 0)))) {
-    // A no-op record view conversion.  These do not change any of the bits in
-    // the constant so just ignore them.
-    return ConvertInitializer(TREE_OPERAND(exp, 0));
-  }
-  Constant *Elt = ConvertInitializer(TREE_OPERAND(exp, 0));
-  bool EltIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 0)));
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
-  bool TyIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
-  Instruction::CastOps opcode = CastInst::getCastOpcode(Elt, EltIsSigned, Ty,
-                                                        TyIsSigned);
-  return TheFolder->CreateCast(opcode, Elt, Ty);
-}
-
 static Constant *ConvertBinOp_CST(tree exp) {
   Constant *LHS = ConvertInitializer(TREE_OPERAND(exp, 0));
   bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp,0)));
@@ -1104,7 +1108,7 @@ Constant *ConvertInitializer(tree exp) {
     break;
   case CONVERT_EXPR:
   case NOP_EXPR:
-    Init = ConvertCONVERT_EXPR(exp);
+    Init = ConvertInitializerWithCast(TREE_OPERAND(exp, 0), TREE_TYPE(exp));
     break;
   case MINUS_EXPR:
   case PLUS_EXPR:
