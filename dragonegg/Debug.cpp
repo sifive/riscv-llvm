@@ -646,9 +646,9 @@ DIType DebugInfo::createArrayType(tree type) {
       tree MaxValue = TYPE_MAX_VALUE(Domain);
       uint64_t Low = 0;
       uint64_t Hi = 0;
-      if (MinValue && isInt64(MinValue, 0))
+      if (isInt64(MinValue, false))
         Low = getINTEGER_CSTVal(MinValue);
-      if (MaxValue && isInt64(MaxValue, 0))
+      if (isInt64(MaxValue, false))
         Hi = getINTEGER_CSTVal(MaxValue);
       Subscripts.push_back(DebugFactory.GetOrCreateSubrange(Low, Hi));
     }

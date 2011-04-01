@@ -70,7 +70,7 @@ const Type *llvm_set_type(tree Tr, const Type *Ty) {
   // variable size, that the LLVM type is not bigger than any possible value of
   // the GCC type.
 #ifndef NDEBUG
-  if (TYPE_SIZE(Tr) && Ty->isSized() && isInt64(TYPE_SIZE(Tr), true)) {
+  if (Ty->isSized() && isInt64(TYPE_SIZE(Tr), true)) {
     uint64_t LLVMSize = getTargetData().getTypeAllocSizeInBits(Ty);
     if (getInt64(TYPE_SIZE(Tr), true) != LLVMSize) {
       errs() << "GCC: ";
