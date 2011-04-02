@@ -30,7 +30,6 @@
 // LLVM headers
 #include "llvm/GlobalVariable.h"
 #include "llvm/LLVMContext.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Target/TargetData.h"
 
@@ -288,7 +287,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R) {
 
   switch (Ty->getTypeID()) {
   default:
-    llvm_unreachable("Unsupported type!");
+    DieAbjectly("Unsupported type!");
   case Type::PointerTyID: {
     // Cast to an integer with the same number of bits and return that.
     const IntegerType *IntTy = getTargetData().getIntPtrType(Context);
@@ -400,7 +399,7 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit) {
 
   switch (Ty->getTypeID()) {
   default:
-    llvm_unreachable("Unsupported type!");
+    DieAbjectly("Unsupported type!");
   case Type::IntegerTyID: {
     unsigned BitWidth = Ty->getPrimitiveSizeInBits();
     unsigned StoreSize = getTargetData().getTypeStoreSizeInBits(Ty);
@@ -1090,9 +1089,7 @@ Constant *ConvertInitializer(tree exp) {
   Constant *Init;
   switch (TREE_CODE(exp)) {
   default:
-    debug_tree(exp);
-    assert(0 && "Unknown constant to convert!");
-    abort();
+    DieAbjectly("Unknown constant to convert!", exp);
   case COMPLEX_CST:
   case INTEGER_CST:
   case REAL_CST:
@@ -1135,18 +1132,14 @@ Constant *ConvertInitializer(tree exp) {
   if (Ty->isSized()) {
     uint64_t InitSize = getTargetData().getTypeAllocSizeInBits(Init->getType());
     uint64_t TypeSize = getTargetData().getTypeAllocSizeInBits(Ty);
-    if (InitSize < TypeSize) {
-      debug_tree(exp);
-      llvm_unreachable("Constant too small for type!");
-    }
-    if (isInt64(TREE_TYPE(exp), true) && InitSize != TypeSize) {
-      debug_tree(exp);
-      llvm_unreachable("Constant too big for type!");
-    }
+    if (InitSize < TypeSize)
+      DieAbjectly("Constant too small for type!", exp);
+    if (isInt64(TREE_TYPE(exp), true) && InitSize != TypeSize)
+      DieAbjectly("Constant too big for type!", exp);
   }
-// FIXME: This check fails when building libdecnumber (self-host build).
-//  assert(getTargetData().getABITypeAlignment(Init->getType()) * 8 <=
-//         TYPE_ALIGN(TREE_TYPE(exp)) && "Constant over aligned!");
+  if (getTargetData().getABITypeAlignment(Init->getType()) * 8 >
+      TYPE_ALIGN(TREE_TYPE(exp)))
+    DieAbjectly("Constant over aligned!", exp);
 #endif
 
   return Init;
@@ -1306,9 +1299,7 @@ Constant *AddressOf(tree exp) {
 
   switch (TREE_CODE(exp)) {
   default:
-    debug_tree(exp);
-    assert(false && "Unknown constant to take the address of!");
-    abort();
+    DieAbjectly("Unknown constant to take the address of!", exp);
   case COMPLEX_CST:
   case FIXED_CST:
   case INTEGER_CST:

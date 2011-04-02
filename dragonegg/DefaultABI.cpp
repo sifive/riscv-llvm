@@ -160,10 +160,8 @@ void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
       else if (const Type* ScalarTy =
                LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN(type, &Offset))
         C.HandleAggregateResultAsScalar(ScalarTy, Offset);
-      else {
-        assert(0 && "Unable to determine how to return this aggregate!");
-        abort();
-      }
+      else
+        DieAbjectly("Unable to determine how to return this aggregate!");
     }
   } else {
     // If the function is returning a struct or union, we pass the pointer to
@@ -291,8 +289,7 @@ void DefaultABI::HandleArgument(tree type, std::vector<const Type*> &ScalarElts,
       C.ExitField();
     }
   } else {
-    assert(0 && "unknown aggregate type!");
-    abort();
+    DieAbjectly("Unknown aggregate type!");
   }
 }
 

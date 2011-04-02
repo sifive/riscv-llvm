@@ -78,7 +78,7 @@ const Type *llvm_set_type(tree Tr, const Type *Ty) {
       errs() << "LLVM: ";
       Ty->print(errs());
       errs() << " (" << LLVMSize << " bits)\n";
-      llvm_unreachable("LLVM type size doesn't match GCC type size!");
+      DieAbjectly("LLVM type size doesn't match GCC type size!");
     }
   }
 #endif
@@ -561,9 +561,7 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
 
   switch (TREE_CODE(type)) {
   default:
-    fprintf(stderr, "Unknown type to compare:\n");
-    debug_tree(type);
-    abort();
+    DieAbjectly("Unknown type to compare!", type);
   case VOID_TYPE:
   case BOOLEAN_TYPE:
   case ENUMERAL_TYPE:
@@ -672,8 +670,7 @@ const Type *TypeConverter::ConvertType(tree type) {
 
   switch (TREE_CODE(type)) {
   default:
-    debug_tree(type);
-    llvm_unreachable("Unknown type to convert!");
+    DieAbjectly("Unknown type to convert!", type);
 
   case VOID_TYPE:
     Ty = SET_TYPE_LLVM(type, Type::getVoidTy(Context));
@@ -709,8 +706,7 @@ const Type *TypeConverter::ConvertType(tree type) {
     if ((Ty = GET_TYPE_LLVM(type))) return Ty;
     switch (TYPE_PRECISION(type)) {
     default:
-      debug_tree(type);
-      llvm_unreachable("Unknown FP type!");
+      DieAbjectly("Unknown FP type!", type);
     case 32: Ty = SET_TYPE_LLVM(type, Type::getFloatTy(Context)); break;
     case 64: Ty = SET_TYPE_LLVM(type, Type::getDoubleTy(Context)); break;
     case 80: Ty = SET_TYPE_LLVM(type, Type::getX86_FP80Ty(Context)); break;

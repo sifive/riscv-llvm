@@ -28,12 +28,19 @@
 #include "llvm/Intrinsics.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/IRBuilder.h"
 #include "llvm/Support/TargetFolder.h"
 
 struct basic_block_def;
 union gimple_statement_d;
 union tree_node;
+
+extern "C" {
+extern void debug_gimple_stmt(union gimple_statement_d *);
+extern void debug_tree(union tree_node *);
+}
 
 namespace llvm {
   class Module;
@@ -102,6 +109,20 @@ extern bool flag_force_vararg_prototypes;
 extern SmallSetVector<Constant *,32> AttributeUsedGlobals;
 
 extern Constant* ConvertMetadataStringToGV(const char *str);
+
+inline void DieAbjectly(const char *Message) {
+  llvm_unreachable(Message);
+}
+
+inline void DieAbjectly(const char *Message, union gimple_statement_d *stmt) {
+  if (stmt) debug_gimple_stmt(stmt);
+  DieAbjectly(Message);
+}
+
+inline void DieAbjectly(const char *Message, union tree_node *exp) {
+  if (exp) debug_tree(exp);
+  DieAbjectly(Message);
+}
 
 /// AddAnnotateAttrsToGlobal - Adds decls that have a
 /// annotate attribute to a vector to be emitted later.
@@ -459,8 +480,6 @@ public:
   /// EmitLV - Convert the specified l-value tree node to LLVM code, returning
   /// the address of the result.
   LValue EmitLV(tree_node *exp);
-
-  void TODO(tree_node *exp = 0);
 
   /// CastToAnyType - Cast the specified value to the specified type regardless
   /// of the types involved. This is an inferred cast.

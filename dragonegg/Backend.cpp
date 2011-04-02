@@ -38,8 +38,6 @@ extern "C" {
 #include "llvm/Assembly/PrintModulePass.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/StandardPasses.h"
 #include "llvm/Target/SubtargetFeature.h"
@@ -738,10 +736,8 @@ static void createPerFunctionOptimizationPasses() {
     InitializeOutputStreams(false);
     if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
                                        TargetMachine::CGFT_AssemblyFile,
-                                       OptLevel, DisableVerify)) {
-      errs() << "Error interfacing to target machine!\n";
-      exit(1);
-    }
+                                       OptLevel, DisableVerify))
+      DieAbjectly("Error interfacing to target machine!");
   }
 
   if (HasPerFunctionPasses) {
@@ -841,10 +837,8 @@ static void createPerModuleOptimizationPasses() {
       InitializeOutputStreams(false);
       if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
                                          TargetMachine::CGFT_AssemblyFile,
-                                         OptLevel, DisableVerify)) {
-        errs() << "Error interfacing to target machine!\n";
-        exit(1);
-      }
+                                         OptLevel, DisableVerify))
+        DieAbjectly("Error interfacing to target machine!");
     }
   }
 
@@ -1210,15 +1204,13 @@ Value *make_decl_llvm(tree decl) {
     return V;
 
 #ifdef ENABLE_CHECKING
-  // Check that we are not being given an automatic variable.
+  // Check that we are not being given an automatic variable or a type or label.
   // A weak alias has TREE_PUBLIC set but not the other bits.
-  if (TREE_CODE(decl) == PARM_DECL || TREE_CODE(decl) == RESULT_DECL
-      || (TREE_CODE(decl) == VAR_DECL && !TREE_STATIC(decl) &&
-          !TREE_PUBLIC(decl) && !DECL_EXTERNAL(decl) && !DECL_REGISTER(decl)))
-    abort();
-  // And that we were not given a type or a label.  */
-  else if (TREE_CODE(decl) == TYPE_DECL || TREE_CODE(decl) == LABEL_DECL)
-    abort ();
+  if (TREE_CODE(decl) == PARM_DECL || TREE_CODE(decl) == RESULT_DECL ||
+      TREE_CODE(decl) == TYPE_DECL || TREE_CODE(decl) == LABEL_DECL ||
+      (TREE_CODE(decl) == VAR_DECL && !TREE_STATIC(decl) &&
+       !TREE_PUBLIC(decl) && !DECL_EXTERNAL(decl) && !DECL_REGISTER(decl)))
+    DieAbjectly("Cannot make a global for this kind of declaration!", decl);
 #endif
 
   if (errorcount || sorrycount)

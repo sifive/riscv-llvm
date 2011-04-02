@@ -27,7 +27,6 @@
 
 // LLVM headers
 #include "llvm/Module.h"
-#include "llvm/Support/ErrorHandling.h"
 
 // System headers
 #include <gmp.h>
@@ -755,7 +754,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     }
   }
   }
-  llvm_unreachable("Builtin not implemented!");
+  DieAbjectly("Builtin not implemented!", stmt);
+  return false;
 }
 
 /* These are defined in i386.c */
