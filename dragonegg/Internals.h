@@ -110,15 +110,15 @@ extern SmallSetVector<Constant *,32> AttributeUsedGlobals;
 
 extern Constant* ConvertMetadataStringToGV(const char *str);
 
+/// DieAbjectly - An unrecoverable fatal error occurred - throw in the towel,
+/// give up the ghost, quit miserably.
 inline void DieAbjectly(const char *Message) {
   llvm_unreachable(Message);
 }
-
 inline void DieAbjectly(const char *Message, union gimple_statement_d *stmt) {
   if (stmt) debug_gimple_stmt(stmt);
   DieAbjectly(Message);
 }
-
 inline void DieAbjectly(const char *Message, union tree_node *exp) {
   if (exp) debug_tree(exp);
   DieAbjectly(Message);
