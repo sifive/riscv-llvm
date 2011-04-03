@@ -739,11 +739,13 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
 /// the constant in which case any extra bits have an undefined value.
 class FieldContents {
   SignedRange R; // The range of bits occupied by the constant.
-  Constant *C;   // The constant.  May be null, in which case all bits are zero.
+  Constant *C;   // The constant.  May be null if the range is empty.
   int Starts;    // The first bit of the constant is positioned at this offset.
 
   FieldContents(SignedRange r, Constant *c, int starts)
-    : R(r), C(c), Starts(starts) {}
+    : R(r), C(c), Starts(starts) {
+    assert((R.empty() || C) && "Need constant when range not empty!");
+  }
 
   /// getAsBits - Return the bits in the range as an integer (or null if the
   /// range is empty).
@@ -751,8 +753,6 @@ class FieldContents {
     if (R.empty())
       return 0;
     const Type *IntTy = IntegerType::get(Context, R.getWidth());
-    if (!C) // Implicit zero.
-      return Constant::getNullValue(IntTy);
     return InterpretAsType(C, IntTy, R.getFirst() - Starts);
   }
 
@@ -760,7 +760,8 @@ class FieldContents {
   /// constant properly represents the bits in the range and so can be handed to
   /// the user as is.
   bool isSafeToReturnContentsDirectly(const TargetData &TD) const {
-    // Implicit zeros need to be made explicit before being passed to the user.
+    // If there is no constant (allowed when the range is empty) then one needs
+    // to be created.
     if (!C)
       return false;
     // If the first bit of the constant is not the first bit of the range then
@@ -778,14 +779,9 @@ public:
   /// FieldContents - Default constructor: empty bit range.
   FieldContents() : R(), C(0), Starts(0) {}
 
-  /// getConstant - Fill the range [first, last) with the given constant.
-  static FieldContents getConstant(int first, int last, Constant *c) {
+  /// get - Fill the range [first, last) with the given constant.
+  static FieldContents get(int first, int last, Constant *c) {
     return FieldContents(SignedRange(first, last), c, first);
-  }
-
-  /// getZero - Fill the range [first, last) with zero.
-  static FieldContents getZero(int first, int last) {
-    return getConstant(first, last, 0);
   }
 
   /// getRange - Return the range occupied by this field.
@@ -809,18 +805,16 @@ public:
     /// in the range then just return it.
     if (isSafeToReturnContentsDirectly(TD))
       return C;
-    assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
-    unsigned Units = R.getWidth() / BITS_PER_UNIT;
-    // If this was an implicit zero then make it an explicit zero.  This also
-    // handles the case of an empty range holding a constant of non-zero size.
-    if (!C || R.empty()) {
-      // Return an array of zero bytes.  Remember the returned value as an
-      // optimization in case we are called again.
-      C = Constant::getNullValue(GetUnitType(Context, Units));
-      Starts = R.empty() ? 0 : R.getFirst();
+    // If the range is empty then return a constant with zero size.
+    if (R.empty()) {
+      // Return an empty array.  Remember the returned value as an optimization
+      // in case we are called again.
+      C = Constant::getNullValue(GetUnitType(Context, 0));
       assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
       return C;
     }
+    assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
+    unsigned Units = R.getWidth() / BITS_PER_UNIT;
     // Turn the contents into a bunch of bits.  Remember the returned value as
     // an optimization in case we are called again.
     // TODO: If the contents only need to be truncated and have struct or array
@@ -878,6 +872,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
       assert(FirstBit <= TypeSize && "Field off end of type!");
       // Determine the width of the field.
       uint64_t BitWidth;
+      const Type *FieldTy = ConvertType(TREE_TYPE(field));
       if (isInt64(DECL_SIZE(field), true)) {
         // The field has a size and it is a constant, so use it.  Note that
         // this size may be smaller than the type size.  For example, if the
@@ -888,7 +883,6 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
       } else {
         // If the field has variable or unknown size then use the size of the
         // LLVM type instead as it gives the minimum size the field may have.
-        const Type *FieldTy = ConvertType(TREE_TYPE(field));
         if (!FieldTy->isSized())
           // An incomplete type - this field cannot be default initialized.
           continue;
@@ -898,8 +892,11 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
       }
       uint64_t LastBit = FirstBit + BitWidth;
 
-      // Zero the bits occupied by the field.
-      Layout.AddInterval(FieldContents::getZero(FirstBit, LastBit));
+      // Zero the bits occupied by the field.  It is safe to use FieldTy here as
+      // it is guaranteed to cover all parts of the GCC type that can be default
+      // initialized.  This makes for nicer IR than just using a bunch of bytes.
+      Constant *Zero = Constant::getNullValue(FieldTy);
+      Layout.AddInterval(FieldContents::get(FirstBit, LastBit, Zero));
     }
   }
 
@@ -935,7 +932,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
     uint64_t LastBit = FirstBit + BitWidth;
 
     // Set the bits occupied by the field to the initial value.
-    Layout.AddInterval(FieldContents::getConstant(FirstBit, LastBit, Init));
+    Layout.AddInterval(FieldContents::get(FirstBit, LastBit, Init));
   }
 
   // Force all fields to begin and end on a byte boundary.  This automagically
