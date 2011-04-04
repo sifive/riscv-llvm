@@ -2871,6 +2871,15 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     }
   }
 
+  // Unlike LLVM, GCC does not require that call statements provide a value for
+  // every function argument (it passes rubbish for arguments with no value).
+  // To get the same effect we pass 'undef' for any unspecified arguments.
+  PFTy = cast<PointerType>(Callee->getType());
+  FTy = cast<FunctionType>(PFTy->getElementType());
+  if (CallOperands.size() < FTy->getNumParams())
+    for (unsigned i = CallOperands.size(), e = FTy->getNumParams(); i !=e; ++i)
+      CallOperands.push_back(UndefValue::get(FTy->getParamType(i)));
+
   Value *Call;
   if (!LandingPad) {
     Call = Builder.CreateCall(Callee, CallOperands.begin(), CallOperands.end());
