@@ -133,7 +133,8 @@ public:
   /// bits is undefined.
   BitSlice ExtendRange(SignedRange r) const;
 
-  /// ReduceRange - Reduce the slice to a smaller range.
+  /// ReduceRange - Reduce the slice to a smaller range discarding any bits that
+  /// do not belong to the new range.
   BitSlice ReduceRange(SignedRange r) const;
 
   /// Merge - Join the slice with another (which must be disjoint), forming the
@@ -239,7 +240,8 @@ void BitSlice::Merge(const BitSlice &other) {
   *this = BitSlice(Hull, TheFolder->CreateOr(ThisPart, OtherPart));
 }
 
-/// ReduceRange - Reduce the slice to a smaller range.
+/// ReduceRange - Reduce the slice to a smaller range discarding any bits that
+/// do not belong to the new range.
 BitSlice BitSlice::ReduceRange(SignedRange r) const {
   assert(R.contains(r) && "Not a reduction!");
   // Quick exit if the range did not actually decrease.
@@ -687,7 +689,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
 
   // Zero length array.
   if (ResultElts.empty())
-    return Constant::getNullValue(ConvertType(TREE_TYPE(exp)));
+    return getDefaultValue(ConvertType(TREE_TYPE(exp)));
   assert(SomeVal && "If we had some initializer, we should have some value!");
 
   // Do a post-pass over all of the elements.  We're taking care of two things
@@ -808,7 +810,7 @@ public:
     if (R.empty()) {
       // Return an empty array.  Remember the returned value as an optimization
       // in case we are called again.
-      C = Constant::getNullValue(GetUnitType(Context, 0));
+      C = UndefValue::get(GetUnitType(Context, 0));
       assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
       return C;
     }
@@ -1007,17 +1009,15 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
 }
 
 static Constant *ConvertCONSTRUCTOR(tree exp) {
-  // Please note, that we can have empty ctor, even if array is non-trivial (has
-  // nonzero number of entries). This situation is typical for static ctors,
-  // when array is filled during program initialization.
-  if (CONSTRUCTOR_ELTS(exp) == 0 ||
-      VEC_length(constructor_elt, CONSTRUCTOR_ELTS(exp)) == 0)  // All zeros?
-    return Constant::getNullValue(ConvertType(TREE_TYPE(exp)));
+  // If the constructor is empty then default initialize all components.  It is
+  // safe to use the LLVM type here as it covers every part of the GCC type that
+  // can be default initialized.
+  if (CONSTRUCTOR_NELTS(exp) == 0)
+    return getDefaultValue(ConvertType(TREE_TYPE(exp)));
 
   switch (TREE_CODE(TREE_TYPE(exp))) {
   default:
-    debug_tree(exp);
-    assert(0 && "Unknown ctor!");
+    DieAbjectly("Unknown constructor!", exp);
   case VECTOR_TYPE:
   case ARRAY_TYPE:  return ConvertArrayCONSTRUCTOR(exp);
   case QUAL_UNION_TYPE:
