@@ -35,7 +35,6 @@
 
 // System headers
 #include <gmp.h>
-#include <map>
 
 // GCC headers
 extern "C" {
@@ -1164,7 +1163,7 @@ static Constant *AddressOfCST(tree exp) {
 
   // Cache the constants to avoid making obvious duplicates that have to be
   // folded by the optimizer.
-  static std::map<Constant*, GlobalVariable*> CSTCache;
+  static DenseMap<Constant*, GlobalVariable*> CSTCache;
   GlobalVariable *&Slot = CSTCache[Init];
   if (Slot)
     return Slot;
