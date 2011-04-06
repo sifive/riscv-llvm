@@ -943,6 +943,9 @@ Function *TreeToLLVM::FinishFunctionBody() {
           Value *E = Builder.CreateLoad(GEP, "mrv");
           RetVals.push_back(E);
         }
+        // If the return type specifies an empty struct then return one.
+        if (RetVals.empty())
+          RetVals.push_back(UndefValue::get(Fn->getReturnType()));
       } else {
         // Otherwise, this aggregate result must be something that is returned
         // in a scalar register for this target.  We must bit convert the
