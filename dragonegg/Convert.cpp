@@ -2877,7 +2877,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   PFTy = cast<PointerType>(Callee->getType());
   FTy = cast<FunctionType>(PFTy->getElementType());
   if (CallOperands.size() < FTy->getNumParams())
-    for (unsigned i = CallOperands.size(), e = FTy->getNumParams(); i !=e; ++i)
+    for (unsigned i = CallOperands.size(), e = FTy->getNumParams(); i != e; ++i)
       CallOperands.push_back(UndefValue::get(FTy->getParamType(i)));
 
   Value *Call;
