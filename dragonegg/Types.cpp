@@ -201,25 +201,15 @@ static FunctionType *GetFunctionType(const PATypeHolder &Res,
 //===----------------------------------------------------------------------===//
 
 /// ArrayLengthOf - Returns the length of the given gcc array type, or NoLength
-//  if the array has variable or unknown length.
+/// if the array has variable or unknown length.
 uint64_t ArrayLengthOf(tree type) {
   assert(TREE_CODE(type) == ARRAY_TYPE && "Only for array types!");
-  // If the element type has variable size and the array type has variable
-  // length, but by some miracle the product gives a constant size, then we
-  // also return NoLength here.  I can live with this, and I bet you can too!
-  if (!isInt64(TYPE_SIZE(type), true) ||
-      !isInt64(TYPE_SIZE(TREE_TYPE(type)), true))
+  tree range = array_type_nelts(type); // The number of elements minus one.
+  // Bail out if the array has variable or unknown length.
+  if (!isInt64(range, false))
     return NoLength;
-  // May return zero for arrays that gcc considers to have non-zero length, but
-  // only if the array type has zero size (this can happen if the element type
-  // has zero size), in which case the discrepancy doesn't matter.
-  //
-  // If the user increased the alignment of the element type, then the size of
-  // the array type is rounded up by that alignment, but the size of the element
-  // is not.  Since gcc requires the user alignment to be strictly smaller than
-  // the element size, this does not impact the length computation.
-  return integer_zerop(TYPE_SIZE(type)) ?  0 : getInt64(TYPE_SIZE(type), true) /
-    getInt64(TYPE_SIZE(TREE_TYPE(type)), true);
+  int64_t Range = getInt64(range, false);
+  return Range < 0 ? 0 : 1 + (uint64_t)Range;
 }
 
 /// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
