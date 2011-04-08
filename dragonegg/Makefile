@@ -76,15 +76,15 @@ $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
 
 %.o : $(SRC_DIR)/%.c $(TARGET_UTIL)
 	@echo Compiling $*.c
-	$(QUIET)$(CC) -c $(CPP_OPTIONS) $(TARGET_HEADERS) $(CFLAGS) $<
+	$(QUIET)$(CC) -c $(TARGET_HEADERS) $(CPP_OPTIONS) $(CFLAGS) $<
 
 %.o : $(SRC_DIR)/%.cpp $(TARGET_UTIL)
 	@echo Compiling $*.cpp
-	$(QUIET)$(CXX) -c $(CPP_OPTIONS) $(TARGET_HEADERS) $(CXXFLAGS) $<
+	$(QUIET)$(CXX) -c $(TARGET_HEADERS) $(CPP_OPTIONS) $(CXXFLAGS) $<
 
 $(TARGET_OBJECT): $(TARGET_UTIL)
 	@echo Compiling $(shell $(TARGET_UTIL) -p)/Target.cpp
-	$(QUIET)$(CXX) -o $@ -c $(CPP_OPTIONS) $(TARGET_HEADERS) $(CXXFLAGS) \
+	$(QUIET)$(CXX) -o $@ -c $(TARGET_HEADERS) $(CPP_OPTIONS) $(CXXFLAGS) \
 	$(TARGET_SOURCE)
 
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
