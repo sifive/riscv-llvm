@@ -52,7 +52,7 @@ CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP \
 	     -DIN_GCC -DREVISION=\"$(REVISION)\" \
 	     -DGCC_MAJOR=$(GCC_MAJOR) -DGCC_MINOR=$(GCC_MINOR) \
-	     -I$(SRC_DIR) -I$(SRC_DIR)/ADT -I$(GCC_PLUGIN_DIR)/include
+	     -I$(SRC_DIR)/include -I$(GCC_PLUGIN_DIR)/include
 
 LD_OPTIONS+=$(shell $(LLVM_CONFIG) --ldflags) $(LDFLAGS)
 

@@ -23,12 +23,12 @@
 
 // Plugin headers
 extern "C" {
-#include "cache.h"
+#include "dragonegg/cache.h"
 }
-#include "Constants.h"
-#include "Debug.h"
-#include "OS.h"
-#include "Target.h"
+#include "dragonegg/Constants.h"
+#include "dragonegg/Debug.h"
+#include "dragonegg/OS.h"
+#include "dragonegg/Target.h"
 
 // LLVM headers
 #define DEBUG_TYPE "plugin"

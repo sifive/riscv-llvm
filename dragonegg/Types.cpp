@@ -22,10 +22,10 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "ABI.h"
-#include "Trees.h"
+#include "dragonegg/ABI.h"
+#include "dragonegg/Trees.h"
 extern "C" {
-#include "cache.h"
+#include "dragonegg/cache.h"
 }
 
 // LLVM headers

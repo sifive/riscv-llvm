@@ -21,7 +21,7 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "ABI.h"
+#include "dragonegg/ABI.h"
 
 // System headers
 #include <gmp.h>

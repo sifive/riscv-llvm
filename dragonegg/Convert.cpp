@@ -22,10 +22,10 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "ABI.h"
-#include "Constants.h"
-#include "Debug.h"
-#include "Trees.h"
+#include "dragonegg/ABI.h"
+#include "dragonegg/Constants.h"
+#include "dragonegg/Debug.h"
+#include "dragonegg/Trees.h"
 
 // LLVM headers
 #include "llvm/Module.h"

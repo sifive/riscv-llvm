@@ -27,8 +27,8 @@
 #define DRAGONEGG_ABI_H
 
 // Plugin headers
-#include "Internals.h"
-#include "Target.h"
+#include "dragonegg/Internals.h"
+#include "dragonegg/Target.h"
 
 // LLVM headers
 #include "llvm/LLVMContext.h"

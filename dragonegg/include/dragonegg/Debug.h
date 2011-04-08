@@ -25,7 +25,7 @@
 #define DRAGONEGG_DEBUG_H
 
 // Plugin headers
-#include "Internals.h"
+#include "dragonegg/Internals.h"
 
 // LLVM headers
 #include "llvm/Analysis/DebugInfo.h"

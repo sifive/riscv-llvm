@@ -22,7 +22,7 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "Debug.h"
+#include "dragonegg/Debug.h"
 
 // LLVM headers
 #include "llvm/Module.h"

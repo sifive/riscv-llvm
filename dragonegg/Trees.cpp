@@ -21,7 +21,7 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "Trees.h"
+#include "dragonegg/Trees.h"
 
 // LLVM headers
 #include "llvm/ADT/Twine.h"

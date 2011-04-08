@@ -21,11 +21,11 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "Constants.h"
-#include "Internals.h"
-#include "Trees.h"
-#include "ADT/IntervalList.h"
-#include "ADT/Range.h"
+#include "dragonegg/Constants.h"
+#include "dragonegg/Internals.h"
+#include "dragonegg/Trees.h"
+#include "dragonegg/ADT/IntervalList.h"
+#include "dragonegg/ADT/Range.h"
 
 // LLVM headers
 #include "llvm/GlobalVariable.h"

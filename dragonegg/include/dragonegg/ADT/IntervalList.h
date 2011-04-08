@@ -24,7 +24,10 @@
 #ifndef DRAGONEGG_INTERVALLIST_H
 #define DRAGONEGG_INTERVALLIST_H
 
-#include "Range.h"
+// Plugin headers
+#include "dragonegg/ADT/Range.h"
+
+// LLVM headers
 #include "llvm/ADT/SmallVector.h"
 
 /// IntervalList - Maintains a list of disjoint intervals.  Type 'T' represents

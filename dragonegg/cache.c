@@ -25,7 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
   ===----------------------------------------------------------------------===*/
 
 /* Plugin headers.  */
-#include "cache.h"
+#include "dragonegg/cache.h"
 
 /* GCC headers.  */
 #include "config.h"
@@ -49,7 +49,7 @@ static GTY ((if_marked ("tree_llvm_map_marked_p"),
   htab_t llvm_cache;
 
 /* Garbage collector header.  */
-#include "gt-cache.h"
+#include "dragonegg/gt-cache.h"
 
 /* llvm_has_cached - Returns whether a value has been associated with the
    tree.  */

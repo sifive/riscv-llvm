@@ -22,8 +22,8 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-#include "ABI.h"
-#include "Target.h"
+#include "dragonegg/ABI.h"
+#include "dragonegg/Target.h"
 
 // LLVM headers
 #include "llvm/Module.h"
