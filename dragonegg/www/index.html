@@ -62,11 +62,40 @@
   <!--=====================================================================-->
 
   <ul>
-  <li><p><a href="#gettingrelease">DragonEgg-2.8</a> is the most recent
+  <li><p><a href="#gettingrelease">DragonEgg-2.9</a> is the most recent
+      DragonEgg release.  It requires
+      <a href="http://llvm.org/releases/download.html#2.9">LLVM-2.9</a> and
+      <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
+      <p>The 2.9 release has the following notable changes:</p>
+      <ul>
+      <li>The plugin is much more stable when compiling Fortran.</li>
+      <li>Inline assembly where an asm output is tied to an input of a different
+      size is now supported in many more cases.</li>
+      <li>Basic support for the __float128 type was added.  It is now possible
+      to generate LLVM IR from programs using __float128 but code generation
+      does not work yet.</li>
+      <li>Compiling Java programs no longer systematically crashes the
+      plugin.</li>
+      </ul>
+      <p>Common problems with building the DragonEgg-2.9 release:</p>
+      <ul>
+      <li>If you had to install the GMP, MPC or MPFR libraries locally in order
+      to build gcc-4.5, then the dragonegg build may fail due to not finding
+      header files from the libraries.  You can tell the dragonegg build
+      system where to find them by setting CPPFLAGS before calling make:
+      <pre>
+        CPPFLAGS="-I/path/to/header/files -I/another/header/path/" make
+      </pre>
+      </li>
+      <li>
+      The build fails if you are using a case insensitive file system.
+      </li>
+      </ul>
+  <li><p><a href="#gettingrelease">DragonEgg-2.8</a> was the second
       DragonEgg release.  It requires
       <a href="http://llvm.org/releases/download.html#2.8">LLVM-2.8</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
-      <p>The 2.8 release has the following notable changes:</p>
+      <p>The 2.8 release had the following notable changes:</p>
       <ul>
       <li>The plugin loads faster due to exporting fewer symbols.</li>
       <li>Additional vector operations such as addps256 are now supported.</li>
@@ -203,27 +232,27 @@ declare i32 @puts(i8* nocapture) nounwind
   <!--=====================================================================-->
 
   <p>Get the
-  <a href="http://llvm.org/releases/download.html#2.8">DragonEgg-2.8 source code</a>:
-     <pre>	wget http://llvm.org/releases/2.8/dragonegg-2.8.tar.gz</pre>
+  <a href="http://llvm.org/releases/download.html#2.9">DragonEgg-2.9 source code</a>:
+     <pre>	wget http://llvm.org/releases/2.9/dragonegg-2.9.tgz</pre>
   <p>Unpack it:</p>
-     <pre>	tar xzf dragonegg-2.8.tar.gz</pre>
+     <pre>	tar xzf dragonegg-2.9.tgz</pre>
   <p>Download the
-  <a href="http://llvm.org/releases/download.html#2.8">LLVM-2.8 binaries</a>
+  <a href="http://llvm.org/releases/download.html#2.9">LLVM-2.9 binaries</a>
   (mysteriously referred to as clang binaries) for your platform and install
   them.</p>
   <p>Get the <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5 source code</a>:</p>
-     <pre>	wget http://mirrors.kernel.org/gnu/gcc/gcc-4.5.1/gcc-4.5.1.tar.gz</pre>
+     <pre>	wget http://mirrors.kernel.org/gnu/gcc/gcc-4.5.2/gcc-4.5.2.tar.gz</pre>
   <p>Unpack it:</p>
-     <pre>	tar xzf gcc-4.5.1.tar.gz</pre>
-  <p>Apply the patch in <tt>dragonegg-2.8/gcc-patches/</tt> to the gcc-4.5
+     <pre>	tar xzf gcc-4.5.2.tar.gz</pre>
+  <p>Apply the patch in <tt>dragonegg-2.9/gcc-patches/</tt> to the gcc-4.5
   source:</p>
-     <pre>	patch -d gcc-4.5.1 -p1 < dragonegg-2.8/gcc-patches/i386_static.diff</pre>
+     <pre>	patch -d gcc-4.5.2 -p1 < dragonegg-2.9/gcc-patches/i386_static.diff</pre>
   <p><a href="http://gcc.gnu.org/install/">Build and install gcc-4.5</a> in the
   usual way, except that you should add the configure options <tt>--enable-plugin</tt>
   and <tt>--enable-lto</tt>.</p>
   <p>Doing</p>
      <pre>	GCC=directory_where_gcc_installed/bin/gcc make</pre>
-  <p>in the <tt>dragonegg-2.8</tt> directory should then build <tt>dragonegg.so</tt>.
+  <p>in the <tt>dragonegg-2.9</tt> directory should then build <tt>dragonegg.so</tt>.
      If you have arranged for the gcc executable to occur in your path with the
      name <tt>gcc-4.5</tt> (using a symbolic link for example) then there is no
      need to set the GCC variable: you can just do "<tt>make</tt>".
