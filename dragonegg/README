@@ -73,6 +73,17 @@ the LLVM_CONFIG variable.
 
 The end result of the build is a shared library, dragonegg.so.
 
+-------------------------
+- COMMON BUILD PROBLEMS -
+-------------------------
+
+To build gcc-4.5 you need the GMP, MPC and MPFR libraries.  If you installed the
+libraries locally, so their header files are not in the standard system include
+path, then the dragonegg build will probably fail due to failing to find header
+files like mpc.h.  To solve this, use CPPFLAGS to add additional include paths,
+for example:
+  CPPFLAGS="-I/path/to/header/files" make
+
 
 ----------------------
 - USAGE INSTRUCTIONS -
