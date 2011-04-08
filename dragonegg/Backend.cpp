@@ -1921,7 +1921,7 @@ static void emit_functions(cgraph_node_set set
 
     // Output any same-body aliases or thunks in the order they were created.
     struct cgraph_node *alias, *next;
-    for (alias = node->same_body; alias && alias->next; alias = alias->next);
+    for (alias = node->same_body; alias && alias->next; alias = alias->next) ;
     for (; alias; alias = next) {
       next = alias->previous;
       if (alias->thunk.thunk_p)
