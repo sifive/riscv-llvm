@@ -88,7 +88,9 @@
       </pre>
       </li>
       <li>
-      The build fails if you are using a case insensitive file system.
+      The build fails if you are using a case insensitive file system, such as
+      the default darwin filesystem <tt>HFS+</tt>.  To fix this, apply
+      <a href="disambiguate.diff">this patch</a>.
       </li>
       </ul>
   <li><p><a href="#gettingrelease">DragonEgg-2.8</a> was the second
