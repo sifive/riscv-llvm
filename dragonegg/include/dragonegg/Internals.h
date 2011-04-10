@@ -287,8 +287,8 @@ uint64_t getInt64(tree_node *t, bool Unsigned);
 /// thing by value, pass the address of a temporary.
 bool isPassedByInvisibleReference(tree_node *type);
 
-/// isSequentialCompatible - Return true if the specified gcc array or pointer
-/// type and the corresponding LLVM SequentialType lay out their components
+/// isSequentialCompatible - Return true if the specified gcc array, pointer or
+/// vector type and the corresponding LLVM SequentialType lay out their elements
 /// identically in memory, so doing a GEP accesses the right memory location.
 /// We assume that objects without a known size do not.
 extern bool isSequentialCompatible(tree_node *type);

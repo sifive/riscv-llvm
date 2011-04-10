@@ -253,13 +253,14 @@ bool isPassedByInvisibleReference(tree Type) {
          TREE_CODE(TYPE_SIZE(Type)) != INTEGER_CST;
 }
 
-/// isSequentialCompatible - Return true if the specified gcc array or pointer
-/// type and the corresponding LLVM SequentialType lay out their components
+/// isSequentialCompatible - Return true if the specified gcc array, pointer or
+/// vector type and the corresponding LLVM SequentialType lay out their elements
 /// identically in memory, so doing a GEP accesses the right memory location.
 /// We assume that objects without a known size do not.
 bool isSequentialCompatible(tree type) {
   assert((TREE_CODE(type) == ARRAY_TYPE ||
           TREE_CODE(type) == POINTER_TYPE ||
+          TREE_CODE(type) == VECTOR_TYPE ||
           TREE_CODE(type) == REFERENCE_TYPE) && "not a sequential type!");
   // This relies on gcc types with constant size mapping to LLVM types with the
   // same size.  It is possible for the component type not to have a size:
