@@ -606,133 +606,148 @@ static Constant *ConvertADDR_EXPR(tree exp) {
   return AddressOf(TREE_OPERAND(exp, 0));
 }
 
+/// ConvertArrayCONSTRUCTOR - Convert a CONSTRUCTOR with array or vector type.
 static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
-  // Vectors are like arrays, but the domain is stored via an array
-  // type indirectly.
+  const TargetData &TD = getTargetData();
 
-  // If we have a lower bound for the range of the type, get it.
   tree init_type = TREE_TYPE(exp);
+  const Type *InitTy = ConvertType(init_type);
+
   tree elt_type = TREE_TYPE(init_type);
+  const Type *EltTy = ConvertType(elt_type);
 
-  tree min_element = size_zero_node;
-  std::vector<Constant*> ResultElts;
+  // Check that the element type has a known, constant size.
+  assert(isSequentialCompatible(init_type) && "Variable sized array element!");
+  uint64_t EltSize = TD.getTypeAllocSizeInBits(EltTy);
 
-  if (TREE_CODE(init_type) == VECTOR_TYPE) {
-    ResultElts.resize(TYPE_VECTOR_SUBPARTS(init_type));
-  } else {
-    assert(TREE_CODE(init_type) == ARRAY_TYPE && "Unknown type for init");
-    tree Domain = TYPE_DOMAIN(init_type);
-    if (Domain && TYPE_MIN_VALUE(Domain))
-      min_element = fold_convert(sizetype, TYPE_MIN_VALUE(Domain));
+  /// Elts - The initial values to use for the array elements.  A null entry
+  /// means that the corresponding array element should be default initialized.
+  std::vector<Constant*> Elts;
 
-    if (Domain && TYPE_MAX_VALUE(Domain)) {
-      tree max_element = fold_convert(sizetype, TYPE_MAX_VALUE(Domain));
-      tree size = size_binop (MINUS_EXPR, max_element, min_element);
-      size = size_binop (PLUS_EXPR, size, size_one_node);
+  // Resize to the number of array elements if known.  This ensures that every
+  // element will be at least default initialized even if no initial value is
+  // given for it.
+  uint64_t TypeElts = TREE_CODE(init_type) == ARRAY_TYPE ?
+    ArrayLengthOf(init_type) : TYPE_VECTOR_SUBPARTS(init_type);
+  if (TypeElts != ~0ULL)
+    Elts.resize(TypeElts);
 
-      if (host_integerp(size, 1))
-        ResultElts.resize(tree_low_cst(size, 1));
-    }
-  }
+  // If GCC indices into the array need adjusting to make them zero indexed then
+  // record here the value to subtract off.
+  tree lower_bnd = NULL_TREE;
+  if (TREE_CODE(init_type) == ARRAY_TYPE && TYPE_DOMAIN(init_type) &&
+      !integer_zerop(TYPE_MIN_VALUE(TYPE_DOMAIN(init_type))))
+    lower_bnd = TYPE_MIN_VALUE(TYPE_DOMAIN(init_type));
 
-  unsigned NextFieldToFill = 0;
+  unsigned NextIndex = 0;
   unsigned HOST_WIDE_INT ix;
   tree elt_index, elt_value;
-  Constant *SomeVal = 0;
-  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (exp), ix, elt_index, elt_value) {
+  FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(exp), ix, elt_index, elt_value) {
     // Find and decode the constructor's value.
     Constant *Val = ConvertInitializerWithCast(elt_value, elt_type);
-    SomeVal = Val;
+    uint64_t ValSize = TD.getTypeAllocSizeInBits(Val->getType());
+    assert(ValSize <= EltSize && "Element initial value too big!");
+
+    // If the initial value is smaller than the element size then pad it out.
+    if (ValSize < EltSize) {
+      unsigned PadBits = EltSize - ValSize;
+      assert(PadBits % BITS_PER_UNIT == 0 && "Non-unit type size?");
+      unsigned Units = PadBits / BITS_PER_UNIT;
+      Constant *Padding = UndefValue::get(GetUnitType(Context, Units));
+      Val = ConstantStruct::get(Context, false, Val, Padding, NULL);
+    }
 
     // Get the index position of the element within the array.  Note that this
     // can be NULL_TREE, which means that it belongs in the next available slot.
     tree index = elt_index;
 
-    // The first and last field to fill in, inclusive.
-    unsigned FieldOffset, FieldLastOffset;
-    if (index && TREE_CODE(index) == RANGE_EXPR) {
-      tree first = fold_convert (sizetype, TREE_OPERAND(index, 0));
-      tree last  = fold_convert (sizetype, TREE_OPERAND(index, 1));
+    // The first and last elements to fill in, inclusive.
+    unsigned FirstIndex, LastIndex;
+    if (!index) {
+      LastIndex = FirstIndex = NextIndex;
+    } else if (TREE_CODE(index) == RANGE_EXPR) {
+      tree first = TREE_OPERAND(index, 0);
+      tree last  = TREE_OPERAND(index, 1);
 
-      first = size_binop (MINUS_EXPR, first, min_element);
-      last  = size_binop (MINUS_EXPR, last, min_element);
+      // Subtract off the lower bound if any to ensure indices start from zero.
+      if (lower_bnd != NULL_TREE) {
+        first = fold_build2(MINUS_EXPR, TREE_TYPE(first), first, lower_bnd);
+        last = fold_build2(MINUS_EXPR, TREE_TYPE(last), last, lower_bnd);
+      }
 
       assert(host_integerp(first, 1) && host_integerp(last, 1) &&
              "Unknown range_expr!");
-      FieldOffset     = tree_low_cst(first, 1);
-      FieldLastOffset = tree_low_cst(last, 1);
-    } else if (index) {
-      index = size_binop (MINUS_EXPR, fold_convert (sizetype, index),
-                          min_element);
-      assert(host_integerp(index, 1));
-      FieldOffset = tree_low_cst(index, 1);
-      FieldLastOffset = FieldOffset;
+      FirstIndex = tree_low_cst(first, 1);
+      LastIndex = tree_low_cst(last, 1);
     } else {
-      FieldOffset = NextFieldToFill;
-      FieldLastOffset = FieldOffset;
+      // Subtract off the lower bound if any to ensure indices start from zero.
+      if (lower_bnd != NULL_TREE)
+        index = fold_build2(MINUS_EXPR, TREE_TYPE(index), index, lower_bnd);
+      assert(host_integerp(index, 1));
+      FirstIndex = tree_low_cst(index, 1);
+      LastIndex = FirstIndex;
     }
 
     // Process all of the elements in the range.
-    for (--FieldOffset; FieldOffset != FieldLastOffset; ) {
-      ++FieldOffset;
-      if (FieldOffset == ResultElts.size())
-        ResultElts.push_back(Val);
-      else {
-        if (FieldOffset >= ResultElts.size())
-          ResultElts.resize(FieldOffset+1);
-        ResultElts[FieldOffset] = Val;
-      }
+    if (LastIndex >= Elts.size())
+      Elts.resize(LastIndex + 1);
+    for (; FirstIndex <= LastIndex; ++FirstIndex)
+      Elts[FirstIndex] = Val;
 
-      NextFieldToFill = FieldOffset+1;
-    }
+    NextIndex = FirstIndex;
   }
+
+  unsigned NumElts = Elts.size();
 
   // Zero length array.
-  if (ResultElts.empty())
-    return getDefaultValue(ConvertType(TREE_TYPE(exp)));
-  assert(SomeVal && "If we had some initializer, we should have some value!");
+  if (!NumElts)
+    return getDefaultValue(InitTy);
 
-  // Do a post-pass over all of the elements.  We're taking care of two things
-  // here:
-  //   #1. If any elements did not have initializers specified, provide them
-  //       with a null init.
-  //   #2. If any of the elements have different types, return a struct instead
-  //       of an array.  This can occur in cases where we have an array of
-  //       unions, and the various unions had different pieces init'd.
-  const Type *ElTy = SomeVal->getType();
-  Constant *Filler = Constant::getNullValue(ElTy);
-  bool AllEltsSameType = true;
-  for (unsigned i = 0, e = ResultElts.size(); i != e; ++i) {
-    if (ResultElts[i] == 0)
-      ResultElts[i] = Filler;
-    else if (ResultElts[i]->getType() != ElTy)
-      AllEltsSameType = false;
+  // Default initialize any elements that had no initial value specified.
+  Constant *DefaultElt = getDefaultValue(EltTy);
+  for (unsigned i = 0; i != NumElts; ++i)
+    if (!Elts[i])
+      Elts[i] = DefaultElt;
+
+  // Check whether any of the elements have different types.  If so we need to
+  // return a struct instead of an array.  This can occur in cases where we have
+  // an array of unions, and the various unions had different parts initialized.
+  // While there, compute the maximum element alignment.
+  bool UseStruct = false;
+  const Type *ActualEltTy = Elts[0]->getType();
+  unsigned MaxAlign = TD.getABITypeAlignment(ActualEltTy);
+  for (unsigned i = 1; i != NumElts; ++i)
+    if (Elts[i]->getType() != ActualEltTy) {
+      MaxAlign = std::max(TD.getABITypeAlignment(Elts[i]->getType()), MaxAlign);
+      UseStruct = true;
+    }
+
+  // If any elements are more aligned than the GCC type then we need to return a
+  // packed struct.  This can happen if the user forced a small alignment on the
+  // array type.
+  bool Pack = MaxAlign * 8 > TYPE_ALIGN(TREE_TYPE(exp));
+
+  // We guarantee that initializers are always at least as big as the LLVM type
+  // for the initializer.  If needed, append padding to ensure this.
+  uint64_t TypeSize = TD.getTypeAllocSizeInBits(InitTy);
+  if (NumElts * EltSize < TypeSize) {
+    unsigned PadBits = TypeSize - NumElts * EltSize;
+    assert(PadBits % BITS_PER_UNIT == 0 && "Non-unit type size?");
+    unsigned Units = PadBits / BITS_PER_UNIT;
+    Elts.push_back(UndefValue::get(GetUnitType(Context, Units)));
+    UseStruct = true;
   }
 
-  if (TREE_CODE(init_type) == VECTOR_TYPE) {
-    assert(AllEltsSameType && "Vector of heterogeneous element types?");
-    return ConstantVector::get(ResultElts);
-  }
+  // Return as a struct if the contents are not homogeneous.
+  if (UseStruct || Pack)
+    return ConstantStruct::get(Context, Elts, Pack);
 
-  Constant *Res = AllEltsSameType ?
-    ConstantArray::get(ArrayType::get(ElTy, ResultElts.size()), ResultElts) :
-    ConstantStruct::get(Context, ResultElts, false);
-
-  // If the array does not require extra padding, return it.
-  const Type *InitType = ConvertType(init_type);
-  uint64_t ExpectedBits = getTargetData().getTypeAllocSizeInBits(InitType);
-  uint64_t FoundBits = getTargetData().getTypeAllocSizeInBits(Res->getType());
-  // The initializer may be bigger than the type if init_type is variable sized
-  // or has no size (in which case the size is determined by the initial value).
-  if (ExpectedBits <= FoundBits)
-    return Res;
-
-  // Wrap the array in a struct with padding at the end.
-  Constant *PadElts[2];
-  PadElts[0] = Res;
-  PadElts[1] = UndefValue::get(ArrayType::get(Type::getInt8Ty(Context),
-                                              (ExpectedBits - FoundBits) / 8));
-  return ConstantStruct::get(Context, PadElts, 2, false);
+  // Make the IR more pleasant by returning as a vector if the GCC type was a
+  // vector.  However this is only correct if the initial values had the same
+  // type as the vector element type, rather than some random other type.
+  return ActualEltTy == EltTy && TREE_CODE(init_type) == VECTOR_TYPE ?
+    ConstantVector::get(Elts) :
+    ConstantArray::get(ArrayType::get(ActualEltTy, Elts.size()), Elts);
 }
 
 /// FieldContents - A constant restricted to a range of bits.  Any part of the
@@ -903,10 +918,10 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
 
   // For each field for which an initial value was specified, set the bits
   // occupied by the field to that value.
-  unsigned HOST_WIDE_INT idx;
+  unsigned HOST_WIDE_INT ix;
   tree field, next_field, value;
   next_field = TYPE_FIELDS(TREE_TYPE(exp));
-  FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(exp), idx, field, value) {
+  FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(exp), ix, field, value) {
     if (!field) {
       // Move on to the next FIELD_DECL, skipping contained methods, types etc.
       field = next_field;
@@ -1009,9 +1024,9 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp) {
 }
 
 static Constant *ConvertCONSTRUCTOR(tree exp) {
-  // If the constructor is empty then default initialize all components.  It is
-  // safe to use the LLVM type here as it covers every part of the GCC type that
-  // can be default initialized.
+  // If the constructor is empty then default initialize all of the components.
+  // It is safe to use the LLVM type here as it covers every part of the GCC
+  // type that can possibly be default initialized.
   if (CONSTRUCTOR_NELTS(exp) == 0)
     return getDefaultValue(ConvertType(TREE_TYPE(exp)));
 
