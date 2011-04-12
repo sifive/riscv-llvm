@@ -62,7 +62,7 @@ LD_OPTIONS+=$(shell $(LLVM_CONFIG) --ldflags) $(LDFLAGS)
 # NOTE: The following flags can only be used after TARGET_UTIL has been built.
 TARGET_HEADERS+=-DTARGET_NAME=\"$(shell $(TARGET_UTIL) -t)\" \
 		-I$(TOP_DIR)/$(shell $(TARGET_UTIL) -p) \
-		-I$(TOP_DIR)/$(shell $(TARGET_UTIL) -o)
+		-I$(INCLUDE_DIR)/$(shell $(TARGET_UTIL) -o)
 
 
 default: $(PLUGIN)
