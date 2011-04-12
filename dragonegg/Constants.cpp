@@ -1148,10 +1148,9 @@ Constant *ConvertInitializer(tree exp) {
     if (isInt64(TREE_TYPE(exp), true) && InitSize != TypeSize)
       DieAbjectly("Constant too big for type!", exp);
   }
-// FIXME: This check fails when building libdecnumber (self-host build).
-//  if (getTargetData().getABITypeAlignment(Init->getType()) * 8 >
-//      TYPE_ALIGN(TREE_TYPE(exp)))
-//    DieAbjectly("Constant over aligned!", exp);
+  if (getTargetData().getABITypeAlignment(Init->getType()) * 8 >
+      TYPE_ALIGN(TREE_TYPE(exp)))
+    DieAbjectly("Constant over aligned!", exp);
 #endif
 
   return Init;
