@@ -1335,6 +1335,7 @@ Constant *AddressOf(tree exp) {
     Addr = AddressOfDecl(exp);
     break;
   case INDIRECT_REF:
+  case MISALIGNED_INDIRECT_REF:
     Addr = AddressOfINDIRECT_REF(exp);
     break;
   case LABEL_DECL:

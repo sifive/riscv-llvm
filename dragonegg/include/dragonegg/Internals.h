@@ -789,6 +789,7 @@ private:
   LValue EmitLV_COMPONENT_REF(tree_node *exp);
   LValue EmitLV_DECL(tree_node *exp);
   LValue EmitLV_INDIRECT_REF(tree_node *exp);
+  LValue EmitLV_MISALIGNED_INDIRECT_REF(tree_node *exp);
   LValue EmitLV_VIEW_CONVERT_EXPR(tree_node *exp);
   LValue EmitLV_WITH_SIZE_EXPR(tree_node *exp);
   LValue EmitLV_XXXXPART_EXPR(tree_node *exp, unsigned Idx);

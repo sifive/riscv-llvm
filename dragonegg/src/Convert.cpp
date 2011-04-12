@@ -1298,6 +1298,9 @@ LValue TreeToLLVM::EmitLV(tree exp) {
   case INDIRECT_REF:
     LV = EmitLV_INDIRECT_REF(exp);
     break;
+  case MISALIGNED_INDIRECT_REF:
+    LV = EmitLV_MISALIGNED_INDIRECT_REF(exp);
+    break;
   }
 
   // Check that the type of the lvalue is indeed that of a pointer to the tree
@@ -5736,6 +5739,19 @@ LValue TreeToLLVM::EmitLV_INDIRECT_REF(tree exp) {
   return LV;
 }
 
+LValue TreeToLLVM::EmitLV_MISALIGNED_INDIRECT_REF(tree exp) {
+  // The lvalue is just the address.  The alignment is given by operand 1.
+  unsigned Alignment = tree_low_cst(TREE_OPERAND(exp, 1), true);
+  if (!Alignment) Alignment = 8;
+  assert(!(Alignment & 7) && "Alignment not in octets!");
+  LValue LV = LValue(EmitRegister(TREE_OPERAND(exp, 0)), Alignment / 8);
+  // May need a useless type conversion (useless_type_conversion_p), for example
+  // when INDIRECT_REF is applied to a void*, resulting in a non-void type.
+  LV.Ptr = UselesslyTypeConvert(LV.Ptr,
+                                ConvertType(TREE_TYPE(exp))->getPointerTo());
+  return LV;
+}
+
 LValue TreeToLLVM::EmitLV_VIEW_CONVERT_EXPR(tree exp) {
   // The address is the address of the operand.
   LValue LV = EmitLV(TREE_OPERAND(exp, 0));
@@ -7873,6 +7889,7 @@ Value *TreeToLLVM::EmitAssignSingleRHS(tree rhs) {
   case COMPONENT_REF:
   case IMAGPART_EXPR:
   case INDIRECT_REF:
+  case MISALIGNED_INDIRECT_REF:
   case REALPART_EXPR:
   case TARGET_MEM_REF:
   case VIEW_CONVERT_EXPR:
