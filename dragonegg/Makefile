@@ -44,7 +44,7 @@ PLUGIN_OBJECTS=cache.o Backend.o Constants.o Convert.o Debug.o DefaultABI.o \
 	       Trees.o Types.o bits_and_bobs.o
 
 TARGET_OBJECT=Target.o
-TARGET_SOURCE=$(TOP_DIR)/$(shell $(TARGET_UTIL) -p)/Target.cpp
+TARGET_SOURCE=$(SRC_DIR)/$(shell $(TARGET_UTIL) -p)/Target.cpp
 
 TARGET_UTIL_OBJECTS=TargetInfo.o
 TARGET_UTIL=./TargetInfo
