@@ -9,9 +9,12 @@ GCC?=gcc-4.5
 # that was created during the build.
 LLVM_CONFIG?=llvm-config
 
-# Location of the dragonegg source, useful if you want separate source and
-# object directories.
-SRC_DIR?=$(PWD)
+# Location of this Makefile, useful if you want separate source and object
+# directories.
+TOP_DIR?=$(PWD)
+
+INCLUDE_DIR=$(TOP_DIR)/include
+SRC_DIR=$(TOP_DIR)/src
 
 ifndef VERBOSE
 	QUIET:=@
@@ -24,7 +27,7 @@ CXXFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cxxflags)
 ifeq ($(shell uname),Darwin)
 LOADABLE_MODULE_OPTIONS=-bundle -undefined dynamic_lookup
 else
-LOADABLE_MODULE_OPTIONS=-shared -Wl,-O1 -Wl,--version-script=$(SRC_DIR)/exports.map
+LOADABLE_MODULE_OPTIONS=-shared -Wl,-O1 -Wl,--version-script=$(TOP_DIR)/exports.map
 endif
 
 GCC_PLUGIN_DIR:=$(shell $(GCC) -print-file-name=plugin)
@@ -34,14 +37,14 @@ GCC_MINOR=$(word 2, $(subst ., ,$(GCC_VERSION)))
 TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
 
 # NOTE: replace with an informative string when doing a release.
-REVISION:=$(shell svnversion -n $(SRC_DIR))
+REVISION:=$(shell svnversion -n $(TOP_DIR))
 
 PLUGIN=dragonegg.so
 PLUGIN_OBJECTS=cache.o Backend.o Constants.o Convert.o Debug.o DefaultABI.o \
 	       Trees.o Types.o bits_and_bobs.o
 
 TARGET_OBJECT=Target.o
-TARGET_SOURCE=$(SRC_DIR)/$(shell $(TARGET_UTIL) -p)/Target.cpp
+TARGET_SOURCE=$(TOP_DIR)/$(shell $(TARGET_UTIL) -p)/Target.cpp
 
 TARGET_UTIL_OBJECTS=TargetInfo.o
 TARGET_UTIL=./TargetInfo
@@ -52,19 +55,19 @@ CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP \
 	     -DIN_GCC -DREVISION=\"$(REVISION)\" \
 	     -DGCC_MAJOR=$(GCC_MAJOR) -DGCC_MINOR=$(GCC_MINOR) \
-	     -I$(SRC_DIR)/include -I$(GCC_PLUGIN_DIR)/include
+	     -I$(INCLUDE_DIR) -I$(GCC_PLUGIN_DIR)/include
 
 LD_OPTIONS+=$(shell $(LLVM_CONFIG) --ldflags) $(LDFLAGS)
 
 # NOTE: The following flags can only be used after TARGET_UTIL has been built.
 TARGET_HEADERS+=-DTARGET_NAME=\"$(shell $(TARGET_UTIL) -t)\" \
-		-I$(SRC_DIR)/$(shell $(TARGET_UTIL) -p) \
-		-I$(SRC_DIR)/$(shell $(TARGET_UTIL) -o)
+		-I$(TOP_DIR)/$(shell $(TARGET_UTIL) -p) \
+		-I$(TOP_DIR)/$(shell $(TARGET_UTIL) -o)
 
 
 default: $(PLUGIN)
 
-$(TARGET_UTIL_OBJECTS): %.o : $(SRC_DIR)/utils/%.cpp
+$(TARGET_UTIL_OBJECTS): %.o : $(TOP_DIR)/utils/%.cpp
 	@echo Compiling utils/$*.cpp
 	$(QUIET)$(CXX) -c -DTARGET_TRIPLE=\"$(TARGET_TRIPLE)\" \
 	$(CPP_OPTIONS) $(CXXFLAGS) $<
@@ -103,7 +106,7 @@ clean::
 # The following target exists for the benefit of the dragonegg maintainers, and
 # is not used in a normal build.
 GENGTYPE_INPUT=$(SRC_DIR)/cache.c
-GENGTYPE_OUTPUT=$(SRC_DIR)/gt-cache.h
+GENGTYPE_OUTPUT=$(INCLUDE_DIR)/dragonegg/gt-cache.h
 gt-cache.h::
 	cd $(HOME)/GCC/objects/gcc && ./build/gengtype \
 	  -P $(GENGTYPE_OUTPUT) $(GCC_PLUGIN_DIR) gtyp-input.list \
