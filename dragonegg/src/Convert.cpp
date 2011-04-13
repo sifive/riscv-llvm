@@ -5791,6 +5791,8 @@ LValue TreeToLLVM::EmitLV_SSA_NAME(tree exp) {
 LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
   // TODO: Take the address space into account.
   // TODO: Improve the alignment estimate.
+
+  // The address is &symbol + base + index * step + offset.
   struct mem_address addr;
   get_address_description (exp, &addr);
 
