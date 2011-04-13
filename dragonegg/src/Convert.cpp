@@ -5828,7 +5828,7 @@ LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
 
   // The result can be of a different pointer type even if we didn't advance it.
   Ref.Ptr = UselesslyTypeConvert(Ref.Ptr,
-                                 GetRegType(TREE_TYPE(exp))->getPointerTo());
+                                 ConvertType(TREE_TYPE(exp))->getPointerTo());
 
   return Ref;
 }
