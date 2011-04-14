@@ -50,10 +50,6 @@ extern "C" {
 #include "tree.h"
 }
 
-// NoLength - Special value used to indicate that an array has variable or
-// unknown length.
-static const uint64_t NoLength = ~(uint64_t)0;
-
 static LLVMContext &Context = getGlobalContext();
 
 //===----------------------------------------------------------------------===//
@@ -200,14 +196,14 @@ static FunctionType *GetFunctionType(const PATypeHolder &Res,
 //                       Type Conversion Utilities
 //===----------------------------------------------------------------------===//
 
-/// ArrayLengthOf - Returns the length of the given gcc array type, or NoLength
+/// ArrayLengthOf - Returns the length of the given gcc array type, or NO_LENGTH
 /// if the array has variable or unknown length.
 uint64_t ArrayLengthOf(tree type) {
   assert(TREE_CODE(type) == ARRAY_TYPE && "Only for array types!");
   tree range = array_type_nelts(type); // The number of elements minus one.
   // Bail out if the array has variable or unknown length.
   if (!isInt64(range, false))
-    return NoLength;
+    return NO_LENGTH;
   int64_t Range = getInt64(range, false);
   return Range < 0 ? 0 : 1 + (uint64_t)Range;
 }
@@ -568,7 +564,7 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
 
   case ARRAY_TYPE: {
     uint64_t NumElts = ArrayLengthOf(type);
-    if (NumElts == NoLength)
+    if (NumElts == NO_LENGTH)
       return true;
     unsigned EltSizeBits = getInt64(TYPE_SIZE(TREE_TYPE(type)), true);
 
@@ -824,7 +820,7 @@ const Type *TypeConverter::ConvertType(tree type) {
     const Type *ElementTy = ConvertType(TREE_TYPE(type));
     uint64_t NumElements = ArrayLengthOf(type);
 
-    if (NumElements == NoLength) // Variable length array?
+    if (NumElements == NO_LENGTH) // Variable length array?
       NumElements = 0;
 
     // Create the array type.

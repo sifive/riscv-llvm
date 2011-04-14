@@ -299,8 +299,10 @@ extern bool isSequentialCompatible(tree_node *type);
 /// start of the record by a constant amount which is not humongously big.
 extern bool OffsetIsLLVMCompatible(tree_node *field_decl);
 
-/// ArrayLengthOf - Returns the length of the given gcc array type, or ~0ULL if
-/// the array has variable or unknown length.
+#define NO_LENGTH (~(uint64_t)0)
+
+/// ArrayLengthOf - Returns the length of the given gcc array type, or NO_LENGTH
+/// if the array has variable or unknown length.
 extern uint64_t ArrayLengthOf(tree_node *type);
 
 /// isBitfield - Returns whether to treat the specified field as a bitfield.

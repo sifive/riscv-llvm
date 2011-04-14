@@ -629,7 +629,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp) {
   // given for it.
   uint64_t TypeElts = TREE_CODE(init_type) == ARRAY_TYPE ?
     ArrayLengthOf(init_type) : TYPE_VECTOR_SUBPARTS(init_type);
-  if (TypeElts != ~0ULL)
+  if (TypeElts != NO_LENGTH)
     Elts.resize(TypeElts);
 
   // If GCC indices into the array need adjusting to make them zero indexed then
