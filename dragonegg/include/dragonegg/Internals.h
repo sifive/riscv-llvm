@@ -200,7 +200,7 @@ public:
   TypeConverter() : ConvertingStruct(false) {}
 
   /// ConvertType - Returns the LLVM type to use for memory that holds a value
-  /// of the given GCC type (GetRegType should be used for values in registers).
+  /// of the given GCC type (getRegType should be used for values in registers).
   const Type *ConvertType(tree_node *type);
 
   /// GCCTypeOverlapsWithLLVMTypePadding - Return true if the specified GCC type
@@ -237,7 +237,7 @@ private:
 extern TypeConverter *TheTypeConverter;
 
 /// ConvertType - Returns the LLVM type to use for memory that holds a value
-/// of the given GCC type (GetRegType should be used for values in registers).
+/// of the given GCC type (getRegType should be used for values in registers).
 inline const Type *ConvertType(tree_node *type) {
   return TheTypeConverter->ConvertType(type);
 }
@@ -649,15 +649,15 @@ private:
 
   //===---------- EmitReg* - Convert register expression to LLVM ----------===//
 
-  /// GetRegType - Returns the LLVM type to use for registers that hold a value
+  /// getRegType - Returns the LLVM type to use for registers that hold a value
   /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
   /// determine the LLVM type to return.
-  const Type *GetRegType(tree_node *type);
+  const Type *getRegType(tree_node *type);
 
   /// UselesslyTypeConvert - The useless_type_conversion_p predicate implicitly
   /// defines the GCC middle-end type system.  For scalar GCC types inner_type
   /// and outer_type, if 'useless_type_conversion_p(outer_type, inner_type)' is
-  /// true then the corresponding LLVM inner and outer types (see GetRegType)
+  /// true then the corresponding LLVM inner and outer types (see getRegType)
   /// are equal except possibly if they are both pointer types (casts to 'void*'
   /// are considered useless for example) or types derived from pointer types
   /// (vector types with pointer element type are the only possibility here).
@@ -841,14 +841,14 @@ private:
   Constant *EmitVectorRegisterConstant(tree_node *reg);
 
   /// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
-  /// to in-register type (that given by GetRegType).  TODO: Eliminate these
+  /// to in-register type (that given by getRegType).  TODO: Eliminate these
   /// methods: "memory" values should never be held in registers.  Currently
   /// this is mainly used for marshalling function parameters and return values,
   /// but that should be completely independent of the reg vs mem value logic.
   Value *Mem2Reg(Value *V, tree_node *type, LLVMBuilder &Builder);
   Constant *Mem2Reg(Constant *C, tree_node *type, TargetFolder &Folder);
 
-  /// Reg2Mem - Convert a value of in-register type (that given by GetRegType)
+  /// Reg2Mem - Convert a value of in-register type (that given by getRegType)
   /// to in-memory type (that given by ConvertType).  TODO: Eliminate this
   /// method: "memory" values should never be held in registers.  Currently
   /// this is mainly used for marshalling function parameters and return values,
@@ -863,13 +863,13 @@ private:
   /// LoadRegisterFromMemory - Loads a value of the given scalar GCC type from
   /// the memory location pointed to by Loc.  Takes care of adjusting for any
   /// differences between in-memory and in-register types (the returned value
-  /// is of in-register type, as returned by GetRegType).
+  /// is of in-register type, as returned by getRegType).
   Value *LoadRegisterFromMemory(MemRef Loc, tree_node *type,
                                 LLVMBuilder &Builder);
 
   /// StoreRegisterToMemory - Stores the given value to the memory pointed to by
   /// Loc.  Takes care of adjusting for any differences between the value's type
-  /// (which is the in-register type given by GetRegType) and the in-memory type.
+  /// (which is the in-register type given by getRegType) and the in-memory type.
   void StoreRegisterToMemory(Value *V, MemRef Loc, tree_node *type,
                              LLVMBuilder &Builder);
 

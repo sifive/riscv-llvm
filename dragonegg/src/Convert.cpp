@@ -1096,7 +1096,7 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
       continue;
 
     // Create the LLVM phi node.
-    const Type *Ty = GetRegType(TREE_TYPE(gimple_phi_result(gcc_phi)));
+    const Type *Ty = getRegType(TREE_TYPE(gimple_phi_result(gcc_phi)));
     PHINode *PHI = Builder.CreatePHI(Ty, gimple_phi_num_args(gcc_phi));
 
     // The phi defines the associated ssa name.
@@ -2371,7 +2371,7 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
       }
     }
 
-    return Builder.CreateIntCast(Result, GetRegType(TREE_TYPE(exp)),
+    return Builder.CreateIntCast(Result, getRegType(TREE_TYPE(exp)),
                                  /*isSigned*/!TYPE_UNSIGNED(TREE_TYPE(exp)));
   }
 }
@@ -3042,7 +3042,7 @@ CallInst *TreeToLLVM::EmitSimpleCall(StringRef CalleeName, tree ret_type,
   va_end(ops);
 
   const Type *RetTy = TREE_CODE(ret_type) == VOID_TYPE ?
-    Type::getVoidTy(Context) : GetRegType(ret_type);
+    Type::getVoidTy(Context) : getRegType(ret_type);
 
   // The LLVM argument types.
   std::vector<const Type*> ArgTys;
@@ -3098,7 +3098,7 @@ CallInst *TreeToLLVM::EmitSimpleCall(StringRef CalleeName, tree ret_type,
 /// that copies the value out of the specified register.
 Value *TreeToLLVM::EmitReadOfRegisterVariable(tree decl) {
   const Type *MemTy = ConvertType(TREE_TYPE(decl));
-  const Type *RegTy = GetRegType(TREE_TYPE(decl));
+  const Type *RegTy = getRegType(TREE_TYPE(decl));
 
   // If there was an error, return something bogus.
   if (ValidateRegisterVariable(decl))
@@ -4690,7 +4690,7 @@ Value *TreeToLLVM::EmitBuiltinLCEIL(gimple stmt) {
 
   // Then type cast the result of the "ceil" call.
   tree type = gimple_call_return_type(stmt);
-  const Type *RetTy = GetRegType(type);
+  const Type *RetTy = getRegType(type);
   return TYPE_UNSIGNED(type) ? Builder.CreateFPToUI(Call, RetTy) :
     Builder.CreateFPToSI(Call, RetTy);
 }
@@ -4709,7 +4709,7 @@ Value *TreeToLLVM::EmitBuiltinLFLOOR(gimple stmt) {
 
   // Then type cast the result of the "floor" call.
   tree type = gimple_call_return_type(stmt);
-  const Type *RetTy = GetRegType(type);
+  const Type *RetTy = getRegType(type);
   return TYPE_UNSIGNED(type) ? Builder.CreateFPToUI(Call, RetTy) :
     Builder.CreateFPToSI(Call, RetTy);
 }
@@ -5849,7 +5849,7 @@ Constant *TreeToLLVM::AddressOfLABEL_DECL(tree exp) {
 Value *TreeToLLVM::EmitMinInvariant(tree reg) {
   Value *V = (TREE_CODE(reg) == ADDR_EXPR) ?
     EmitInvariantAddress(reg) : EmitRegisterConstant(reg);
-  assert(V->getType() == GetRegType(TREE_TYPE(reg)) &&
+  assert(V->getType() == getRegType(TREE_TYPE(reg)) &&
          "Gimple min invariant has wrong type!");
   return V;
 }
@@ -5892,7 +5892,7 @@ Value *TreeToLLVM::EmitInvariantAddress(tree addr) {
   if (SavedInsertBB != EntryBlock)
     Builder.SetInsertPoint(SavedInsertBB, SavedInsertPoint);
 
-  assert(Address->getType() == GetRegType(TREE_TYPE(addr)) &&
+  assert(Address->getType() == getRegType(TREE_TYPE(addr)) &&
          "Invariant address has wrong type!");
   return Address;
 }
@@ -5974,7 +5974,7 @@ Constant *TreeToLLVM::EmitIntegerRegisterConstant(tree reg) {
 
   // The destination can be a pointer, integer or floating point type so we need
   // a generalized cast here
-  const Type *Ty = GetRegType(TREE_TYPE(reg));
+  const Type *Ty = getRegType(TREE_TYPE(reg));
   Instruction::CastOps opcode = CastInst::getCastOpcode(CI, false, Ty,
     !TYPE_UNSIGNED(TREE_TYPE(reg)));
   return TheFolder->CreateCast(opcode, CI, Ty);
@@ -6037,7 +6037,7 @@ Constant *TreeToLLVM::EmitConstantVectorConstructor(tree reg) {
   // The constant may have pretty much any type, for example it could be a bunch
   // of bytes.  Extract the vector elements from the constant.
   tree elt_type = TREE_TYPE (TREE_TYPE (reg));
-  const Type *EltTy = GetRegType(elt_type);
+  const Type *EltTy = getRegType(elt_type);
   unsigned NumElts = TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg));
   // Get the spacing between consecutive vector elements.  Obtain this from the
   // GCC type in case the LLVM type is something funky like i1.
@@ -6054,7 +6054,7 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
   // If there are no elements then immediately return the default value for a
   // small speedup.
   if (!TREE_VECTOR_CST_ELTS(reg))
-    return getDefaultValue(GetRegType(TREE_TYPE(reg)));
+    return getDefaultValue(getRegType(TREE_TYPE(reg)));
 
   // Convert the elements.
   SmallVector<Constant*, 8> Elts;
@@ -6064,7 +6064,7 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
   // If there weren't enough elements then set the rest of the vector to the
   // default value.
   if (Elts.size() < TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg))) {
-    Constant *Default = getDefaultValue(GetRegType(TREE_TYPE(TREE_TYPE(reg))));
+    Constant *Default = getDefaultValue(getRegType(TREE_TYPE(TREE_TYPE(reg))));
     Elts.append(TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg)) - Elts.size(), Default);
   }
 
@@ -6072,10 +6072,10 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
 }
 
 /// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
-/// to in-register type (that given by GetRegType).
+/// to in-register type (that given by getRegType).
 Value *TreeToLLVM::Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
   const Type *MemTy = V->getType();
-  const Type *RegTy = GetRegType(type);
+  const Type *RegTy = getRegType(type);
   assert(MemTy == ConvertType(type) && "Not of memory type!");
 
   if (MemTy == RegTy)
@@ -6087,7 +6087,7 @@ Value *TreeToLLVM::Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
 }
 Constant *TreeToLLVM::Mem2Reg(Constant *C, tree type, TargetFolder &Folder) {
   const Type *MemTy = C->getType();
-  const Type *RegTy = GetRegType(type);
+  const Type *RegTy = getRegType(type);
   assert(MemTy == ConvertType(type) && "Not of memory type!");
 
   if (MemTy == RegTy)
@@ -6098,12 +6098,12 @@ Constant *TreeToLLVM::Mem2Reg(Constant *C, tree type, TargetFolder &Folder) {
   return Folder.CreateIntCast(C, RegTy, /*isSigned*/!TYPE_UNSIGNED(type));
 }
 
-/// Reg2Mem - Convert a value of in-register type (that given by GetRegType)
+/// Reg2Mem - Convert a value of in-register type (that given by getRegType)
 /// to in-memory type (that given by ConvertType).
 Value *TreeToLLVM::Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
   const Type *RegTy = V->getType();
   const Type *MemTy = ConvertType(type);
-  assert(RegTy == GetRegType(type) && "Not of register type!");
+  assert(RegTy == getRegType(type) && "Not of register type!");
 
   if (RegTy == MemTy)
     return V;
@@ -6116,7 +6116,7 @@ Value *TreeToLLVM::Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
 /// LoadRegisterFromMemory - Loads a value of the given scalar GCC type from
 /// the memory location pointed to by Loc.  Takes care of adjusting for any
 /// differences between in-memory and in-register types (the returned value
-/// is of in-register type, as returned by GetRegType).
+/// is of in-register type, as returned by getRegType).
 Value *TreeToLLVM::LoadRegisterFromMemory(MemRef Loc, tree type,
                                           LLVMBuilder &Builder) {
   const Type *MemTy = ConvertType(type);
@@ -6128,7 +6128,7 @@ Value *TreeToLLVM::LoadRegisterFromMemory(MemRef Loc, tree type,
 
 /// StoreRegisterToMemory - Stores the given value to the memory pointed to by
 /// Loc.  Takes care of adjusting for any differences between the value's type
-/// (which is the in-register type given by GetRegType) and the in-memory type.
+/// (which is the in-register type given by getRegType) and the in-memory type.
 void TreeToLLVM::StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
                                        LLVMBuilder &Builder) {
   const Type *MemTy = ConvertType(type);
@@ -6143,10 +6143,10 @@ void TreeToLLVM::StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
 //           ... EmitReg* - Convert register expression to LLVM...
 //===----------------------------------------------------------------------===//
 
-/// GetRegType - Returns the LLVM type to use for registers that hold a value
+/// getRegType - Returns the LLVM type to use for registers that hold a value
 /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
 /// determine the LLVM type to return.
-const Type *TreeToLLVM::GetRegType(tree type) {
+const Type *TreeToLLVM::getRegType(tree type) {
   assert(!AGGREGATE_TYPE_P(type) && "Registers must have a scalar type!");
   assert(TREE_CODE(type) != VOID_TYPE && "Registers cannot have void type!");
 
@@ -6180,7 +6180,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
 
   // If we already found the definition of the SSA name, return it.
   if (Value *ExistingValue = SSANames[reg]) {
-    assert(ExistingValue->getType() == GetRegType(TREE_TYPE(reg)) &&
+    assert(ExistingValue->getType() == getRegType(TREE_TYPE(reg)) &&
            "SSA name has wrong type!");
     if (!isSSAPlaceholder(ExistingValue))
       return ExistingValue;
@@ -6190,7 +6190,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
   if (!SSA_NAME_IS_DEFAULT_DEF(reg)) {
     if (Value *ExistingValue = SSANames[reg])
       return ExistingValue; // The type was sanity checked above.
-    return SSANames[reg] = GetSSAPlaceholder(GetRegType(TREE_TYPE(reg)));
+    return SSANames[reg] = GetSSAPlaceholder(getRegType(TREE_TYPE(reg)));
   }
 
   // This SSA name is the default definition for the underlying symbol.
@@ -6202,7 +6202,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
   // If the variable is itself an ssa name, use its LLVM value.
   if (TREE_CODE (var) == SSA_NAME) {
     Value *Val = EmitReg_SSA_NAME(var);
-    assert(Val->getType() == GetRegType(TREE_TYPE(reg)) &&
+    assert(Val->getType() == getRegType(TREE_TYPE(reg)) &&
            "SSA name has wrong type!");
     return DefineSSAName(reg, Val);
   }
@@ -6212,7 +6212,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
   // variable in the function is a read operation, and refers to the value
   // read, it has an undefined value except for PARM_DECLs.
   if (TREE_CODE(var) != PARM_DECL)
-    return DefineSSAName(reg, UndefValue::get(GetRegType(TREE_TYPE(reg))));
+    return DefineSSAName(reg, UndefValue::get(getRegType(TREE_TYPE(reg))));
 
   // Read the initial value of the parameter and associate it with the ssa name.
   assert(DECL_LOCAL_IF_SET(var) && "Parameter not laid out?");
@@ -6274,7 +6274,7 @@ Value *TreeToLLVM::EmitReg_CONJ_EXPR(tree op) {
 
 Value *TreeToLLVM::EmitReg_CONVERT_EXPR(tree type, tree op) {
   return CastToAnyType(EmitRegister(op), !TYPE_UNSIGNED(TREE_TYPE(op)),
-                       GetRegType(type), !TYPE_UNSIGNED(type));
+                       getRegType(type), !TYPE_UNSIGNED(type));
 }
 
 Value *TreeToLLVM::EmitReg_NEGATE_EXPR(tree op) {
@@ -6306,7 +6306,7 @@ Value *TreeToLLVM::EmitReg_TRUTH_NOT_EXPR(tree type, tree op) {
     V = Builder.CreateICmpNE(V,
           Constant::getNullValue(V->getType()), "toBool");
   V = Builder.CreateNot(V, V->getName()+"not");
-  return Builder.CreateIntCast(V, GetRegType(type), /*isSigned*/false);
+  return Builder.CreateIntCast(V, getRegType(type), /*isSigned*/false);
 }
 
 // Comparisons.
@@ -6402,7 +6402,7 @@ Value *TreeToLLVM::EmitReg_MinMaxExpr(tree type, tree op0, tree op1,
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
 
-  const Type *Ty = GetRegType(type);
+  const Type *Ty = getRegType(type);
 
   // The LHS, RHS and Ty could be integer, floating or pointer typed. We need
   // to convert the LHS and RHS into the destination type before doing the
@@ -6447,7 +6447,7 @@ Value *TreeToLLVM::EmitReg_RotateOp(tree type, tree op0, tree op1,
 
   // Or the two together to return them.
   Value *Merge = Builder.CreateOr(V1, V2);
-  return Builder.CreateIntCast(Merge, GetRegType(type), /*isSigned*/false);
+  return Builder.CreateIntCast(Merge, getRegType(type), /*isSigned*/false);
 }
 
 Value *TreeToLLVM::EmitReg_ShiftOp(tree op0, tree op1, unsigned Opc) {
@@ -6474,7 +6474,7 @@ Value *TreeToLLVM::EmitReg_TruthOp(tree type, tree op0, tree op1, unsigned Opc){
                              "toBool");
 
   Value *Res = Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
-  return Builder.CreateZExt(Res, GetRegType(type));
+  return Builder.CreateZExt(Res, getRegType(type));
 }
 
 Value *TreeToLLVM::EmitReg_CEIL_DIV_EXPR(tree type, tree op0, tree op1) {
@@ -6486,7 +6486,7 @@ Value *TreeToLLVM::EmitReg_CEIL_DIV_EXPR(tree type, tree op0, tree op1) {
   //   LHS CDiv RHS = (LHS - Sign(RHS)) Div RHS + 1
   // otherwise.
 
-  const Type *Ty = GetRegType(type);
+  const Type *Ty = getRegType(type);
   Constant *Zero = ConstantInt::get(Ty, 0);
   Constant *One = ConstantInt::get(Ty, 1);
   Constant *MinusOne = Constant::getAllOnesValue(Ty);
@@ -6574,7 +6574,7 @@ Value *TreeToLLVM::EmitReg_FLOOR_DIV_EXPR(tree type, tree op0, tree op1) {
     // same sign, so FDiv is the same as Div.
     return Builder.CreateUDiv(LHS, RHS, "fdiv");
 
-  const Type *Ty = GetRegType(type);
+  const Type *Ty = getRegType(type);
   Constant *Zero = ConstantInt::get(Ty, 0);
   Constant *One = ConstantInt::get(Ty, 1);
   Constant *MinusOne = Constant::getAllOnesValue(Ty);
@@ -6621,7 +6621,7 @@ Value *TreeToLLVM::EmitReg_FLOOR_MOD_EXPR(tree type, tree op0, tree op1) {
     // LHS and RHS values must have the same sign if their type is unsigned.
     return Builder.CreateURem(LHS, RHS);
 
-  const Type *Ty = GetRegType(type);
+  const Type *Ty = getRegType(type);
   Constant *Zero = ConstantInt::get(Ty, 0);
 
   // The two possible values for Mod.
@@ -6730,7 +6730,7 @@ Value *TreeToLLVM::EmitReg_POINTER_PLUS_EXPR(tree type, tree op0, tree op1) {
     Builder.CreateInBoundsGEP(Ptr, Idx) : Builder.CreateGEP(Ptr, Idx);
 
   // The result may be of a different pointer type.
-  return UselesslyTypeConvert(GEP, GetRegType(type));
+  return UselesslyTypeConvert(GEP, getRegType(type));
 }
 
 Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
@@ -6780,7 +6780,7 @@ Value *TreeToLLVM::EmitReg_ROUND_DIV_EXPR(tree type, tree op0, tree op1) {
   // required to ensure correct results.  The details depend on whether
   // we are doing signed or unsigned arithmetic.
 
-  const Type *Ty = GetRegType(type);
+  const Type *Ty = getRegType(type);
   Constant *Zero = ConstantInt::get(Ty, 0);
   Constant *Two = ConstantInt::get(Ty, 2);
 
@@ -7659,7 +7659,7 @@ void TreeToLLVM::RenderGIMPLE_RETURN(gimple stmt) {
       EmitAggregate(retval, DestLoc);
     } else {
       Value *Val = Builder.CreateBitCast(EmitRegister(retval),
-                                         GetRegType(TREE_TYPE(result)));
+                                         getRegType(TREE_TYPE(result)));
       StoreRegisterToMemory(Val, DestLoc, TREE_TYPE(result), Builder);
     }
   }
@@ -7744,7 +7744,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   // EmitAssignSingleRHS.
   if (get_gimple_rhs_class(gimple_expr_code(stmt)) == GIMPLE_SINGLE_RHS) {
     Value *RHS = EmitAssignSingleRHS(gimple_assign_rhs1(stmt));
-    assert(RHS->getType() == GetRegType(TREE_TYPE(gimple_assign_rhs1(stmt))) &&
+    assert(RHS->getType() == getRegType(TREE_TYPE(gimple_assign_rhs1(stmt))) &&
            "RHS has wrong type!");
     return RHS;
   }
@@ -7795,7 +7795,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case UNLT_EXPR:
   case UNORDERED_EXPR:
     // The GCC result may be of any integer type.
-    RHS = Builder.CreateZExt(EmitCompare(rhs1, rhs2, code), GetRegType(type));
+    RHS = Builder.CreateZExt(EmitCompare(rhs1, rhs2, code), getRegType(type));
     break;
 
   // Binary expressions.
@@ -7861,7 +7861,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_TruthOp(type, rhs1, rhs2, Instruction::Xor); break;
   }
 
-  assert(RHS->getType() == GetRegType(type) && "RHS has wrong type!");
+  assert(RHS->getType() == getRegType(type) && "RHS has wrong type!");
   return RHS;
 }
 
@@ -7959,7 +7959,7 @@ Value *TreeToLLVM::OutputCallRHS(gimple stmt, const MemRef *DestLoc) {
 /// WriteScalarToLHS - Store RHS, a non-aggregate value, into the given LHS.
 void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
   // Perform a useless type conversion (useless_type_conversion_p).
-  RHS = UselesslyTypeConvert(RHS, GetRegType(TREE_TYPE(lhs)));
+  RHS = UselesslyTypeConvert(RHS, getRegType(TREE_TYPE(lhs)));
 
   // If this is the definition of an ssa name, record it in the SSANames map.
   if (TREE_CODE(lhs) == SSA_NAME) {
