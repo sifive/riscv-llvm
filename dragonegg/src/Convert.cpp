@@ -6143,22 +6143,6 @@ void TreeToLLVM::StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
 //           ... EmitReg* - Convert register expression to LLVM...
 //===----------------------------------------------------------------------===//
 
-/// getRegType - Returns the LLVM type to use for registers that hold a value
-/// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
-/// determine the LLVM type to return.
-const Type *TreeToLLVM::getRegType(tree type) {
-  assert(!AGGREGATE_TYPE_P(type) && "Registers must have a scalar type!");
-  assert(TREE_CODE(type) != VOID_TYPE && "Registers cannot have void type!");
-
-  // For integral types, convert based on the type precision.
-  if (TREE_CODE(type) == BOOLEAN_TYPE || TREE_CODE(type) == ENUMERAL_TYPE ||
-      TREE_CODE(type) == INTEGER_TYPE)
-    return IntegerType::get(Context, TYPE_PRECISION(type));
-
-  // Otherwise, return the type used to represent memory.
-  return ConvertType(type);
-}
-
 /// EmitMemory - Convert the specified gimple register or local constant of
 /// register type to an LLVM value with in-memory type (given by ConvertType).
 Value *TreeToLLVM::EmitMemory(tree reg) {
