@@ -385,7 +385,7 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
   DIType Ty = getOrCreateType(type);
   if (!Ty && TREE_CODE(type) == OFFSET_TYPE)
     Ty = createPointerType(TREE_TYPE(type));
-  if (DECL_ARTIFICIAL (decl))
+  if (Ty && DECL_ARTIFICIAL (decl))
       Ty = DebugFactory.CreateArtificialType(Ty);
   // If type info is not available then do not emit debug info for this var.
   if (!Ty)
