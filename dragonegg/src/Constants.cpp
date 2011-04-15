@@ -479,8 +479,87 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit) {
 
 
 //===----------------------------------------------------------------------===//
+//                    ... ExtractRegisterFromConstant ...
+//===----------------------------------------------------------------------===//
+
+/// ExtractRegisterFromConstant - Extract a value of the given scalar GCC type
+/// from a constant.  The returned value is of in-register type, as returned by
+/// getRegType, and is what you would get by storing the constant to memory and
+/// using LoadRegisterFromMemory to load a register value back out starting from
+/// byte StartingByte.
+Constant *ExtractRegisterFromConstant(Constant *C, tree type, int StartingByte) {
+  // NOTE: Needs to be kept in sync with getRegType.
+  int StartingBit = StartingByte * BITS_PER_UNIT;
+  switch (TREE_CODE(type)) {
+
+  default:
+    DieAbjectly("Unknown register type!", type);
+
+  case BOOLEAN_TYPE:
+  case ENUMERAL_TYPE:
+  case INTEGER_TYPE: {
+    // For integral types, extract an integer with size equal to the type size,
+    // then truncate down to the precision.  For example, when extracting a bool
+    // this probably first loads out an i8 or i32 which is then truncated to i1.
+    // This roundabout approach means we get the right result on both little and
+    // big endian machines.
+    uint64_t Size = getInt64(TYPE_SIZE(type), true);
+    const Type *MemTy = IntegerType::get(Context, Size);
+    C = InterpretAsType(C, MemTy, StartingBit);
+    return TheFolder->CreateTruncOrBitCast(C, getRegType(type));
+  }
+
+  case COMPLEX_TYPE: {
+    tree elt_type = TREE_TYPE (type);
+    unsigned Stride = GET_MODE_BITSIZE (TYPE_MODE (elt_type));
+    Constant *Vals[2] = {
+      ExtractRegisterFromConstant(C, elt_type, StartingBit),
+      ExtractRegisterFromConstant(C, elt_type, StartingBit + Stride)
+    };
+    return ConstantStruct::get(Context, Vals, 2, false);
+  }
+
+  case OFFSET_TYPE:
+  case POINTER_TYPE:
+  case REFERENCE_TYPE:
+    return InterpretAsType(C, getRegType(type), StartingBit);
+
+  case REAL_TYPE:
+    // NOTE: This might be wrong for floats with precision less than their alloc
+    // size on big-endian machines.
+    return InterpretAsType(C, getRegType(type), StartingBit);
+
+  case VECTOR_TYPE: {
+    tree elt_type = TREE_TYPE (type);
+    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
+    unsigned Stride = GET_MODE_BITSIZE (TYPE_MODE (elt_type));
+    SmallVector<Constant*, 16> Vals(NumElts);
+    for (unsigned i = 0; i != NumElts; ++i) {
+      Vals[i] = ExtractRegisterFromConstant(C, elt_type, StartingBit+i*Stride);
+      // LLVM does not support vectors of pointers, so turn any pointers into
+      // integers.
+      if (isa<PointerType>(Vals[i]->getType())) {
+        const IntegerType *IntTy = getTargetData().getIntPtrType(Context);
+        Vals[i] = TheFolder->CreatePtrToInt(Vals[i], IntTy);
+      }
+    }
+    return ConstantVector::get(Vals);
+  }
+
+  }
+}
+
+
+//===----------------------------------------------------------------------===//
 //                       ... ConvertInitializer ...
 //===----------------------------------------------------------------------===//
+
+/// getAsRegister - Turn the given GCC scalar constant into an LLVM constant of
+/// register type.
+static Constant *getAsRegister(tree exp) {
+  Constant *C = ConvertInitializer(exp);
+  return ExtractRegisterFromConstant(C, TREE_TYPE(exp));
+}
 
 /// ConvertInitializerWithCast - Convert the initial value for a global variable
 /// to an equivalent LLVM constant then cast to the given type if both the type
@@ -1161,16 +1240,6 @@ Constant *ConvertInitializer(tree exp) {
 //                            ... AddressOf ...
 //===----------------------------------------------------------------------===//
 
-/// getAsInteger - Given a constant of integer type, return its value as an LLVM
-/// integer constant.
-static Constant *getAsInteger(tree exp) {
-  tree type = TREE_TYPE(exp);
-  assert(INTEGRAL_TYPE_P(type) && "Constant does not have integer type!");
-  Constant *C = ConvertInitializer(exp);
-  const Type *IntTy = IntegerType::get(Context, TYPE_PRECISION(type));
-  return InterpretAsType(C, IntTy, 0);
-}
-
 /// AddressOfCST - Return the address of a simple constant, eg a of number.
 static Constant *AddressOfCST(tree exp) {
   Constant *Init = ConvertInitializer(exp);
@@ -1206,13 +1275,13 @@ static Constant *AddressOfARRAY_REF(tree exp) {
          "Global with variable size?");
 
   // Get the index into the array as an LLVM integer constant.
-  Constant *IndexVal = getAsInteger(index);
+  Constant *IndexVal = getAsRegister(index);
 
   // Subtract off the lower bound, if any.
   tree lower_bound = array_ref_low_bound(exp);
   if (!integer_zerop(lower_bound)) {
     // Get the lower bound as an LLVM integer constant.
-    Constant *LowerBoundVal = getAsInteger(lower_bound);
+    Constant *LowerBoundVal = getAsRegister(lower_bound);
     IndexVal = TheFolder->CreateSub(IndexVal, LowerBoundVal, hasNUW(index_type),
                                     hasNSW(index_type));
   }
@@ -1235,7 +1304,7 @@ static Constant *AddressOfCOMPONENT_REF(tree exp) {
   // Compute the field offset in units from the start of the record.
   Constant *Offset;
   if (TREE_OPERAND(exp, 2)) {
-    Offset = getAsInteger(TREE_OPERAND(exp, 2));
+    Offset = getAsRegister(TREE_OPERAND(exp, 2));
     // At this point the offset is measured in units divided by (exactly)
     // (DECL_OFFSET_ALIGN / BITS_PER_UNIT).  Convert to units.
     unsigned factor = DECL_OFFSET_ALIGN(field_decl) / BITS_PER_UNIT;
@@ -1245,7 +1314,7 @@ static Constant *AddressOfCOMPONENT_REF(tree exp) {
                                                      factor));
   } else {
     assert(DECL_FIELD_OFFSET(field_decl) && "Field offset not available!");
-    Offset = getAsInteger(DECL_FIELD_OFFSET(field_decl));
+    Offset = getAsRegister(DECL_FIELD_OFFSET(field_decl));
   }
 
   // Here BitStart gives the offset of the field in bits from Offset.

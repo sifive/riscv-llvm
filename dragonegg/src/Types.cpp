@@ -651,17 +651,64 @@ bool TypeConverter::GCCTypeOverlapsWithLLVMTypePadding(tree type,
 /// getRegType - Returns the LLVM type to use for registers that hold a value
 /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
 /// determine the LLVM type to return.
-const Type *TreeToLLVM::getRegType(tree type) {
+const Type *getRegType(tree type) {
+  // NOTE: Any changes made here need to be reflected in LoadRegisterFromMemory,
+  // StoreRegisterToMemory and ExtractRegisterFromConstant.
   assert(!AGGREGATE_TYPE_P(type) && "Registers must have a scalar type!");
   assert(TREE_CODE(type) != VOID_TYPE && "Registers cannot have void type!");
 
-  // For integral types, convert based on the type precision.
-  if (TREE_CODE(type) == BOOLEAN_TYPE || TREE_CODE(type) == ENUMERAL_TYPE ||
-      TREE_CODE(type) == INTEGER_TYPE)
+  switch (TREE_CODE(type)) {
+
+  default:
+    DieAbjectly("Unknown register type!", type);
+
+  case BOOLEAN_TYPE:
+  case ENUMERAL_TYPE:
+  case INTEGER_TYPE:
+    // For integral types, convert based on the type precision.  For example,
+    // this turns bool into i1 while ConvertType probably turns it into i8 or
+    // i32.
     return IntegerType::get(Context, TYPE_PRECISION(type));
 
-  // Otherwise, return the type used to represent memory.
-  return ConvertType(type);
+  case COMPLEX_TYPE: {
+    const Type *EltTy = getRegType(TREE_TYPE(type));
+    return StructType::get(Context, EltTy, EltTy, NULL);
+  }
+
+  case OFFSET_TYPE:
+    return getTargetData().getIntPtrType(Context);
+
+  case POINTER_TYPE:
+  case REFERENCE_TYPE:
+    // void* -> byte*
+    return VOID_TYPE_P(TREE_TYPE(type)) ?  GetUnitPointerType(Context) :
+      ConvertType(TREE_TYPE(type))->getPointerTo();
+
+  case REAL_TYPE:
+    if (TYPE_PRECISION(type) == 32)
+      return Type::getFloatTy(Context);
+    if (TYPE_PRECISION(type) == 64)
+      return Type::getDoubleTy(Context);
+    if (TYPE_PRECISION(type) == 80)
+      return Type::getX86_FP80Ty(Context);
+    if (TYPE_PRECISION(type) == 128)
+#ifdef TARGET_POWERPC
+      return Type::getPPC_FP128Ty(Context);
+#else
+      // IEEE quad precision.
+      return Type::getFP128Ty(Context);
+#endif
+      DieAbjectly("Unknown FP type!", type);
+
+  case VECTOR_TYPE: {
+    // LLVM does not support vectors of pointers, so turn any pointers into
+    // integers.
+    const Type *EltTy = POINTER_TYPE_P(TREE_TYPE(type)) ?
+      getTargetData().getIntPtrType(Context) : getRegType(TREE_TYPE(type));
+    return VectorType::get(EltTy, TYPE_VECTOR_SUBPARTS(type));
+  }
+
+  }
 }
 
 
@@ -736,7 +783,10 @@ const Type *TypeConverter::ConvertType(tree type) {
 
   case VECTOR_TYPE: {
     if ((Ty = GET_TYPE_LLVM(type))) return Ty;
-    Ty = ConvertType(TREE_TYPE(type));
+    // LLVM does not support vectors of pointers, so turn any pointers into
+    // integers.
+    Ty = POINTER_TYPE_P(TREE_TYPE(type)) ?
+      getTargetData().getIntPtrType(Context) : ConvertType(TREE_TYPE(type));
     assert(!Ty->isAbstract() && "should use TypeDB.setType()");
     Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));
     Ty = SET_TYPE_LLVM(type, Ty);
@@ -866,11 +916,8 @@ const Type *TypeConverter::ConvertType(tree type) {
     // Handle OFFSET_TYPE specially.  This is used for pointers to members,
     // which are really just integer offsets.  As such, return the appropriate
     // integer directly.
-    switch (getTargetData().getPointerSize()) {
-    default: assert(0 && "Unknown pointer size!");
-    case 4: Ty = Type::getInt32Ty(Context); break;
-    case 8: Ty = Type::getInt64Ty(Context); break;
-    }
+    Ty = getTargetData().getIntPtrType(Context);
+    break;
   }
 
   // Try to give the type a helpful name.  There is no point in doing this for

@@ -236,6 +236,11 @@ private:
 
 extern TypeConverter *TheTypeConverter;
 
+/// getRegType - Returns the LLVM type to use for registers that hold a value
+/// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
+/// determine the LLVM type to return.
+const Type *getRegType(tree_node *type);
+
 /// ConvertType - Returns the LLVM type to use for memory that holds a value
 /// of the given GCC type (getRegType should be used for values in registers).
 inline const Type *ConvertType(tree_node *type) {
@@ -649,11 +654,6 @@ private:
 
   //===---------- EmitReg* - Convert register expression to LLVM ----------===//
 
-  /// getRegType - Returns the LLVM type to use for registers that hold a value
-  /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
-  /// determine the LLVM type to return.
-  const Type *getRegType(tree_node *type);
-
   /// UselesslyTypeConvert - The useless_type_conversion_p predicate implicitly
   /// defines the GCC middle-end type system.  For scalar GCC types inner_type
   /// and outer_type, if 'useless_type_conversion_p(outer_type, inner_type)' is
@@ -783,9 +783,8 @@ private:
   bool EmitBuiltinInitTrampoline(gimple_statement_d *stmt, Value *&Result);
 
   // Complex Math Expressions.
-  Value *CreateComplex(Value *Real, Value *Imag, tree_node *elt_type);
-  void SplitComplex(Value *Complex, Value *&Real, Value *&Imag,
-                    tree_node *elt_type);
+  Value *CreateComplex(Value *Real, Value *Imag);
+  void SplitComplex(Value *Complex, Value *&Real, Value *&Imag);
 
   // L-Value Expressions.
   LValue EmitLV_ARRAY_REF(tree_node *exp);
@@ -846,7 +845,6 @@ private:
   /// this is mainly used for marshalling function parameters and return values,
   /// but that should be completely independent of the reg vs mem value logic.
   Value *Mem2Reg(Value *V, tree_node *type, LLVMBuilder &Builder);
-  Constant *Mem2Reg(Constant *C, tree_node *type, TargetFolder &Folder);
 
   /// Reg2Mem - Convert a value of in-register type (that given by getRegType)
   /// to in-memory type (that given by ConvertType).  TODO: Eliminate this

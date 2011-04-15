@@ -5316,10 +5316,8 @@ bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt, Value *&/*Result*/) {
 //                      ... Complex Math Expressions ...
 //===----------------------------------------------------------------------===//
 
-Value *TreeToLLVM::CreateComplex(Value *Real, Value *Imag, tree elt_type) {
+Value *TreeToLLVM::CreateComplex(Value *Real, Value *Imag) {
   assert(Real->getType() == Imag->getType() && "Component type mismatch!");
-  Real = Reg2Mem(Real, elt_type, Builder);
-  Imag = Reg2Mem(Imag, elt_type, Builder);
   const Type *EltTy = Real->getType();
   Value *Result = UndefValue::get(StructType::get(Context, EltTy, EltTy, NULL));
   Result = Builder.CreateInsertValue(Result, Real, 0);
@@ -5327,10 +5325,9 @@ Value *TreeToLLVM::CreateComplex(Value *Real, Value *Imag, tree elt_type) {
   return Result;
 }
 
-void TreeToLLVM::SplitComplex(Value *Complex, Value *&Real, Value *&Imag,
-                              tree elt_type) {
-  Real = Mem2Reg(Builder.CreateExtractValue(Complex, 0), elt_type, Builder);
-  Imag = Mem2Reg(Builder.CreateExtractValue(Complex, 1), elt_type, Builder);
+void TreeToLLVM::SplitComplex(Value *Complex, Value *&Real, Value *&Imag) {
+  Real = Builder.CreateExtractValue(Complex, 0);
+  Imag = Builder.CreateExtractValue(Complex, 1);
 }
 
 
@@ -6034,18 +6031,8 @@ Constant *TreeToLLVM::EmitRealRegisterConstant(tree reg) {
 Constant *TreeToLLVM::EmitConstantVectorConstructor(tree reg) {
   // Get the constructor as an LLVM constant.
   Constant *C = ConvertInitializer(reg);
-  // The constant may have pretty much any type, for example it could be a bunch
-  // of bytes.  Extract the vector elements from the constant.
-  tree elt_type = TREE_TYPE (TREE_TYPE (reg));
-  const Type *EltTy = getRegType(elt_type);
-  unsigned NumElts = TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg));
-  // Get the spacing between consecutive vector elements.  Obtain this from the
-  // GCC type in case the LLVM type is something funky like i1.
-  unsigned Stride = GET_MODE_BITSIZE (TYPE_MODE (elt_type));
-  SmallVector<Constant*, 16> Vals(NumElts);
-  for (unsigned i = 0; i != NumElts; ++i)
-    Vals[i] = InterpretAsType(C, EltTy, i*Stride);
-  return ConstantVector::get(Vals);
+  // Load the vector register out of it.
+  return ExtractRegisterFromConstant(C, TREE_TYPE(reg));
 }
 
 /// EmitVectorRegisterConstant - Turn the given VECTOR_CST into an LLVM constant
@@ -6081,21 +6068,36 @@ Value *TreeToLLVM::Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
   if (MemTy == RegTy)
     return V;
 
-  assert(RegTy->isIntegerTy() && MemTy->isIntegerTy() &&
-         "Unexpected type mismatch!");
-  return Builder.CreateIntCast(V, RegTy, /*isSigned*/!TYPE_UNSIGNED(type));
-}
-Constant *TreeToLLVM::Mem2Reg(Constant *C, tree type, TargetFolder &Folder) {
-  const Type *MemTy = C->getType();
-  const Type *RegTy = getRegType(type);
-  assert(MemTy == ConvertType(type) && "Not of memory type!");
+  if (RegTy->isIntegerTy()) {
+    assert(MemTy->isIntegerTy() && "Type mismatch!");
+    return Builder.CreateIntCast(V, RegTy, /*isSigned*/!TYPE_UNSIGNED(type));
+  }
 
-  if (MemTy == RegTy)
-    return C;
+  if (RegTy->isStructTy()) {
+    assert(TREE_CODE(type) == COMPLEX_TYPE && "Expected a complex type!");
+    assert(MemTy->isStructTy() && "Type mismatch!");
+    Value *RealPart = Builder.CreateExtractValue(V, 0);
+    RealPart = Mem2Reg(RealPart, TREE_TYPE(type), Builder);
+    Value *ImagPart = Builder.CreateExtractValue(V, 1);
+    ImagPart = Mem2Reg(ImagPart, TREE_TYPE(type), Builder);
+    return CreateComplex(RealPart, ImagPart);
+  }
 
-  assert(RegTy->isIntegerTy() && MemTy->isIntegerTy() &&
-         "Unexpected type mismatch!");
-  return Folder.CreateIntCast(C, RegTy, /*isSigned*/!TYPE_UNSIGNED(type));
+  if (RegTy->isVectorTy()) {
+    assert(TREE_CODE(type) == VECTOR_TYPE && "Expected a vector type!");
+    assert(MemTy->isVectorTy() && "Type mismatch!");
+    Value *V = UndefValue::get(RegTy);
+    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
+    for (unsigned i = 0; i != NumElts; ++i) {
+      Value *Idx = ConstantInt::get(Type::getInt32Ty(Context), i);
+      Value *Val = Builder.CreateExtractElement(V, Idx);
+      Val = Mem2Reg(Val, TREE_TYPE(type), Builder);
+      V = Builder.CreateInsertElement(V, Val, Idx);
+    }
+    return V;
+  }
+
+  DieAbjectly("Don't know how to turn this into a register!", type);
 }
 
 /// Reg2Mem - Convert a value of in-register type (that given by getRegType)
@@ -6108,9 +6110,39 @@ Value *TreeToLLVM::Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
   if (RegTy == MemTy)
     return V;
 
-  assert(RegTy->isIntegerTy() && MemTy->isIntegerTy() &&
-         "Unexpected type mismatch!");
-  return Builder.CreateIntCast(V, MemTy, /*isSigned*/!TYPE_UNSIGNED(type));
+  if (MemTy->isIntegerTy()) {
+    assert(RegTy->isIntegerTy() && "Type mismatch!");
+    return Builder.CreateIntCast(V, MemTy, /*isSigned*/!TYPE_UNSIGNED(type));
+  }
+
+  if (MemTy->isStructTy()) {
+    assert(TREE_CODE(type) == COMPLEX_TYPE && "Expected a complex type!");
+    assert(RegTy->isStructTy() && "Type mismatch!");
+    Value *RealPart, *ImagPart;
+    SplitComplex(V, RealPart, ImagPart);
+    RealPart = Reg2Mem(RealPart, TREE_TYPE(type), Builder);
+    ImagPart = Reg2Mem(ImagPart, TREE_TYPE(type), Builder);
+    Value *Z = UndefValue::get(MemTy);
+    Z = Builder.CreateInsertValue(Z, RealPart, 0);
+    Z = Builder.CreateInsertValue(Z, ImagPart, 1);
+    return Z;
+  }
+
+  if (MemTy->isVectorTy()) {
+    assert(TREE_CODE(type) == VECTOR_TYPE && "Expected a vector type!");
+    assert(RegTy->isVectorTy() && "Type mismatch!");
+    Value *V = UndefValue::get(MemTy);
+    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
+    for (unsigned i = 0; i != NumElts; ++i) {
+      Value *Idx = ConstantInt::get(Type::getInt32Ty(Context), i);
+      Value *Val = Builder.CreateExtractElement(V, Idx);
+      Val = Reg2Mem(Val, TREE_TYPE(type), Builder);
+      V = Builder.CreateInsertElement(V, Val, Idx);
+    }
+    return V;
+  }
+
+  DieAbjectly("Don't know how to turn this into memory!", type);
 }
 
 /// LoadRegisterFromMemory - Loads a value of the given scalar GCC type from
@@ -6119,6 +6151,7 @@ Value *TreeToLLVM::Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
 /// is of in-register type, as returned by getRegType).
 Value *TreeToLLVM::LoadRegisterFromMemory(MemRef Loc, tree type,
                                           LLVMBuilder &Builder) {
+  // NOTE: Needs to be kept in sync with getRegType.
   const Type *MemTy = ConvertType(type);
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, MemTy->getPointerTo());
   LoadInst *LI = Builder.CreateLoad(Ptr, Loc.Volatile);
@@ -6131,6 +6164,7 @@ Value *TreeToLLVM::LoadRegisterFromMemory(MemRef Loc, tree type,
 /// (which is the in-register type given by getRegType) and the in-memory type.
 void TreeToLLVM::StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
                                        LLVMBuilder &Builder) {
+  // NOTE: Needs to be kept in sync with getRegType.
   const Type *MemTy = ConvertType(type);
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, MemTy->getPointerTo());
   StoreInst *SI = Builder.CreateStore(Reg2Mem(V, type, Builder), Ptr,
@@ -6248,12 +6282,12 @@ Value *TreeToLLVM::EmitReg_BIT_NOT_EXPR(tree op) {
 Value *TreeToLLVM::EmitReg_CONJ_EXPR(tree op) {
   tree elt_type = TREE_TYPE(TREE_TYPE(op));
   Value *R, *I;
-  SplitComplex(EmitRegister(op), R, I, elt_type);
+  SplitComplex(EmitRegister(op), R, I);
 
   // ~(a+ib) = a + i*-b
   I = CreateAnyNeg(I, elt_type);
 
-  return CreateComplex(R, I, elt_type);
+  return CreateComplex(R, I);
 }
 
 Value *TreeToLLVM::EmitReg_CONVERT_EXPR(tree type, tree op) {
@@ -6267,13 +6301,13 @@ Value *TreeToLLVM::EmitReg_NEGATE_EXPR(tree op) {
 
   if (TREE_CODE(type) == COMPLEX_TYPE) {
     tree elt_type = TREE_TYPE(type);
-    Value *R, *I; SplitComplex(V, R, I, elt_type);
+    Value *R, *I; SplitComplex(V, R, I);
 
     // -(a+ib) = -a + i*-b
     R = CreateAnyNeg(R, elt_type);
     I = CreateAnyNeg(I, elt_type);
 
-    return CreateComplex(R, I, elt_type);
+    return CreateComplex(R, I);
   }
 
   return CreateAnyNeg(V, type);
@@ -6349,9 +6383,9 @@ Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, unsigned code) {
 
   if (TREE_CODE(TREE_TYPE(lhs)) == COMPLEX_TYPE) {
     Value *LHSr, *LHSi;
-    SplitComplex(LHS, LHSr, LHSi, TREE_TYPE(TREE_TYPE(lhs)));
+    SplitComplex(LHS, LHSr, LHSi);
     Value *RHSr, *RHSi;
-    SplitComplex(RHS, RHSr, RHSi, TREE_TYPE(TREE_TYPE(lhs)));
+    SplitComplex(RHS, RHSr, RHSi);
 
     Value *DSTr, *DSTi;
     if (LHSr->getType()->isFloatingPointTy()) {
@@ -6539,7 +6573,7 @@ Value *TreeToLLVM::EmitReg_BIT_XOR_EXPR(tree op0, tree op1) {
 }
 
 Value *TreeToLLVM::EmitReg_COMPLEX_EXPR(tree op0, tree op1) {
-    return CreateComplex(EmitRegister(op0), EmitRegister(op1), TREE_TYPE(op1));
+  return CreateComplex(EmitRegister(op0), EmitRegister(op1));
 }
 
 Value *TreeToLLVM::EmitReg_FLOOR_DIV_EXPR(tree type, tree op0, tree op1) {
@@ -6631,14 +6665,14 @@ Value *TreeToLLVM::EmitReg_MINUS_EXPR(tree op0, tree op1) {
 
   if (TREE_CODE(type) == COMPLEX_TYPE) {
     tree elt_type = TREE_TYPE(type);
-    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi, elt_type);
-    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
+    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
+    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
 
     // (a+ib) - (c+id) = (a-c) + i(b-d)
     LHSr = CreateAnySub(LHSr, RHSr, elt_type);
     LHSi = CreateAnySub(LHSi, RHSi, elt_type);
 
-    return CreateComplex(LHSr, LHSi, elt_type);
+    return CreateComplex(LHSr, LHSi);
   }
 
   return CreateAnySub(LHS, RHS, type);
@@ -6651,8 +6685,8 @@ Value *TreeToLLVM::EmitReg_MULT_EXPR(tree op0, tree op1) {
 
   if (TREE_CODE(type) == COMPLEX_TYPE) {
     tree elt_type = TREE_TYPE(type);
-    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi, elt_type);
-    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
+    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
+    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
     Value *DSTr, *DSTi;
 
     // (a+ib) * (c+id) = (ac-bd) + i(ad+cb)
@@ -6678,7 +6712,7 @@ Value *TreeToLLVM::EmitReg_MULT_EXPR(tree op0, tree op1) {
       DSTi = Builder.CreateAdd(Tmp3, Tmp4);        // ad+cb
     }
 
-    return CreateComplex(DSTr, DSTi, elt_type);
+    return CreateComplex(DSTr, DSTi);
   }
 
   return CreateAnyMul(LHS, RHS, type);
@@ -6691,14 +6725,14 @@ Value *TreeToLLVM::EmitReg_PLUS_EXPR(tree op0, tree op1) {
 
   if (TREE_CODE(type) == COMPLEX_TYPE) {
     tree elt_type = TREE_TYPE(type);
-    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi, elt_type);
-    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
+    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
+    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
 
     // (a+ib) + (c+id) = (a+c) + i(b+d)
     LHSr = CreateAnyAdd(LHSr, RHSr, elt_type);
     LHSi = CreateAnyAdd(LHSi, RHSi, elt_type);
 
-    return CreateComplex(LHSr, LHSi, elt_type);
+    return CreateComplex(LHSr, LHSi);
   }
 
   return CreateAnyAdd(LHS, RHS, type);
@@ -6724,8 +6758,8 @@ Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
 
   if (TREE_CODE(type) == COMPLEX_TYPE) {
     tree elt_type = TREE_TYPE(type);
-    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi, elt_type);
-    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
+    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
+    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
     Value *DSTr, *DSTi;
 
     // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
@@ -6744,7 +6778,7 @@ Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
     Value *Tmp9 = Builder.CreateFSub(Tmp7, Tmp8); // bc-ad
     DSTi = Builder.CreateFDiv(Tmp9, Tmp6);
 
-    return CreateComplex(DSTr, DSTi, elt_type);
+    return CreateComplex(DSTr, DSTi);
   }
 
   assert(FLOAT_TYPE_P(type) && "RDIV_EXPR not floating point!");
@@ -6843,8 +6877,8 @@ Value *TreeToLLVM::EmitReg_TRUNC_DIV_EXPR(tree op0, tree op1, bool isExact) {
 
   if (TREE_CODE(type) == COMPLEX_TYPE) {
     tree elt_type = TREE_TYPE(type);
-    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi, elt_type);
-    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi, elt_type);
+    Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
+    Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
     Value *DSTr, *DSTi;
 
     // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
@@ -6869,7 +6903,7 @@ Value *TreeToLLVM::EmitReg_TRUNC_DIV_EXPR(tree op0, tree op1, bool isExact) {
     DSTi = TYPE_UNSIGNED(elt_type) ?
       Builder.CreateUDiv(Tmp9, Tmp6) : Builder.CreateSDiv(Tmp9, Tmp6);
 
-    return CreateComplex(DSTr, DSTi, elt_type);
+    return CreateComplex(DSTr, DSTi);
   }
 
   assert(LHS->getType()->isIntOrIntVectorTy() && "TRUNC_DIV_EXPR not integer!");

@@ -49,12 +49,13 @@ extern llvm::Constant *AddressOf(tree_node *exp);
 /// for the GCC type (see ConvertType); it is never smaller than the alloc size.
 extern llvm::Constant *ConvertInitializer(tree_node *exp);
 
-/// InterpretAsType - Interpret the bits of the given constant (starting from
-/// StartingBit) as representing a constant of type 'Ty'.  This results in the
-/// same constant as you would get by storing the bits of 'C' to memory (with
-/// the first bit stored being 'StartingBit') and then loading out a (constant)
-/// value of type 'Ty' from the stored to memory location.
-extern llvm::Constant *InterpretAsType(llvm::Constant *C, const llvm::Type* Ty,
-                                       int StartingBit);
+/// ExtractRegisterFromConstant - Extract a value of the given scalar GCC type
+/// from a constant.  The returned value is of in-register type, as returned by
+/// getRegType, and is what you would get by storing the constant to memory and
+/// using LoadRegisterFromMemory to load a register value back out starting from
+/// byte StartingByte.
+extern llvm::Constant *ExtractRegisterFromConstant(llvm::Constant *C,
+                                                   tree_node *type,
+                                                   int StartingByte = 0);
 
 #endif /* DRAGONEGG_CONSTANTS_H */
