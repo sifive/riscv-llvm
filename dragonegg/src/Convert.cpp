@@ -5739,6 +5739,9 @@ LValue TreeToLLVM::EmitLV_INDIRECT_REF(tree exp) {
 LValue TreeToLLVM::EmitLV_MISALIGNED_INDIRECT_REF(tree exp) {
   // The lvalue is just the address.  The alignment is given by operand 1.
   unsigned Alignment = tree_low_cst(TREE_OPERAND(exp, 1), true);
+  // The alignment need not be a power of two, so replace it with the largest
+  // power of two that divides it.
+  Alignment &= -Alignment;
   if (!Alignment) Alignment = 8;
   assert(!(Alignment & 7) && "Alignment not in octets!");
   LValue LV = LValue(EmitRegister(TREE_OPERAND(exp, 0)), Alignment / 8);
