@@ -1180,11 +1180,11 @@ Constant *DIFactory::GetTagConstant(unsigned TAG) {
 DIArray DIFactory::GetOrCreateArray(DIDescriptor *Tys, unsigned NumTys) {
   if (NumTys == 0) {
     Value *Null = llvm::Constant::getNullValue(Type::getInt32Ty(VMContext));
-    return DIArray(MDNode::get(VMContext, &Null, 1));
+    return DIArray(MDNode::get(VMContext, Null));
   }
 
   SmallVector<Value *, 16> Elts(Tys, Tys+NumTys);
-  return DIArray(MDNode::get(VMContext, Elts.data(), Elts.size()));
+  return DIArray(MDNode::get(VMContext, Elts));
 }
 
 /// GetOrCreateSubrange - Create a descriptor for a value range.  This
@@ -1196,7 +1196,7 @@ DISubrange DIFactory::GetOrCreateSubrange(int64_t Lo, int64_t Hi) {
     ConstantInt::get(Type::getInt64Ty(VMContext), Hi)
   };
 
-  return DISubrange(MDNode::get(VMContext, &Elts[0], 3));
+  return DISubrange(MDNode::get(VMContext, Elts));
 }
 
 /// CreateUnspecifiedParameter - Create unspeicified type descriptor
@@ -1205,7 +1205,7 @@ DIDescriptor DIFactory::CreateUnspecifiedParameter() {
   Value *Elts[] = {
     GetTagConstant(dwarf::DW_TAG_unspecified_parameters)
   };
-  return DIDescriptor(MDNode::get(VMContext, &Elts[0], 1));
+  return DIDescriptor(MDNode::get(VMContext, Elts));
 }
 
 /// CreateCompileUnit - Create a new descriptor for the specified compile
@@ -1231,7 +1231,7 @@ DICompileUnit DIFactory::CreateCompileUnit(unsigned LangID,
     ConstantInt::get(Type::getInt32Ty(VMContext), RunTimeVer)
   };
 
-  return DICompileUnit(MDNode::get(VMContext, &Elts[0], 10));
+  return DICompileUnit(MDNode::get(VMContext, Elts));
 }
 
 /// CreateFile -  Create a new descriptor for the specified file.
@@ -1245,7 +1245,7 @@ DIFile DIFactory::CreateFile(StringRef Filename,
     CU
   };
 
-  return DIFile(MDNode::get(VMContext, &Elts[0], 4));
+  return DIFile(MDNode::get(VMContext, Elts));
 }
 
 /// CreateEnumerator - Create a single enumerator value.
@@ -1255,7 +1255,7 @@ DIEnumerator DIFactory::CreateEnumerator(StringRef Name, uint64_t Val){
     MDString::get(VMContext, Name),
     ConstantInt::get(Type::getInt64Ty(VMContext), Val)
   };
-  return DIEnumerator(MDNode::get(VMContext, &Elts[0], 3));
+  return DIEnumerator(MDNode::get(VMContext, Elts));
 }
 
 
@@ -1280,7 +1280,7 @@ DIBasicType DIFactory::CreateBasicType(DIDescriptor Context,
     ConstantInt::get(Type::getInt32Ty(VMContext), Flags),
     ConstantInt::get(Type::getInt32Ty(VMContext), Encoding)
   };
-  return DIBasicType(MDNode::get(VMContext, &Elts[0], 10));
+  return DIBasicType(MDNode::get(VMContext, Elts));
 }
 
 
@@ -1305,7 +1305,7 @@ DIBasicType DIFactory::CreateBasicTypeEx(DIDescriptor Context,
     ConstantInt::get(Type::getInt32Ty(VMContext), Flags),
     ConstantInt::get(Type::getInt32Ty(VMContext), Encoding)
   };
-  return DIBasicType(MDNode::get(VMContext, &Elts[0], 10));
+  return DIBasicType(MDNode::get(VMContext, Elts));
 }
 
 /// CreateArtificialType - Create a new DIType with "artificial" flag set.
@@ -1329,7 +1329,7 @@ DIType DIFactory::CreateArtificialType(DIType Ty) {
   // Flags are stored at this slot.
   Elts[8] =  ConstantInt::get(Type::getInt32Ty(VMContext), CurFlags);
 
-  return DIType(MDNode::get(VMContext, Elts.data(), Elts.size()));
+  return DIType(MDNode::get(VMContext, Elts));
 }
 
 /// CreateDerivedType - Create a derived type like const qualified type,
@@ -1356,7 +1356,7 @@ DIDerivedType DIFactory::CreateDerivedType(unsigned Tag,
     ConstantInt::get(Type::getInt32Ty(VMContext), Flags),
     DerivedFrom,
   };
-  return DIDerivedType(MDNode::get(VMContext, &Elts[0], 10));
+  return DIDerivedType(MDNode::get(VMContext, Elts));
 }
 
 
@@ -1384,7 +1384,7 @@ DIDerivedType DIFactory::CreateDerivedTypeEx(unsigned Tag,
     ConstantInt::get(Type::getInt32Ty(VMContext), Flags),
     DerivedFrom,
   };
-  return DIDerivedType(MDNode::get(VMContext, &Elts[0], 10));
+  return DIDerivedType(MDNode::get(VMContext, Elts));
 }
 
 
@@ -1419,7 +1419,7 @@ DICompositeType DIFactory::CreateCompositeType(unsigned Tag,
     ContainingType
   };
 
-  MDNode *Node = MDNode::get(VMContext, &Elts[0], 13);
+  MDNode *Node = MDNode::get(VMContext, Elts);
   // Create a named metadata so that we do not lose this enum info.
   if (Tag == dwarf::DW_TAG_enumeration_type) {
     NamedMDNode *NMD = M.getOrInsertNamedMetadata("llvm.dbg.enum");
@@ -1435,7 +1435,7 @@ DIType DIFactory::CreateTemporaryType() {
   Value *Elts[] = {
     GetTagConstant(DW_TAG_base_type)
   };
-  MDNode *Node = MDNode::getTemporary(VMContext, Elts, array_lengthof(Elts));
+  MDNode *Node = MDNode::getTemporary(VMContext, Elts);
   return DIType(Node);
 }
 
@@ -1449,7 +1449,7 @@ DIType DIFactory::CreateTemporaryType(DIFile F) {
     NULL,
     F
   };
-  MDNode *Node = MDNode::getTemporary(VMContext, Elts, array_lengthof(Elts));
+  MDNode *Node = MDNode::getTemporary(VMContext, Elts);
   return DIType(Node);
 }
 
@@ -1482,7 +1482,7 @@ DICompositeType DIFactory::CreateCompositeTypeEx(unsigned Tag,
     ConstantInt::get(Type::getInt32Ty(VMContext), RuntimeLang),
     ContainingType
   };
-  MDNode *Node = MDNode::get(VMContext, &Elts[0], 13);
+  MDNode *Node = MDNode::get(VMContext, Elts);
   // Create a named metadata so that we do not lose this enum info.
   if (Tag == dwarf::DW_TAG_enumeration_type) {
     NamedMDNode *NMD = M.getOrInsertNamedMetadata("llvm.dbg.enum");
@@ -1528,7 +1528,7 @@ DISubprogram DIFactory::CreateSubprogram(DIDescriptor Context,
     ConstantInt::get(Type::getInt1Ty(VMContext), isOptimized),
     Fn
   };
-  MDNode *Node = MDNode::get(VMContext, &Elts[0], 17);
+  MDNode *Node = MDNode::get(VMContext, Elts);
 
   // Create a named metadata so that we do not lose this mdnode.
   NamedMDNode *NMD = M.getOrInsertNamedMetadata("llvm.dbg.sp");
@@ -1562,7 +1562,7 @@ DISubprogram DIFactory::CreateSubprogramDefinition(DISubprogram &SPDeclaration){
     DeclNode->getOperand(15), // isOptimized
     SPDeclaration.getFunction()
   };
-  MDNode *Node =MDNode::get(VMContext, &Elts[0], 16);
+  MDNode *Node =MDNode::get(VMContext, Elts);
 
   // Create a named metadata so that we do not lose this mdnode.
   NamedMDNode *NMD = M.getOrInsertNamedMetadata("llvm.dbg.sp");
@@ -1593,8 +1593,7 @@ DIFactory::CreateGlobalVariable(DIDescriptor Context, StringRef Name,
     Val
   };
 
-  Value *const *Vs = &Elts[0];
-  MDNode *Node = MDNode::get(VMContext,Vs, 12);
+  MDNode *Node = MDNode::get(VMContext, Elts);
 
   // Create a named metadata so that we do not lose this mdnode.
   NamedMDNode *NMD = M.getOrInsertNamedMetadata("llvm.dbg.gv");
@@ -1626,8 +1625,7 @@ DIFactory::CreateGlobalVariable(DIDescriptor Context, StringRef Name,
     Val
   };
 
-  Value *const *Vs = &Elts[0];
-  MDNode *Node = MDNode::get(VMContext,Vs, 12);
+  MDNode *Node = MDNode::get(VMContext, Elts);
 
   // Create a named metadata so that we do not lose this mdnode.
   NamedMDNode *NMD = M.getOrInsertNamedMetadata("llvm.dbg.gv");
@@ -1652,7 +1650,7 @@ DIVariable DIFactory::CreateVariable(unsigned Tag, DIDescriptor Context,
     Ty,
     ConstantInt::get(Type::getInt32Ty(VMContext), Flags)
   };
-  MDNode *Node = MDNode::get(VMContext, &Elts[0], 7);
+  MDNode *Node = MDNode::get(VMContext, Elts);
   if (AlwaysPreserve) {
     // The optimizer may remove local variable. If there is an interest
     // to preserve variable info in such situation then stash it in a
@@ -1689,7 +1687,7 @@ DIVariable DIFactory::CreateComplexVariable(unsigned Tag, DIDescriptor Context,
   Elts.push_back(Ty);
   Elts.append(Addr, Addr+NumAddr);
 
-  return DIVariable(MDNode::get(VMContext, Elts.data(), Elts.size()));
+  return DIVariable(MDNode::get(VMContext, Elts));
 }
 
 
@@ -1708,7 +1706,7 @@ DILexicalBlock DIFactory::CreateLexicalBlock(DIDescriptor Context,
     F,
     ConstantInt::get(Type::getInt32Ty(VMContext), unique_id++)
   };
-  return DILexicalBlock(MDNode::get(VMContext, &Elts[0], 6));
+  return DILexicalBlock(MDNode::get(VMContext, Elts));
 }
 
 /// CreateNameSpace - This creates new descriptor for a namespace
@@ -1723,7 +1721,7 @@ DINameSpace DIFactory::CreateNameSpace(DIDescriptor Context, StringRef Name,
     F,
     ConstantInt::get(Type::getInt32Ty(VMContext), LineNo)
   };
-  return DINameSpace(MDNode::get(VMContext, &Elts[0], 5));
+  return DINameSpace(MDNode::get(VMContext, Elts));
 }
 
 /// CreateLocation - Creates a debug info location.
@@ -1735,7 +1733,7 @@ DILocation DIFactory::CreateLocation(unsigned LineNo, unsigned ColumnNo,
     S,
     OrigLoc,
   };
-  return DILocation(MDNode::get(VMContext, &Elts[0], 4));
+  return DILocation(MDNode::get(VMContext, Elts));
 }
 
 //===----------------------------------------------------------------------===//
@@ -1750,7 +1748,7 @@ Instruction *DIFactory::InsertDeclare(Value *Storage, DIVariable D,
   if (!DeclareFn)
     DeclareFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_declare);
 
-  Value *Args[] = { MDNode::get(Storage->getContext(), &Storage, 1),
+  Value *Args[] = { MDNode::get(Storage->getContext(), Storage), 
                     D };
   return CallInst::Create(DeclareFn, Args, Args+2, "", InsertBefore);
 }
@@ -1763,7 +1761,7 @@ Instruction *DIFactory::InsertDeclare(Value *Storage, DIVariable D,
   if (!DeclareFn)
     DeclareFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_declare);
 
-  Value *Args[] = { MDNode::get(Storage->getContext(), &Storage, 1),
+  Value *Args[] = { MDNode::get(Storage->getContext(), Storage),
                     D };
 
   // If this block already has a terminator then insert this intrinsic
@@ -1782,7 +1780,7 @@ Instruction *DIFactory::InsertDbgValueIntrinsic(Value *V, uint64_t Offset,
   if (!ValueFn)
     ValueFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_value);
 
-  Value *Args[] = { MDNode::get(V->getContext(), &V, 1),
+  Value *Args[] = { MDNode::get(V->getContext(), V),
                     ConstantInt::get(Type::getInt64Ty(V->getContext()), Offset),
                     D };
   return CallInst::Create(ValueFn, Args, Args+3, "", InsertBefore);
@@ -1797,7 +1795,7 @@ Instruction *DIFactory::InsertDbgValueIntrinsic(Value *V, uint64_t Offset,
   if (!ValueFn)
     ValueFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_value);
 
-  Value *Args[] = { MDNode::get(V->getContext(), &V, 1),
+  Value *Args[] = { MDNode::get(V->getContext(), V),
                     ConstantInt::get(Type::getInt64Ty(V->getContext()), Offset),
                     D };
   return CallInst::Create(ValueFn, Args, Args+3, "", InsertAtEnd);
