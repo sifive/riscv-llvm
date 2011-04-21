@@ -136,3 +136,4 @@ If you renamed dragonegg.so to something else, for example llvm.so, replace
   GCC assembler output is normally redirected to /dev/null so that it doesn't
   clash with the LLVM output.  This option causes GCC output to be written to
   a file instead.  Good for seeing which GCC output we've failed to turn off.
+
