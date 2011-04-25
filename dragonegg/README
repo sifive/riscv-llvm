@@ -31,7 +31,7 @@ installed then the configure step may fail because the configure script thinks
 that LTO requires libelf, though in fact it does not when using dragonegg.  See
   http://gcc.gnu.org/wiki/LinkTimeOptimization#Building_the_branch
 In theory the gcc you build can be a cross-compiler, and the plugin should work
-and build code for the targetted platform.  I don't think anyone has ever tried
+and build code for the targeted platform.  I don't think anyone has ever tried
 this though.
 
 Darwin special: the gcc configure script thinks darwin doesn't support dynamic

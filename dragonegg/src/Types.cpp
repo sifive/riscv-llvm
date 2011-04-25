@@ -316,7 +316,7 @@ void refine_type_to(tree old_type, tree new_type)
 //
 // This code is built to make sure that the TYPE_LLVM field on tree types are
 // updated when LLVM types are refined.  This prevents dangling pointers from
-// occuring due to type coallescing.
+// occurring due to type coallescing.
 //
 namespace {
   class TypeRefinementDatabase : public AbstractTypeUser {
@@ -1779,7 +1779,7 @@ void TypeConverter::DecodeStructBitField(tree_node *Field,
     }
   }
 
-  // Otherwise, this bitfield lives (potentially) partially in the preceeding
+  // Otherwise, this bitfield lives (potentially) partially in the preceding
   // field and in fields that exist after it.  Add integer-typed fields to the
   // LLVM struct such that there are no holes in the struct where the bitfield
   // is: these holes would make it impossible to statically initialize a global
@@ -1822,7 +1822,7 @@ void TypeConverter::DecodeStructBitField(tree_node *Field,
     uint64_t AvailableBits = FirstUnallocatedByte * 8 - StartOffsetInBits;
     // This field's starting point is already allocated.
     if (StartOffsetFromByteBoundry == 0) {
-      // This field starts at byte boundry. Need to allocate space
+      // This field starts at byte boundary. Need to allocate space
       // for additional bytes not yet allocated.
       unsigned NumBitsToAdd = FieldSizeInBits - AvailableBits;
       Info.addNewBitField(NumBitsToAdd, ExtraSizeInBits, FirstUnallocatedByte);
@@ -1861,7 +1861,7 @@ void TypeConverter::DecodeStructBitField(tree_node *Field,
     unsigned PadBytes = 0;
     unsigned PadBits = 0;
     if (StartOffsetFromByteBoundry != 0) {
-      // New field does not start at byte boundry.
+      // New field does not start at byte boundary.
       PadBits = StartOffsetInBits - (FirstUnallocatedByte*8);
       PadBytes = PadBits/8;
       PadBits = PadBits - PadBytes*8;
@@ -1877,7 +1877,7 @@ void TypeConverter::DecodeStructBitField(tree_node *Field,
 
     FirstUnallocatedByte = StartOffsetInBits/8;
     // This field will use some of the bits from this PadBytes, if
-    // starting offset is not at byte boundry.
+    // starting offset is not at byte boundary.
     if (StartOffsetFromByteBoundry != 0)
       FieldSizeInBits += PadBits;
   }
