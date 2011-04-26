@@ -399,7 +399,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R) {
 /// same constant as you would get by storing the bits of 'C' to memory (with
 /// the first bit stored being 'StartingBit') and then loading out a (constant)
 /// value of type 'Ty' from the stored to memory location.
-Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit) {
+Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit = 0) {
   if (C->getType() == Ty)
     return C;
 
@@ -493,7 +493,7 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit) {
 /// using LoadRegisterFromMemory to load a register value back out starting from
 /// byte StartingByte.
 Constant *ExtractRegisterFromConstant(Constant *C, tree type, int StartingByte) {
-  // NOTE: Needs to be kept in sync with getRegType.
+  // NOTE: Needs to be kept in sync with getRegType and EncapsulateRegister.
   int StartingBit = StartingByte * BITS_PER_UNIT;
   switch (TREE_CODE(type)) {
 
@@ -515,8 +515,8 @@ Constant *ExtractRegisterFromConstant(Constant *C, tree type, int StartingByte) 
   }
 
   case COMPLEX_TYPE: {
-    tree elt_type = TREE_TYPE (type);
-    unsigned Stride = GET_MODE_BITSIZE (TYPE_MODE (elt_type));
+    tree elt_type = TREE_TYPE(type);
+    unsigned Stride = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
     Constant *Vals[2] = {
       ExtractRegisterFromConstant(C, elt_type, StartingBit),
       ExtractRegisterFromConstant(C, elt_type, StartingBit + Stride)
@@ -535,9 +535,9 @@ Constant *ExtractRegisterFromConstant(Constant *C, tree type, int StartingByte) 
     return InterpretAsType(C, getRegType(type), StartingBit);
 
   case VECTOR_TYPE: {
-    tree elt_type = TREE_TYPE (type);
+    tree elt_type = TREE_TYPE(type);
     unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
-    unsigned Stride = GET_MODE_BITSIZE (TYPE_MODE (elt_type));
+    unsigned Stride = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
     SmallVector<Constant*, 16> Vals(NumElts);
     for (unsigned i = 0; i != NumElts; ++i) {
       Vals[i] = ExtractRegisterFromConstant(C, elt_type, StartingBit+i*Stride);
@@ -558,6 +558,89 @@ Constant *ExtractRegisterFromConstant(Constant *C, tree type, int StartingByte) 
 //===----------------------------------------------------------------------===//
 //                       ... ConvertInitializer ...
 //===----------------------------------------------------------------------===//
+
+/// EncapsulateRegister - Turn a constant of in-register type (corresponding
+/// to the given GCC type) into an in-memory constant.  The result has the
+/// property that applying ExtractRegisterFromConstant to it gives you the
+/// original in-register constant back again.
+static Constant *EncapsulateRegister(Constant *C, tree type) {
+  // NOTE: Needs to be kept in sync with ExtractRegisterFromConstant.
+  assert(C->getType() == getRegType(type) && "Constant has wrong type!");
+  Constant *Result;
+
+  switch (TREE_CODE(type)) {
+
+  default:
+    DieAbjectly("Unknown register type!", type);
+
+  case BOOLEAN_TYPE:
+  case ENUMERAL_TYPE:
+  case INTEGER_TYPE: {
+    // For integral types extend to an integer with size equal to the type size.
+    // For example, when inserting a bool this probably extends it to an i8 or
+    // to an i32.  This approach means we get the right result on both little
+    // and big endian machines.
+    uint64_t Size = getInt64(TYPE_SIZE(type), true);
+    const Type *MemTy = IntegerType::get(Context, Size);
+    // We can extend in any way, but get nicer IR by respecting signedness.
+    bool isSigned = !TYPE_UNSIGNED(type);
+    Result = isSigned ? TheFolder->CreateSExtOrBitCast(C, MemTy) :
+      TheFolder->CreateZExtOrBitCast(C, MemTy);
+    break;
+  }
+
+  case COMPLEX_TYPE: {
+    tree elt_type = TREE_TYPE(type);
+    unsigned Idx[2] = {0, 1};
+    Constant *Real = TheFolder->CreateExtractValue(C, Idx, 1);
+    Constant *Imag = TheFolder->CreateExtractValue(C, Idx + 1, 1);
+    Real = EncapsulateRegister(Real, elt_type);
+    Imag = EncapsulateRegister(Imag, elt_type);
+    Constant *Vals[2] = { Real, Imag };
+    Result = ConstantStruct::get(Context, Vals, 2, false);
+    break;
+  }
+
+  case OFFSET_TYPE:
+  case POINTER_TYPE:
+  case REFERENCE_TYPE:
+    Result = C;
+    break;
+
+  case REAL_TYPE:
+    // NOTE: This might be wrong for floats with precision less than their alloc
+    // size on big-endian machines.
+    // If the float precision is less than the alloc size then it will be padded
+    // out below.
+    Result = C;
+    break;
+
+  case VECTOR_TYPE: {
+    tree elt_type = TREE_TYPE(type);
+    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
+    std::vector<Constant*> Vals(NumElts);
+    for (unsigned i = 0; i != NumElts; ++i) {
+      ConstantInt *Idx = ConstantInt::get(Type::getInt32Ty(Context), i);
+      Vals[i] = TheFolder->CreateExtractElement(C, Idx);
+      Vals[i] = EncapsulateRegister(Vals[i], elt_type);
+    }
+    // The elements may have funky types, so forming a vector may not always be
+    // possible.
+    Result = ConstantStruct::get(Context, Vals, false);
+    break;
+  }
+
+  }
+
+  // Ensure that the result satisfies the guarantees given by ConvertInitializer
+  // by turning it into a type with the right size and an appropriate alignment.
+  Result = InterpretAsType(Result, ConvertType(type));
+
+  assert(C == ExtractRegisterFromConstant(Result, type) &&
+         "Register inserted wrong!");
+
+  return Result;
+}
 
 /// getAsRegister - Turn the given GCC scalar constant into an LLVM constant of
 /// register type.
@@ -580,24 +663,29 @@ static Constant *ConvertInitializerWithCast(tree exp, tree type) {
   if (type == TREE_TYPE(exp) || AGGREGATE_TYPE_P(TREE_TYPE(exp)) ||
       AGGREGATE_TYPE_P(type))
     return C;
-  const Type *SrcTy = ConvertType(TREE_TYPE(exp));
-  const Type *DestTy = ConvertType(type);
-  // LLVM types are often the same even when the GCC types differ.
+  // No cast is needed if the LLVM types are the same.  This occurs often since
+  // many different GCC types usually map to the same LLVM type.
+  const Type *SrcTy = getRegType(TREE_TYPE(exp));
+  const Type *DestTy = getRegType(type);
   if (SrcTy == DestTy)
     return C;
 
-  // First ensure that the initializer has a sensible type.  Note that it would
-  // be wrong to interpret the constant as being of type DestTy here since that
-  // would not perform a value extension (adding extra zeros or sign bits when
-  // casting to a larger integer type for example): any extra bits would get an
-  // undefined value instead.
-  C = InterpretAsType(C, SrcTy, 0);
-  // Now cast to the desired type.
+  // Ensure that the initializer has a sensible type.  Note that it would be
+  // wrong to just interpret the constant as being of type DestTy here since
+  // that would not perform a value extension (adding extra zeros or sign bits
+  // when casting to a larger integer type for example): any extra bits would
+  // wrongly get an undefined value instead.
+  C = ExtractRegisterFromConstant(C, TREE_TYPE(exp));
+
+  // Cast to the desired type.
   bool SrcIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
   bool DestIsSigned = !TYPE_UNSIGNED(type);
   Instruction::CastOps opcode = CastInst::getCastOpcode(C, SrcIsSigned, DestTy,
                                                         DestIsSigned);
-  return TheFolder->CreateCast(opcode, C, DestTy);
+  C = TheFolder->CreateCast(opcode, C, DestTy);
+
+  // Turn the register constant back into an in-memory constant.
+  return EncapsulateRegister(C, type);
 }
 
 /// ConvertCST - Return the given simple constant as an array of bytes.  For the
@@ -927,7 +1015,7 @@ public:
     // The integer type used to hold the bits was too big (for example an i24
     // typically occupies 32 bits so is too big for a range of 24 bits).  Turn
     // it into an array of bytes instead.
-    C = InterpretAsType(C, GetUnitType(Context, Units), 0);
+    C = InterpretAsType(C, GetUnitType(Context, Units));
     assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
     return C;
   }
@@ -1126,9 +1214,9 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
 }
 
 static Constant *ConvertBinOp_CST(tree exp) {
-  Constant *LHS = ConvertInitializer(TREE_OPERAND(exp, 0));
+  Constant *LHS = getAsRegister(TREE_OPERAND(exp, 0));
   bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 0)));
-  Constant *RHS = ConvertInitializer(TREE_OPERAND(exp, 1));
+  Constant *RHS = getAsRegister(TREE_OPERAND(exp, 1));
   bool RHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 1)));
   Instruction::CastOps opcode;
   if (LHS->getType()->isPointerTy()) {
@@ -1146,24 +1234,30 @@ static Constant *ConvertBinOp_CST(tree exp) {
   case MINUS_EXPR:  Result = TheFolder->CreateSub(LHS, RHS); break;
   }
 
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
+  const Type *Ty = getRegType(TREE_TYPE(exp));
   bool TyIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
   opcode = CastInst::getCastOpcode(Result, LHSIsSigned, Ty, TyIsSigned);
-  return TheFolder->CreateCast(opcode, Result, Ty);
+  Result = TheFolder->CreateCast(opcode, Result, Ty);
+
+  // Turn the register constant back into an in-memory constant.
+  return EncapsulateRegister(Result, TREE_TYPE(exp));
 }
 
 static Constant *ConvertPOINTER_PLUS_EXPR(tree exp) {
-  Constant *Ptr = ConvertInitializer(TREE_OPERAND(exp, 0)); // The pointer.
-  Constant *Idx = ConvertInitializer(TREE_OPERAND(exp, 1)); // Offset in units.
+  Constant *Ptr = getAsRegister(TREE_OPERAND(exp, 0)); // The pointer.
+  Constant *Idx = getAsRegister(TREE_OPERAND(exp, 1)); // Offset in units.
 
   // Convert the pointer into an i8* and add the offset to it.
   Ptr = TheFolder->CreateBitCast(Ptr, GetUnitPointerType(Context));
-  Constant *GEP = POINTER_TYPE_OVERFLOW_UNDEFINED ?
+  Constant *Result = POINTER_TYPE_OVERFLOW_UNDEFINED ?
     TheFolder->CreateInBoundsGetElementPtr(Ptr, &Idx, 1) :
     TheFolder->CreateGetElementPtr(Ptr, &Idx, 1);
 
   // The result may be of a different pointer type.
-  return TheFolder->CreateBitCast(GEP, ConvertType(TREE_TYPE(exp)));
+  Result = TheFolder->CreateBitCast(Result, getRegType(TREE_TYPE(exp)));
+
+  // Turn the register constant back into an in-memory constant.
+  return EncapsulateRegister(Result, TREE_TYPE(exp));
 }
 
 static Constant *ConvertVIEW_CONVERT_EXPR(tree exp) {
@@ -1189,9 +1283,7 @@ Constant *ConvertInitializer(tree exp) {
   case INTEGER_CST:
   case REAL_CST:
   case VECTOR_CST:
-    // Make the IR easier to read by converting the bunch of bytes returned by
-    // ConvertCST into a less surprising type.
-    Init = InterpretAsType(ConvertCST(exp), ConvertType(TREE_TYPE(exp)), 0);
+    Init = ConvertCST(exp);
     break;
   case STRING_CST:
     Init = ConvertSTRING_CST(exp);
@@ -1217,6 +1309,11 @@ Constant *ConvertInitializer(tree exp) {
     Init = ConvertVIEW_CONVERT_EXPR(exp);
     break;
   }
+
+  // Make the IR easier to read by converting the bunch of bytes returned by
+  // ConvertCST into a less surprising type when it is safe to do so.
+  if (!AGGREGATE_TYPE_P(TREE_TYPE(exp)))
+    Init = InterpretAsType(Init, ConvertType(TREE_TYPE(exp)));
 
 #ifndef NDEBUG
   // Check that the guarantees we make about the returned value actually hold.
@@ -1259,9 +1356,9 @@ static Constant *AddressOfCST(tree exp) {
   // Create a new global variable.
   Slot = new GlobalVariable(*TheModule, Init->getType(), true,
                             GlobalVariable::PrivateLinkage, Init, ".cst");
-  unsigned align = TYPE_ALIGN (TREE_TYPE (exp));
+  unsigned align = TYPE_ALIGN(TREE_TYPE(exp));
 #ifdef CONSTANT_ALIGNMENT
-  align = CONSTANT_ALIGNMENT (exp, align);
+  align = CONSTANT_ALIGNMENT(exp, align);
 #endif
   Slot->setAlignment(align);
 
@@ -1351,9 +1448,7 @@ static Constant *AddressOfDecl(tree exp) {
 /// AddressOfINDIRECT_REF - Return the address of a dereference.
 static Constant *AddressOfINDIRECT_REF(tree exp) {
   // The address is just the dereferenced operand.  Get it as an LLVM constant.
-  Constant *C = ConvertInitializer(TREE_OPERAND(exp, 0));
-  // Make no assumptions about the type of the constant.
-  return InterpretAsType(C, ConvertType(TREE_TYPE(TREE_OPERAND(exp, 0))), 0);
+  return getAsRegister(TREE_OPERAND(exp, 0));
 }
 
 /// AddressOfLABEL_DECL - Return the address of a label.
@@ -1401,7 +1496,7 @@ Constant *AddressOf(tree exp) {
     Addr = AddressOfCOMPONENT_REF(exp);
     break;
   case COMPOUND_LITERAL_EXPR: // FIXME: not gimple - defined by C front-end
-    Addr = AddressOf(DECL_EXPR_DECL (TREE_OPERAND (exp, 0)));
+    Addr = AddressOf(DECL_EXPR_DECL(TREE_OPERAND(exp, 0)));
     break;
   case CONST_DECL:
   case FUNCTION_DECL:
