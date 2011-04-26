@@ -161,9 +161,11 @@ BitSlice BitSlice::ExtendRange(SignedRange r) const {
   unsigned deltaFirst = R.getFirst() - r.getFirst();
   unsigned deltaLast = r.getLast() - R.getLast();
   if (BYTES_BIG_ENDIAN && deltaLast) {
+    (void)deltaFirst; // Avoid unused variable warning.
     Constant *ShiftAmt = ConstantInt::get(C->getType(), deltaLast);
     C = TheFolder->CreateShl(C, ShiftAmt);
   } else if (!BYTES_BIG_ENDIAN && deltaFirst) {
+    (void)deltaLast; // Avoid unused variable warning.
     Constant *ShiftAmt = ConstantInt::get(C->getType(), deltaFirst);
     C = TheFolder->CreateShl(C, ShiftAmt);
   }
@@ -215,16 +217,17 @@ void BitSlice::Merge(const BitSlice &other) {
 
   // The extra bits added when extending a slice may contain anything.  In each
   // extended slice clear the bits corresponding to the other slice.
-  int HullFirst = Hull.getFirst(), HullLast = Hull.getLast();
   unsigned HullWidth = Hull.getWidth();
   // Compute masks with the bits for each slice set to 1.
   APInt ThisBits, OtherBits;
   if (BYTES_BIG_ENDIAN) {
+    int HullLast = Hull.getLast();
     ThisBits = APInt::getBitsSet(HullWidth, HullLast - getLast(),
                                  HullLast - getFirst());
     OtherBits = APInt::getBitsSet(HullWidth, HullLast - other.getLast(),
                                   HullLast - other.getFirst());
   } else {
+    int HullFirst = Hull.getFirst();
     ThisBits = APInt::getBitsSet(HullWidth, getFirst() - HullFirst,
                                  getLast() - HullFirst);
     OtherBits = APInt::getBitsSet(HullWidth, other.getFirst() - HullFirst,
@@ -256,9 +259,11 @@ BitSlice BitSlice::ReduceRange(SignedRange r) const {
   unsigned deltaFirst = r.getFirst() - R.getFirst();
   unsigned deltaLast = R.getLast() - r.getLast();
   if (BYTES_BIG_ENDIAN && deltaLast) {
+    (void)deltaFirst; // Avoid unused variable warning.
     Constant *ShiftAmt = ConstantInt::get(C->getType(), deltaLast);
     C = TheFolder->CreateLShr(C, ShiftAmt);
   } else if (!BYTES_BIG_ENDIAN && deltaFirst) {
+    (void)deltaLast; // Avoid unused variable warning.
     Constant *ShiftAmt = ConstantInt::get(C->getType(), deltaFirst);
     C = TheFolder->CreateLShr(C, ShiftAmt);
   }
@@ -1122,9 +1127,9 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
 
 static Constant *ConvertBinOp_CST(tree exp) {
   Constant *LHS = ConvertInitializer(TREE_OPERAND(exp, 0));
-  bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp,0)));
+  bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 0)));
   Constant *RHS = ConvertInitializer(TREE_OPERAND(exp, 1));
-  bool RHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp,1)));
+  bool RHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 1)));
   Instruction::CastOps opcode;
   if (LHS->getType()->isPointerTy()) {
     const Type *IntPtrTy = getTargetData().getIntPtrType(Context);
