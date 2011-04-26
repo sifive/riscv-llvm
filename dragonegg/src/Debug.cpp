@@ -619,14 +619,8 @@ DIType DebugInfo::createArrayType(tree type) {
     return DIType();
   }
 
-  unsigned Tag = 0;
-
-  if (TREE_CODE(type) == VECTOR_TYPE) {
-    Tag = DW_TAG_vector_type;
+  if (TREE_CODE(type) == VECTOR_TYPE)
     type = TREE_TYPE (TYPE_FIELDS (TYPE_DEBUG_REPRESENTATION_TYPE (type)));
-  }
-  else
-    Tag = DW_TAG_array_type;
 
   // Add the dimensions of the array.  FIXME: This loses CV qualifiers from
   // interior arrays, do we care?  Why aren't nested arrays represented the
