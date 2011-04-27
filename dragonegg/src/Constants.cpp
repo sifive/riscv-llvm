@@ -73,6 +73,13 @@ class BitSlice {
       getBitWidth() == Contents->getType()->getPrimitiveSizeInBits();
   }
 
+  /// ExtendRange - Extend the slice to a wider range.  All added bits are zero.
+  BitSlice ExtendRange(SignedRange r) const;
+
+  /// ReduceRange - Reduce the slice to a smaller range discarding any bits that
+  /// do not belong to the new range.
+  BitSlice ReduceRange(SignedRange r) const;
+
 public:
   /// BitSlice - Default constructor: empty bit range.
   BitSlice() : R(), Contents(0) {}
@@ -132,22 +139,13 @@ public:
   /// (aka "Last-1").
   Constant *getBits(SignedRange r) const;
 
-  /// ExtendRange - Extend the slice to a wider range.  The value of the added
-  /// bits is undefined.
-  BitSlice ExtendRange(SignedRange r) const;
-
-  /// ReduceRange - Reduce the slice to a smaller range discarding any bits that
-  /// do not belong to the new range.
-  BitSlice ReduceRange(SignedRange r) const;
-
   /// Merge - Join the slice with another (which must be disjoint), forming the
   /// convex hull of the ranges.  The bits in the range of one of the slices are
   /// those of that slice.  Any other bits have an undefined value.
   void Merge(const BitSlice &other);
 };
 
-/// ExtendRange - Extend the slice to a wider range.  The value of the added
-/// bits is undefined.
+/// ExtendRange - Extend the slice to a wider range.  All added bits are zero.
 BitSlice BitSlice::ExtendRange(SignedRange r) const {
   assert(r.contains(R) && "Not an extension!");
   // Quick exit if the range did not actually increase.
@@ -155,9 +153,9 @@ BitSlice BitSlice::ExtendRange(SignedRange r) const {
     return *this;
   assert(!r.empty() && "Empty ranges did not evaluate as equal?");
   const Type *ExtTy = IntegerType::get(Context, r.getWidth());
-  // If the slice contains no bits then every bit of the extension is undefined.
+  // If the slice contains no bits then every bit of the extension is zero.
   if (empty())
-    return BitSlice(r, UndefValue::get(ExtTy));
+    return BitSlice(r, Constant::getNullValue(ExtTy));
   // Extend the contents to the new type.
   Constant *C = TheFolder->CreateZExtOrBitCast(Contents, ExtTy);
   // Position the old contents correctly inside the new contents.
@@ -218,32 +216,10 @@ void BitSlice::Merge(const BitSlice &other) {
   BitSlice ExtThis = ExtendRange(Hull);
   BitSlice ExtOther = other.ExtendRange(Hull);
 
-  // The extra bits added when extending a slice may contain anything.  In each
-  // extended slice clear the bits corresponding to the other slice.
-  unsigned HullWidth = Hull.getWidth();
-  // Compute masks with the bits for each slice set to 1.
-  APInt ThisBits, OtherBits;
-  if (BYTES_BIG_ENDIAN) {
-    int HullLast = Hull.getLast();
-    ThisBits = APInt::getBitsSet(HullWidth, HullLast - getLast(),
-                                 HullLast - getFirst());
-    OtherBits = APInt::getBitsSet(HullWidth, HullLast - other.getLast(),
-                                  HullLast - other.getFirst());
-  } else {
-    int HullFirst = Hull.getFirst();
-    ThisBits = APInt::getBitsSet(HullWidth, getFirst() - HullFirst,
-                                 getLast() - HullFirst);
-    OtherBits = APInt::getBitsSet(HullWidth, other.getFirst() - HullFirst,
-                                  other.getLast() - HullFirst);
-  }
-  // Clear bits which correspond to the other slice.
-  ConstantInt *ClearThis = ConstantInt::get(Context, ~ThisBits);
-  ConstantInt *ClearOther = ConstantInt::get(Context, ~OtherBits);
-  Constant *ThisPart = TheFolder->CreateAnd(ExtThis.Contents, ClearOther);
-  Constant *OtherPart = TheFolder->CreateAnd(ExtOther.Contents, ClearThis);
-
-  // The slices can now be joined via a simple 'or'.
-  *this = BitSlice(Hull, TheFolder->CreateOr(ThisPart, OtherPart));
+  // Since the slices are disjoint and all added bits are zero they can be
+  // joined via a simple 'or'.
+  *this = BitSlice(Hull, TheFolder->CreateOr(ExtThis.Contents,
+                                             ExtOther.Contents));
 }
 
 /// ReduceRange - Reduce the slice to a smaller range discarding any bits that
