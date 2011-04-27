@@ -26,6 +26,9 @@
 #include "dragonegg/Trees.h"
 #include "dragonegg/ADT/IntervalList.h"
 #include "dragonegg/ADT/Range.h"
+extern "C" {
+#include "dragonegg/cache.h"
+}
 
 // LLVM headers
 #include "llvm/GlobalVariable.h"
@@ -1255,6 +1258,10 @@ static Constant *ConvertVIEW_CONVERT_EXPR(tree exp) {
 /// initial value may exceed the alloc size of the LLVM memory type generated
 /// for the GCC type (see ConvertType); it is never smaller than the alloc size.
 Constant *ConvertInitializer(tree exp) {
+  // If we already converted the initializer then return the cached copy.
+  if (Constant *C = (Constant *)llvm_get_cached(exp))
+    return C;
+
   Constant *Init;
   switch (TREE_CODE(exp)) {
   default:
@@ -1315,6 +1322,10 @@ Constant *ConvertInitializer(tree exp) {
       TYPE_ALIGN(TREE_TYPE(exp)))
     DieAbjectly("Constant over aligned!", exp);
 #endif
+
+  // Cache the result of converting the initializer since the same tree is often
+  // converted multiple times.
+  llvm_set_cached(exp, Init);
 
   return Init;
 }
