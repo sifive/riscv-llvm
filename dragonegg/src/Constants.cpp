@@ -493,7 +493,7 @@ Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit = 0) {
 /// using LoadRegisterFromMemory to load a register value back out starting from
 /// byte StartingByte.
 Constant *ExtractRegisterFromConstant(Constant *C, tree type, int StartingByte) {
-  // NOTE: Needs to be kept in sync with getRegType and EncapsulateRegister.
+  // NOTE: Needs to be kept in sync with getRegType and RepresentAsMemory.
   int StartingBit = StartingByte * BITS_PER_UNIT;
   switch (TREE_CODE(type)) {
 
@@ -559,11 +559,18 @@ Constant *ExtractRegisterFromConstant(Constant *C, tree type, int StartingByte) 
 //                       ... ConvertInitializer ...
 //===----------------------------------------------------------------------===//
 
-/// EncapsulateRegister - Turn a constant of in-register type (corresponding
+/// getAsRegister - Turn the given GCC scalar constant into an LLVM constant of
+/// register type.
+static Constant *getAsRegister(tree exp) {
+  Constant *C = ConvertInitializer(exp);
+  return ExtractRegisterFromConstant(C, TREE_TYPE(exp));
+}
+
+/// RepresentAsMemory - Turn a constant of in-register type (corresponding
 /// to the given GCC type) into an in-memory constant.  The result has the
 /// property that applying ExtractRegisterFromConstant to it gives you the
 /// original in-register constant back again.
-static Constant *EncapsulateRegister(Constant *C, tree type) {
+static Constant *RepresentAsMemory(Constant *C, tree type) {
   // NOTE: Needs to be kept in sync with ExtractRegisterFromConstant.
   assert(C->getType() == getRegType(type) && "Constant has wrong type!");
   Constant *Result;
@@ -594,8 +601,8 @@ static Constant *EncapsulateRegister(Constant *C, tree type) {
     unsigned Idx[2] = {0, 1};
     Constant *Real = TheFolder->CreateExtractValue(C, Idx, 1);
     Constant *Imag = TheFolder->CreateExtractValue(C, Idx + 1, 1);
-    Real = EncapsulateRegister(Real, elt_type);
-    Imag = EncapsulateRegister(Imag, elt_type);
+    Real = RepresentAsMemory(Real, elt_type);
+    Imag = RepresentAsMemory(Imag, elt_type);
     Constant *Vals[2] = { Real, Imag };
     Result = ConstantStruct::get(Context, Vals, 2, false);
     break;
@@ -622,7 +629,7 @@ static Constant *EncapsulateRegister(Constant *C, tree type) {
     for (unsigned i = 0; i != NumElts; ++i) {
       ConstantInt *Idx = ConstantInt::get(Type::getInt32Ty(Context), i);
       Vals[i] = TheFolder->CreateExtractElement(C, Idx);
-      Vals[i] = EncapsulateRegister(Vals[i], elt_type);
+      Vals[i] = RepresentAsMemory(Vals[i], elt_type);
     }
     // The elements may have funky types, so forming a vector may not always be
     // possible.
@@ -640,13 +647,6 @@ static Constant *EncapsulateRegister(Constant *C, tree type) {
          "Register inserted wrong!");
 
   return Result;
-}
-
-/// getAsRegister - Turn the given GCC scalar constant into an LLVM constant of
-/// register type.
-static Constant *getAsRegister(tree exp) {
-  Constant *C = ConvertInitializer(exp);
-  return ExtractRegisterFromConstant(C, TREE_TYPE(exp));
 }
 
 /// ConvertInitializerWithCast - Convert the initial value for a global variable
@@ -684,8 +684,7 @@ static Constant *ConvertInitializerWithCast(tree exp, tree type) {
                                                         DestIsSigned);
   C = TheFolder->CreateCast(opcode, C, DestTy);
 
-  // Turn the register constant back into an in-memory constant.
-  return EncapsulateRegister(C, type);
+  return RepresentAsMemory(C, type);
 }
 
 /// ConvertCST - Return the given simple constant as an array of bytes.  For the
@@ -1213,34 +1212,16 @@ static Constant *ConvertCONSTRUCTOR(tree exp) {
   }
 }
 
-static Constant *ConvertBinOp_CST(tree exp) {
+static Constant *ConvertMINUS_EXPR(tree exp) {
   Constant *LHS = getAsRegister(TREE_OPERAND(exp, 0));
-  bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 0)));
   Constant *RHS = getAsRegister(TREE_OPERAND(exp, 1));
-  bool RHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_OPERAND(exp, 1)));
-  Instruction::CastOps opcode;
-  if (LHS->getType()->isPointerTy()) {
-    const Type *IntPtrTy = getTargetData().getIntPtrType(Context);
-    opcode = CastInst::getCastOpcode(LHS, LHSIsSigned, IntPtrTy, false);
-    LHS = TheFolder->CreateCast(opcode, LHS, IntPtrTy);
-    opcode = CastInst::getCastOpcode(RHS, RHSIsSigned, IntPtrTy, false);
-    RHS = TheFolder->CreateCast(opcode, RHS, IntPtrTy);
-  }
+  return RepresentAsMemory(TheFolder->CreateSub(LHS, RHS), TREE_TYPE(exp));
+}
 
-  Constant *Result;
-  switch (TREE_CODE(exp)) {
-  default: assert(0 && "Unexpected case!");
-  case PLUS_EXPR:   Result = TheFolder->CreateAdd(LHS, RHS); break;
-  case MINUS_EXPR:  Result = TheFolder->CreateSub(LHS, RHS); break;
-  }
-
-  const Type *Ty = getRegType(TREE_TYPE(exp));
-  bool TyIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
-  opcode = CastInst::getCastOpcode(Result, LHSIsSigned, Ty, TyIsSigned);
-  Result = TheFolder->CreateCast(opcode, Result, Ty);
-
-  // Turn the register constant back into an in-memory constant.
-  return EncapsulateRegister(Result, TREE_TYPE(exp));
+static Constant *ConvertPLUS_EXPR(tree exp) {
+  Constant *LHS = getAsRegister(TREE_OPERAND(exp, 0));
+  Constant *RHS = getAsRegister(TREE_OPERAND(exp, 1));
+  return RepresentAsMemory(TheFolder->CreateAdd(LHS, RHS), TREE_TYPE(exp));
 }
 
 static Constant *ConvertPOINTER_PLUS_EXPR(tree exp) {
@@ -1256,8 +1237,7 @@ static Constant *ConvertPOINTER_PLUS_EXPR(tree exp) {
   // The result may be of a different pointer type.
   Result = TheFolder->CreateBitCast(Result, getRegType(TREE_TYPE(exp)));
 
-  // Turn the register constant back into an in-memory constant.
-  return EncapsulateRegister(Result, TREE_TYPE(exp));
+  return RepresentAsMemory(Result, TREE_TYPE(exp));
 }
 
 static Constant *ConvertVIEW_CONVERT_EXPR(tree exp) {
@@ -1299,8 +1279,10 @@ Constant *ConvertInitializer(tree exp) {
     Init = ConvertInitializerWithCast(TREE_OPERAND(exp, 0), TREE_TYPE(exp));
     break;
   case MINUS_EXPR:
+    Init = ConvertMINUS_EXPR(exp);
+    break;
   case PLUS_EXPR:
-    Init = ConvertBinOp_CST(exp);
+    Init = ConvertPLUS_EXPR(exp);
     break;
   case POINTER_PLUS_EXPR:
     Init = ConvertPOINTER_PLUS_EXPR(exp);
