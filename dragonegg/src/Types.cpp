@@ -582,17 +582,14 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
     if (TYPE_TRANSPARENT_AGGR(type)) {
       tree Field = TYPE_FIELDS(type);
       assert(Field && "Transparent union must have some elements!");
-      while (TREE_CODE(Field) != FIELD_DECL) {
-        Field = TREE_CHAIN(Field);
-        assert(Field && "Transparent union must have some elements!");
-      }
+      assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
       return GCCTypeOverlapsWithPadding(TREE_TYPE(Field),
                                         PadStartBits, PadSizeBits);
     }
 
     // See if any elements overlap.
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-      if (TREE_CODE(Field) != FIELD_DECL) continue;
+      assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
       assert(getFieldOffsetInBits(Field) == 0 && "Union with non-zero offset?");
       // Skip fields that are known not to be present.
       if (TREE_CODE(type) == QUAL_UNION_TYPE &&
@@ -614,7 +611,7 @@ static bool GCCTypeOverlapsWithPadding(tree type, int PadStartBits,
 
   case RECORD_TYPE:
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-      if (TREE_CODE(Field) != FIELD_DECL) continue;
+      assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
 
       if (!OffsetIsLLVMCompatible(Field))
         // Variable or humongous offset.
@@ -1795,8 +1792,8 @@ void TypeConverter::DecodeStructBitField(tree_node *Field,
   unsigned ExtraSizeInBits = 0;
   tree LastBitField = 0;
   for (tree f = TREE_CHAIN(Field); f; f = TREE_CHAIN(f)) {
-    if (TREE_CODE(f) != FIELD_DECL ||
-        TREE_CODE(DECL_FIELD_OFFSET(f)) != INTEGER_CST)
+    assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
+    if (TREE_CODE(DECL_FIELD_OFFSET(f)) != INTEGER_CST)
       break;
     if (isBitfield(f))
       LastBitField = f;
@@ -1890,7 +1887,7 @@ void TypeConverter::DecodeStructBitField(tree_node *Field,
 /// offsets that are zero, e.g., no Fortran equivalences.
 static bool UnionHasOnlyZeroOffsets(tree type) {
   for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-    if (TREE_CODE(Field) != FIELD_DECL) continue;
+    assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
     if (!OffsetIsLLVMCompatible(Field))
       return false;
     if (getFieldOffsetInBits(Field) != 0)
@@ -1913,7 +1910,7 @@ void TypeConverter::SelectUnionMember(tree type,
   unsigned MinAlign = ~0U;
   uint64_t BestSize = FindBiggest ? 0 : ~(uint64_t)0;
   for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-    if (TREE_CODE(Field) != FIELD_DECL) continue;
+    assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
     assert(DECL_FIELD_OFFSET(Field) && integer_zerop(DECL_FIELD_OFFSET(Field))
            && "Union with non-zero offset?");
 
@@ -2015,9 +2012,11 @@ const Type *TypeConverter::ConvertRECORD(tree type) {
 
   // Record those fields which will be converted to LLVM fields.
   SmallVector<std::pair<tree, uint64_t>, 32> Fields;
-  for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
-    if (TREE_CODE(Field) == FIELD_DECL && OffsetIsLLVMCompatible(Field))
+  for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
+    assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
+    if (OffsetIsLLVMCompatible(Field))
       Fields.push_back(std::make_pair(Field, getFieldOffsetInBits(Field)));
+  }
 
   // The fields are almost always sorted, but occasionally not.  Sort them by
   // field offset.

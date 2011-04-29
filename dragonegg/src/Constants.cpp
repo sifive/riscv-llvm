@@ -1060,9 +1060,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   if (flag_default_initialize_globals) {
     for (tree field = TYPE_FIELDS(TREE_TYPE(exp)); field;
          field = TREE_CHAIN(field)) {
-      // Skip contained methods, types etc.
-      if (TREE_CODE(field) != FIELD_DECL)
-        continue;
+      assert(TREE_CODE(field) == FIELD_DECL && "Lang data not freed?");
       // If the field has variable or unknown position then it cannot be default
       // initialized - skip it.
       if (!OffsetIsLLVMCompatible(field))
