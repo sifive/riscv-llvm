@@ -2387,11 +2387,17 @@ Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
 }
 
 Value *TreeToLLVM::EmitCOND_EXPR(tree exp) {
-  // Emit the comparison.
+  // Emit the condition.  It may not be in SSA form, but if not then it is a
+  // comparison.
   tree cond = COND_EXPR_COND(exp);
-  assert(COMPARISON_CLASS_P(cond) && "Expected a comparison!");
-  Value *CondVal = EmitCompare(TREE_OPERAND(cond, 0), TREE_OPERAND(cond, 1),
-                               TREE_CODE(cond));
+  Value *CondVal = COMPARISON_CLASS_P(cond) ?
+    EmitCompare(TREE_OPERAND(cond, 0), TREE_OPERAND(cond, 1), TREE_CODE(cond)) :
+    EmitRegister(cond);
+
+  // Ensure the condition has i1 type.
+  if (!CondVal->getType()->isIntegerTy(1))
+    CondVal = Builder.CreateICmpNE(CondVal,
+                                   Constant::getNullValue(CondVal->getType()));
 
   // Emit the true and false values.
   Value *TrueVal = EmitRegister(COND_EXPR_THEN(exp));
