@@ -2386,6 +2386,21 @@ Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
   return Builder.CreateBitCast(LV.Ptr, ConvertType(TREE_TYPE(exp)));
 }
 
+Value *TreeToLLVM::EmitCOND_EXPR(tree exp) {
+  // Emit the comparison.
+  tree cond = COND_EXPR_COND(exp);
+  assert(COMPARISON_CLASS_P(cond) && "Expected a comparison!");
+  Value *CondVal = EmitCompare(TREE_OPERAND(cond, 0), TREE_OPERAND(cond, 1),
+                               TREE_CODE(cond));
+
+  // Emit the true and false values.
+  Value *TrueVal = EmitRegister(COND_EXPR_THEN(exp));
+  Value *FalseVal = EmitRegister(COND_EXPR_ELSE(exp));
+
+  // Select the value to use based on the condition.
+  return Builder.CreateSelect(CondVal, TrueVal, FalseVal);
+}
+
 Value *TreeToLLVM::EmitOBJ_TYPE_REF(tree exp) {
   return Builder.CreateBitCast(EmitRegister(OBJ_TYPE_REF_EXPR(exp)),
                                ConvertType(TREE_TYPE(exp)));
@@ -7897,6 +7912,7 @@ Value *TreeToLLVM::EmitAssignSingleRHS(tree rhs) {
 
   // Expressions (tcc_expression).
   case ADDR_EXPR:    return EmitADDR_EXPR(rhs);
+  case COND_EXPR:    return EmitCOND_EXPR(rhs);
   case OBJ_TYPE_REF: return EmitOBJ_TYPE_REF(rhs);
 
   // Exceptional (tcc_exceptional).

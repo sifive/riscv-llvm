@@ -721,6 +721,7 @@ private:
   Value *EmitLoadOfLValue(tree_node *exp);
   Value *EmitOBJ_TYPE_REF(tree_node *exp);
   Value *EmitADDR_EXPR(tree_node *exp);
+  Value *EmitCOND_EXPR(tree_node *exp);
   Value *EmitCallOf(Value *Callee, gimple_statement_d *stmt,
                     const MemRef *DestLoc, const AttrListPtr &PAL);
   CallInst *EmitSimpleCall(StringRef CalleeName, tree_node *ret_type,
