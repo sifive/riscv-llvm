@@ -5902,7 +5902,7 @@ Value *TreeToLLVM::EmitInvariantAddress(tree addr) {
 Constant *TreeToLLVM::EmitRegisterConstant(tree reg) {
 #ifndef NDEBUG
   if (!is_gimple_constant(reg))
-    DieAbjectly("Not a gimple constant!", reg);
+    DieAbjectly("Unsupported gimple!", reg);
 #endif
   assert(is_gimple_reg_type(TREE_TYPE(reg)) && "Not of register type!");
 
