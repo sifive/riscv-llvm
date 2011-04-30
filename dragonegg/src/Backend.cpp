@@ -458,6 +458,7 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   FeatureStr = Features.getString();
 #endif
   TheTarget = TME->createTargetMachine(TargetTriple, FeatureStr);
+  TheTarget->setMCUseCFI(flag_dwarf2_cfi_asm);
   assert(TheTarget->getTargetData()->isBigEndian() == BYTES_BIG_ENDIAN);
 }
 
