@@ -64,6 +64,18 @@ static Constant *AddressOfImpl(tree, TargetFolder &);
 //                           ... InterpretAsType ...
 //===----------------------------------------------------------------------===//
 
+// TODO: Implement InterpretAsType more efficiently.  Turning everything into
+// bits is simple but can involve a lot of work when dealing with large arrays.
+// For example:
+//  struct task_struct {
+//    char comm[16];
+//  };
+//  union task_union {
+//    struct task_struct task;
+//    unsigned long stack[2048*sizeof(long)/sizeof(long)];
+//  };
+//  union task_union init_task_union = { { comm: "swapper" } };
+
 typedef Range<int> SignedRange;
 
 /// BitSlice - A contiguous range of bits held in memory.
