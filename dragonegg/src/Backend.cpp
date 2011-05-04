@@ -103,10 +103,11 @@ formatted_raw_ostream FormattedOutStream;
 
 static bool DebugPassArguments;
 static bool DebugPassStructure;
-static bool DisableLLVMOptimizations;
 static bool EnableGCCOptimizations;
 static bool EmitIR;
 static bool SaveGCCOutput;
+static int LLVMCodeGenOptimizeArg = -1;
+static int LLVMIROptimizeArg = -1;
 
 std::vector<std::pair<Constant*, int> > StaticCtors, StaticDtors;
 SmallSetVector<Constant*, 32> AttributeUsedGlobals;
@@ -265,6 +266,24 @@ void handleVisibility(tree decl, GlobalValue *GV) {
   }
 }
 
+/// CodeGenOptLevel - The optimization level to be used by the code generators.
+static CodeGenOpt::Level CodeGenOptLevel() {
+  int OptLevel = LLVMCodeGenOptimizeArg >= 0 ?
+    LLVMCodeGenOptimizeArg : optimize;
+  if (OptLevel <= 0)
+    return CodeGenOpt::None;
+  if (OptLevel == 1)
+    return CodeGenOpt::Less;
+  if (OptLevel == 2) // Includes -Os.
+    return CodeGenOpt::Default;
+  return CodeGenOpt::Aggressive;
+}
+
+/// IROptLevel - The optimization level to be used by the IR level optimizers.
+static int IROptLevel() {
+  return LLVMIROptimizeArg >= 0 ? LLVMIROptimizeArg : optimize;
+}
+
 // GuessAtInliningThreshold - Figure out a reasonable threshold to pass llvm's
 // inliner.  gcc has many options that control inlining, but we have decided
 // not to support anything like that for llvm-gcc.
@@ -273,7 +292,7 @@ static unsigned GuessAtInliningThreshold() {
     // Reduce inline limit.
     return 75;
 
-  if (optimize >= 3)
+  if (IROptLevel() >= 3)
     return 275;
   return 225;
 }
@@ -688,7 +707,7 @@ static void createPerFunctionOptimizationPasses() {
   HasPerFunctionPasses = true;
 #endif
 
-  if (optimize > 0 && !DisableLLVMOptimizations) {
+  if (IROptLevel() > 0) {
     HasPerFunctionPasses = true;
 
     TargetLibraryInfo *TLI =
@@ -698,7 +717,7 @@ static void createPerFunctionOptimizationPasses() {
     PerFunctionPasses->add(TLI);
 
     PerFunctionPasses->add(createCFGSimplificationPass());
-    if (optimize == 1)
+    if (IROptLevel() == 1)
       PerFunctionPasses->add(createPromoteMemoryToRegisterPass());
     else
       PerFunctionPasses->add(createScalarReplAggregatesPass());
@@ -715,15 +734,6 @@ static void createPerFunctionOptimizationPasses() {
     FunctionPassManager *PM = PerFunctionPasses;
     HasPerFunctionPasses = true;
 
-    CodeGenOpt::Level OptLevel = CodeGenOpt::Default;  // -O2, -Os, and -Oz
-    if (optimize == 0)
-      OptLevel = CodeGenOpt::None;
-    else if (optimize == 1)
-      OptLevel = CodeGenOpt::Less;
-    else if (optimize == 3)
-      // -O3 and above.
-      OptLevel = CodeGenOpt::Aggressive;
-
     // Request that addPassesToEmitFile run the Verifier after running
     // passes which modify the IR.
 #ifndef NDEBUG
@@ -737,7 +747,7 @@ static void createPerFunctionOptimizationPasses() {
     InitializeOutputStreams(false);
     if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
                                        TargetMachine::CGFT_AssemblyFile,
-                                       OptLevel, DisableVerify))
+                                       CodeGenOptLevel(), DisableVerify))
       DieAbjectly("Error interfacing to target machine!");
   }
 
@@ -759,39 +769,37 @@ static void createPerModuleOptimizationPasses() {
   PerModulePasses->add(new TargetData(*TheTarget->getTargetData()));
   bool HasPerModulePasses = false;
 
-  if (!DisableLLVMOptimizations) {
-    TargetLibraryInfo *TLI =
-      new TargetLibraryInfo(Triple(TheModule->getTargetTriple()));
-    if (flag_no_simplify_libcalls)
-      TLI->disableAllFunctions();
-    PerModulePasses->add(TLI);
+  TargetLibraryInfo *TLI =
+    new TargetLibraryInfo(Triple(TheModule->getTargetTriple()));
+  if (flag_no_simplify_libcalls)
+    TLI->disableAllFunctions();
+  PerModulePasses->add(TLI);
 
-    bool NeedAlwaysInliner = false;
-    llvm::Pass *InliningPass = 0;
-    if (flag_inline_small_functions && !flag_no_inline) {
-      InliningPass = createFunctionInliningPass();    // Inline small functions
-    } else {
-      // If full inliner is not run, check if always-inline is needed to handle
-      // functions that are  marked as always_inline.
-      // TODO: Consider letting the GCC inliner do this.
-      for (Module::iterator I = TheModule->begin(), E = TheModule->end();
-           I != E; ++I)
-        if (I->hasFnAttr(Attribute::AlwaysInline)) {
-          NeedAlwaysInliner = true;
-          break;
-        }
+  bool NeedAlwaysInliner = false;
+  llvm::Pass *InliningPass = 0;
+  if (flag_inline_small_functions && !flag_no_inline) {
+    InliningPass = createFunctionInliningPass();    // Inline small functions
+  } else {
+    // If full inliner is not run, check if always-inline is needed to handle
+    // functions that are  marked as always_inline.
+    // TODO: Consider letting the GCC inliner do this.
+    for (Module::iterator I = TheModule->begin(), E = TheModule->end();
+         I != E; ++I)
+      if (I->hasFnAttr(Attribute::AlwaysInline)) {
+        NeedAlwaysInliner = true;
+        break;
+      }
 
-      if (NeedAlwaysInliner)
-        InliningPass = createAlwaysInlinerPass();  // Inline always_inline funcs
-    }
-
-    HasPerModulePasses = true;
-    createStandardModulePasses(PerModulePasses, optimize,
-                               optimize_size,
-                               flag_unit_at_a_time, flag_unroll_loops,
-                               !flag_no_simplify_libcalls, flag_exceptions,
-                               InliningPass);
+    if (NeedAlwaysInliner)
+      InliningPass = createAlwaysInlinerPass();  // Inline always_inline funcs
   }
+
+  HasPerModulePasses = true;
+  createStandardModulePasses(PerModulePasses, IROptLevel(),
+                             optimize_size,
+                             flag_unit_at_a_time, flag_unroll_loops,
+                             !flag_no_simplify_libcalls, flag_exceptions,
+                             InliningPass);
 
   if (EmitIR && 0) {
     // Emit an LLVM .bc file to the output.  This is used when passed
@@ -817,14 +825,6 @@ static void createPerModuleOptimizationPasses() {
         new FunctionPassManager(TheModule);
       PM->add(new TargetData(*TheTarget->getTargetData()));
 
-      CodeGenOpt::Level OptLevel = CodeGenOpt::Default;
-
-      switch (optimize) {
-      default: break;
-      case 0: OptLevel = CodeGenOpt::None; break;
-      case 3: OptLevel = CodeGenOpt::Aggressive; break;
-      }
-
       // Request that addPassesToEmitFile run the Verifier after running
       // passes which modify the IR.
 #ifndef NDEBUG
@@ -838,7 +838,7 @@ static void createPerModuleOptimizationPasses() {
       InitializeOutputStreams(false);
       if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
                                          TargetMachine::CGFT_AssemblyFile,
-                                         OptLevel, DisableVerify))
+                                         CodeGenOptLevel(), DisableVerify))
         DieAbjectly("Error interfacing to target machine!");
     }
   }
@@ -2400,7 +2400,6 @@ struct FlagDescriptor {
 static FlagDescriptor PluginFlags[] = {
     { "debug-pass-structure", &DebugPassStructure},
     { "debug-pass-arguments", &DebugPassArguments},
-    { "disable-llvm-optzns", &DisableLLVMOptimizations },
     { "enable-gcc-optzns", &EnableGCCOptimizations },
     { "emit-ir", &EmitIR },
     { "save-gcc-output", &SaveGCCOutput },
@@ -2454,27 +2453,47 @@ plugin_init(struct plugin_name_args *plugin_info,
     int argc = plugin_info->argc;
 
     for (int i = 0; i < argc; ++i) {
-      bool Found = false;
-
-      // Look for a matching flag.
-      for (FlagDescriptor *F = PluginFlags; F->Key; ++F) {
-        if (strcmp (argv[i].key, F->Key))
-          continue;
-
-        if (argv[i].value)
-          warning (0, G_("option '-fplugin-arg-%s-%s=%s' ignored"
-                         " (superfluous '=%s')"),
-                   plugin_name, argv[i].key, argv[i].value, argv[i].value);
+      if (!strcmp (argv[i].key, "llvm-ir-optimize") ||
+          !strcmp (argv[i].key, "llvm-codegen-optimize")) {
+        if (!argv[i].value) {
+          error(G_("no value supplied for option '-fplugin-arg-%s-%s'"),
+                plugin_name, argv[i].key);
+          return 1;
+        }
+        if (argv[i].value[0] < '0' || argv[i].value[0] > '9' || argv[i].value[1]) {
+          error(G_("invalid option argument '-fplugin-arg-%s-%s=%s'"),
+                plugin_name, argv[i].key, argv[i].value);
+          return 1;
+        }
+        int OptLevel = argv[i].value[0] - '0';
+        if (argv[i].key[5] == 'i')
+          LLVMIROptimizeArg = OptLevel;
         else
-          *F->Flag = true;
-
-        Found = true;
-        break;
+          LLVMCodeGenOptimizeArg = OptLevel;
+        continue;
       }
 
-      if (!Found)
-        warning (0, G_("plugin %qs: unrecognized argument %qs ignored"),
-                 plugin_name, argv[i].key);
+      // All remaining options are flags, so complain if there is an argument.
+      if (argv[i].value) {
+        error(G_("invalid option argument '-fplugin-arg-%s-%s=%s'"),
+              plugin_name, argv[i].key, argv[i].value);
+        return 1;
+      }
+
+      // Look for a matching flag.
+      bool Found = false;
+      for (FlagDescriptor *F = PluginFlags; F->Key; ++F)
+        if (!strcmp (argv[i].key, F->Key)) {
+          Found = true;
+          *F->Flag = true;
+          break;
+        }
+
+      if (!Found) {
+        error(G_("invalid option '-fplugin-arg-%s-%s'"),
+              plugin_name, argv[i].key);
+        return 1;
+      }
     }
   }
 

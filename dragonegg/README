@@ -125,8 +125,19 @@ If you renamed dragonegg.so to something else, for example llvm.so, replace
 -fplugin-arg-dragonegg-debug-pass-structure
   Output information about the passes being run.
 
--fplugin-arg-dragonegg-disable-llvm-optzns
-  Do not perform any LLVM IR optimizations even if compiling at -O1, -O2 etc.
+-fplugin-arg-dragonegg-llvm-ir-optimize=N
+  Run the LLVM IR optimizers at optimization level N, overriding the GCC
+  optimization level.  Usually if you pass -O1, -O2 etc to GCC then the
+  LLVM IR level optimizers are also run at -O1, -O2 etc.  Use this option
+  to change this, disassociating the LLVM optimization level from the GCC
+  one.  For example, -fplugin-arg-dragonegg-llvm-ir-optimize=0 disables
+  all LLVM IR optimizations.
+
+-fplugin-arg-dragonegg-llvm-codegen-optimize=N
+  Run the LLVM code generator optimizers at optimization level N, overriding
+  the GCC optimization level.  Usually if you pass -O1, -O2 etc to GCC then
+  the LLVM code generators optimize at a corresponding level.  Use this option
+  to change this, disassociating the LLVM optimization level from the GCC one.
 
 -fplugin-arg-dragonegg-enable-gcc-optzns
   Run the GCC tree optimizers as well as the LLVM IR optimizers.  Only early GCC
