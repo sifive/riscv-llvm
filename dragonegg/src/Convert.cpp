@@ -6944,6 +6944,56 @@ Value *TreeToLLVM::EmitReg_TRUNC_MOD_EXPR(tree op0, tree op1) {
     Builder.CreateURem(LHS, RHS) : Builder.CreateSRem(LHS, RHS);
 }
 
+Value *TreeToLLVM::EmitReg_VEC_EXTRACT_EVEN_EXPR(tree op0, tree op1) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+  SmallVector<Constant*, 16> Mask;
+  Mask.reserve(Length);
+  for (unsigned i = 0; i != Length; ++i)
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), 2*i));
+  return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
+}
+
+Value *TreeToLLVM::EmitReg_VEC_EXTRACT_ODD_EXPR(tree op0, tree op1) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+  SmallVector<Constant*, 16> Mask;
+  Mask.reserve(Length);
+  for (unsigned i = 0; i != Length; ++i)
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), 2*i+1));
+  return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
+}
+
+Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_HIGH_EXPR(tree op0, tree op1) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+  assert(!(Length & 1) && "Expected an even number of vector elements!");
+  SmallVector<Constant*, 16> Mask;
+  Mask.reserve(Length);
+  for (unsigned i = Length/2; i != Length; ++i) {
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), i));
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), Length + i));
+  }
+  return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
+}
+
+Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_LOW_EXPR(tree op0, tree op1) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+  assert(!(Length & 1) && "Expected an even number of vector elements!");
+  SmallVector<Constant*, 16> Mask;
+  Mask.reserve(Length);
+  for (unsigned i = 0, e = Length/2; i != e; ++i) {
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), i));
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), Length + i));
+  }
+  return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
+}
+
 
 //===----------------------------------------------------------------------===//
 //                        ... Exception Handling ...
@@ -7800,7 +7850,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   Value *RHS = 0;
   switch (code) {
   default:
-    DieAbjectly("Unhandled GIMPLE assignment!", stmt);
+    DieAbjectly("Unsupported GIMPLE assignment!", stmt);
 
   // Unary expressions.
   case ABS_EXPR:
@@ -7901,6 +7951,14 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_TruthOp(type, rhs1, rhs2, Instruction::Or); break;
   case TRUTH_XOR_EXPR:
     RHS = EmitReg_TruthOp(type, rhs1, rhs2, Instruction::Xor); break;
+  case VEC_EXTRACT_EVEN_EXPR:
+    RHS = EmitReg_VEC_EXTRACT_EVEN_EXPR(rhs1, rhs2); break;
+  case VEC_EXTRACT_ODD_EXPR:
+    RHS = EmitReg_VEC_EXTRACT_ODD_EXPR(rhs1, rhs2); break;
+  case VEC_INTERLEAVE_HIGH_EXPR:
+    RHS = EmitReg_VEC_INTERLEAVE_HIGH_EXPR(rhs1, rhs2); break;
+  case VEC_INTERLEAVE_LOW_EXPR:
+    RHS = EmitReg_VEC_INTERLEAVE_LOW_EXPR(rhs1, rhs2); break;
   }
 
   assert(RHS->getType() == getRegType(type) && "RHS has wrong type!");
