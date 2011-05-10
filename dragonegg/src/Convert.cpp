@@ -6994,6 +6994,32 @@ Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_LOW_EXPR(tree op0, tree op1) {
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
 
+Value *TreeToLLVM::EmitReg_VEC_PACK_TRUNC_EXPR(tree type, tree op0, tree op1) {
+  // Eg: <4 x float> = VEC_PACK_TRUNC_EXPR(<2 x double>, <2 x double>).
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+
+  // Truncate the input elements to the output element type, eg: <2 x double>
+  // -> <2 x float>.
+  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+  const Type *TruncTy = VectorType::get(getRegType(TREE_TYPE(type)), Length);
+  if (FLOAT_TYPE_P(TREE_TYPE(type))) {
+    LHS = Builder.CreateFPTrunc(LHS, TruncTy);
+    RHS = Builder.CreateFPTrunc(RHS, TruncTy);
+  } else {
+    LHS = Builder.CreateTrunc(LHS, TruncTy);
+    RHS = Builder.CreateTrunc(RHS, TruncTy);
+  }
+
+  // Concatenate the truncated inputs into one vector of twice the length,
+  // eg: <2 x float>, <2 x float> -> <4 x float>.
+  SmallVector<Constant*, 16> Mask;
+  Mask.reserve(2*Length);
+  for (unsigned i = 0, e = 2*Length; i != e; ++i)
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), i));
+  return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
+}
+
 
 //===----------------------------------------------------------------------===//
 //                        ... Exception Handling ...
@@ -7959,6 +7985,8 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_VEC_INTERLEAVE_HIGH_EXPR(rhs1, rhs2); break;
   case VEC_INTERLEAVE_LOW_EXPR:
     RHS = EmitReg_VEC_INTERLEAVE_LOW_EXPR(rhs1, rhs2); break;
+  case VEC_PACK_TRUNC_EXPR:
+    RHS = EmitReg_VEC_PACK_TRUNC_EXPR(type, rhs1, rhs2); break;
   }
 
   assert(RHS->getType() == getRegType(type) && "RHS has wrong type!");
