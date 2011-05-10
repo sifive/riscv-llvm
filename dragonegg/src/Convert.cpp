@@ -2426,7 +2426,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
     unsigned HOST_WIDE_INT idx;
     tree value;
     FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, value) {
-      Value *Elt = EmitMemory(value);
+      Value *Elt = EmitRegister(value);
 
       if (const VectorType *EltTy = dyn_cast<VectorType>(Elt->getType())) {
         // GCC allows vectors to be built up from vectors.  Extract all of the
@@ -2436,6 +2436,10 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
           BuildVecOps.push_back(Builder.CreateExtractElement(Elt, Index));
         }
       } else {
+        // LLVM does not support vectors of pointers, so turn any pointers into
+        // integers.
+        if (isa<PointerType>(Elt->getType()))
+          Elt = Builder.CreatePtrToInt(Elt, TD.getIntPtrType(Context));
         assert(Elt->getType() == VTy->getElementType() &&
                "Unexpected type for vector constructor!");
         BuildVecOps.push_back(Elt);
