@@ -6445,25 +6445,12 @@ Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, unsigned code) {
 Value *TreeToLLVM::EmitReg_MinMaxExpr(tree type, tree op0, tree op1,
                                       unsigned UIPred, unsigned SIPred,
                                       unsigned FPPred, bool isMax) {
-  Value *LHS = EmitRegister(op0);
-  Value *RHS = EmitRegister(op1);
-
   const Type *Ty = getRegType(type);
-
-  // The LHS, RHS and Ty could be integer, floating or pointer typed. We need
-  // to convert the LHS and RHS into the destination type before doing the
-  // comparison. Use CastInst::getCastOpcode to get this right.
-  bool TyIsSigned  = !TYPE_UNSIGNED(type);
-  bool LHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(op0));
-  bool RHSIsSigned = !TYPE_UNSIGNED(TREE_TYPE(op1));
-  Instruction::CastOps opcode =
-    CastInst::getCastOpcode(LHS, LHSIsSigned, Ty, TyIsSigned);
-  LHS = Builder.CreateCast(opcode, LHS, Ty);
-  opcode = CastInst::getCastOpcode(RHS, RHSIsSigned, Ty, TyIsSigned);
-  RHS = Builder.CreateCast(opcode, RHS, Ty);
+  Value *LHS = UselesslyTypeConvert(EmitRegister(op0), Ty);
+  Value *RHS = UselesslyTypeConvert(EmitRegister(op1), Ty);
 
   Value *Compare;
-  if (LHS->getType()->isFloatingPointTy())
+  if (FLOAT_TYPE_P(type))
     Compare = Builder.CreateFCmp(FCmpInst::Predicate(FPPred), LHS, RHS);
   else if (TYPE_UNSIGNED(type))
     Compare = Builder.CreateICmp(ICmpInst::Predicate(UIPred), LHS, RHS);
