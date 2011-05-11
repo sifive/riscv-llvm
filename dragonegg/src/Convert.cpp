@@ -7024,6 +7024,52 @@ Value *TreeToLLVM::EmitReg_VEC_PACK_TRUNC_EXPR(tree type, tree op0, tree op1) {
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
 
+Value *TreeToLLVM::EmitReg_VEC_UNPACK_HI_EXPR(tree type, tree op0) {
+  // Eg: <2 x double> = VEC_UNPACK_HI_EXPR(<4 x float>)
+  Value *Op = EmitRegister(op0);
+
+  // Extract the high elements, eg: <4 x float> -> <2 x float>.
+  unsigned Length = TYPE_VECTOR_SUBPARTS(type);
+  SmallVector<Constant*, 16> Mask;
+  Mask.reserve(Length);
+  for (unsigned i = 0; i != Length; ++i)
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), Length + i));
+  Op = Builder.CreateShuffleVector(Op, UndefValue::get(Op->getType()),
+                                   ConstantVector::get(Mask));
+
+  // Extend the input elements to the output element type, eg: <2 x float>
+  // -> <2 x double>.
+  const Type *ExtTy = getRegType(type);
+  if (FLOAT_TYPE_P(TREE_TYPE(TREE_TYPE(op0))))
+    return Builder.CreateFPExt(Op, ExtTy);
+  if (TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(op0))))
+    return Builder.CreateZExt(Op, ExtTy);
+  return Builder.CreateSExt(Op, ExtTy);
+}
+
+Value *TreeToLLVM::EmitReg_VEC_UNPACK_LO_EXPR(tree type, tree op0) {
+  // Eg: <2 x double> = VEC_UNPACK_LO_EXPR(<4 x float>)
+  Value *Op = EmitRegister(op0);
+
+  // Extract the low elements, eg: <4 x float> -> <2 x float>.
+  unsigned Length = TYPE_VECTOR_SUBPARTS(type);
+  SmallVector<Constant*, 16> Mask;
+  Mask.reserve(Length);
+  for (unsigned i = 0; i != Length; ++i)
+    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), i));
+  Op = Builder.CreateShuffleVector(Op, UndefValue::get(Op->getType()),
+                                   ConstantVector::get(Mask));
+
+  // Extend the input elements to the output element type, eg: <2 x float>
+  // -> <2 x double>.
+  const Type *ExtTy = getRegType(type);
+  if (FLOAT_TYPE_P(TREE_TYPE(TREE_TYPE(op0))))
+    return Builder.CreateFPExt(Op, ExtTy);
+  if (TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(op0))))
+    return Builder.CreateZExt(Op, ExtTy);
+  return Builder.CreateSExt(Op, ExtTy);
+}
+
 
 //===----------------------------------------------------------------------===//
 //                        ... Exception Handling ...
@@ -7991,6 +8037,10 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_VEC_INTERLEAVE_LOW_EXPR(rhs1, rhs2); break;
   case VEC_PACK_TRUNC_EXPR:
     RHS = EmitReg_VEC_PACK_TRUNC_EXPR(type, rhs1, rhs2); break;
+  case VEC_UNPACK_HI_EXPR:
+    RHS = EmitReg_VEC_UNPACK_HI_EXPR(type, rhs1); break;
+  case VEC_UNPACK_LO_EXPR:
+    RHS = EmitReg_VEC_UNPACK_LO_EXPR(type, rhs1); break;
   }
 
   assert(RHS->getType() == getRegType(type) && "RHS has wrong type!");

@@ -723,6 +723,8 @@ private:
   Value *EmitReg_VEC_INTERLEAVE_LOW_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_VEC_PACK_TRUNC_EXPR(tree_node *type, tree_node *op0,
                                      tree_node *op1);
+  Value *EmitReg_VEC_UNPACK_HI_EXPR(tree_node *type, tree_node *op0);
+  Value *EmitReg_VEC_UNPACK_LO_EXPR(tree_node *type, tree_node *op0);
 
   Value *EmitLoadOfLValue(tree_node *exp);
   Value *EmitOBJ_TYPE_REF(tree_node *exp);
