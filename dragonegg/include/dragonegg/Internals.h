@@ -693,6 +693,8 @@ private:
   // Binary expressions.
   Value *EmitReg_MinMaxExpr(tree_node *op0, tree_node *op1, unsigned UIPred,
                             unsigned SIPred, unsigned Opc);
+  Value *EmitReg_ReducMinMaxExpr(tree_node *op, unsigned UIPred,
+                                 unsigned SIPred, unsigned Opc);
   Value *EmitReg_RotateOp(tree_node *type, tree_node *op0, tree_node *op1,
                           unsigned Opc1, unsigned Opc2);
   Value *EmitReg_ShiftOp(tree_node *op0, tree_node *op1, unsigned Opc);
@@ -875,6 +877,18 @@ private:
   /// (which is the in-register type given by getRegType) and the in-memory type.
   void StoreRegisterToMemory(Value *V, MemRef Loc, tree_node *type,
                              LLVMBuilder &Builder);
+
+  /// VectorHighElements - Return a vector of half the length, consisting of the
+  /// elements of the given vector with indices in the top half.
+  Value *VectorHighElements(Value *Vec);
+
+  /// VectorLowElements - Return a vector of half the length, consisting of the
+  /// elements of the given vector with indices in the bottom half.
+  Value *VectorLowElements(Value *Vec);
+
+  /// ReducMinMaxExprHelper - Split the given vector in two and form the max/min
+  /// of the two pieces; repeat recursively on the result until scalar.
+  Value *ReducMinMaxExprHelper(Value *Op, CmpInst::Predicate Pred);
 
 private:
   // Optional target defined builtin intrinsic expanding function.

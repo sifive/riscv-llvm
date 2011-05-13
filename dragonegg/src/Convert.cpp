@@ -6200,6 +6200,36 @@ void TreeToLLVM::StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
   SI->setAlignment(Loc.getAlignment());
 }
 
+/// VectorHighElements - Return a vector of half the length, consisting of the
+/// elements of the given vector with indices in the top half.
+Value *TreeToLLVM::VectorHighElements(Value *Vec) {
+  const VectorType *Ty = cast<VectorType>(Vec->getType());
+  assert(!(Ty->getNumElements() & 1) && "Vector has odd number of elements!");
+  unsigned NumElts = Ty->getNumElements() / 2;
+  SmallVector<Constant*, 8> Mask;
+  Mask.reserve(NumElts);
+  const Type *Int32Ty = Type::getInt32Ty(Context);
+  for (unsigned i = 0; i != NumElts; ++i)
+    Mask.push_back(ConstantInt::get(Int32Ty, NumElts + i));
+  return Builder.CreateShuffleVector(Vec, UndefValue::get(Ty),
+                                     ConstantVector::get(Mask));
+}
+
+/// VectorLowElements - Return a vector of half the length, consisting of the
+/// elements of the given vector with indices in the bottom half.
+Value *TreeToLLVM::VectorLowElements(Value *Vec) {
+  const VectorType *Ty = cast<VectorType>(Vec->getType());
+  assert(!(Ty->getNumElements() & 1) && "Vector has odd number of elements!");
+  unsigned NumElts = Ty->getNumElements() / 2;
+  SmallVector<Constant*, 8> Mask;
+  Mask.reserve(NumElts);
+  const Type *Int32Ty = Type::getInt32Ty(Context);
+  for (unsigned i = 0; i != NumElts; ++i)
+    Mask.push_back(ConstantInt::get(Int32Ty, i));
+  return Builder.CreateShuffleVector(Vec, UndefValue::get(Ty),
+                                     ConstantVector::get(Mask));
+}
+
 
 //===----------------------------------------------------------------------===//
 //           ... EmitReg* - Convert register expression to LLVM...
@@ -6456,6 +6486,58 @@ Value *TreeToLLVM::EmitReg_MinMaxExpr(tree op0, tree op1, unsigned UIPred,
     Compare = Builder.CreateICmp(ICmpInst::Predicate(SIPred), LHS, RHS);
 
   return Builder.CreateSelect(Compare, LHS, RHS);
+}
+
+/// ReducMinMaxExprHelper - Split the given vector in two and form the max/min
+/// of the two pieces; repeat recursively on the result until scalar.
+Value *TreeToLLVM::ReducMinMaxExprHelper(Value *Op, CmpInst::Predicate Pred) {
+  const VectorType *Ty = cast<VectorType>(Op->getType());
+  unsigned NumElts = Ty->getNumElements();
+  assert(NumElts > 1 && !(NumElts & (NumElts - 1)) &&
+         "Number of vector elements is not a power of 2!");
+
+  if (NumElts == 2) {
+    // Extract each of the two elements and return the max/min of them.
+    const Type *Int32Ty = Type::getInt32Ty(Context);
+    Value *LHS = Builder.CreateExtractElement(Op, ConstantInt::get(Int32Ty, 0));
+    Value *RHS = Builder.CreateExtractElement(Op, ConstantInt::get(Int32Ty, 1));
+    Value *Compare = CmpInst::isFPPredicate(Pred) ?
+      Builder.CreateFCmp(Pred, LHS, RHS) : Builder.CreateICmp(Pred, LHS, RHS);
+    return Builder.CreateSelect(Compare, LHS, RHS);
+  }
+
+  // Recursively extract the high and low halves of the vector and take the
+  // max/min of them.  Using vector select like this results in better code
+  // if the target supports it for at least one of the resulting vector sizes.
+  Value *LHS = VectorLowElements(Op), *RHS = VectorHighElements(Op);
+  Value *Compare = CmpInst::isFPPredicate(Pred) ?
+    Builder.CreateFCmp(Pred, LHS, RHS) : Builder.CreateICmp(Pred, LHS, RHS);
+  Op = Builder.CreateSelect(Compare, LHS, RHS);
+  return ReducMinMaxExprHelper(Op, Pred);
+}
+
+Value *TreeToLLVM::EmitReg_ReducMinMaxExpr(tree op, unsigned UIPred,
+                                           unsigned SIPred, unsigned FPPred) {
+  // Use a divide and conquer scheme that results in the same code as the simple
+  // scalar implementation on targets that don't support vector select but gives
+  // better code if vector select is present.
+  // For example, reduc-max <float x0, float x1, float x2, float x3> becomes
+  //   v = max <float x0, float x1>, <float x2, float x3>   <- vector select
+  //   m = max float v0, float v1   <- scalar select; v = <float v0, float v1>
+  // The final result, m, equals max(max(x0,x2),max(x1,x3)) = max(x0,x1,x2,x3).
+  Value *Val = EmitRegister(op);
+  Value *Res;
+  if (FLOAT_TYPE_P(TREE_TYPE(op)))
+    Res = ReducMinMaxExprHelper(Val, CmpInst::Predicate(FPPred));
+  else if (TYPE_UNSIGNED(TREE_TYPE(op)))
+    Res = ReducMinMaxExprHelper(Val, CmpInst::Predicate(UIPred));
+  else
+    Res = ReducMinMaxExprHelper(Val, CmpInst::Predicate(SIPred));
+
+  // The result is vector with the max/min as first element.
+  return Builder.CreateInsertElement(UndefValue::get(Val->getType()), Res,
+                                     ConstantInt::get(Type::getInt32Ty(Context),
+                                                      0));
 }
 
 Value *TreeToLLVM::EmitReg_RotateOp(tree type, tree op0, tree op1,
@@ -7011,13 +7093,7 @@ Value *TreeToLLVM::EmitReg_VEC_UNPACK_HI_EXPR(tree type, tree op0) {
   Value *Op = EmitRegister(op0);
 
   // Extract the high elements, eg: <4 x float> -> <2 x float>.
-  unsigned Length = TYPE_VECTOR_SUBPARTS(type);
-  SmallVector<Constant*, 16> Mask;
-  Mask.reserve(Length);
-  for (unsigned i = 0; i != Length; ++i)
-    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), Length + i));
-  Op = Builder.CreateShuffleVector(Op, UndefValue::get(Op->getType()),
-                                   ConstantVector::get(Mask));
+  Op = VectorHighElements(Op);
 
   // Extend the input elements to the output element type, eg: <2 x float>
   // -> <2 x double>.
@@ -7034,13 +7110,7 @@ Value *TreeToLLVM::EmitReg_VEC_UNPACK_LO_EXPR(tree type, tree op0) {
   Value *Op = EmitRegister(op0);
 
   // Extract the low elements, eg: <4 x float> -> <2 x float>.
-  unsigned Length = TYPE_VECTOR_SUBPARTS(type);
-  SmallVector<Constant*, 16> Mask;
-  Mask.reserve(Length);
-  for (unsigned i = 0; i != Length; ++i)
-    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), i));
-  Op = Builder.CreateShuffleVector(Op, UndefValue::get(Op->getType()),
-                                   ConstantVector::get(Mask));
+  Op = VectorLowElements(Op);
 
   // Extend the input elements to the output element type, eg: <2 x float>
   // -> <2 x double>.
@@ -7989,6 +8059,14 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_POINTER_PLUS_EXPR(rhs1, rhs2); break;
   case RDIV_EXPR:
     RHS = EmitReg_RDIV_EXPR(rhs1, rhs2); break;
+  case REDUC_MAX_EXPR:
+    RHS = EmitReg_ReducMinMaxExpr(rhs1, ICmpInst::ICMP_UGE, ICmpInst::ICMP_SGE,
+                                  FCmpInst::FCMP_OGE);
+    break;
+  case REDUC_MIN_EXPR:
+    RHS = EmitReg_ReducMinMaxExpr(rhs1, ICmpInst::ICMP_ULE, ICmpInst::ICMP_SLE,
+                                  FCmpInst::FCMP_OLE);
+    break;
   case ROUND_DIV_EXPR:
     RHS = EmitReg_ROUND_DIV_EXPR(rhs1, rhs2); break;
   case RROTATE_EXPR:
