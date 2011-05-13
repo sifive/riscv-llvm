@@ -691,9 +691,8 @@ private:
   Value *EmitCompare(tree_node *lhs, tree_node *rhs, unsigned code);
 
   // Binary expressions.
-  Value *EmitReg_MinMaxExpr(tree_node *type, tree_node *op0, tree_node *op1,
-                            unsigned UIPred, unsigned SIPred, unsigned Opc,
-                            bool isMax);
+  Value *EmitReg_MinMaxExpr(tree_node *op0, tree_node *op1, unsigned UIPred,
+                            unsigned SIPred, unsigned Opc);
   Value *EmitReg_RotateOp(tree_node *type, tree_node *op0, tree_node *op1,
                           unsigned Opc1, unsigned Opc2);
   Value *EmitReg_ShiftOp(tree_node *op0, tree_node *op1, unsigned Opc);
@@ -702,20 +701,16 @@ private:
   Value *EmitReg_BIT_AND_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_BIT_IOR_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_BIT_XOR_EXPR(tree_node *op0, tree_node *op1);
-  Value *EmitReg_CEIL_DIV_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
+  Value *EmitReg_CEIL_DIV_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_COMPLEX_EXPR(tree_node *op0, tree_node *op1);
-  Value *EmitReg_FLOOR_DIV_EXPR(tree_node *type, tree_node *op0,
-                                tree_node *op1);
-  Value *EmitReg_FLOOR_MOD_EXPR(tree_node *type, tree_node *op0,
-                                tree_node *op1);
+  Value *EmitReg_FLOOR_DIV_EXPR(tree_node *op0, tree_node *op1);
+  Value *EmitReg_FLOOR_MOD_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_MINUS_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_MULT_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_PLUS_EXPR(tree_node *op0, tree_node *op1);
-  Value *EmitReg_POINTER_PLUS_EXPR(tree_node *type, tree_node *op0,
-                                   tree_node *op1);
+  Value *EmitReg_POINTER_PLUS_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_RDIV_EXPR(tree_node *op0, tree_node *op1);
-  Value *EmitReg_ROUND_DIV_EXPR(tree_node *type, tree_node *op0,
-                                tree_node *op1);
+  Value *EmitReg_ROUND_DIV_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_TRUNC_DIV_EXPR(tree_node *op0, tree_node *op1, bool isExact);
   Value *EmitReg_TRUNC_MOD_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_VEC_EXTRACT_EVEN_EXPR(tree_node *op0, tree_node *op1);

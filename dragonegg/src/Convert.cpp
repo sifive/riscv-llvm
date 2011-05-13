@@ -6442,22 +6442,20 @@ Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, unsigned code) {
   return Builder.CreateICmp(pred, LHS, RHS);
 }
 
-Value *TreeToLLVM::EmitReg_MinMaxExpr(tree type, tree op0, tree op1,
-                                      unsigned UIPred, unsigned SIPred,
-                                      unsigned FPPred, bool isMax) {
-  const Type *Ty = getRegType(type);
-  Value *LHS = TriviallyTypeConvert(EmitRegister(op0), Ty);
-  Value *RHS = TriviallyTypeConvert(EmitRegister(op1), Ty);
+Value *TreeToLLVM::EmitReg_MinMaxExpr(tree op0, tree op1, unsigned UIPred,
+                                      unsigned SIPred, unsigned FPPred) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
 
   Value *Compare;
-  if (FLOAT_TYPE_P(type))
+  if (FLOAT_TYPE_P(TREE_TYPE(op0)))
     Compare = Builder.CreateFCmp(FCmpInst::Predicate(FPPred), LHS, RHS);
-  else if (TYPE_UNSIGNED(type))
+  else if (TYPE_UNSIGNED(TREE_TYPE(op1)))
     Compare = Builder.CreateICmp(ICmpInst::Predicate(UIPred), LHS, RHS);
   else
     Compare = Builder.CreateICmp(ICmpInst::Predicate(SIPred), LHS, RHS);
 
-  return Builder.CreateSelect(Compare, LHS, RHS, isMax ? "max" : "min");
+  return Builder.CreateSelect(Compare, LHS, RHS);
 }
 
 Value *TreeToLLVM::EmitReg_RotateOp(tree type, tree op0, tree op1,
@@ -6510,7 +6508,7 @@ Value *TreeToLLVM::EmitReg_TruthOp(tree type, tree op0, tree op1, unsigned Opc){
   return Builder.CreateZExt(Res, getRegType(type));
 }
 
-Value *TreeToLLVM::EmitReg_CEIL_DIV_EXPR(tree type, tree op0, tree op1) {
+Value *TreeToLLVM::EmitReg_CEIL_DIV_EXPR(tree op0, tree op1) {
   // Notation: CEIL_DIV_EXPR <-> CDiv, TRUNC_DIV_EXPR <-> Div.
 
   // CDiv calculates LHS/RHS by rounding up to the nearest integer.  In terms
@@ -6519,7 +6517,7 @@ Value *TreeToLLVM::EmitReg_CEIL_DIV_EXPR(tree type, tree op0, tree op1) {
   //   LHS CDiv RHS = (LHS - Sign(RHS)) Div RHS + 1
   // otherwise.
 
-  const Type *Ty = getRegType(type);
+  const Type *Ty = getRegType(TREE_TYPE(op0));
   Constant *Zero = ConstantInt::get(Ty, 0);
   Constant *One = ConstantInt::get(Ty, 1);
   Constant *MinusOne = Constant::getAllOnesValue(Ty);
@@ -6527,7 +6525,7 @@ Value *TreeToLLVM::EmitReg_CEIL_DIV_EXPR(tree type, tree op0, tree op1) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
 
-  if (!TYPE_UNSIGNED(type)) {
+  if (!TYPE_UNSIGNED(TREE_TYPE(op0))) {
     // In the case of signed arithmetic, we calculate CDiv as follows:
     //   LHS CDiv RHS = (LHS - Sign(RHS) * Offset) Div RHS + Offset,
     // where Offset is 1 if LHS and RHS have the same sign and LHS is
@@ -6591,7 +6589,7 @@ Value *TreeToLLVM::EmitReg_COMPLEX_EXPR(tree op0, tree op1) {
   return CreateComplex(EmitRegister(op0), EmitRegister(op1));
 }
 
-Value *TreeToLLVM::EmitReg_FLOOR_DIV_EXPR(tree type, tree op0, tree op1) {
+Value *TreeToLLVM::EmitReg_FLOOR_DIV_EXPR(tree op0, tree op1) {
   // Notation: FLOOR_DIV_EXPR <-> FDiv, TRUNC_DIV_EXPR <-> Div.
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
@@ -6602,12 +6600,12 @@ Value *TreeToLLVM::EmitReg_FLOOR_DIV_EXPR(tree type, tree op0, tree op1) {
   //   LHS FDiv RHS = (LHS + Sign(RHS)) Div RHS - 1
   // otherwise.
 
-  if (TYPE_UNSIGNED(type))
+  if (TYPE_UNSIGNED(TREE_TYPE(op0)))
     // In the case of unsigned arithmetic, LHS and RHS necessarily have the
     // same sign, so FDiv is the same as Div.
     return Builder.CreateUDiv(LHS, RHS, "fdiv");
 
-  const Type *Ty = getRegType(type);
+  const Type *Ty = getRegType(TREE_TYPE(op0));
   Constant *Zero = ConstantInt::get(Ty, 0);
   Constant *One = ConstantInt::get(Ty, 1);
   Constant *MinusOne = Constant::getAllOnesValue(Ty);
@@ -6640,7 +6638,7 @@ Value *TreeToLLVM::EmitReg_FLOOR_DIV_EXPR(tree type, tree op0, tree op1) {
   return Builder.CreateSub(FDiv, Offset, "fdiv");
 }
 
-Value *TreeToLLVM::EmitReg_FLOOR_MOD_EXPR(tree type, tree op0, tree op1) {
+Value *TreeToLLVM::EmitReg_FLOOR_MOD_EXPR(tree op0, tree op1) {
   // Notation: FLOOR_MOD_EXPR <-> Mod, TRUNC_MOD_EXPR <-> Rem.
 
   Value *LHS = EmitRegister(op0);
@@ -6650,11 +6648,11 @@ Value *TreeToLLVM::EmitReg_FLOOR_MOD_EXPR(tree type, tree op0, tree op1) {
   // or the values of LHS and RHS have the same sign, then Mod equals Rem.
   // Otherwise Mod equals Rem + RHS.  This means that LHS Mod RHS traps iff
   // LHS Rem RHS traps.
-  if (TYPE_UNSIGNED(type))
+  if (TYPE_UNSIGNED(TREE_TYPE(op0)))
     // LHS and RHS values must have the same sign if their type is unsigned.
     return Builder.CreateURem(LHS, RHS);
 
-  const Type *Ty = getRegType(type);
+  const Type *Ty = getRegType(TREE_TYPE(op0));
   Constant *Zero = ConstantInt::get(Ty, 0);
 
   // The two possible values for Mod.
@@ -6753,17 +6751,14 @@ Value *TreeToLLVM::EmitReg_PLUS_EXPR(tree op0, tree op1) {
   return CreateAnyAdd(LHS, RHS, type);
 }
 
-Value *TreeToLLVM::EmitReg_POINTER_PLUS_EXPR(tree type, tree op0, tree op1) {
+Value *TreeToLLVM::EmitReg_POINTER_PLUS_EXPR(tree op0, tree op1) {
   Value *Ptr = EmitRegister(op0); // The pointer.
   Value *Idx = EmitRegister(op1); // The offset in units.
 
   // Convert the pointer into an i8* and add the offset to it.
   Ptr = Builder.CreateBitCast(Ptr, GetUnitPointerType(Context));
-  Value *GEP = POINTER_TYPE_OVERFLOW_UNDEFINED ?
+  return POINTER_TYPE_OVERFLOW_UNDEFINED ?
     Builder.CreateInBoundsGEP(Ptr, Idx) : Builder.CreateGEP(Ptr, Idx);
-
-  // The result may be of a different pointer type.
-  return Builder.CreateBitCast(GEP, getRegType(type));
 }
 
 Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
@@ -6800,7 +6795,7 @@ Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
   return Builder.CreateFDiv(LHS, RHS);
 }
 
-Value *TreeToLLVM::EmitReg_ROUND_DIV_EXPR(tree type, tree op0, tree op1) {
+Value *TreeToLLVM::EmitReg_ROUND_DIV_EXPR(tree op0, tree op1) {
   // Notation: ROUND_DIV_EXPR <-> RDiv, TRUNC_DIV_EXPR <-> Div.
 
   // RDiv calculates LHS/RHS by rounding to the nearest integer.  Ties
@@ -6813,14 +6808,14 @@ Value *TreeToLLVM::EmitReg_ROUND_DIV_EXPR(tree type, tree op0, tree op1) {
   // required to ensure correct results.  The details depend on whether
   // we are doing signed or unsigned arithmetic.
 
-  const Type *Ty = getRegType(type);
+  const Type *Ty = getRegType(TREE_TYPE(op0));
   Constant *Zero = ConstantInt::get(Ty, 0);
   Constant *Two = ConstantInt::get(Ty, 2);
 
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
 
-  if (!TYPE_UNSIGNED(type)) {
+  if (!TYPE_UNSIGNED(TREE_TYPE(op0))) {
     // In the case of signed arithmetic, we calculate RDiv as follows:
     //   LHS RDiv RHS = (sign) ( (|LHS| + (|RHS| UDiv 2)) UDiv |RHS| ),
     // where sign is +1 if LHS and RHS have the same sign, -1 if their
@@ -7961,15 +7956,15 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case BIT_XOR_EXPR:
     RHS = EmitReg_BIT_XOR_EXPR(rhs1, rhs2); break;
   case CEIL_DIV_EXPR:
-    RHS = EmitReg_CEIL_DIV_EXPR(type, rhs1, rhs2); break;
+    RHS = EmitReg_CEIL_DIV_EXPR(rhs1, rhs2); break;
   case COMPLEX_EXPR:
     RHS = EmitReg_COMPLEX_EXPR(rhs1, rhs2); break;
   case EXACT_DIV_EXPR:
     RHS = EmitReg_TRUNC_DIV_EXPR(rhs1, rhs2, /*isExact*/true); break;
   case FLOOR_DIV_EXPR:
-    RHS = EmitReg_FLOOR_DIV_EXPR(type, rhs1, rhs2); break;
+    RHS = EmitReg_FLOOR_DIV_EXPR(rhs1, rhs2); break;
   case FLOOR_MOD_EXPR:
-    RHS = EmitReg_FLOOR_MOD_EXPR(type, rhs1, rhs2); break;
+    RHS = EmitReg_FLOOR_MOD_EXPR(rhs1, rhs2); break;
   case LROTATE_EXPR:
     RHS = EmitReg_RotateOp(type, rhs1, rhs2, Instruction::Shl,
                            Instruction::LShr);
@@ -7977,12 +7972,12 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case LSHIFT_EXPR:
     RHS = EmitReg_ShiftOp(rhs1, rhs2, Instruction::Shl); break;
   case MAX_EXPR:
-    RHS = EmitReg_MinMaxExpr(type, rhs1, rhs2, ICmpInst::ICMP_UGE,
-                             ICmpInst::ICMP_SGE, FCmpInst::FCMP_OGE, true);
+    RHS = EmitReg_MinMaxExpr(rhs1, rhs2, ICmpInst::ICMP_UGE, ICmpInst::ICMP_SGE,
+                             FCmpInst::FCMP_OGE);
     break;
   case MIN_EXPR:
-    RHS = EmitReg_MinMaxExpr(type, rhs1, rhs2, ICmpInst::ICMP_ULE,
-                             ICmpInst::ICMP_SLE, FCmpInst::FCMP_OLE, false);
+    RHS = EmitReg_MinMaxExpr(rhs1, rhs2, ICmpInst::ICMP_ULE, ICmpInst::ICMP_SLE,
+                             FCmpInst::FCMP_OLE);
     break;
   case MINUS_EXPR:
     RHS = EmitReg_MINUS_EXPR(rhs1, rhs2); break;
@@ -7991,11 +7986,11 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case PLUS_EXPR:
     RHS = EmitReg_PLUS_EXPR(rhs1, rhs2); break;
   case POINTER_PLUS_EXPR:
-    RHS = EmitReg_POINTER_PLUS_EXPR(type, rhs1, rhs2); break;
+    RHS = EmitReg_POINTER_PLUS_EXPR(rhs1, rhs2); break;
   case RDIV_EXPR:
     RHS = EmitReg_RDIV_EXPR(rhs1, rhs2); break;
   case ROUND_DIV_EXPR:
-    RHS = EmitReg_ROUND_DIV_EXPR(type, rhs1, rhs2); break;
+    RHS = EmitReg_ROUND_DIV_EXPR(rhs1, rhs2); break;
   case RROTATE_EXPR:
     RHS = EmitReg_RotateOp(type, rhs1, rhs2, Instruction::LShr,
                            Instruction::Shl);
@@ -8030,8 +8025,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_VEC_UNPACK_LO_EXPR(type, rhs1); break;
   }
 
-  assert(RHS->getType() == getRegType(type) && "RHS has wrong type!");
-  return RHS;
+  return TriviallyTypeConvert(RHS, getRegType(type));
 }
 
 /// EmitAssignSingleRHS - Helper for EmitAssignRHS.  Handles those RHS that are
