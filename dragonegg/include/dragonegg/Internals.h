@@ -654,15 +654,16 @@ private:
 
   //===---------- EmitReg* - Convert register expression to LLVM ----------===//
 
-  /// UselesslyTypeConvert - The useless_type_conversion_p predicate implicitly
-  /// defines the GCC middle-end type system.  For scalar GCC types inner_type
-  /// and outer_type, if 'useless_type_conversion_p(outer_type, inner_type)' is
-  /// true then the corresponding LLVM inner and outer types (see getRegType)
-  /// are equal except possibly if they are both pointer types (casts to 'void*'
-  /// are considered useless for example) or types derived from pointer types
-  /// (vector types with pointer element type are the only possibility here).
-  /// This method converts LLVM values of the inner type to the outer type.
-  Value *UselesslyTypeConvert(Value *V, const Type *Ty) {
+  /// TriviallyTypeConvert - Convert the given value to the given type, assuming
+  /// that the original and target types are LLVM register types that correspond
+  /// to GCC scalar types t1 and t2 satisfying useless_type_conversion_p(t1, t2)
+  /// or useless_type_conversion_p(t2, t1).
+  Value *TriviallyTypeConvert(Value *V, const Type *Ty) {
+    // If useless_type_conversion_p(t1, t2) holds then the corresponding LLVM
+    // register types are either equal or are both pointer types.
+    if (V->getType() == Ty)
+      return V;
+    assert(V->getType()->isPointerTy() && Ty->isPointerTy() && "Not trivial!");
     return Builder.CreateBitCast(V, Ty);
   }
 

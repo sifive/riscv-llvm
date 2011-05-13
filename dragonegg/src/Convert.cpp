@@ -5754,10 +5754,10 @@ LValue TreeToLLVM::EmitLV_DECL(tree exp) {
 LValue TreeToLLVM::EmitLV_INDIRECT_REF(tree exp) {
   // The lvalue is just the address.
   LValue LV = LValue(EmitRegister(TREE_OPERAND(exp, 0)), expr_align(exp) / 8);
-  // May need a useless type conversion (useless_type_conversion_p), for example
-  // when INDIRECT_REF is applied to a void*, resulting in a non-void type.
-  LV.Ptr = UselesslyTypeConvert(LV.Ptr,
-                                ConvertType(TREE_TYPE(exp))->getPointerTo());
+  // May need to change pointer type, for example when INDIRECT_REF is applied
+  // to a void*, resulting in a non-void type.
+  LV.Ptr = Builder.CreateBitCast(LV.Ptr,
+                                 ConvertType(TREE_TYPE(exp))->getPointerTo());
   return LV;
 }
 
@@ -5770,10 +5770,10 @@ LValue TreeToLLVM::EmitLV_MISALIGNED_INDIRECT_REF(tree exp) {
   if (!Alignment) Alignment = 8;
   assert(!(Alignment & 7) && "Alignment not in octets!");
   LValue LV = LValue(EmitRegister(TREE_OPERAND(exp, 0)), Alignment / 8);
-  // May need a useless type conversion (useless_type_conversion_p), for example
-  // when INDIRECT_REF is applied to a void*, resulting in a non-void type.
-  LV.Ptr = UselesslyTypeConvert(LV.Ptr,
-                                ConvertType(TREE_TYPE(exp))->getPointerTo());
+  // May need to change pointer type, for example when MISALIGNED_INDIRECT_REF
+  // is applied to a void*, resulting in a non-void type.
+  LV.Ptr = Builder.CreateBitCast(LV.Ptr,
+                                 ConvertType(TREE_TYPE(exp))->getPointerTo());
   return LV;
 }
 
@@ -5854,8 +5854,8 @@ LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
   }
 
   // The result can be of a different pointer type even if we didn't advance it.
-  Ref.Ptr = UselesslyTypeConvert(Ref.Ptr,
-                                 ConvertType(TREE_TYPE(exp))->getPointerTo());
+  Ref.Ptr = Builder.CreateBitCast(Ref.Ptr,
+                                  ConvertType(TREE_TYPE(exp))->getPointerTo());
 
   return Ref;
 }
@@ -6361,7 +6361,7 @@ Value *TreeToLLVM::EmitReg_TRUTH_NOT_EXPR(tree type, tree op) {
 /// The result is an i1 boolean.
 Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, unsigned code) {
   Value *LHS = EmitRegister(lhs);
-  Value *RHS = UselesslyTypeConvert(EmitRegister(rhs), LHS->getType());
+  Value *RHS = TriviallyTypeConvert(EmitRegister(rhs), LHS->getType());
 
   // Compute the LLVM opcodes corresponding to the GCC comparison.
   CmpInst::Predicate UIPred = CmpInst::BAD_ICMP_PREDICATE;
@@ -6446,8 +6446,8 @@ Value *TreeToLLVM::EmitReg_MinMaxExpr(tree type, tree op0, tree op1,
                                       unsigned UIPred, unsigned SIPred,
                                       unsigned FPPred, bool isMax) {
   const Type *Ty = getRegType(type);
-  Value *LHS = UselesslyTypeConvert(EmitRegister(op0), Ty);
-  Value *RHS = UselesslyTypeConvert(EmitRegister(op1), Ty);
+  Value *LHS = TriviallyTypeConvert(EmitRegister(op0), Ty);
+  Value *RHS = TriviallyTypeConvert(EmitRegister(op1), Ty);
 
   Value *Compare;
   if (FLOAT_TYPE_P(type))
@@ -6763,7 +6763,7 @@ Value *TreeToLLVM::EmitReg_POINTER_PLUS_EXPR(tree type, tree op0, tree op1) {
     Builder.CreateInBoundsGEP(Ptr, Idx) : Builder.CreateGEP(Ptr, Idx);
 
   // The result may be of a different pointer type.
-  return UselesslyTypeConvert(GEP, getRegType(type));
+  return Builder.CreateBitCast(GEP, getRegType(type));
 }
 
 Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
@@ -8128,8 +8128,8 @@ Value *TreeToLLVM::OutputCallRHS(gimple stmt, const MemRef *DestLoc) {
 
 /// WriteScalarToLHS - Store RHS, a non-aggregate value, into the given LHS.
 void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
-  // Perform a useless type conversion (useless_type_conversion_p).
-  RHS = UselesslyTypeConvert(RHS, getRegType(TREE_TYPE(lhs)));
+  // May need a useless type conversion (useless_type_conversion_p).
+  RHS = TriviallyTypeConvert(RHS, getRegType(TREE_TYPE(lhs)));
 
   // If this is the definition of an ssa name, record it in the SSANames map.
   if (TREE_CODE(lhs) == SSA_NAME) {
