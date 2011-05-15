@@ -712,6 +712,7 @@ private:
   Value *EmitReg_PLUS_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_POINTER_PLUS_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_RDIV_EXPR(tree_node *op0, tree_node *op1);
+  Value *EmitReg_REDUC_PLUS_EXPR(tree_node *op);
   Value *EmitReg_ROUND_DIV_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_TRUNC_DIV_EXPR(tree_node *op0, tree_node *op1, bool isExact);
   Value *EmitReg_TRUNC_MOD_EXPR(tree_node *op0, tree_node *op1);

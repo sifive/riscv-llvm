@@ -6537,6 +6537,48 @@ Value *TreeToLLVM::EmitReg_ReducMinMaxExpr(tree op, unsigned UIPred,
   return Val;
 }
 
+Value *TreeToLLVM::EmitReg_REDUC_PLUS_EXPR(tree op) {
+  // In the bottom half of the vector, form the sum of the bottom and top halves
+  // of the vector.  Rinse and repeat on the just computed bottom half: in the
+  // bottom quarter of the vector, form the sum of the bottom and top halves of
+  // the bottom half.  Continue until only the first element of the vector is
+  // computed.  For example, reduc-plus <x0, x1, x2, x3> becomes
+  //   v = <x0, x1, undef, undef> + <x2, x3, undef, undef>
+  //   w = <v0, undef, undef, undef> + <v1, undef, undef, undef>
+  // where v = <v0, v1, undef, undef>.  The first element of w is x0+x1+x2+x3.
+  Value *Val = EmitRegister(op);
+  const Type *Ty = Val->getType();
+
+  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op));
+  assert(Length > 1 && !(Length & (Length - 1)) && "Length not a power of 2!");
+  SmallVector<Constant*, 8> Mask(Length);
+  const Type *Int32Ty = Type::getInt32Ty(Context);
+  Constant *UndefIndex = UndefValue::get(Int32Ty);
+  for (unsigned Elts = Length >> 1; Elts; Elts >>= 1) {
+    // In the extracted vectors, elements with index Elts and on are undefined.
+    for (unsigned i = Elts; i != Length; ++i)
+      Mask[i] = UndefIndex;
+    // Extract elements [0, Elts) from Val.
+    for (unsigned i = 0; i != Elts; ++i)
+      Mask[i] = ConstantInt::get(Int32Ty, i);
+    Value *LHS = Builder.CreateShuffleVector(Val, UndefValue::get(Ty),
+                                             ConstantVector::get(Mask));
+    // Extract elements [Elts, 2*Elts) from Val.
+    for (unsigned i = 0; i != Elts; ++i)
+      Mask[i] = ConstantInt::get(Int32Ty, Elts + i);
+    Value *RHS = Builder.CreateShuffleVector(Val, UndefValue::get(Ty),
+                                             ConstantVector::get(Mask));
+
+    // Replace Val with the sum of the extracted elements.
+    // TODO: Are nsw/nuw flags valid here?
+    Val = Builder.CreateAdd(LHS, RHS);
+
+    // Repeat, using half as many elements.
+  }
+
+  return Val;
+}
+
 Value *TreeToLLVM::EmitReg_RotateOp(tree type, tree op0, tree op1,
                                     unsigned Opc1, unsigned Opc2) {
   Value *In  = EmitRegister(op0);
@@ -8063,6 +8105,9 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case REDUC_MIN_EXPR:
     RHS = EmitReg_ReducMinMaxExpr(rhs1, ICmpInst::ICMP_ULE, ICmpInst::ICMP_SLE,
                                   FCmpInst::FCMP_OLE);
+    break;
+  case REDUC_PLUS_EXPR:
+    RHS = EmitReg_REDUC_PLUS_EXPR(rhs1);
     break;
   case ROUND_DIV_EXPR:
     RHS = EmitReg_ROUND_DIV_EXPR(rhs1, rhs2); break;
