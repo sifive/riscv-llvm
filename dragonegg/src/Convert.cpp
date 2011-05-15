@@ -6480,7 +6480,7 @@ Value *TreeToLLVM::EmitReg_MinMaxExpr(tree op0, tree op1, unsigned UIPred,
   Value *Compare;
   if (FLOAT_TYPE_P(TREE_TYPE(op0)))
     Compare = Builder.CreateFCmp(FCmpInst::Predicate(FPPred), LHS, RHS);
-  else if (TYPE_UNSIGNED(TREE_TYPE(op1)))
+  else if (TYPE_UNSIGNED(TREE_TYPE(op0)))
     Compare = Builder.CreateICmp(ICmpInst::Predicate(UIPred), LHS, RHS);
   else
     Compare = Builder.CreateICmp(ICmpInst::Predicate(SIPred), LHS, RHS);
@@ -6488,56 +6488,53 @@ Value *TreeToLLVM::EmitReg_MinMaxExpr(tree op0, tree op1, unsigned UIPred,
   return Builder.CreateSelect(Compare, LHS, RHS);
 }
 
-/// ReducMinMaxExprHelper - Split the given vector in two and form the max/min
-/// of the two pieces; repeat recursively on the result until scalar.
-Value *TreeToLLVM::ReducMinMaxExprHelper(Value *Op, CmpInst::Predicate Pred) {
-  const VectorType *Ty = cast<VectorType>(Op->getType());
-  unsigned NumElts = Ty->getNumElements();
-  assert(NumElts > 1 && !(NumElts & (NumElts - 1)) &&
-         "Number of vector elements is not a power of 2!");
-
-  if (NumElts == 2) {
-    // Extract each of the two elements and return the max/min of them.
-    const Type *Int32Ty = Type::getInt32Ty(Context);
-    Value *LHS = Builder.CreateExtractElement(Op, ConstantInt::get(Int32Ty, 0));
-    Value *RHS = Builder.CreateExtractElement(Op, ConstantInt::get(Int32Ty, 1));
-    Value *Compare = CmpInst::isFPPredicate(Pred) ?
-      Builder.CreateFCmp(Pred, LHS, RHS) : Builder.CreateICmp(Pred, LHS, RHS);
-    return Builder.CreateSelect(Compare, LHS, RHS);
-  }
-
-  // Recursively extract the high and low halves of the vector and take the
-  // max/min of them.  Using vector select like this results in better code
-  // if the target supports it for at least one of the resulting vector sizes.
-  Value *LHS = VectorLowElements(Op), *RHS = VectorHighElements(Op);
-  Value *Compare = CmpInst::isFPPredicate(Pred) ?
-    Builder.CreateFCmp(Pred, LHS, RHS) : Builder.CreateICmp(Pred, LHS, RHS);
-  Op = Builder.CreateSelect(Compare, LHS, RHS);
-  return ReducMinMaxExprHelper(Op, Pred);
-}
-
 Value *TreeToLLVM::EmitReg_ReducMinMaxExpr(tree op, unsigned UIPred,
                                            unsigned SIPred, unsigned FPPred) {
-  // Use a divide and conquer scheme that results in the same code as the simple
-  // scalar implementation on targets that don't support vector select but gives
-  // better code if vector select is present.
-  // For example, reduc-max <float x0, float x1, float x2, float x3> becomes
-  //   v = max <float x0, float x1>, <float x2, float x3>   <- vector select
-  //   m = max float v0, float v1   <- scalar select; v = <float v0, float v1>
-  // The final result, m, equals max(max(x0,x2),max(x1,x3)) = max(x0,x1,x2,x3).
+  // In the bottom half of the vector, form the max/min of the bottom and top
+  // halves of the vector.  Rinse and repeat on the just computed bottom half:
+  // in the bottom quarter of the vector, form the max/min of the bottom and
+  // top halves of the bottom half.  Continue until only the first element of
+  // the vector is computed.  For example, reduc-max <x0, x1, x2, x3> becomes
+  //   v = max <x0, x1, undef, undef>, <x2, x3, undef, undef>
+  //   w = max <v0, undef, undef, undef>, <v1, undef, undef, undef>
+  // where v = <v0, v1, undef, undef>.  The first element of w is the max/min
+  // of x0,x1,x2,x3.
   Value *Val = EmitRegister(op);
-  Value *Res;
-  if (FLOAT_TYPE_P(TREE_TYPE(op)))
-    Res = ReducMinMaxExprHelper(Val, CmpInst::Predicate(FPPred));
-  else if (TYPE_UNSIGNED(TREE_TYPE(op)))
-    Res = ReducMinMaxExprHelper(Val, CmpInst::Predicate(UIPred));
-  else
-    Res = ReducMinMaxExprHelper(Val, CmpInst::Predicate(SIPred));
+  const Type *Ty = Val->getType();
 
-  // The result is vector with the max/min as first element.
-  return Builder.CreateInsertElement(UndefValue::get(Val->getType()), Res,
-                                     ConstantInt::get(Type::getInt32Ty(Context),
-                                                      0));
+  CmpInst::Predicate Pred =
+    CmpInst::Predicate(FLOAT_TYPE_P(TREE_TYPE(op)) ?
+                       FPPred : TYPE_UNSIGNED(TREE_TYPE(op)) ? UIPred : SIPred);
+
+  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op));
+  assert(Length > 1 && !(Length & (Length - 1)) && "Length not a power of 2!");
+  SmallVector<Constant*, 8> Mask(Length);
+  const Type *Int32Ty = Type::getInt32Ty(Context);
+  Constant *UndefIndex = UndefValue::get(Int32Ty);
+  for (unsigned Elts = Length >> 1; Elts; Elts >>= 1) {
+    // In the extracted vectors, elements with index Elts and on are undefined.
+    for (unsigned i = Elts; i != Length; ++i)
+      Mask[i] = UndefIndex;
+    // Extract elements [0, Elts) from Val.
+    for (unsigned i = 0; i != Elts; ++i)
+      Mask[i] = ConstantInt::get(Int32Ty, i);
+    Value *LHS = Builder.CreateShuffleVector(Val, UndefValue::get(Ty),
+                                             ConstantVector::get(Mask));
+    // Extract elements [Elts, 2*Elts) from Val.
+    for (unsigned i = 0; i != Elts; ++i)
+      Mask[i] = ConstantInt::get(Int32Ty, Elts + i);
+    Value *RHS = Builder.CreateShuffleVector(Val, UndefValue::get(Ty),
+                                             ConstantVector::get(Mask));
+
+    // Replace Val with the max/min of the extracted elements.
+    Value *Compare = FLOAT_TYPE_P(TREE_TYPE(op)) ?
+      Builder.CreateFCmp(Pred, LHS, RHS) : Builder.CreateICmp(Pred, LHS, RHS);
+    Val = Builder.CreateSelect(Compare, LHS, RHS);
+
+    // Repeat, using half as many elements.
+  }
+
+  return Val;
 }
 
 Value *TreeToLLVM::EmitReg_RotateOp(tree type, tree op0, tree op1,

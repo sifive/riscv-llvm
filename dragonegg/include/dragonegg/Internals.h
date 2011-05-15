@@ -886,10 +886,6 @@ private:
   /// elements of the given vector with indices in the bottom half.
   Value *VectorLowElements(Value *Vec);
 
-  /// ReducMinMaxExprHelper - Split the given vector in two and form the max/min
-  /// of the two pieces; repeat recursively on the result until scalar.
-  Value *ReducMinMaxExprHelper(Value *Op, CmpInst::Predicate Pred);
-
 private:
   // Optional target defined builtin intrinsic expanding function.
   bool TargetIntrinsicLower(gimple_statement_d *stmt,
