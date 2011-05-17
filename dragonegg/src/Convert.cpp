@@ -7489,8 +7489,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
           }
         }
         if (OTy && OTy != OpTy) {
-          if (!(OTy->isIntegerTy() || OTy->isPointerTy()) ||
-              !(OpTy->isIntegerTy() || OpTy->isPointerTy())) {
+          if (!OTy->isSingleValueType() || !OpTy->isSingleValueType()) {
             error_at(gimple_location(stmt),
                      "unsupported inline asm: input constraint with a matching "
                      "output constraint of incompatible type!");
