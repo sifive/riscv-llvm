@@ -7109,14 +7109,11 @@ Value *TreeToLLVM::EmitReg_VEC_PACK_TRUNC_EXPR(tree type, tree op0, tree op1) {
   // Truncate the input elements to the output element type, eg: <2 x double>
   // -> <2 x float>.
   unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
-  const Type *TruncTy = VectorType::get(getRegType(TREE_TYPE(type)), Length);
-  if (FLOAT_TYPE_P(TREE_TYPE(type))) {
-    LHS = Builder.CreateFPTrunc(LHS, TruncTy);
-    RHS = Builder.CreateFPTrunc(RHS, TruncTy);
-  } else {
-    LHS = Builder.CreateTrunc(LHS, TruncTy);
-    RHS = Builder.CreateTrunc(RHS, TruncTy);
-  }
+  const Type *DestTy = VectorType::get(getRegType(TREE_TYPE(type)), Length);
+  LHS = CastToAnyType(LHS, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
+                      !TYPE_UNSIGNED(TREE_TYPE(type)));
+  RHS = CastToAnyType(RHS, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
+                      !TYPE_UNSIGNED(TREE_TYPE(type)));
 
   // Concatenate the truncated inputs into one vector of twice the length,
   // eg: <2 x float>, <2 x float> -> <4 x float>.
@@ -7136,12 +7133,9 @@ Value *TreeToLLVM::EmitReg_VEC_UNPACK_HI_EXPR(tree type, tree op0) {
 
   // Extend the input elements to the output element type, eg: <2 x float>
   // -> <2 x double>.
-  const Type *ExtTy = getRegType(type);
-  if (FLOAT_TYPE_P(TREE_TYPE(TREE_TYPE(op0))))
-    return Builder.CreateFPExt(Op, ExtTy);
-  if (TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(op0))))
-    return Builder.CreateZExt(Op, ExtTy);
-  return Builder.CreateSExt(Op, ExtTy);
+  const Type *DestTy = getRegType(type);
+  return CastToAnyType(Op, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
+                       !TYPE_UNSIGNED(TREE_TYPE(type)));
 }
 
 Value *TreeToLLVM::EmitReg_VEC_UNPACK_LO_EXPR(tree type, tree op0) {
@@ -7153,12 +7147,9 @@ Value *TreeToLLVM::EmitReg_VEC_UNPACK_LO_EXPR(tree type, tree op0) {
 
   // Extend the input elements to the output element type, eg: <2 x float>
   // -> <2 x double>.
-  const Type *ExtTy = getRegType(type);
-  if (FLOAT_TYPE_P(TREE_TYPE(TREE_TYPE(op0))))
-    return Builder.CreateFPExt(Op, ExtTy);
-  if (TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(op0))))
-    return Builder.CreateZExt(Op, ExtTy);
-  return Builder.CreateSExt(Op, ExtTy);
+  const Type *DestTy = getRegType(type);
+  return CastToAnyType(Op, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
+                       !TYPE_UNSIGNED(TREE_TYPE(type)));
 }
 
 
