@@ -753,6 +753,30 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       return true;
     }
   }
+  case movntdq:
+  case movntdq256:
+  case movntdqa:
+  case movnti:
+  case movntpd:
+  case movntpd256:
+  case movntps:
+  case movntps256:
+  case movntq:
+  case movntsd:
+  case movntss: {
+    MDNode *Node = MDNode::get(Context, Builder.getInt32(1));
+
+    // Convert the type of the pointer to a pointer to the stored type.
+    unsigned AS = cast<PointerType>(Ops[0]->getType())->getAddressSpace();
+    Value *Ptr = Builder.CreateBitCast(Ops[0],
+                                       PointerType::get(Ops[1]->getType(), AS),
+                                       "cast");
+
+    StoreInst *SI = Builder.CreateStore(Ops[1], Ptr);
+    SI->setMetadata(TheModule->getMDKindID("nontemporal"), Node);
+    SI->setAlignment(16);
+    return SI;
+  }
   }
   DieAbjectly("Builtin not implemented!", stmt);
   return false;
