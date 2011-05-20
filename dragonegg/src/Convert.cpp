@@ -7494,20 +7494,26 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
                      "incompatible type!");
             return;
           } else if (OTyBits < OpTyBits) {
-            // The output is smaller than the input.  If the output is not a
-            // register then bail out.  Likewise, if the output is explicitly
-            // mentioned in the asm string then we cannot safely promote it,
-            // so bail out in this case too.
-            if (!OutputLocations[Match].first ||
-                isOperandMentioned(stmt, Match)) {
+            // The output is smaller than the input.
+            if (OutputLocations[Match].first &&
+                !isOperandMentioned(stmt, Match)) {
+              // The output is a register and is not explicitly mentioned in the
+              // asm string.  Use the input type for the output, and arrange for
+              // the result to be truncated to the original output type after
+              // the asm call.
+              CallResultTypes[OutputIndex] = std::make_pair(OpTy, IsSigned);
+            } else if (isa<Constant>(Op) &&
+                       !isOperandMentioned(stmt, NumOutputs+i)) {
+              // The input is a constant that is not explicitly mentioned in the
+              // asm string.  Convert to the output type like in an assignment.
+              Op = CastToAnyType(Op, IsSigned, OTy,
+                                 CallResultTypes[OutputIndex].second);
+            } else {
               error_at(gimple_location(stmt), "unsupported inline asm: input "
                        "constraint with a matching output constraint of "
                        "incompatible type!");
               return;
             }
-            // Use the input type for the output, and arrange for the result to
-            // be truncated to the original output type after the asm call.
-            CallResultTypes[OutputIndex] = std::make_pair(OpTy, IsSigned);
           } else if (OTyBits > OpTyBits) {
             // The input is smaller than the output.  If the input is explicitly
             // mentioned in the asm string then we cannot safely promote it, so
