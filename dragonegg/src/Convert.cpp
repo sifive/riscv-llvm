@@ -3726,21 +3726,23 @@ TreeToLLVM::BuildBinaryAtomicBuiltin(gimple stmt, Intrinsic::ID id) {
 }
 
 Value *
-TreeToLLVM::BuildCmpAndSwapAtomicBuiltin(gimple stmt, tree type, bool isBool) {
-  const Type *ResultTy = ConvertType(type);
-  Value* C[3] = {
-    EmitMemory(gimple_call_arg(stmt, 0)),
-    EmitMemory(gimple_call_arg(stmt, 1)),
-    EmitMemory(gimple_call_arg(stmt, 2))
-  };
-  const Type* Ty[2];
-  Ty[0] = ResultTy;
-  Ty[1] = ResultTy->getPointerTo();
-  C[0] = Builder.CreateBitCast(C[0], Ty[1]);
-  C[1] = Builder.CreateIntCast(C[1], Ty[0], /*isSigned*/!TYPE_UNSIGNED(type),
-                               "cast");
-  C[2] = Builder.CreateIntCast(C[2], Ty[0], /*isSigned*/!TYPE_UNSIGNED(type),
-                               "cast");
+TreeToLLVM::BuildCmpAndSwapAtomicBuiltin(gimple stmt, unsigned Bits,
+                                         bool isBool) {
+  tree ptr = gimple_call_arg(stmt, 0);
+  tree old_val = gimple_call_arg(stmt, 1);
+  tree new_val = gimple_call_arg(stmt, 2);
+
+  // The type loaded from/stored to memory.
+  const Type *MemTy = IntegerType::get(Context, Bits);
+  const Type *MemPtrTy = MemTy->getPointerTo();
+
+  Value *Ptr = Builder.CreateBitCast(EmitRegister(ptr), MemPtrTy);
+  Value *Old_Val = CastToAnyType(EmitRegister(old_val),
+                                 !TYPE_UNSIGNED(TREE_TYPE(old_val)), MemTy,
+                                 !TYPE_UNSIGNED(TREE_TYPE(old_val)));
+  Value *New_Val = CastToAnyType(EmitRegister(new_val),
+                                 !TYPE_UNSIGNED(TREE_TYPE(new_val)), MemTy,
+                                 !TYPE_UNSIGNED(TREE_TYPE(new_val)));
 
   // The gcc builtins are also full memory barriers.
   // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
@@ -3750,11 +3752,12 @@ TreeToLLVM::BuildCmpAndSwapAtomicBuiltin(gimple stmt, tree type, bool isBool) {
   EmitMemoryBarrier(true, true, true, true, true);
 #endif
 
+  Value *Ops[3] = { Ptr, Old_Val, New_Val };
+  const Type* Ty[2] = { MemTy, MemPtrTy };
   Value *Result =
     Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
                                                  Intrinsic::atomic_cmp_swap,
-                                                 Ty, 2),
-    C, C + 3);
+                                                 Ty, 2), Ops, Ops + 3);
 
   // The gcc builtins are also full memory barriers.
   // FIXME: __sync_lock_test_and_set and __sync_lock_release require less.
@@ -3765,12 +3768,11 @@ TreeToLLVM::BuildCmpAndSwapAtomicBuiltin(gimple stmt, tree type, bool isBool) {
 #endif
 
   if (isBool)
-    Result = Builder.CreateIntCast(Builder.CreateICmpEQ(Result, C[1]),
-                                   ConvertType(boolean_type_node),
-                                   /*isSigned*/false);
-  else
-    Result = Builder.CreateIntToPtr(Result, ResultTy);
-  return Result;
+    Result = Builder.CreateICmpEQ(Result, Old_Val);
+  tree return_type = gimple_call_return_type(stmt);
+  Result = CastToAnyType(Result, !TYPE_UNSIGNED(return_type),
+                         getRegType(return_type), !TYPE_UNSIGNED(return_type));
+  return Reg2Mem(Result, return_type, Builder);
 }
 
 /// EmitBuiltinCall - stmt is a call to fndecl, a builtin function.  Try to emit
@@ -4166,40 +4168,41 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     // enough, we have to key off the opcode.
     // Note that Intrinsic::getDeclaration expects the type list in reversed
     // order, while CreateCall expects the parameter list in normal order.
-  case BUILT_IN_BOOL_COMPARE_AND_SWAP_1: {
-    Result = BuildCmpAndSwapAtomicBuiltin(stmt, unsigned_char_type_node, true);
+  case BUILT_IN_BOOL_COMPARE_AND_SWAP_1:
+    Result = BuildCmpAndSwapAtomicBuiltin(stmt, BITS_PER_UNIT, true);
     return true;
-  }
-  case BUILT_IN_BOOL_COMPARE_AND_SWAP_2: {
-    Result = BuildCmpAndSwapAtomicBuiltin(stmt, short_unsigned_type_node, true);
+  case BUILT_IN_BOOL_COMPARE_AND_SWAP_2:
+    Result = BuildCmpAndSwapAtomicBuiltin(stmt, 2*BITS_PER_UNIT, true);
     return true;
-  }
-  case BUILT_IN_BOOL_COMPARE_AND_SWAP_4: {
-    Result = BuildCmpAndSwapAtomicBuiltin(stmt, unsigned_type_node, true);
+  case BUILT_IN_BOOL_COMPARE_AND_SWAP_4:
+    Result = BuildCmpAndSwapAtomicBuiltin(stmt, 4*BITS_PER_UNIT, true);
     return true;
-  }
-  case BUILT_IN_BOOL_COMPARE_AND_SWAP_8: {
+  case BUILT_IN_BOOL_COMPARE_AND_SWAP_8:
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
-    Result = BuildCmpAndSwapAtomicBuiltin(stmt, long_long_unsigned_type_node,
-                                          true);
+    Result = BuildCmpAndSwapAtomicBuiltin(stmt, 8*BITS_PER_UNIT, true);
     return true;
-  }
 
+    // Fall through.
+  case BUILT_IN_VAL_COMPARE_AND_SWAP_1:
+    Result = BuildCmpAndSwapAtomicBuiltin(stmt, BITS_PER_UNIT, false);
+    return true;
+  case BUILT_IN_VAL_COMPARE_AND_SWAP_2:
+    Result = BuildCmpAndSwapAtomicBuiltin(stmt, 2*BITS_PER_UNIT, false);
+    return true;
+  case BUILT_IN_VAL_COMPARE_AND_SWAP_4:
+    Result = BuildCmpAndSwapAtomicBuiltin(stmt, 4*BITS_PER_UNIT, false);
+    return true;
   case BUILT_IN_VAL_COMPARE_AND_SWAP_8:
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
-  case BUILT_IN_VAL_COMPARE_AND_SWAP_1:
-  case BUILT_IN_VAL_COMPARE_AND_SWAP_2:
-  case BUILT_IN_VAL_COMPARE_AND_SWAP_4: {
-    tree type = gimple_call_return_type(stmt);
-    Result = BuildCmpAndSwapAtomicBuiltin(stmt, type, false);
+    Result = BuildCmpAndSwapAtomicBuiltin(stmt, 8*BITS_PER_UNIT, false);
     return true;
-  }
+
   case BUILT_IN_FETCH_AND_ADD_8:
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)

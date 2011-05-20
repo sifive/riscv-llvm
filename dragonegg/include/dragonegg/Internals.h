@@ -745,7 +745,7 @@ private:
   Value *BuildVector(Value *Elt, ...);
   Value *BuildVectorShuffle(Value *InVec1, Value *InVec2, ...);
   Value *BuildBinaryAtomicBuiltin(gimple_statement_d *stmt, Intrinsic::ID id);
-  Value *BuildCmpAndSwapAtomicBuiltin(gimple_statement_d *stmt, tree_node *type,
+  Value *BuildCmpAndSwapAtomicBuiltin(gimple_statement_d *stmt, unsigned Bits,
                                       bool isBool);
 
   // Builtin Function Expansion.
