@@ -1,4 +1,18 @@
 // Unsupported builtins are commented out.
+
+// Quick guide to suffixes:
+// NB: word = 16 bits; double word = 32 bits; quad word = 64 bits
+//      dq - double quadword - <16 x i8>, <8 x i16>, <4 x i32>, <2 x i64>
+//   dq256 - 256 bit double quadword - <32 x i8>, <16 x i16>, <8 x i32>, <4 x i64>
+//       i - doubleword integer - i32
+//      pd - packed double precision floating point - <2 x double>
+//   pd256 - 256 bit packed double precision floating point - <4 x double>
+//      ps - packed single precision floating point - <4 x float>
+//   ps256 - 256 bit packed single precision floating point - <4 x float>
+//       q - quadword - <8 x i8>, <4 x i16>, <2 x i32>
+//      sd - scalar double-precision floating point - double
+//      ss - scalar single-precision floating point - float
+
 DEFINE_BUILTIN(addpd),
 DEFINE_BUILTIN(addpd256),
 DEFINE_BUILTIN(addps),
