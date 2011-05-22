@@ -95,6 +95,7 @@ static const char *llvm_asm_file_name;
 // Global state for the LLVM backend.
 Module *TheModule = 0;
 DebugInfo *TheDebugInfo = 0;
+PassManagerBuilder PassBuilder;
 TargetMachine *TheTarget = 0;
 TargetFolder *TheFolder = 0;
 TypeConverter *TheTypeConverter = 0;
@@ -401,10 +402,6 @@ static void ConfigureLLVM(void) {
   // purposes, and shouldn't really be for general use.
   std::vector<std::string> ArgStrings;
 
-  unsigned threshold = GuessAtInliningThreshold();
-  std::string Arg("--inline-threshold="+utostr(threshold));
-  ArgStrings.push_back(Arg);
-
 //TODO  if (flag_limited_precision > 0) {
 //TODO    std::string Arg("--limit-float-precision="+utostr(flag_limited_precision));
 //TODO    ArgStrings.push_back(Arg);
@@ -587,6 +584,18 @@ static void InitializeBackend(void) {
   // Perform language specific configuration.
   InstallLanguageSettings();
 
+  // Configure the pass builder.
+  PassBuilder.OptLevel = IROptLevel();
+  PassBuilder.SizeLevel = optimize_size;
+  PassBuilder.DisableSimplifyLibCalls = flag_no_simplify_libcalls;
+  PassBuilder.DisableUnrollLoops = !flag_unroll_loops;
+  PassBuilder.DisableUnitAtATime = !flag_unit_at_a_time;
+
+  PassBuilder.LibraryInfo =
+    new TargetLibraryInfo((Triple)TheModule->getTargetTriple());
+  if (flag_no_simplify_libcalls)
+    PassBuilder.LibraryInfo->disableAllFunctions();
+
   Initialized = true;
 }
 
@@ -696,33 +705,14 @@ static void createPerFunctionOptimizationPasses() {
 
   // Create and set up the per-function pass manager.
   // FIXME: Move the code generator to be function-at-a-time.
-  PerFunctionPasses =
-    new FunctionPassManager(TheModule);
-  PerFunctionPasses->add(new TargetData(*TheTarget->getTargetData()));
+  PerFunctionPasses = new FunctionPassManager(TheModule);
+  PerFunctionPasses->add(new TargetData(TheModule));
 
-  // In -O0 if checking is disabled, we don't even have per-function passes.
-  bool HasPerFunctionPasses = false;
 #ifdef ENABLE_CHECKING
   PerFunctionPasses->add(createVerifierPass());
-  HasPerFunctionPasses = true;
 #endif
 
-  if (IROptLevel() > 0) {
-    HasPerFunctionPasses = true;
-
-    TargetLibraryInfo *TLI =
-      new TargetLibraryInfo(Triple(TheModule->getTargetTriple()));
-    if (flag_no_simplify_libcalls)
-      TLI->disableAllFunctions();
-    PerFunctionPasses->add(TLI);
-
-    PerFunctionPasses->add(createCFGSimplificationPass());
-    if (IROptLevel() == 1)
-      PerFunctionPasses->add(createPromoteMemoryToRegisterPass());
-    else
-      PerFunctionPasses->add(createScalarReplAggregatesPass());
-    PerFunctionPasses->add(createInstructionCombiningPass());
-  }
+  PassBuilder.populateFunctionPassManager(*PerFunctionPasses);
 
   // If there are no module-level passes that have to be run, we codegen as
   // each function is parsed.
@@ -732,7 +722,6 @@ static void createPerFunctionOptimizationPasses() {
   // this for fast -O0 compiles!
   if (!EmitIR && 0) {
     FunctionPassManager *PM = PerFunctionPasses;
-    HasPerFunctionPasses = true;
 
     // Request that addPassesToEmitFile run the Verifier after running
     // passes which modify the IR.
@@ -751,34 +740,21 @@ static void createPerFunctionOptimizationPasses() {
       DieAbjectly("Error interfacing to target machine!");
   }
 
-  if (HasPerFunctionPasses) {
-    PerFunctionPasses->doInitialization();
-  } else {
-    delete PerFunctionPasses;
-    PerFunctionPasses = 0;
-  }
+  PerFunctionPasses->doInitialization();
 }
 
 static void createPerModuleOptimizationPasses() {
   if (PerModulePasses)
-    // llvm_pch_write_init has already created the per module passes.
     return;
 
-  // FIXME: AT -O0/O1, we should stream out functions at a time.
   PerModulePasses = new PassManager();
-  PerModulePasses->add(new TargetData(*TheTarget->getTargetData()));
-  bool HasPerModulePasses = false;
-
-  TargetLibraryInfo *TLI =
-    new TargetLibraryInfo(Triple(TheModule->getTargetTriple()));
-  if (flag_no_simplify_libcalls)
-    TLI->disableAllFunctions();
-  PerModulePasses->add(TLI);
+  PerModulePasses->add(new TargetData(TheModule));
 
   bool NeedAlwaysInliner = false;
   llvm::Pass *InliningPass = 0;
   if (flag_inline_small_functions && !flag_no_inline) {
-    InliningPass = createFunctionInliningPass();    // Inline small functions
+    // Inline small functions.
+    InliningPass = createFunctionInliningPass(GuessAtInliningThreshold());
   } else {
     // If full inliner is not run, check if always-inline is needed to handle
     // functions that are  marked as always_inline.
@@ -794,29 +770,19 @@ static void createPerModuleOptimizationPasses() {
       InliningPass = createAlwaysInlinerPass();  // Inline always_inline funcs
   }
 
-  HasPerModulePasses = true;
-  
-  PassManagerBuilder Builder;
-  Builder.OptLevel = IROptLevel();
-  Builder.SizeLevel = optimize_size;
-  Builder.Inliner = InliningPass;
-  Builder.DisableSimplifyLibCalls = flag_no_simplify_libcalls;
-  Builder.DisableUnrollLoops = !flag_unroll_loops;
-  Builder.DisableUnitAtATime = !flag_unit_at_a_time;
-  Builder.populateModulePassManager(*PerModulePasses);
+  PassBuilder.Inliner = InliningPass;
+  PassBuilder.populateModulePassManager(*PerModulePasses);
 
   if (EmitIR && 0) {
     // Emit an LLVM .bc file to the output.  This is used when passed
     // -emit-llvm -c to the GCC driver.
     InitializeOutputStreams(true);
     PerModulePasses->add(createBitcodeWriterPass(*OutStream));
-    HasPerModulePasses = true;
   } else if (EmitIR) {
     // Emit an LLVM .ll file to the output.  This is used when passed
     // -emit-llvm -S to the GCC driver.
     InitializeOutputStreams(false);
     PerModulePasses->add(createPrintModulePass(OutStream));
-    HasPerModulePasses = true;
   } else {
     // If there are passes we have to run on the entire module, we do codegen
     // as a separate "pass" after that happens.
@@ -845,11 +811,6 @@ static void createPerModuleOptimizationPasses() {
                                          CodeGenOptLevel(), DisableVerify))
         DieAbjectly("Error interfacing to target machine!");
     }
-  }
-
-  if (!HasPerModulePasses) {
-    delete PerModulePasses;
-    PerModulePasses = 0;
   }
 }
 
