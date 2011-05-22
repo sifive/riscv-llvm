@@ -39,7 +39,7 @@ extern "C" {
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/StandardPasses.h"
+#include "llvm/Support/PassManagerBuilder.h"
 #include "llvm/Target/SubtargetFeature.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
@@ -795,11 +795,15 @@ static void createPerModuleOptimizationPasses() {
   }
 
   HasPerModulePasses = true;
-  createStandardModulePasses(PerModulePasses, IROptLevel(),
-                             optimize_size,
-                             flag_unit_at_a_time, flag_unroll_loops,
-                             !flag_no_simplify_libcalls, flag_exceptions,
-                             InliningPass);
+  
+  PassManagerBuilder Builder;
+  Builder.OptLevel = IROptLevel();
+  Builder.SizeLevel = optimize_size;
+  Builder.Inliner = InliningPass;
+  Builder.DisableSimplifyLibCalls = flag_no_simplify_libcalls;
+  Builder.DisableUnrollLoops = !flag_unroll_loops;
+  Builder.DisableUnitAtATime = !flag_unit_at_a_time;
+  Builder.populateModulePassManager(*PerModulePasses);
 
   if (EmitIR && 0) {
     // Emit an LLVM .bc file to the output.  This is used when passed
