@@ -77,9 +77,6 @@ extern "C" {
 #error Unsupported GCC major version
 #endif
 
-// Non-zero if bytecode from PCH is successfully read.
-int flag_llvm_pch_read;
-
 // Non-zero if libcalls should not be simplified.
 int flag_no_simplify_libcalls;
 
@@ -124,8 +121,6 @@ static FunctionPassManager *CodeGenPasses = 0;
 
 static void createPerFunctionOptimizationPasses();
 static void createPerModuleOptimizationPasses();
-//TODOstatic void destroyOptimizationPasses();
-
 
 //===----------------------------------------------------------------------===//
 //                   Matching LLVM Values with GCC DECL trees
@@ -191,65 +186,6 @@ void changeLLVMConstant(Constant *Old, Constant *New) {
 
   llvm_replace_cached(Old, New);
 }
-
-//TODO/// readLLVMValues - Read LLVM Types string table
-//TODOvoid readLLVMValues() {
-//TODO  GlobalValue *V = TheModule->getNamedGlobal("llvm.pch.values");
-//TODO  if (!V)
-//TODO    return;
-//TODO
-//TODO  GlobalVariable *GV = cast<GlobalVariable>(V);
-//TODO  ConstantStruct *ValuesFromPCH = cast<ConstantStruct>(GV->getOperand(0));
-//TODO
-//TODO  for (unsigned i = 0; i < ValuesFromPCH->getNumOperands(); ++i) {
-//TODO    Value *Va = ValuesFromPCH->getOperand(i);
-//TODO
-//TODO    if (!Va) {
-//TODO      // If V is empty then insert NULL to represent empty entries.
-//TODO      LLVMValues.push_back(Va);
-//TODO      continue;
-//TODO    }
-//TODO    if (ConstantArray *CA = dyn_cast<ConstantArray>(Va)) {
-//TODO      std::string Str = CA->getAsString();
-//TODO      Va = TheModule->getValueSymbolTable().lookup(Str);
-//TODO    }
-//TODO    assert (Va != NULL && "Invalid Value in LLVMValues string table");
-//TODO    LLVMValues.push_back(Va);
-//TODO  }
-//TODO
-//TODO  // Now, llvm.pch.values is not required so remove it from the symbol table.
-//TODO  GV->eraseFromParent();
-//TODO}
-//TODO
-//TODO/// writeLLVMValues - GCC tree's uses LLVMValues vector's index to reach LLVM
-//TODO/// Values.  Create a string table to hold these LLVM Values' names. This string
-//TODO/// table will be used to recreate LTypes vector after loading PCH.
-//TODOvoid writeLLVMValues() {
-//TODO  if (LLVMValues.empty())
-//TODO    return;
-//TODO
-//TODO  LLVMContext &Context = getGlobalContext();
-//TODO
-//TODO  std::vector<Constant *> ValuesForPCH;
-//TODO  for (std::vector<Value *>::iterator I = LLVMValues.begin(),
-//TODO         E = LLVMValues.end(); I != E; ++I)  {
-//TODO    if (Constant *C = dyn_cast_or_null<Constant>(*I))
-//TODO      ValuesForPCH.push_back(C);
-//TODO    else
-//TODO      // Non constant values, e.g. arguments, are not at global scope.
-//TODO      // When PCH is read, only global scope values are used.
-//TODO      ValuesForPCH.push_back(Constant::getNullValue(Type::getInt32Ty(Context)));
-//TODO  }
-//TODO
-//TODO  // Create string table.
-//TODO  Constant *LLVMValuesTable = ConstantStruct::get(Context, ValuesForPCH, false);
-//TODO
-//TODO  // Create variable to hold this string table.
-//TODO  new GlobalVariable(*TheModule, LLVMValuesTable->getType(), true,
-//TODO                     GlobalValue::ExternalLinkage,
-//TODO                     LLVMValuesTable,
-//TODO                     "llvm.pch.values");
-//TODO}
 
 /// handleVisibility - Forward decl visibility style to global.
 void handleVisibility(tree decl, GlobalValue *GV) {
@@ -614,91 +550,6 @@ static void InitializeOutputStreams(bool Binary) {
                                formatted_raw_ostream::PRESERVE_STREAM);
 }
 
-//TODOoFILEstream *AsmIntermediateOutStream = 0;
-//TODO
-//TODO/// llvm_pch_read - Read bytecode from PCH file. Initialize TheModule and setup
-//TODO/// LTypes vector.
-//TODOvoid llvm_pch_read(const unsigned char *Buffer, unsigned Size) {
-//TODO  std::string ModuleName = TheModule->getModuleIdentifier();
-//TODO
-//TODO  delete TheModule;
-//TODO  delete TheDebugInfo;
-//TODO
-//TODO  clearTargetBuiltinCache();
-//TODO
-//TODO  MemoryBuffer *MB = MemoryBuffer::getNewMemBuffer(Size, ModuleName.c_str());
-//TODO  memcpy((char*)MB->getBufferStart(), Buffer, Size);
-//TODO
-//TODO  std::string ErrMsg;
-//TODO  TheModule = ParseBitcodeFile(MB, getGlobalContext(), &ErrMsg);
-//TODO  delete MB;
-//TODO
-//TODO  // FIXME - Do not disable debug info while writing pch.
-//TODO  if (!flag_pch_file && debug_info_level > DINFO_LEVEL_NONE) {
-//TODO    TheDebugInfo = new DebugInfo(TheModule);
-//TODO    TheDebugInfo->Initialize();
-//TODO  }
-//TODO
-//TODO  if (!TheModule) {
-//TODO    errs() << "Error reading bytecodes from PCH file\n";
-//TODO    errs() << ErrMsg << "\n";
-//TODO    exit(1);
-//TODO  }
-//TODO
-//TODO  if (PerFunctionPasses || PerModulePasses) {
-//TODO    destroyOptimizationPasses();
-//TODO
-//TODO    // Don't run codegen, when we should output PCH
-//TODO    if (flag_pch_file)
-//TODO      llvm_pch_write_init();
-//TODO  }
-//TODO
-//TODO  // Read LLVM Types string table
-//TODO  readLLVMTypesStringTable();
-//TODO  readLLVMValues();
-//TODO
-//TODO  flag_llvm_pch_read = 1;
-//TODO}
-//TODO
-//TODO/// llvm_pch_write_init - Initialize PCH writing.
-//TODOvoid llvm_pch_write_init(void) {
-//TODO  timevar_push(TV_LLVM_INIT);
-//TODO  AsmOutStream = new oFILEstream(asm_out_file);
-//TODO  // FIXME: disentangle ostream madness here.  Kill off ostream and FILE.
-//TODO  AsmOutRawStream =
-//TODO    new formatted_raw_ostream(*new raw_os_ostream(*AsmOutStream),
-//TODO                              formatted_raw_ostream::DELETE_STREAM);
-//TODO
-//TODO  PerModulePasses = new PassManager();
-//TODO  PerModulePasses->add(new TargetData(*TheTarget->getTargetData()));
-//TODO
-//TODO  // If writing to stdout, set binary mode.
-//TODO  if (asm_out_file == stdout)
-//TODO    sys::Program::ChangeStdoutToBinary();
-//TODO
-//TODO  // Emit an LLVM .bc file to the output.  This is used when passed
-//TODO  // -emit-llvm -c to the GCC driver.
-//TODO  PerModulePasses->add(createBitcodeWriterPass(*AsmOutStream));
-//TODO
-//TODO  // Disable emission of .ident into the output file... which is completely
-//TODO  // wrong for llvm/.bc emission cases.
-//TODO  flag_no_ident = 1;
-//TODO
-//TODO  flag_llvm_pch_read = 0;
-//TODO
-//TODO  timevar_pop(TV_LLVM_INIT);
-//TODO}
-
-//TODOstatic void destroyOptimizationPasses() {
-//TODO  delete PerFunctionPasses;
-//TODO  delete PerModulePasses;
-//TODO  delete CodeGenPasses;
-//TODO
-//TODO  PerFunctionPasses = 0;
-//TODO  PerModulePasses   = 0;
-//TODO  CodeGenPasses     = 0;
-//TODO}
-
 static void createPerFunctionOptimizationPasses() {
   if (PerFunctionPasses)
     return;
@@ -813,31 +664,6 @@ static void createPerModuleOptimizationPasses() {
     }
   }
 }
-
-//TODO/// llvm_asm_file_start - Start the .s file.
-//TODOvoid llvm_asm_file_start(void) {
-//TODO  timevar_push(TV_LLVM_INIT);
-//TODO  AsmOutStream = new oFILEstream(asm_out_file);
-//TODO  // FIXME: disentangle ostream madness here.  Kill off ostream and FILE.
-//TODO  AsmOutRawStream =
-//TODO    new formatted_raw_ostream(*new raw_os_ostream(*AsmOutStream),
-//TODO                              formatted_raw_ostream::DELETE_STREAM);
-//TODO
-//TODO  flag_llvm_pch_read = 0;
-//TODO
-//TODO  if (EmitIR)
-//TODO    // Disable emission of .ident into the output file... which is completely
-//TODO    // wrong for llvm/.bc emission cases.
-//TODO    flag_no_ident = 1;
-//TODO
-//TODO  // If writing to stdout, set binary mode.
-//TODO  if (asm_out_file == stdout)
-//TODO    sys::Program::ChangeStdoutToBinary();
-//TODO
-//TODO  AttributeUsedGlobals.clear();
-//TODO  AttributeCompilerUsedGlobals.clear();
-//TODO  timevar_pop(TV_LLVM_INIT);
-//TODO}
 
 /// ConvertStructorsList - Convert a list of static ctors/dtors to an
 /// initializer suitable for the llvm.global_[cd]tors globals.
@@ -2091,11 +1917,6 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
   LLVMContext &Context = getGlobalContext();
 
   createPerFunctionOptimizationPasses();
-//TODO
-//TODO  if (flag_pch_file) {
-//TODO    writeLLVMTypesStringTable();
-//TODO    writeLLVMValues();
-//TODO  }
 
 //TODO  for (Module::iterator I = TheModule->begin(), E = TheModule->end();
 //TODO       I != E; ++I)
@@ -2168,33 +1989,6 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
   if (PerFunctionPasses)
     PerFunctionPasses->doFinalization();
 
-//TODO  // Emit intermediate file before module level optimization passes are run.
-//TODO  if (flag_debug_llvm_module_opt) {
-//TODO
-//TODO    static PassManager *IntermediatePM = new PassManager();
-//TODO    IntermediatePM->add(new TargetData(*TheTarget->getTargetData()));
-//TODO
-//TODO    char asm_intermediate_out_filename[MAXPATHLEN];
-//TODO    strcpy(&asm_intermediate_out_filename[0], llvm_asm_file_name);
-//TODO    strcat(&asm_intermediate_out_filename[0],".0");
-//TODO    FILE *asm_intermediate_out_file = fopen(asm_intermediate_out_filename, "w+b");
-//TODO    AsmIntermediateOutStream = new oFILEstream(asm_intermediate_out_file);
-//TODO    raw_ostream *AsmIntermediateRawOutStream =
-//TODO      new raw_os_ostream(*AsmIntermediateOutStream);
-//TODO    if (EmitIR && 0)
-//TODO      IntermediatePM->add(createBitcodeWriterPass(*AsmIntermediateOutStream));
-//TODO    if (EmitIR)
-//TODO      IntermediatePM->add(createPrintModulePass(AsmIntermediateRawOutStream));
-//TODO    IntermediatePM->run(*TheModule);
-//TODO    AsmIntermediateRawOutStream->flush();
-//TODO    delete AsmIntermediateRawOutStream;
-//TODO    AsmIntermediateRawOutStream = 0;
-//TODO    AsmIntermediateOutStream->flush();
-//TODO    fflush(asm_intermediate_out_file);
-//TODO    delete AsmIntermediateOutStream;
-//TODO    AsmIntermediateOutStream = 0;
-//TODO  }
-
   // Run module-level optimizers, if any are present.
   createPerModuleOptimizationPasses();
   if (PerModulePasses)
@@ -2212,10 +2006,6 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 
   FormattedOutStream.flush();
   OutStream->flush();
-//TODO  delete AsmOutRawStream;
-//TODO  AsmOutRawStream = 0;
-//TODO  delete AsmOutStream;
-//TODO  AsmOutStream = 0;
 //TODO  timevar_pop(TV_LLVM_PERFILE);
 
   // We have finished - shutdown the plugin.  Doing this here ensures that timer
