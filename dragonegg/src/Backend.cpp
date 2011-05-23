@@ -2423,12 +2423,12 @@ plugin_init(struct plugin_name_args *plugin_info,
         if (!argv[i].value) {
           error(G_("no value supplied for option '-fplugin-arg-%s-%s'"),
                 plugin_name, argv[i].key);
-          return 1;
+          continue;
         }
         if (argv[i].value[0] < '0' || argv[i].value[0] > '9' || argv[i].value[1]) {
           error(G_("invalid option argument '-fplugin-arg-%s-%s=%s'"),
                 plugin_name, argv[i].key, argv[i].value);
-          return 1;
+          continue;
         }
         int OptLevel = argv[i].value[0] - '0';
         if (argv[i].key[5] == 'i')
@@ -2442,7 +2442,7 @@ plugin_init(struct plugin_name_args *plugin_info,
       if (argv[i].value) {
         error(G_("invalid option argument '-fplugin-arg-%s-%s=%s'"),
               plugin_name, argv[i].key, argv[i].value);
-        return 1;
+        continue;
       }
 
       // Look for a matching flag.
@@ -2454,11 +2454,9 @@ plugin_init(struct plugin_name_args *plugin_info,
           break;
         }
 
-      if (!Found) {
-        error(G_("invalid option '-fplugin-arg-%s-%s'"),
+      if (!Found)
+        warning(0, G_("unrecognised option '-fplugin-arg-%s-%s'"),
               plugin_name, argv[i].key);
-        return 1;
-      }
     }
   }
 
