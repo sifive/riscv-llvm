@@ -1694,7 +1694,7 @@ static struct rtl_opt_pass pass_rtl_emit_function =
       NULL,			/* next */
       0,			/* static_pass_number */
       TV_NONE,			/* tv_id */
-      PROP_ssa | PROP_gimple_leh | PROP_cfg
+      PROP_ssa | PROP_gimple_leh | PROP_cfg,
 				/* properties_required */
       0,			/* properties_provided */
       PROP_ssa | PROP_trees,	/* properties_destroyed */
