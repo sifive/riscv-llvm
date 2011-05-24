@@ -1283,8 +1283,10 @@ LValue TreeToLLVM::EmitLV(tree exp) {
     break;
   }
   case COMPLEX_CST:
+  case INTEGER_CST:
   case REAL_CST:
-  case STRING_CST: {
+  case STRING_CST:
+  case VECTOR_CST: {
     Value *Ptr = AddressOf(exp);
     LV = LValue(Ptr, get_constant_alignment(exp) / 8);
     break;
