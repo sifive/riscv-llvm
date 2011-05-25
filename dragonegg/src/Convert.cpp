@@ -224,13 +224,9 @@ TreeToLLVM::~TreeToLLVM() {
 /// isLocalDecl - Whether this declaration is local to the current function.
 static bool isLocalDecl(tree decl) {
   assert(HAS_RTL_P(decl) && "Expected a declaration with RTL!");
-  return
-    // GCC bug workaround: RESULT_DECL may not have DECL_CONTEXT set in thunks.
-    (!DECL_CONTEXT(decl) && TREE_CODE(decl) == RESULT_DECL) ||
-    // Usual case.
-    (DECL_CONTEXT(decl) == current_function_decl &&
-     !TREE_STATIC(decl) && // Static variables not considered local.
-     TREE_CODE(decl) != FUNCTION_DECL); // Nested functions not considered local.
+  return DECL_CONTEXT(decl) == current_function_decl &&
+    !TREE_STATIC(decl) && // Static variables not considered local.
+    TREE_CODE(decl) != FUNCTION_DECL; // Nested functions not considered local.
 }
 
 /// set_decl_local - Remember the LLVM value for a GCC declaration.
