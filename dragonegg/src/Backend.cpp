@@ -324,8 +324,6 @@ static void ConfigureLLVM(void) {
     Args.push_back("--debug-pass=Structure");
   if (DebugPassArguments)
     Args.push_back("--debug-pass=Arguments");
-  if (flag_unwind_tables)
-    Args.push_back("--unwind-tables");
   if (!flag_schedule_insns)
     Args.push_back("--pre-RA-sched=source");
   if (flag_function_sections)

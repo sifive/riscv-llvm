@@ -682,6 +682,9 @@ void TreeToLLVM::StartFunctionBody() {
   if (!flag_exceptions)
     Fn->setDoesNotThrow();
 
+ if (flag_unwind_tables)
+   Fn->setHasUWTable();
+
   // Create a new basic block for the function.
   BasicBlock *EntryBlock = BasicBlock::Create(Context, "entry", Fn);
   BasicBlocks[ENTRY_BLOCK_PTR] = EntryBlock;
