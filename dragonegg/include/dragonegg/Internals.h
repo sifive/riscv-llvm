@@ -760,6 +760,7 @@ private:
   Value *EmitBuiltinPOW(gimple_statement_d *stmt);
   Value *EmitBuiltinLCEIL(gimple_statement_d *stmt);
   Value *EmitBuiltinLFLOOR(gimple_statement_d *stmt);
+  Value *EmitBuiltinCEXPI(gimple_statement_d *stmt);
 
   bool EmitBuiltinConstantP(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinAlloca(gimple_statement_d *stmt, Value *&Result);

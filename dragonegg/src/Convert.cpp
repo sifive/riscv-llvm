@@ -4106,6 +4106,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_LLFLOORL:
     Result = EmitBuiltinLFLOOR(stmt);
     return true;
+  case BUILT_IN_CEXPI:
+  case BUILT_IN_CEXPIF:
+  case BUILT_IN_CEXPIL:
+    Result = EmitBuiltinCEXPI(stmt);
+    return true;
 //TODO  case BUILT_IN_FLT_ROUNDS: {
 //TODO    Result =
 //TODO      Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
@@ -4745,6 +4750,154 @@ Value *TreeToLLVM::EmitBuiltinLFLOOR(gimple stmt) {
   const Type *RetTy = getRegType(type);
   return TYPE_UNSIGNED(type) ? Builder.CreateFPToUI(Call, RetTy) :
     Builder.CreateFPToSI(Call, RetTy);
+}
+
+Value *TreeToLLVM::EmitBuiltinCEXPI(gimple stmt) {
+  if (!validate_gimple_arglist(stmt, REAL_TYPE, VOID_TYPE))
+    return 0;
+
+  if (TARGET_HAS_SINCOS) {
+    // exp(i*arg) = cos(arg) + i*sin(arg).  Emit a call to sincos.  First
+    // determine which version of sincos to call.
+    tree arg = gimple_call_arg(stmt, 0);
+    tree arg_type = TREE_TYPE(arg);
+    StringRef Name = SelectFPName(arg_type, "sincosf", "sincos", "sincosl");
+
+    // Create stack slots to store the real (cos) and imaginary (sin) parts in.
+    Value *Val = EmitRegister(arg);
+    Value *SinPtr = CreateTemporary(Val->getType());
+    Value *CosPtr = CreateTemporary(Val->getType());
+
+    // Get the LLVM function declaration for sincos.
+    const Type *ArgTys[3] =
+      { Val->getType(), SinPtr->getType(), CosPtr->getType() };
+    const FunctionType *FTy = FunctionType::get(Type::getVoidTy(Context),
+                                                ArgTys, /*isVarArg*/false);
+    Constant *Func = TheModule->getOrInsertFunction(Name, FTy);
+
+    // Determine the calling convention.
+    CallingConv::ID CC = CallingConv::C;
+#ifdef TARGET_ADJUST_LLVM_CC
+    // Query the target for the calling convention to use.
+    tree fntype = build_function_type_list(void_type_node, arg_type,
+                                           TYPE_POINTER_TO(arg_type),
+                                           TYPE_POINTER_TO(arg_type),
+                                           NULL_TREE);
+    TARGET_ADJUST_LLVM_CC(CC, fntype);
+#endif
+
+    // If the function already existed with the wrong prototype then don't try to
+    // muck with its calling convention.  Otherwise, set the calling convention.
+    if (Function *F = dyn_cast<Function>(Func))
+      F->setCallingConv(CC);
+
+    // Call sincos.
+    Value *Args[3] = { Val, SinPtr, CosPtr };
+    CallInst *CI = Builder.CreateCall(Func, Args);
+    CI->setCallingConv(CC);
+    CI->setDoesNotThrow();
+
+    // Load out the real (cos) and imaginary (sin) parts.
+    Value *Sin = Builder.CreateLoad(SinPtr);
+    Value *Cos = Builder.CreateLoad(CosPtr);
+
+    // Return the complex number "cos(arg) + i*sin(arg)".
+    return CreateComplex(Cos, Sin);
+  } else {
+    // Emit a call to cexp.  First determine which version of cexp to call.
+    tree arg = gimple_call_arg(stmt, 0);
+    tree arg_type = TREE_TYPE(arg);
+    StringRef Name = SelectFPName(arg_type, "cexpf", "cexp", "cexpl");
+
+    // Get the GCC and LLVM function types for cexp.
+    tree cplx_type = gimple_call_return_type(stmt);
+    tree fntype = build_function_type_list(cplx_type, cplx_type, NULL_TREE);
+    const FunctionType *FTy = cast<FunctionType>(ConvertType(fntype));
+
+    // Get the LLVM function declaration for cexp.
+    Constant *Func = TheModule->getOrInsertFunction(Name, FTy);
+
+    // Determine the calling convention.
+    CallingConv::ID CC = CallingConv::C;
+#ifdef TARGET_ADJUST_LLVM_CC
+    // Query the target for the calling convention to use.
+    TARGET_ADJUST_LLVM_CC(CC, fntype);
+#endif
+
+    // If the function already existed with the wrong prototype then don't try to
+    // muck with its calling convention.  Otherwise, set the calling convention.
+    if (Function *F = dyn_cast<Function>(Func))
+      F->setCallingConv(CC);
+
+    // Form the complex number "0 + i*arg".
+    Value *Arg = EmitRegister(arg);
+    Value *CplxArg = CreateComplex(Constant::getNullValue(Arg->getType()), Arg);
+
+    // Call cexp and return the result.  This is rather painful because complex
+    // numbers may be passed in funky ways and we don't have a proper interface
+    // for marshalling call parameters.
+    SmallVector<Value*, 16> CallOperands;
+    FunctionCallArgumentConversion Client(CallOperands, FTy, /*destloc*/0,
+                                          /*ReturnSlotOpt*/false, Builder, CC);
+    DefaultABI ABIConverter(Client);
+
+    // Handle the result.
+    ABIConverter.HandleReturnType(cplx_type, fntype, false);
+
+    // Push the argument.
+    bool PassedInMemory;
+    const Type *CplxTy = CplxArg->getType();
+    if (LLVM_SHOULD_PASS_AGGREGATE_AS_FCA(cplx_type, CplxTy)) {
+      Client.pushValue(CplxArg);
+      PassedInMemory = false;
+    } else {
+      // Push the address of a temporary copy.
+      MemRef Copy = CreateTempLoc(CplxTy);
+      StoreRegisterToMemory(CplxArg, Copy, cplx_type, Builder);
+      Client.pushAddress(Copy.Ptr);
+      PassedInMemory = true;
+    }
+
+    Attributes Attrs = Attribute::None;
+    std::vector<const Type*> ScalarArgs;
+    ABIConverter.HandleArgument(cplx_type, ScalarArgs, &Attrs);
+    assert(Attrs == Attribute::None && "Got attributes but none given!");
+    Client.clear();
+
+    // Create the call.
+    CallInst *CI = Builder.CreateCall(Func, CallOperands);
+    CI->setCallingConv(CC);
+    CI->setDoesNotThrow();
+    if (!PassedInMemory)
+      CI->setDoesNotAccessMemory();
+
+    // Extract and return the result.
+    if (Client.isShadowReturn())
+      return Client.EmitShadowResult(cplx_type, 0);
+
+    if (Client.isAggrReturn()) {
+      // Extract to a temporary then load the value out later.
+      MemRef Target = CreateTempLoc(CplxTy);
+
+      assert(TD.getTypeAllocSize(CI->getType()) <= TD.getTypeAllocSize(CplxTy)
+             && "Complex number returned in too large registers!");
+      Value *Dest = Builder.CreateBitCast(Target.Ptr,
+                                          CI->getType()->getPointerTo());
+      LLVM_EXTRACT_MULTIPLE_RETURN_VALUE(CI, Dest, Target.Volatile, Builder);
+      return Builder.CreateLoad(Target.Ptr);
+    }
+
+    if (CI->getType() == CplxTy)
+      return CI;   // Normal scalar return.
+
+    // Probably { float, float } being returned as a double.
+    assert(TD.getTypeAllocSize(CI->getType()) == TD.getTypeAllocSize(CplxTy) &&
+           "Size mismatch in scalar to scalar conversion!");
+    Value *Tmp = CreateTemporary(CI->getType());
+    Builder.CreateStore(CI, Tmp);
+    const Type *CplxPtrTy = CplxTy->getPointerTo();
+    return Builder.CreateLoad(Builder.CreateBitCast(Tmp, CplxPtrTy));
+  }
 }
 
 bool TreeToLLVM::EmitBuiltinConstantP(gimple stmt, Value *&Result) {
