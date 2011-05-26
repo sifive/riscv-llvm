@@ -775,7 +775,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     StoreInst *SI = Builder.CreateStore(Ops[1], Ptr);
     SI->setMetadata(TheModule->getMDKindID("nontemporal"), Node);
     SI->setAlignment(16);
-    return SI;
+    Result = SI;
+    return true;
   }
   case sqrtpd:
   case sqrtpd256:
@@ -786,7 +787,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     const Type *Ty = Ops[0]->getType();
     Function *sqrt = Intrinsic::getDeclaration(TheModule, Intrinsic::sqrt, &Ty,
                                                1);
-    return Builder.CreateCall(sqrt, Ops[0]);
+    Result = Builder.CreateCall(sqrt, Ops[0]);
+    return true;
   }
   }
   DieAbjectly("Builtin not implemented!", stmt);
