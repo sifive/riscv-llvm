@@ -6483,6 +6483,24 @@ Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
     Value *Cmp = Builder.CreateICmp(pred, Op,
                     Constant::getNullValue(Op->getType()), "abscond");
     return Builder.CreateSelect(Cmp, Op, OpN, Op->getName()+"abs");
+  } else if (TREE_CODE(TREE_TYPE(op)) == VECTOR_TYPE) {
+    // Clear the sign bits.
+    Value *Op = EmitRegister(op);
+    const VectorType *VecTy = cast<VectorType>(Op->getType());
+
+    // Mask = ~(1 << (Bits-1)).
+    unsigned Bits = VecTy->getElementType()->getPrimitiveSizeInBits();
+    const Type *IntTy = IntegerType::get(Context, Bits);
+    const Type *IntVecTy = VectorType::get(IntTy, VecTy->getNumElements());
+    APInt API = APInt::getAllOnesValue(Bits);
+    API.clearBit(Bits-1);
+    Constant *Mask = ConstantInt::get(IntVecTy, API);
+
+    // Zap the sign bits.
+    Op = Builder.CreateBitCast(Op, IntVecTy);
+    Op = Builder.CreateAnd(Op, Mask);
+    Op = Builder.CreateBitCast(Op, VecTy);
+    return Op;
   }
 
   // Turn FP abs into fabs/fabsf.
