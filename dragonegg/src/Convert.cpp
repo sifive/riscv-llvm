@@ -6732,7 +6732,7 @@ Value *TreeToLLVM::EmitReg_REDUC_PLUS_EXPR(tree op) {
 
     // Replace Val with the sum of the extracted elements.
     // TODO: Are nsw/nuw flags valid here?
-    Val = Builder.CreateAdd(LHS, RHS);
+    Val = CreateAnyAdd(LHS, RHS, TREE_TYPE(TREE_TYPE(op)));
 
     // Repeat, using half as many elements.
   }
