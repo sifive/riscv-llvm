@@ -777,6 +777,17 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     SI->setAlignment(16);
     return SI;
   }
+  case sqrtpd:
+  case sqrtpd256:
+  case sqrtps:
+  case sqrtps256:
+  case sqrtsd:
+  case sqrtss: {
+    const Type *Ty = Ops[0]->getType();
+    Function *sqrt = Intrinsic::getDeclaration(TheModule, Intrinsic::sqrt, &Ty,
+                                               1);
+    return Builder.CreateCall(sqrt, Ops[0]);
+  }
   }
   DieAbjectly("Builtin not implemented!", stmt);
   return false;
