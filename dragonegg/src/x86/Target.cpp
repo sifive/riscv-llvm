@@ -755,7 +755,6 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   }
   case movntdq:
   case movntdq256:
-  case movntdqa:
   case movnti:
   case movntpd:
   case movntpd256:
@@ -775,7 +774,6 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     StoreInst *SI = Builder.CreateStore(Ops[1], Ptr);
     SI->setMetadata(TheModule->getMDKindID("nontemporal"), Node);
     SI->setAlignment(16);
-    Result = SI;
     return true;
   }
   case sqrtpd:
