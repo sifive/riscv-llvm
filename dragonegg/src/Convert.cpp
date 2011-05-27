@@ -6791,6 +6791,30 @@ Value *TreeToLLVM::EmitReg_ShiftOp(tree op0, tree op1, unsigned Opc) {
   return Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
 }
 
+Value *TreeToLLVM::EmitReg_VecShiftOp(tree op0, tree op1, unsigned Opc) {
+  Value *LHS = EmitRegister(op0); // A vector.
+  Value *Amt = EmitRegister(op1); // An integer.
+
+  // Ensure the shift amount has the same type as the vector element type.
+  const VectorType *VecTy = cast<VectorType>(LHS->getType());
+  const Type *EltTy = VecTy->getElementType();
+  if (Amt->getType() != EltTy)
+    Amt = Builder.CreateIntCast(Amt, EltTy, /*isSigned*/false,
+                                Amt->getName()+".cast");
+
+  // Form a vector with all elements equal to the shift amount by creating a
+  // vector with the amount as the first element then shuffling it all over.
+  Constant *Zero = Constant::getNullValue(Type::getInt32Ty(Context));
+  Value *RHS = Builder.CreateInsertElement(UndefValue::get(VecTy), Amt, Zero);
+  const Type *MaskTy = VectorType::get(Type::getInt32Ty(Context),
+                                       VecTy->getNumElements());
+  Constant *Mask = ConstantInt::get(MaskTy, 0);
+  RHS = Builder.CreateShuffleVector(RHS, UndefValue::get(VecTy), Mask);
+
+  // Form the shift.
+  return Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
+}
+
 Value *TreeToLLVM::EmitReg_TruthOp(tree type, tree op0, tree op1, unsigned Opc){
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
@@ -8312,8 +8336,14 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_VEC_INTERLEAVE_HIGH_EXPR(rhs1, rhs2); break;
   case VEC_INTERLEAVE_LOW_EXPR:
     RHS = EmitReg_VEC_INTERLEAVE_LOW_EXPR(rhs1, rhs2); break;
+  case VEC_LSHIFT_EXPR:
+    RHS = EmitReg_VecShiftOp(rhs1, rhs2, Instruction::Shl); break;
   case VEC_PACK_TRUNC_EXPR:
     RHS = EmitReg_VEC_PACK_TRUNC_EXPR(type, rhs1, rhs2); break;
+  case VEC_RSHIFT_EXPR:
+    RHS = EmitReg_VecShiftOp(rhs1, rhs2, TYPE_UNSIGNED(TREE_TYPE(type)) ?
+                             Instruction::LShr : Instruction::AShr);
+    break;
   case VEC_UNPACK_HI_EXPR:
     RHS = EmitReg_VEC_UNPACK_HI_EXPR(type, rhs1); break;
   case VEC_UNPACK_LO_EXPR:

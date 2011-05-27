@@ -698,6 +698,7 @@ private:
   Value *EmitReg_RotateOp(tree_node *type, tree_node *op0, tree_node *op1,
                           unsigned Opc1, unsigned Opc2);
   Value *EmitReg_ShiftOp(tree_node *op0, tree_node *op1, unsigned Opc);
+  Value *EmitReg_VecShiftOp(tree_node *op0, tree_node *op1, unsigned Opc);
   Value *EmitReg_TruthOp(tree_node *type, tree_node *op0, tree_node *op1,
                          unsigned Opc);
   Value *EmitReg_BIT_AND_EXPR(tree_node *op0, tree_node *op1);
