@@ -6795,25 +6795,22 @@ Value *TreeToLLVM::EmitReg_ShiftOp(tree op0, tree op1, unsigned Opc) {
 Value *TreeToLLVM::EmitReg_VecShiftOp(tree op0, tree op1, unsigned Opc) {
   Value *LHS = EmitRegister(op0); // A vector.
   Value *Amt = EmitRegister(op1); // An integer.
+  const Type *VecTy = LHS->getType();
 
-  // Ensure the shift amount has the same type as the vector element type.
-  const VectorType *VecTy = cast<VectorType>(LHS->getType());
-  const Type *EltTy = VecTy->getElementType();
-  if (Amt->getType() != EltTy)
-    Amt = Builder.CreateIntCast(Amt, EltTy, /*isSigned*/false,
+  // Turn the vector into a mighty integer of the same size.
+  unsigned Bits = VecTy->getPrimitiveSizeInBits();
+  LHS = Builder.CreateBitCast(LHS, IntegerType::get(Context, Bits));
+
+  // Ensure the shift amount has the same type.
+  if (Amt->getType() != LHS->getType())
+    Amt = Builder.CreateIntCast(Amt, LHS->getType(), /*isSigned*/false,
                                 Amt->getName()+".cast");
 
-  // Form a vector with all elements equal to the shift amount by creating a
-  // vector with the amount as the first element then shuffling it all over.
-  Constant *Zero = Constant::getNullValue(Type::getInt32Ty(Context));
-  Value *RHS = Builder.CreateInsertElement(UndefValue::get(VecTy), Amt, Zero);
-  const Type *MaskTy = VectorType::get(Type::getInt32Ty(Context),
-                                       VecTy->getNumElements());
-  Constant *Mask = ConstantInt::get(MaskTy, 0);
-  RHS = Builder.CreateShuffleVector(RHS, UndefValue::get(VecTy), Mask);
+  // Perform the shift.
+  LHS = Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, Amt);
 
-  // Form the shift.
-  return Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
+  // Turn the result back into a vector.
+  return Builder.CreateBitCast(LHS, VecTy);
 }
 
 Value *TreeToLLVM::EmitReg_TruthOp(tree type, tree op0, tree op1, unsigned Opc){
@@ -8342,8 +8339,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case VEC_PACK_TRUNC_EXPR:
     RHS = EmitReg_VEC_PACK_TRUNC_EXPR(type, rhs1, rhs2); break;
   case VEC_RSHIFT_EXPR:
-    RHS = EmitReg_VecShiftOp(rhs1, rhs2, TYPE_UNSIGNED(TREE_TYPE(type)) ?
-                             Instruction::LShr : Instruction::AShr);
+    RHS = EmitReg_VecShiftOp(rhs1, rhs2, Instruction::LShr);
     break;
   case VEC_UNPACK_HI_EXPR:
     RHS = EmitReg_VEC_UNPACK_HI_EXPR(type, rhs1); break;
