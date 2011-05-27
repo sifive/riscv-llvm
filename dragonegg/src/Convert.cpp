@@ -2391,22 +2391,24 @@ Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
   return Builder.CreateBitCast(LV.Ptr, ConvertType(TREE_TYPE(exp)));
 }
 
-Value *TreeToLLVM::EmitCOND_EXPR(tree exp) {
+Value *TreeToLLVM::EmitCondExpr(tree exp) {
   // Emit the condition.  It may not be in SSA form, but if not then it is a
   // comparison.
-  tree cond = COND_EXPR_COND(exp);
+  // COND_EXPR_COND and friends do not work for VEC_COND_EXPR, which is also
+  // handled here, which is why the tree operands are accessed directly.
+  tree cond = TREE_OPERAND(exp, 0);
   Value *CondVal = COMPARISON_CLASS_P(cond) ?
     EmitCompare(TREE_OPERAND(cond, 0), TREE_OPERAND(cond, 1), TREE_CODE(cond)) :
     EmitRegister(cond);
 
   // Ensure the condition has i1 type.
-  if (!CondVal->getType()->isIntegerTy(1))
+  if (!CondVal->getType()->getScalarType()->isIntegerTy(1))
     CondVal = Builder.CreateICmpNE(CondVal,
                                    Constant::getNullValue(CondVal->getType()));
 
   // Emit the true and false values.
-  Value *TrueVal = EmitRegister(COND_EXPR_THEN(exp));
-  Value *FalseVal = EmitRegister(COND_EXPR_ELSE(exp));
+  Value *TrueVal = EmitRegister(TREE_OPERAND(exp, 1));
+  Value *FalseVal = EmitRegister(TREE_OPERAND(exp, 2));
 
   // Select the value to use based on the condition.
   return Builder.CreateSelect(CondVal, TrueVal, FalseVal);
@@ -8362,9 +8364,10 @@ Value *TreeToLLVM::EmitAssignSingleRHS(tree rhs) {
   default: return EmitRegister(rhs);
 
   // Expressions (tcc_expression).
-  case ADDR_EXPR:    return EmitADDR_EXPR(rhs);
-  case COND_EXPR:    return EmitCOND_EXPR(rhs);
-  case OBJ_TYPE_REF: return EmitOBJ_TYPE_REF(rhs);
+  case ADDR_EXPR:     return EmitADDR_EXPR(rhs);
+  case COND_EXPR:
+  case VEC_COND_EXPR: return EmitCondExpr(rhs);
+  case OBJ_TYPE_REF:  return EmitOBJ_TYPE_REF(rhs);
 
   // Exceptional (tcc_exceptional).
   case CONSTRUCTOR:
