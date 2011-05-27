@@ -6785,9 +6785,8 @@ Value *TreeToLLVM::EmitReg_ShiftOp(tree op0, tree op1, unsigned Opc) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
   if (RHS->getType() != LHS->getType())
-    RHS = Builder.CreateIntCast(RHS, LHS->getType(), /*isSigned*/false,
-                                RHS->getName()+".cast");
-
+    RHS = CastToAnyType(RHS, /*isSigned*/false, LHS->getType(),
+                        /*isSigned*/false);
   return Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
 }
 
