@@ -6796,13 +6796,51 @@ Value *TreeToLLVM::EmitReg_ShiftOp(tree op0, tree op1, unsigned Opc) {
   return Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
 }
 
-Value *TreeToLLVM::EmitReg_VecShiftOp(tree op0, tree op1, unsigned Opc) {
+Value *TreeToLLVM::EmitReg_VecShiftOp(tree op0, tree op1, bool isLeftShift) {
   Value *LHS = EmitRegister(op0); // A vector.
   Value *Amt = EmitRegister(op1); // An integer.
-  const Type *VecTy = LHS->getType();
+  const VectorType *VecTy = cast<VectorType>(LHS->getType());
+  unsigned Bits = VecTy->getPrimitiveSizeInBits();
+
+  // If the shift is by a multiple of the element size then emit a shuffle.
+  if (ConstantInt *CI = dyn_cast<ConstantInt>(Amt)) {
+    // The GCC docs are not clear whether the bits shifted in must be zero or if
+    // they can be anything.  Since these expressions are currently only used in
+    // situations which make no assumptions about the shifted in bits, we choose
+    // to consider them to be undefined since this results in better code.
+    unsigned ShiftAmt = CI->getLimitedValue(Bits);
+    if (ShiftAmt >= Bits)
+      // Shifting by more than the width of the vector is documented as giving
+      // an undefined result.
+      return UndefValue::get(VecTy);
+    unsigned EltBits = VecTy->getElementType()->getPrimitiveSizeInBits();
+    if (!(ShiftAmt % EltBits)) {
+      // A shift by an integral number of elements.
+      unsigned EltOffset = ShiftAmt / EltBits; // Shift by this many elements.
+      // Shuffle the elements sideways by the appropriate number of elements.
+      unsigned Length = VecTy->getNumElements();
+      SmallVector<Constant*, 8> Mask;
+      Mask.reserve(Length);
+      const Type *Int32Ty = Type::getInt32Ty(Context);
+      if (isLeftShift) {
+        // shl <4 x i32> %v, 32 ->
+        // shufflevector <4 x i32> %v, <4 x i32> undef, <undef, 0, 1, 2>
+        Mask.append(Length - EltOffset, UndefValue::get(Int32Ty));
+        for (unsigned i = 0; i != EltOffset; ++i)
+          Mask.push_back(ConstantInt::get(Int32Ty, i));
+      } else {
+        // shr <4 x i32> %v, 32 ->
+        // shufflevector <4 x i32> %v, <4 x i32> undef, <1, 2, 3, undef>
+        for (unsigned i = EltOffset; i != Length; ++i)
+          Mask.push_back(ConstantInt::get(Int32Ty, i));
+        Mask.append(EltOffset, UndefValue::get(Int32Ty));
+      }
+      return Builder.CreateShuffleVector(LHS, UndefValue::get(VecTy),
+                                         ConstantVector::get(Mask));
+    }
+  }
 
   // Turn the vector into a mighty integer of the same size.
-  unsigned Bits = VecTy->getPrimitiveSizeInBits();
   LHS = Builder.CreateBitCast(LHS, IntegerType::get(Context, Bits));
 
   // Ensure the shift amount has the same type.
@@ -6811,7 +6849,8 @@ Value *TreeToLLVM::EmitReg_VecShiftOp(tree op0, tree op1, unsigned Opc) {
                                 Amt->getName()+".cast");
 
   // Perform the shift.
-  LHS = Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, Amt);
+  LHS = Builder.CreateBinOp(isLeftShift ? Instruction::Shl : Instruction::LShr,
+                            LHS, Amt);
 
   // Turn the result back into a vector.
   return Builder.CreateBitCast(LHS, VecTy);
@@ -8339,12 +8378,11 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case VEC_INTERLEAVE_LOW_EXPR:
     RHS = EmitReg_VEC_INTERLEAVE_LOW_EXPR(rhs1, rhs2); break;
   case VEC_LSHIFT_EXPR:
-    RHS = EmitReg_VecShiftOp(rhs1, rhs2, Instruction::Shl); break;
+    RHS = EmitReg_VecShiftOp(rhs1, rhs2, /*isLeftShift*/true); break;
   case VEC_PACK_TRUNC_EXPR:
     RHS = EmitReg_VEC_PACK_TRUNC_EXPR(type, rhs1, rhs2); break;
   case VEC_RSHIFT_EXPR:
-    RHS = EmitReg_VecShiftOp(rhs1, rhs2, Instruction::LShr);
-    break;
+    RHS = EmitReg_VecShiftOp(rhs1, rhs2, /*isLeftShift*/false); break;
   case VEC_UNPACK_HI_EXPR:
     RHS = EmitReg_VEC_UNPACK_HI_EXPR(type, rhs1); break;
   case VEC_UNPACK_LO_EXPR:
