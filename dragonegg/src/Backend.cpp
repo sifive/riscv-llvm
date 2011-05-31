@@ -1321,6 +1321,12 @@ static void TakeoverAsmOutput(void) {
   }
 }
 
+/// no_target_thunks - Hook for can_output_mi_thunk that always says "no".
+static bool no_target_thunks(const_tree, HOST_WIDE_INT, HOST_WIDE_INT,
+                             const_tree) {
+  return false;
+}
+
 
 //===----------------------------------------------------------------------===//
 //                             Plugin interface
@@ -1354,6 +1360,13 @@ static void llvm_start_unit(void * /*gcc_data*/, void * /*user_data*/) {
 
   // Stop GCC outputting serious amounts of debug info.
   debug_hooks = &do_nothing_debug_hooks;
+
+  // Adjust the target machine configuration for the fact that we are really
+  // targetting LLVM IR.
+
+  // Ensure that thunks are turned into functions rather than output directly
+  // as assembler.
+  targetm.asm_out.can_output_mi_thunk = no_target_thunks;
 }
 
 
@@ -1387,32 +1400,8 @@ static void emit_current_function() {
   }
 }
 
-/// emit_function - Turn a gimple function into LLVM IR.  This is called once
-/// for each function in the compilation unit if GCC optimizations are disabled.
-static void emit_function(struct cgraph_node *node) {
-  if (errorcount || sorrycount)
-    return; // Do not process broken code.
-
-  tree function = node->decl;
-  struct function *fn = DECL_STRUCT_FUNCTION(function);
-
-  // Set the current function to this one.
-  // TODO: Make it so we don't need to do this.
-  assert(current_function_decl == NULL_TREE && cfun == NULL &&
-         "Current function already set!");
-  current_function_decl = function;
-  push_cfun (fn);
-
-  // Convert the function.
-  emit_current_function();
-
-  // Done with this function.
-  current_function_decl = NULL;
-  pop_cfun ();
-}
-
-/// GetLinkageForAlias - The given GCC declaration is an alias or thunk.  Return
-/// the appropriate LLVM linkage type for it.
+/// GetLinkageForAlias - The given GCC declaration is an alias.  Return the
+/// appropriate LLVM linkage type for it.
 static GlobalValue::LinkageTypes GetLinkageForAlias(tree decl) {
   if (DECL_COMDAT(decl))
     // Need not be put out unless needed in this translation unit.
@@ -1435,148 +1424,6 @@ static GlobalValue::LinkageTypes GetLinkageForAlias(tree decl) {
     return GlobalValue::InternalLinkage;
 
   return GlobalValue::ExternalLinkage;
-}
-
-/// ApplyVirtualOffset - Adjust 'this' by a virtual offset.
-static Value *ApplyVirtualOffset(Value *This, HOST_WIDE_INT virtual_value,
-                                 LLVMBuilder &Builder) {
-  LLVMContext &Context = getGlobalContext();
-  const Type *BytePtrTy = Type::getInt8PtrTy(Context); // i8*
-  const Type *HandleTy = BytePtrTy->getPointerTo(); // i8**
-  const Type *IntPtrTy = TheTarget->getTargetData()->getIntPtrType(Context);
-
-  // The vptr is always at offset zero in the object.
-  Value *VPtr = Builder.CreateBitCast(This, HandleTy->getPointerTo()); // i8***
-
-  // Form the vtable address.
-  Value *VTableAddr = Builder.CreateLoad(VPtr); // i8**
-
-  // Find the entry with the vcall offset.
-  Value *VOffset = ConstantInt::get(IntPtrTy, virtual_value);
-  VTableAddr = Builder.CreateBitCast(VTableAddr, BytePtrTy);
-  VTableAddr = Builder.CreateInBoundsGEP(VTableAddr, VOffset);
-  VTableAddr = Builder.CreateBitCast(VTableAddr, HandleTy); // i8**
-
-  // Get the offset itself.
-  Value *VCallOffset = Builder.CreateLoad(VTableAddr); // i8*
-  VCallOffset = Builder.CreatePtrToInt(VCallOffset, IntPtrTy);
-
-  // Adjust the 'this' pointer.
-  Value *Adjusted = Builder.CreateBitCast(This, BytePtrTy);
-  Adjusted = Builder.CreateInBoundsGEP(Adjusted, VCallOffset);
-  return Builder.CreateBitCast(Adjusted, This->getType());
-}
-
-/// emit_thunk - Turn a thunk into LLVM IR.
-static void emit_thunk(struct cgraph_node *node) {
-  if (errorcount || sorrycount)
-    return; // Do not process broken code.
-
-  Function *Thunk = cast<Function>(DECL_LLVM(node->decl));
-  if (Thunk->isVarArg()) {
-    sorry("thunks to varargs functions not supported");
-    return;
-  }
-
-  // Mark the thunk as written so gcc doesn't waste time outputting it.
-  TREE_ASM_WRITTEN(node->decl) = 1;
-
-  // Set the linkage and visibility.
-  Thunk->setLinkage(GetLinkageForAlias(node->decl));
-  handleVisibility(node->decl, Thunk);
-
-  // Whether the thunk adjusts 'this' before calling the thunk alias (otherwise
-  // it is the value returned by the alias that is adjusted).
-  bool ThisAdjusting = node->thunk.this_adjusting;
-
-  LLVMContext &Context = getGlobalContext();
-  const Type *BytePtrTy = Type::getInt8Ty(Context)->getPointerTo();
-  const Type *IntPtrTy = TheTarget->getTargetData()->getIntPtrType(Context);
-  LLVMBuilder Builder(Context, *TheFolder);
-  Builder.SetInsertPoint(BasicBlock::Create(Context, "entry", Thunk));
-
-  // Whether we found 'this' yet.  When not 'this adjusting', setting this to
-  // 'true' means all parameters (including 'this') are passed through as is.
-  bool FoundThis = !ThisAdjusting;
-
-  SmallVector<Value *, 16> Arguments;
-  for (Function::arg_iterator AI = Thunk->arg_begin(), AE = Thunk->arg_end();
-       AI != AE; ++AI) {
-    // While 'this' is always the first GCC argument, we may have introduced
-    // additional artificial arguments for doing struct return or passing a
-    // nested function static chain.  Look for 'this' while passing through
-    // all arguments except for 'this' unchanged.
-    if (FoundThis || AI->hasStructRetAttr() || AI->hasNestAttr()) {
-      Arguments.push_back(AI);
-      continue;
-    }
-
-    FoundThis = true; // The current argument is 'this'.
-    assert(AI->getType()->isPointerTy() && "Wrong type for 'this'!");
-    Value *This = AI;
-
-    // Adjust 'this' according to the thunk offsets.  First, the fixed offset.
-    if (node->thunk.fixed_offset) {
-      Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
-      This = Builder.CreateBitCast(This, BytePtrTy);
-      This = Builder.CreateInBoundsGEP(This, Offset);
-      This = Builder.CreateBitCast(This, AI->getType());
-    }
-
-    // Then by the virtual offset, if any.
-    if (node->thunk.virtual_offset_p)
-      This = ApplyVirtualOffset(This, node->thunk.virtual_value, Builder);
-
-    Arguments.push_back(This);
-  }
-
-  CallInst *Call = Builder.CreateCall(DECL_LLVM(node->thunk.alias),
-                                      Arguments.begin(), Arguments.end());
-  Call->setCallingConv(Thunk->getCallingConv());
-  Call->setAttributes(Thunk->getAttributes());
-  // All parameters except 'this' are passed on unchanged - this is a tail call.
-  Call->setTailCall();
-
-  if (ThisAdjusting) {
-    // Return the value unchanged.
-    if (Thunk->getReturnType()->isVoidTy())
-      Builder.CreateRetVoid();
-    else
-      Builder.CreateRet(Call);
-    return;
-  }
-
-  // Covariant return thunk - adjust the returned value by the thunk offsets.
-  assert(Call->getType()->isPointerTy() && "Only know how to adjust pointers!");
-  Value *RetVal = Call;
-
-  // First check if the returned value is NULL.
-  Value *Zero = Constant::getNullValue(RetVal->getType());
-  Value *isNull = Builder.CreateICmpEQ(RetVal, Zero);
-
-  BasicBlock *isNullBB = BasicBlock::Create(Context, "isNull", Thunk);
-  BasicBlock *isNotNullBB = BasicBlock::Create(Context, "isNotNull", Thunk);
-  Builder.CreateCondBr(isNull, isNullBB, isNotNullBB);
-
-  // If it is NULL, return it without any adjustment.
-  Builder.SetInsertPoint(isNullBB);
-  Builder.CreateRet(Zero);
-
-  // Otherwise, first adjust by the virtual offset, if any.
-  Builder.SetInsertPoint(isNotNullBB);
-  if (node->thunk.virtual_offset_p)
-    RetVal = ApplyVirtualOffset(RetVal, node->thunk.virtual_value, Builder);
-
-  // Then move 'this' by the fixed offset.
-  if (node->thunk.fixed_offset) {
-    Value *Offset = ConstantInt::get(IntPtrTy, node->thunk.fixed_offset);
-    RetVal = Builder.CreateBitCast(RetVal, BytePtrTy);
-    RetVal = Builder.CreateInBoundsGEP(RetVal, Offset);
-    RetVal = Builder.CreateBitCast(RetVal, Thunk->getReturnType());
-  }
-
-  // Return the adjusted value.
-  Builder.CreateRet(RetVal);
 }
 
 /// emit_alias - Given decl and target emit alias to target.
@@ -1686,37 +1533,30 @@ static void emit_file_scope_asm(tree string) {
   TheModule->appendModuleInlineAsm(TREE_STRING_POINTER (string));
 }
 
-/// emit_functions - Turn all functions in the compilation unit into LLVM IR.
-static void emit_functions(cgraph_node_set set
+/// emit_aliases - Convert same-body aliases and file-scope asm into LLVM IR.
+static void emit_aliases(cgraph_node_set set
 #if (GCC_MINOR > 5)
-                           , varpool_node_set /*vset*/
+                         , varpool_node_set /*vset*/
 #endif
-                           ) {
+                         ) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
   InitializeBackend();
 
-  // Visit each function with a body, outputting it only once (the same function
-  // can appear in multiple cgraph nodes due to cloning).
+  // Emit any same-body aliases in the order they were created.
   SmallPtrSet<tree, 32> Visited;
   for (cgraph_node_set_iterator csi = csi_start(set); !csi_end_p(csi);
        csi_next(&csi)) {
     struct cgraph_node *node = csi_node(csi);
-    if (node->analyzed && Visited.insert(node->decl))
-      // If GCC optimizations are enabled then functions are output later, in
-      // place of gimple to RTL conversion.
-      if (!EnableGCCOptimizations)
-        emit_function(node);
+    if (!Visited.insert(node->decl))
+      continue;
 
-    // Output any same-body aliases or thunks in the order they were created.
     struct cgraph_node *alias, *next;
     for (alias = node->same_body; alias && alias->next; alias = alias->next) ;
     for (; alias; alias = next) {
       next = alias->previous;
-      if (alias->thunk.thunk_p)
-        emit_thunk(alias);
-      else
+      if (!alias->thunk.thunk_p)
         emit_same_body_alias(alias, node);
     }
   }
@@ -1729,11 +1569,12 @@ static void emit_functions(cgraph_node_set set
   cgraph_asm_nodes = NULL;
 }
 
-/// pass_emit_functions - IPA pass that turns gimple functions into LLVM IR.
-static struct ipa_opt_pass_d pass_emit_functions = {
+/// pass_emit_aliases - IPA pass that converts same-body aliases and file-scope
+/// asm into LLVM IR.
+static struct ipa_opt_pass_d pass_emit_aliases = {
     {
       IPA_PASS,
-      "emit_functions",	/* name */
+      "emit_aliases",	/* name */
       gate_emission,	/* gate */
       NULL,		/* execute */
       NULL,		/* sub */
@@ -1747,7 +1588,7 @@ static struct ipa_opt_pass_d pass_emit_functions = {
       0			/* todo_flags_finish */
     },
     NULL,		/* generate_summary */
-    emit_functions,	/* write_summary */
+    emit_aliases,	/* write_summary */
     NULL,		/* read_summary */
 #if (GCC_MINOR > 5)
     NULL,		/* write_optimization_summary */
@@ -1820,39 +1661,6 @@ static struct ipa_opt_pass_d pass_emit_variables = {
     0,			/* function_transform_todo_flags_start */
     NULL,		/* function_transform */
     NULL		/* variable_transform */
-};
-
-/// disable_rtl - Mark the current function as having been written to assembly.
-static unsigned int disable_rtl(void) {
-  // Free any data structures.
-  execute_free_datastructures();
-
-  // Mark the function as written.
-  TREE_ASM_WRITTEN(current_function_decl) = 1;
-
-  // That's all folks!
-  return 0;
-}
-
-/// pass_disable_rtl - RTL pass that pretends to codegen functions, but actually
-/// only does hoop jumping required by GCC.
-static struct rtl_opt_pass pass_disable_rtl =
-{
-    {
-      RTL_PASS,
-      "disable_rtl",		/* name */
-      NULL,			/* gate */
-      disable_rtl,		/* execute */
-      NULL,			/* sub */
-      NULL,			/* next */
-      0,			/* static_pass_number */
-      TV_NONE,			/* tv_id */
-      0,			/* properties_required */
-      0,			/* properties_provided */
-      PROP_ssa | PROP_trees,	/* properties_destroyed */
-      0,			/* todo_flags_start */
-      0				/* todo_flags_finish */
-    }
 };
 
 /// rtl_emit_function - Turn a gimple function into LLVM IR.  This is called
@@ -2390,17 +2198,16 @@ plugin_init(struct plugin_name_args *plugin_info,
     register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
   }
 
-  // Replace the LTO gimple pass.  If GCC optimizations are disabled then this
-  // is where functions are converted to LLVM IR.  When GCC optimizations are
-  // enabled then only aliases and thunks are output here, with functions being
-  // converted later after all tree optimizers have run.
-  pass_info.pass = &pass_emit_functions.pass;
+  // Replace the LTO gimple pass with a pass that converts same-body aliases and
+  // file-scope asm to LLVM IR.
+  pass_info.pass = &pass_emit_aliases.pass;
   pass_info.reference_pass_name = "lto_gimple_out";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-  // Replace the LTO decls pass with conversion of global variables to LLVM IR.
+  // Replace the LTO decls pass with a pass that converts global variables to
+  // LLVM IR.
   pass_info.pass = &pass_emit_variables.pass;
   pass_info.reference_pass_name = "lto_decls_out";
   pass_info.ref_pass_instance_number = 0;
@@ -2476,23 +2283,12 @@ plugin_init(struct plugin_name_args *plugin_info,
     // TODO: Disable pass_warn_function_noreturn?
   }
 
-  // Replace rtl expansion.
-  if (!EnableGCCOptimizations) {
-    // Replace rtl expansion with a pass that pretends to codegen functions, but
-    // actually only does the hoop jumping that GCC requires at this point.
-    pass_info.pass = &pass_disable_rtl.pass;
-    pass_info.reference_pass_name = "expand";
-    pass_info.ref_pass_instance_number = 0;
-    pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-  } else {
-    // Replace rtl expansion with a pass that converts functions to LLVM IR.
-    pass_info.pass = &pass_rtl_emit_function.pass;
-    pass_info.reference_pass_name = "expand";
-    pass_info.ref_pass_instance_number = 0;
-    pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-  }
+  // Replace rtl expansion with a pass that converts functions to LLVM IR.
+  pass_info.pass = &pass_rtl_emit_function.pass;
+  pass_info.reference_pass_name = "expand";
+  pass_info.ref_pass_instance_number = 0;
+  pass_info.pos_op = PASS_POS_REPLACE;
+  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
   // Turn off all other rtl passes.
   pass_info.pass = &pass_gimple_null.pass;
