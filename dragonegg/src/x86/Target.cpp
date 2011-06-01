@@ -781,7 +781,10 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   case sqrtps:
   case sqrtps256:
   case sqrtsd:
-  case sqrtss: {
+  case sqrtss:
+  // No need for a Newton-Raphson step - sqrtps is already accurate.
+  case sqrtps_nr:
+  case sqrtps_nr256: {
     const Type *Ty = Ops[0]->getType();
     Function *sqrt = Intrinsic::getDeclaration(TheModule, Intrinsic::sqrt, &Ty,
                                                1);
