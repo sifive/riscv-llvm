@@ -776,19 +776,12 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     SI->setAlignment(16);
     return true;
   }
-  case sqrtpd:
-  case sqrtpd256:
-  case sqrtps:
-  case sqrtps256:
-  case sqrtsd:
-  case sqrtss:
-  // No need for a Newton-Raphson step - sqrtps is already accurate.
-  case sqrtps_nr:
-  case sqrtps_nr256: {
-    const Type *Ty = Ops[0]->getType();
-    Function *sqrt = Intrinsic::getDeclaration(TheModule, Intrinsic::sqrt, &Ty,
-                                               1);
-    Result = Builder.CreateCall(sqrt, Ops[0]);
+  case sqrtps_nr: {
+    // Turn this into sqrtps without a Newton-Raphson step - sqrtps is already
+    // accurate enough.
+    Function *sqrtps = Intrinsic::getDeclaration(TheModule,
+                                                 Intrinsic::x86_sse_sqrt_ps);
+    Result = Builder.CreateCall(sqrtps, Ops[0]);
     return true;
   }
   }
