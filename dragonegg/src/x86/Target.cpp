@@ -776,6 +776,20 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     SI->setAlignment(16);
     return true;
   }
+  case rsqrtps_nr: {
+    // rsqrtps with a Newton-Raphson step to improve accuracy:
+    //   rsqrtps_nr(x) = rsqrtps(x) * -0.5 * (rsqrtps(x) * x * rsqrtps(x) - 3.0)
+    Function *rsqrtps = Intrinsic::getDeclaration(TheModule,
+                                                  Intrinsic::x86_sse_rsqrt_ps);
+    Value *X = Ops[0]; // x
+    Value *R = Builder.CreateCall(rsqrtps, X); // rsqrtps(x)
+    Value *RHS = Builder.CreateFAdd(Builder.CreateFMul(Builder.CreateFMul(R, X),
+                                                       R),
+                                    ConstantFP::get(X->getType(), -3.0));
+    Value *LHS = Builder.CreateFMul(R, ConstantFP::get(X->getType(), -0.5));
+    Result = Builder.CreateFMul(LHS, RHS);
+    return true;
+  }
   case sqrtps_nr: {
     // Turn this into sqrtps without a Newton-Raphson step - sqrtps is already
     // accurate enough.
