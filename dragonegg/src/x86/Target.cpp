@@ -776,6 +776,33 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     SI->setAlignment(16);
     return true;
   }
+  case rsqrtf: {
+    // rsqrtss with a Newton-Raphson step to improve accuracy:
+    //   rsqrtf(x) = rsqrtss(x) * -0.5 * (rsqrtss(x) * x * rsqrtss(x) - 3.0)
+    Function *rsqrtss = Intrinsic::getDeclaration(TheModule,
+                                                  Intrinsic::x86_sse_rsqrt_ss);
+    // As rsqrtss is declared as taking a <4 x float> operand, mulch the operand
+    // into a vector.
+    Value *X = Ops[0];
+    const Type *FloatTy = Type::getFloatTy(Context);
+    Value *AsFloat = Builder.CreateFPTrunc(X, FloatTy);
+    const Type *V4SFTy = VectorType::get(FloatTy, 4);
+    Value *AsVec = Builder.CreateInsertElement(UndefValue::get(V4SFTy), AsFloat,
+                                               Builder.getInt32(0));
+    // Take the reciprocal square root of the vector and mulch it back into a
+    // scalar of the original type.
+    AsVec = Builder.CreateCall(rsqrtss, AsVec);
+    Value *R = Builder.CreateExtractElement(AsVec, Builder.getInt32(0));
+    R = Builder.CreateFPExt(R, X->getType()); // rsqrtss(x)
+
+    // Perform the Newton-Raphson step.
+    Value *RHS = Builder.CreateFAdd(Builder.CreateFMul(Builder.CreateFMul(R, X),
+                                                       R),
+                                    ConstantFP::get(X->getType(), -3.0));
+    Value *LHS = Builder.CreateFMul(R, ConstantFP::get(X->getType(), -0.5));
+    Result = Builder.CreateFMul(LHS, RHS);
+    return true;
+  }
   case rsqrtps_nr: {
     // rsqrtps with a Newton-Raphson step to improve accuracy:
     //   rsqrtps_nr(x) = rsqrtps(x) * -0.5 * (rsqrtps(x) * x * rsqrtps(x) - 3.0)
