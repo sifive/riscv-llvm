@@ -6240,13 +6240,20 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
 
   // Convert the elements.
   SmallVector<Constant*, 8> Elts;
-  for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt))
-    Elts.push_back(EmitRegisterConstant(TREE_VALUE(elt)));
+  const IntegerType *IntTy = getTargetData().getIntPtrType(Context);
+  for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt)) {
+    Constant *Elt = EmitRegisterConstant(TREE_VALUE(elt));
+    // LLVM does not support vectors of pointers, so turn any pointers into
+    // integers.
+    if (isa<PointerType>(Elt->getType()))
+      Elt = Builder.getFolder().CreatePtrToInt(Elt, IntTy);
+    Elts.push_back(Elt);
+  }
 
   // If there weren't enough elements then set the rest of the vector to the
   // default value.
   if (Elts.size() < TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg))) {
-    Constant *Default = getDefaultValue(getRegType(TREE_TYPE(TREE_TYPE(reg))));
+    Constant *Default = getDefaultValue(Elts[0]->getType());
     Elts.append(TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg)) - Elts.size(), Default);
   }
 
