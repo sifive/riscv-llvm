@@ -7375,7 +7375,7 @@ Value *TreeToLLVM::EmitReg_VEC_PACK_TRUNC_EXPR(tree type, tree op0, tree op1) {
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
 
-Value *TreeToLLVM::EmitReg_VEC_UNPACK_HI_EXPR(tree type, tree op0) {
+Value *TreeToLLVM::EmitReg_VecUnpackHiExpr(tree type, tree op0) {
   // Eg: <2 x double> = VEC_UNPACK_HI_EXPR(<4 x float>)
   Value *Op = EmitRegister(op0);
 
@@ -7389,7 +7389,7 @@ Value *TreeToLLVM::EmitReg_VEC_UNPACK_HI_EXPR(tree type, tree op0) {
                        !TYPE_UNSIGNED(TREE_TYPE(type)));
 }
 
-Value *TreeToLLVM::EmitReg_VEC_UNPACK_LO_EXPR(tree type, tree op0) {
+Value *TreeToLLVM::EmitReg_VecUnpackLoExpr(tree type, tree op0) {
   // Eg: <2 x double> = VEC_UNPACK_LO_EXPR(<4 x float>)
   Value *Op = EmitRegister(op0);
 
@@ -8390,10 +8390,12 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_VEC_PACK_TRUNC_EXPR(type, rhs1, rhs2); break;
   case VEC_RSHIFT_EXPR:
     RHS = EmitReg_VecShiftOp(rhs1, rhs2, /*isLeftShift*/false); break;
+  case VEC_UNPACK_FLOAT_HI_EXPR:
   case VEC_UNPACK_HI_EXPR:
-    RHS = EmitReg_VEC_UNPACK_HI_EXPR(type, rhs1); break;
+    RHS = EmitReg_VecUnpackHiExpr(type, rhs1); break;
+  case VEC_UNPACK_FLOAT_LO_EXPR:
   case VEC_UNPACK_LO_EXPR:
-    RHS = EmitReg_VEC_UNPACK_LO_EXPR(type, rhs1); break;
+    RHS = EmitReg_VecUnpackLoExpr(type, rhs1); break;
   }
 
   return TriviallyTypeConvert(RHS, getRegType(type));
