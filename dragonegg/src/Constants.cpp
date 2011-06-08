@@ -541,15 +541,14 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
     unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
     unsigned Stride = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
     SmallVector<Constant*, 16> Vals(NumElts);
+    const IntegerType *IntPtrTy = getTargetData().getIntPtrType(Context);
     for (unsigned i = 0; i != NumElts; ++i) {
       Vals[i] = ExtractRegisterFromConstantImpl(C, elt_type,
                                                 StartingBit+i*Stride, Folder);
       // LLVM does not support vectors of pointers, so turn any pointers into
       // integers.
-      if (isa<PointerType>(Vals[i]->getType())) {
-        const IntegerType *IntTy = getTargetData().getIntPtrType(Context);
-        Vals[i] = Folder.CreatePtrToInt(Vals[i], IntTy);
-      }
+      if (isa<PointerType>(Vals[i]->getType()))
+        Vals[i] = Folder.CreatePtrToInt(Vals[i], IntPtrTy);
     }
     return ConstantVector::get(Vals);
   }
