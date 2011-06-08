@@ -6797,9 +6797,31 @@ Value *TreeToLLVM::EmitReg_RotateOp(tree type, tree op0, tree op1,
 Value *TreeToLLVM::EmitReg_ShiftOp(tree op0, tree op1, unsigned Opc) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
-  if (RHS->getType() != LHS->getType())
-    RHS = CastToAnyType(RHS, /*isSigned*/false, LHS->getType(),
-                        /*isSigned*/false);
+  // Ensure that the shift amount has the same type as the shiftee.
+  if (RHS->getType() != LHS->getType()) {
+    if (LHS->getType()->isVectorTy() == RHS->getType()->isVectorTy()) {
+      // Scalar shifted by a scalar amount, or a vector shifted by a vector
+      // amount.
+      assert((!LHS->getType()->isVectorTy() ||
+              cast<VectorType>(LHS->getType())->getNumElements() ==
+              cast<VectorType>(RHS->getType())->getNumElements()) &&
+             "Vector length mismatch!");
+      RHS = CastToAnyType(RHS, /*isSigned*/false, LHS->getType(),
+                          /*isSigned*/false);
+    } else {
+      // Vector shifted by a scalar amount.  Turn the shift amount into a vector
+      // with all elements equal.
+      assert(LHS->getType()->isVectorTy() &&
+             "Shifting a scalar by a vector amount!");
+      const VectorType *VecTy = cast<VectorType>(LHS->getType());
+      RHS = CastToAnyType(RHS, /*isSigned*/false, VecTy->getElementType(),
+                          /*isSigned*/false);
+      RHS = Builder.CreateInsertElement(UndefValue::get(VecTy), RHS,
+                                        Builder.getInt32(0));
+      RHS = Builder.CreateShuffleVector(RHS, UndefValue::get(VecTy),
+                                        ConstantInt::get(VecTy, 0));
+    }
+  }
   return Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
 }
 
