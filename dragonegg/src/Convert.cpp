@@ -453,9 +453,8 @@ namespace {
           Builder.CreateCast(Instruction::BitCast, AI, SBP),
           ConstantInt::get(IntPtr,
                            TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type))),
-          ConstantInt::get(Type::getInt32Ty(Context), 
-                           LLVM_BYVAL_ALIGNMENT(type)),
-          ConstantInt::get(Type::getInt1Ty(Context), false)
+          Builder.getInt32(LLVM_BYVAL_ALIGNMENT(type)),
+          Builder.getFalse()
         };
         const Type *ArgTypes[3] = {SBP, SBP, IntPtr };
         Builder.CreateCall(Intrinsic::getDeclaration(TheModule, 
@@ -943,9 +942,9 @@ Function *TreeToLLVM::FinishFunctionBody() {
         Value *R1 = Builder.CreateBitCast(RetVal, STy->getPointerTo());
 
         llvm::Value *Idxs[2];
-        Idxs[0] = ConstantInt::get(llvm::Type::getInt32Ty(Context), 0);
+        Idxs[0] = Builder.getInt32(0);
         for (unsigned ri = 0; ri < STy->getNumElements(); ++ri) {
-          Idxs[1] = ConstantInt::get(llvm::Type::getInt32Ty(Context), ri);
+          Idxs[1] = Builder.getInt32(ri);
           Value *GEP = Builder.CreateGEP(R1, Idxs, Idxs+2, "mrv_gep");
           Value *E = Builder.CreateLoad(GEP, "mrv");
           RetVals.push_back(E);
@@ -1628,7 +1627,7 @@ void TreeToLLVM::EmitAggregateZero(MemRef DestLoc, tree type) {
     }
   }
 
-  EmitMemSet(DestLoc.Ptr, ConstantInt::get(Type::getInt8Ty(Context), 0),
+  EmitMemSet(DestLoc.Ptr, Builder.getInt8(0),
              EmitRegister(TYPE_SIZE_UNIT(type)), DestLoc.getAlignment());
 }
 
@@ -1640,8 +1639,8 @@ Value *TreeToLLVM::EmitMemCpy(Value *DestPtr, Value *SrcPtr, Value *Size,
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateBitCast(SrcPtr, SBP),
     Builder.CreateIntCast(Size, IntPtr, /*isSigned*/true),
-    ConstantInt::get(Type::getInt32Ty(Context), Align),
-    ConstantInt::get(Type::getInt1Ty(Context), false)
+    Builder.getInt32(Align),
+    Builder.getFalse()
   };
   const Type *ArgTypes[3] = { SBP, SBP, IntPtr };
 
@@ -1658,8 +1657,8 @@ Value *TreeToLLVM::EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size,
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateBitCast(SrcPtr, SBP),
     Builder.CreateIntCast(Size, IntPtr, /*isSigned*/true),
-    ConstantInt::get(Type::getInt32Ty(Context), Align),
-    ConstantInt::get(Type::getInt1Ty(Context), false)
+    Builder.getInt32(Align),
+    Builder.getFalse()
   };
   const Type *ArgTypes[3] = { SBP, SBP, IntPtr };
 
@@ -1676,8 +1675,8 @@ Value *TreeToLLVM::EmitMemSet(Value *DestPtr, Value *SrcVal, Value *Size,
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateIntCast(SrcVal, Type::getInt8Ty(Context), /*isSigned*/true),
     Builder.CreateIntCast(Size, IntPtr, /*isSigned*/true),
-    ConstantInt::get(Type::getInt32Ty(Context), Align),
-    ConstantInt::get(Type::getInt1Ty(Context), false)
+    Builder.getInt32(Align),
+    Builder.getFalse()
   };
   const Type *ArgTypes[2] = { SBP, IntPtr };
 
@@ -2084,8 +2083,7 @@ void TreeToLLVM::EmitLandingPads() {
         }
 
         // The length is one more than the number of typeinfos.
-        Args[LengthIndex] = ConstantInt::get(Type::getInt32Ty(Context),
-                                             Args.size() - LengthIndex);
+        Args[LengthIndex] = Builder.getInt32(Args.size() - LengthIndex);
         break;
       }
       case ERT_CLEANUP:
@@ -2094,7 +2092,7 @@ void TreeToLLVM::EmitLandingPads() {
       case ERT_MUST_NOT_THROW:
         // Same as a zero-length filter.
         AllCaught = true;
-        Args.push_back(ConstantInt::get(Type::getInt32Ty(Context), 1));
+        Args.push_back(Builder.getInt32(1));
         break;
       case ERT_TRY:
         // Catches.
@@ -2122,7 +2120,7 @@ void TreeToLLVM::EmitLandingPads() {
     if (HasCleanup) {
       if (Args.size() == 2)
         // Insert a sentinel indicating that this is a cleanup-only selector.
-        Args.push_back(ConstantInt::get(Type::getInt32Ty(Context), 0));
+        Args.push_back(Builder.getInt32(0));
       else if (!AllCaught)
         // Some exceptions from this region may not be caught by any handler.
         // Since invokes are required to branch to the unwind label no matter
@@ -2204,7 +2202,7 @@ void TreeToLLVM::EmitFailureBlocks() {
       Args[1] = Builder.CreateBitCast(DECL_LLVM(personality),
                                       Type::getInt8PtrTy(Context));
       // One more than the filter length.
-      Args[2] = ConstantInt::get(Type::getInt32Ty(Context), 1);
+      Args[2] = Builder.getInt32(1);
       // Create the selector call.
       Builder.CreateCall(SlctrIntr, Args, Args + 3, "filter");
 
@@ -2340,9 +2338,7 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
         ThisLastBitPlusOne = LV.BitStart+LV.BitSize;
 
       Value *Ptr = Index ?
-        Builder.CreateGEP(LV.Ptr,
-                          ConstantInt::get(Type::getInt32Ty(Context), Index)) :
-        LV.Ptr;
+        Builder.CreateGEP(LV.Ptr, Builder.getInt32(Index)) : LV.Ptr;
       LoadInst *LI = Builder.CreateLoad(Ptr, LV.Volatile);
       LI->setAlignment(Alignment);
       Value *Val = LI;
@@ -2443,7 +2439,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
         // GCC allows vectors to be built up from vectors.  Extract all of the
         // vector elements and add them to the list of build vector operands.
         for (unsigned i = 0, e = EltTy->getNumElements(); i != e; ++i) {
-          Value *Index = ConstantInt::get(llvm::Type::getInt32Ty(Context), i);
+          Value *Index = Builder.getInt32(i);
           BuildVecOps.push_back(Builder.CreateExtractElement(Elt, Index));
         }
       } else {
@@ -3590,8 +3586,7 @@ Value *TreeToLLVM::BuildVector(const std::vector<Value*> &Ops) {
     UndefValue::get(VectorType::get(Ops[0]->getType(), Ops.size()));
 
   for (unsigned i = 0, e = Ops.size(); i != e; ++i)
-    Result = Builder.CreateInsertElement(Result, Ops[i],
-                                ConstantInt::get(Type::getInt32Ty(Context), i));
+    Result = Builder.CreateInsertElement(Result, Ops[i], Builder.getInt32(i));
 
   return Result;
 }
@@ -3634,7 +3629,7 @@ Value *TreeToLLVM::BuildVectorShuffle(Value *InVec1, Value *InVec2, ...) {
       Idxs.push_back(UndefValue::get(Type::getInt32Ty(Context)));
     else {
       assert((unsigned)idx < 2*NumElements && "Element index out of range!");
-      Idxs.push_back(ConstantInt::get(Type::getInt32Ty(Context), idx));
+      Idxs.push_back(Builder.getInt32(idx));
     }
   }
   va_end(VA);
@@ -3685,11 +3680,11 @@ static std::vector<Constant*> TargetBuiltinCache;
 void TreeToLLVM::EmitMemoryBarrier(bool ll, bool ls, bool sl, bool ss,
                                    bool device) {
   Value* C[5];
-  C[0] = ConstantInt::get(Type::getInt1Ty(Context), ll);
-  C[1] = ConstantInt::get(Type::getInt1Ty(Context), ls);
-  C[2] = ConstantInt::get(Type::getInt1Ty(Context), sl);
-  C[3] = ConstantInt::get(Type::getInt1Ty(Context), ss);
-  C[4] = ConstantInt::get(Type::getInt1Ty(Context), device);
+  C[0] = Builder.getInt1(ll);
+  C[1] = Builder.getInt1(ls);
+  C[2] = Builder.getInt1(sl);
+  C[3] = Builder.getInt1(ss);
+  C[4] = Builder.getInt1(device);
 
   Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
                                                Intrinsic::memory_barrier),
@@ -4165,8 +4160,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_SYNCHRONIZE: {
     // We assume like gcc appears to, that this only applies to cached memory.
     Value* C[5];
-    C[0] = C[1] = C[2] = C[3] = ConstantInt::get(Type::getInt1Ty(Context), 1);
-    C[4] = ConstantInt::get(Type::getInt1Ty(Context), 0);
+    C[0] = C[1] = C[2] = C[3] = Builder.getTrue();
+    C[4] = Builder.getFalse();
 
     Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
                                                  Intrinsic::memory_barrier),
@@ -5067,9 +5062,9 @@ bool TreeToLLVM::EmitBuiltinPrefetch(gimple stmt) {
 
   // Default to highly local read.
   if (ReadWrite == 0)
-    ReadWrite = Constant::getNullValue(Type::getInt32Ty(Context));
+    ReadWrite = Builder.getInt32(0);
   if (Locality == 0)
-    Locality = ConstantInt::get(Type::getInt32Ty(Context), 3);
+    Locality = Builder.getInt32(3);
 
   Ptr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
 
@@ -5194,7 +5189,7 @@ bool TreeToLLVM::EmitBuiltinDwarfCFA(gimple stmt, Value *&Result) {
   Result =
     Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
                                                  Intrinsic::eh_dwarf_cfa),
-                       ConstantInt::get(Type::getInt32Ty(Context), cfa_offset));
+                       Builder.getInt32(cfa_offset));
 
   return true;
 }
@@ -5295,25 +5290,21 @@ bool TreeToLLVM::EmitBuiltinInitDwarfRegSizes(gimple stmt, Value *&/*Result*/) {
       if (rnum < 0)
         continue;
 
-      Size = ConstantInt::get(Type::getInt8Ty(Context), size);
-      Idx  = ConstantInt::get(Type::getInt32Ty(Context), rnum);
+      Size = Builder.getInt8(size);
+      Idx  = Builder.getInt32(rnum);
       Builder.CreateStore(Size, Builder.CreateGEP(Addr, Idx), false);
     }
   }
 
   if (!wrote_return_column) {
-    Size = ConstantInt::get(Type::getInt8Ty(Context),
-                            GET_MODE_SIZE (Pmode));
-    Idx  = ConstantInt::get(Type::getInt32Ty(Context),
-                            DWARF_FRAME_RETURN_COLUMN);
+    Size = Builder.getInt8(GET_MODE_SIZE (Pmode));
+    Idx  = Builder.getInt32(DWARF_FRAME_RETURN_COLUMN);
     Builder.CreateStore(Size, Builder.CreateGEP(Addr, Idx), false);
   }
 
 #ifdef DWARF_ALT_FRAME_RETURN_COLUMN
-  Size = ConstantInt::get(Type::getInt8Ty(Context),
-                          GET_MODE_SIZE (Pmode));
-  Idx  = ConstantInt::get(Type::getInt32Ty(Context),
-                          DWARF_ALT_FRAME_RETURN_COLUMN);
+  Size = Builder.getInt8(GET_MODE_SIZE (Pmode));
+  Idx  = Builder.getInt32(DWARF_ALT_FRAME_RETURN_COLUMN);
   Builder.CreateStore(Size, Builder.CreateGEP(Addr, Idx), false);
 #endif
 
@@ -5497,7 +5488,7 @@ bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt, Value *&/*Result*/) {
   // The GCC trampoline storage is constant from this point on.   Tell this to
   // the optimizers.
   Intr = Intrinsic::getDeclaration(TheModule, Intrinsic::invariant_start);
-  Ops[0] = ConstantInt::get(Type::getInt64Ty(Context), TRAMPOLINE_SIZE);
+  Ops[0] = Builder.getInt64(TRAMPOLINE_SIZE);
   Ops[1] = Builder.CreateBitCast(Tramp, VPTy);
   Builder.CreateCall(Intr, Ops, Ops + 2);
 
@@ -5695,9 +5686,7 @@ LValue TreeToLLVM::EmitLV_BIT_FIELD_REF(tree exp) {
     // TODO: If Ptr.Ptr is a struct type or something, we can do much better
     // than this.  e.g. check out when compiling unwind-dw2-fde-darwin.c.
     Ptr.Ptr = Builder.CreateBitCast(Ptr.Ptr, ValTy->getPointerTo());
-    Ptr.Ptr = Builder.CreateGEP(Ptr.Ptr,
-                                ConstantInt::get(Type::getInt32Ty(Context),
-                                                 UnitOffset));
+    Ptr.Ptr = Builder.CreateGEP(Ptr.Ptr, Builder.getInt32(UnitOffset));
     BitStart -= UnitOffset*ValueSizeInBits;
   }
 
@@ -6291,7 +6280,7 @@ Value *TreeToLLVM::Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
     Value *V = UndefValue::get(RegTy);
     unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
     for (unsigned i = 0; i != NumElts; ++i) {
-      Value *Idx = ConstantInt::get(Type::getInt32Ty(Context), i);
+      Value *Idx = Builder.getInt32(i);
       Value *Val = Builder.CreateExtractElement(V, Idx);
       Val = Mem2Reg(Val, TREE_TYPE(type), Builder);
       V = Builder.CreateInsertElement(V, Val, Idx);
@@ -6336,7 +6325,7 @@ Value *TreeToLLVM::Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
     Value *V = UndefValue::get(MemTy);
     unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
     for (unsigned i = 0; i != NumElts; ++i) {
-      Value *Idx = ConstantInt::get(Type::getInt32Ty(Context), i);
+      Value *Idx = Builder.getInt32(i);
       Value *Val = Builder.CreateExtractElement(V, Idx);
       Val = Reg2Mem(Val, TREE_TYPE(type), Builder);
       V = Builder.CreateInsertElement(V, Val, Idx);
@@ -6382,9 +6371,8 @@ Value *TreeToLLVM::VectorHighElements(Value *Vec) {
   unsigned NumElts = Ty->getNumElements() / 2;
   SmallVector<Constant*, 8> Mask;
   Mask.reserve(NumElts);
-  const Type *Int32Ty = Type::getInt32Ty(Context);
   for (unsigned i = 0; i != NumElts; ++i)
-    Mask.push_back(ConstantInt::get(Int32Ty, NumElts + i));
+    Mask.push_back(Builder.getInt32(NumElts + i));
   return Builder.CreateShuffleVector(Vec, UndefValue::get(Ty),
                                      ConstantVector::get(Mask));
 }
@@ -6397,9 +6385,8 @@ Value *TreeToLLVM::VectorLowElements(Value *Vec) {
   unsigned NumElts = Ty->getNumElements() / 2;
   SmallVector<Constant*, 8> Mask;
   Mask.reserve(NumElts);
-  const Type *Int32Ty = Type::getInt32Ty(Context);
   for (unsigned i = 0; i != NumElts; ++i)
-    Mask.push_back(ConstantInt::get(Int32Ty, i));
+    Mask.push_back(Builder.getInt32(i));
   return Builder.CreateShuffleVector(Vec, UndefValue::get(Ty),
                                      ConstantVector::get(Mask));
 }
@@ -6701,20 +6688,19 @@ Value *TreeToLLVM::EmitReg_ReducMinMaxExpr(tree op, unsigned UIPred,
   unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op));
   assert(Length > 1 && !(Length & (Length - 1)) && "Length not a power of 2!");
   SmallVector<Constant*, 8> Mask(Length);
-  const Type *Int32Ty = Type::getInt32Ty(Context);
-  Constant *UndefIndex = UndefValue::get(Int32Ty);
+  Constant *UndefIndex = UndefValue::get(Type::getInt32Ty(Context));
   for (unsigned Elts = Length >> 1; Elts; Elts >>= 1) {
     // In the extracted vectors, elements with index Elts and on are undefined.
     for (unsigned i = Elts; i != Length; ++i)
       Mask[i] = UndefIndex;
     // Extract elements [0, Elts) from Val.
     for (unsigned i = 0; i != Elts; ++i)
-      Mask[i] = ConstantInt::get(Int32Ty, i);
+      Mask[i] = Builder.getInt32(i);
     Value *LHS = Builder.CreateShuffleVector(Val, UndefValue::get(Ty),
                                              ConstantVector::get(Mask));
     // Extract elements [Elts, 2*Elts) from Val.
     for (unsigned i = 0; i != Elts; ++i)
-      Mask[i] = ConstantInt::get(Int32Ty, Elts + i);
+      Mask[i] = Builder.getInt32(Elts + i);
     Value *RHS = Builder.CreateShuffleVector(Val, UndefValue::get(Ty),
                                              ConstantVector::get(Mask));
 
@@ -6744,20 +6730,19 @@ Value *TreeToLLVM::EmitReg_REDUC_PLUS_EXPR(tree op) {
   unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op));
   assert(Length > 1 && !(Length & (Length - 1)) && "Length not a power of 2!");
   SmallVector<Constant*, 8> Mask(Length);
-  const Type *Int32Ty = Type::getInt32Ty(Context);
-  Constant *UndefIndex = UndefValue::get(Int32Ty);
+  Constant *UndefIndex = UndefValue::get(Type::getInt32Ty(Context));
   for (unsigned Elts = Length >> 1; Elts; Elts >>= 1) {
     // In the extracted vectors, elements with index Elts and on are undefined.
     for (unsigned i = Elts; i != Length; ++i)
       Mask[i] = UndefIndex;
     // Extract elements [0, Elts) from Val.
     for (unsigned i = 0; i != Elts; ++i)
-      Mask[i] = ConstantInt::get(Int32Ty, i);
+      Mask[i] = Builder.getInt32(i);
     Value *LHS = Builder.CreateShuffleVector(Val, UndefValue::get(Ty),
                                              ConstantVector::get(Mask));
     // Extract elements [Elts, 2*Elts) from Val.
     for (unsigned i = 0; i != Elts; ++i)
-      Mask[i] = ConstantInt::get(Int32Ty, Elts + i);
+      Mask[i] = Builder.getInt32(Elts + i);
     Value *RHS = Builder.CreateShuffleVector(Val, UndefValue::get(Ty),
                                              ConstantVector::get(Mask));
 
@@ -6850,19 +6835,19 @@ Value *TreeToLLVM::EmitReg_VecShiftOp(tree op0, tree op1, bool isLeftShift) {
       unsigned Length = VecTy->getNumElements();
       SmallVector<Constant*, 8> Mask;
       Mask.reserve(Length);
-      const Type *Int32Ty = Type::getInt32Ty(Context);
       if (isLeftShift) {
         // shl <4 x i32> %v, 32 ->
         // shufflevector <4 x i32> %v, <4 x i32> undef, <undef, 0, 1, 2>
-        Mask.append(Length - EltOffset, UndefValue::get(Int32Ty));
+        Mask.append(Length - EltOffset,
+                    UndefValue::get(Type::getInt32Ty(Context)));
         for (unsigned i = 0; i != EltOffset; ++i)
-          Mask.push_back(ConstantInt::get(Int32Ty, i));
+          Mask.push_back(Builder.getInt32(i));
       } else {
         // shr <4 x i32> %v, 32 ->
         // shufflevector <4 x i32> %v, <4 x i32> undef, <1, 2, 3, undef>
         for (unsigned i = EltOffset; i != Length; ++i)
-          Mask.push_back(ConstantInt::get(Int32Ty, i));
-        Mask.append(EltOffset, UndefValue::get(Int32Ty));
+          Mask.push_back(Builder.getInt32(i));
+        Mask.append(EltOffset, UndefValue::get(Type::getInt32Ty(Context)));
       }
       return Builder.CreateShuffleVector(LHS, UndefValue::get(VecTy),
                                          ConstantVector::get(Mask));
@@ -7331,7 +7316,7 @@ Value *TreeToLLVM::EmitReg_VEC_EXTRACT_EVEN_EXPR(tree op0, tree op1) {
   SmallVector<Constant*, 16> Mask;
   Mask.reserve(Length);
   for (unsigned i = 0; i != Length; ++i)
-    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), 2*i));
+    Mask.push_back(Builder.getInt32(2*i));
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
 
@@ -7342,7 +7327,7 @@ Value *TreeToLLVM::EmitReg_VEC_EXTRACT_ODD_EXPR(tree op0, tree op1) {
   SmallVector<Constant*, 16> Mask;
   Mask.reserve(Length);
   for (unsigned i = 0; i != Length; ++i)
-    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), 2*i+1));
+    Mask.push_back(Builder.getInt32(2*i+1));
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
 
@@ -7354,8 +7339,8 @@ Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_HIGH_EXPR(tree op0, tree op1) {
   SmallVector<Constant*, 16> Mask;
   Mask.reserve(Length);
   for (unsigned i = Length/2; i != Length; ++i) {
-    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), i));
-    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), Length + i));
+    Mask.push_back(Builder.getInt32(i));
+    Mask.push_back(Builder.getInt32(Length + i));
   }
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
@@ -7368,8 +7353,8 @@ Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_LOW_EXPR(tree op0, tree op1) {
   SmallVector<Constant*, 16> Mask;
   Mask.reserve(Length);
   for (unsigned i = 0, e = Length/2; i != e; ++i) {
-    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), i));
-    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), Length + i));
+    Mask.push_back(Builder.getInt32(i));
+    Mask.push_back(Builder.getInt32(Length + i));
   }
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
@@ -7393,7 +7378,7 @@ Value *TreeToLLVM::EmitReg_VEC_PACK_TRUNC_EXPR(tree type, tree op0, tree op1) {
   SmallVector<Constant*, 16> Mask;
   Mask.reserve(2*Length);
   for (unsigned i = 0, e = 2*Length; i != e; ++i)
-    Mask.push_back(ConstantInt::get(Type::getInt32Ty(Context), i));
+    Mask.push_back(Builder.getInt32(i));
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
 
@@ -8578,9 +8563,7 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
       ThisLastBitPlusOne = LV.BitStart+LV.BitSize;
 
     Value *Ptr = Index ?
-      Builder.CreateGEP(LV.Ptr,
-                        ConstantInt::get(Type::getInt32Ty(Context), Index)) :
-      LV.Ptr;
+      Builder.CreateGEP(LV.Ptr, Builder.getInt32(Index)) : LV.Ptr;
     LoadInst *LI = Builder.CreateLoad(Ptr, LV.Volatile);
     LI->setAlignment(Alignment);
     Value *OldVal = LI;
@@ -8602,7 +8585,7 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
     // be set in the result.
     uint64_t MaskVal = 1;
     MaskVal = ((MaskVal << BitsInVal)-1) << FirstBitInVal;
-    Constant *Mask = ConstantInt::get(Type::getInt64Ty(Context), MaskVal);
+    Constant *Mask = Builder.getInt64(MaskVal);
     Mask = Builder.getFolder().CreateTruncOrBitCast(Mask, ValTy);
 
     if (FirstBitInVal+BitsInVal != ValSizeInBits)
