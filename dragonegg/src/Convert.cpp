@@ -7146,13 +7146,13 @@ Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
   tree type = TREE_TYPE(op0);
 
   if (TREE_CODE(type) == COMPLEX_TYPE) {
-    tree elt_type = TREE_TYPE(type);
     Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
     Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
     Value *DSTr, *DSTi;
 
     // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
-    assert (SCALAR_FLOAT_TYPE_P(elt_type) && "RDIV_EXPR not floating point!");
+    assert (SCALAR_FLOAT_TYPE_P(TREE_TYPE(type)) &&
+            "RDIV_EXPR not floating point!");
     Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
     Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
     Value *Tmp3 = Builder.CreateFAdd(Tmp1, Tmp2); // ac+bd

@@ -321,13 +321,12 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
   case Type::ArrayTyID: {
     const ArrayType *ATy = cast<ArrayType>(Ty);
     const Type *EltTy = ATy->getElementType();
-    const unsigned NumElts = ATy->getNumElements();
     const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
     assert(Stride > 0 && "Store size smaller than alloc size?");
     // Elements with indices in [FirstElt, LastElt) overlap the range.
     unsigned FirstElt = R.getFirst() / Stride;
     unsigned LastElt = (R.getLast() + Stride - 1) / Stride;
-    assert(LastElt <= NumElts && "Store size bigger than array?");
+    assert(LastElt <= ATy->getNumElements() && "Store size bigger than array?");
     // Visit all elements that overlap the requested range, accumulating their
     // bits in Bits.
     BitSlice Bits;
@@ -369,13 +368,12 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
   case Type::VectorTyID: {
     const VectorType *VTy = cast<VectorType>(Ty);
     const Type *EltTy = VTy->getElementType();
-    const unsigned NumElts = VTy->getNumElements();
     const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
     assert(Stride > 0 && "Store size smaller than alloc size?");
     // Elements with indices in [FirstElt, LastElt) overlap the range.
     unsigned FirstElt = R.getFirst() / Stride;
     unsigned LastElt = (R.getLast() + Stride - 1) / Stride;
-    assert(LastElt <= NumElts && "Store size bigger than vector?");
+    assert(LastElt <= VTy->getNumElements() && "Store size bigger than vector?");
     // Visit all elements that overlap the requested range, accumulating their
     // bits in Bits.
     BitSlice Bits;
@@ -711,6 +709,7 @@ static Constant *ConvertCST(tree exp, TargetFolder &) {
   std::vector<unsigned char> Buffer(SizeInChars);
   unsigned CharsWritten = native_encode_expr(exp, &Buffer[0], SizeInChars);
   assert(CharsWritten == SizeInChars && "Failed to fully encode expression!");
+  (void)CharsWritten; // Avoid unused variable warning when assertions disabled.
   // Turn it into an LLVM byte array.
   return ConstantArray::get(Context, StringRef((char *)&Buffer[0], SizeInChars),
                             /*AddNull*/false);

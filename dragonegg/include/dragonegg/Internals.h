@@ -114,6 +114,7 @@ extern Constant* ConvertMetadataStringToGV(const char *str);
 /// give up the ghost, quit miserably.
 inline void LLVM_ATTRIBUTE_NORETURN DieAbjectly(const char *Message) {
   llvm_unreachable(Message);
+  (void)Message; // Avoid unused variable warning when assertions are disabled.
 }
 inline void LLVM_ATTRIBUTE_NORETURN DieAbjectly(const char *Message,
                                                 union gimple_statement_d *stmt){
