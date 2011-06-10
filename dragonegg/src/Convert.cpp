@@ -5985,7 +5985,12 @@ LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
       Delta = EmitRegister(addr.base);
   } else {
     assert(addr.base && "TARGET_MEM_REF has neither base nor symbol!");
-    Ref = LValue(EmitRegister(addr.base), 1);
+    Value *Base = EmitRegister(addr.base);
+    // The type of BASE is sizetype or a pointer type.  Convert sizetype to i8*.
+    // TODO: In mainline BASE always has pointer type.
+    if (!isa<PointerType>(Base->getType()))
+      Base = Builder.CreateIntToPtr(Base, GetUnitPointerType(Context));
+    Ref = LValue(Base, 1);
   }
 
   if (addr.index) {
