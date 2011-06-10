@@ -225,7 +225,11 @@ static int PerFunctionOptLevel() {
 /// ModuleOptLevel - The optimization level to be used by the module level IR
 /// optimizers.
 static int ModuleOptLevel() {
-  return LLVMIROptimizeArg >= 0 ? LLVMIROptimizeArg : optimize;
+  if (LLVMIROptimizeArg >= 0)
+    return LLVMIROptimizeArg;
+  if (EnableGCCOptimizations)
+    return 0;
+  return optimize;
 }
 
 // SizeOfGlobalMatchesDecl - Whether the size of the given global value is the
