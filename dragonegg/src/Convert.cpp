@@ -6803,8 +6803,10 @@ Value *TreeToLLVM::EmitReg_ShiftOp(tree op0, tree op1, unsigned Opc) {
                           /*isSigned*/false);
       RHS = Builder.CreateInsertElement(UndefValue::get(VecTy), RHS,
                                         Builder.getInt32(0));
+      const Type *MaskTy = VectorType::get(Type::getInt32Ty(Context),
+                                           VecTy->getNumElements());
       RHS = Builder.CreateShuffleVector(RHS, UndefValue::get(VecTy),
-                                        ConstantInt::get(VecTy, 0));
+                                        ConstantInt::get(MaskTy, 0));
     }
   }
   return Builder.CreateBinOp((Instruction::BinaryOps)Opc, LHS, RHS);
