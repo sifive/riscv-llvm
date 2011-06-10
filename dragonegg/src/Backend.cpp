@@ -216,22 +216,16 @@ static CodeGenOpt::Level CodeGenOptLevel() {
   return CodeGenOpt::Aggressive;
 }
 
-/// IROptLevel - The optimization level to be used by the IR level optimizers.
-static int IROptLevel() {
+/// PerFunctionOptLevel - The optimization level to be used by the per-function
+/// IR optimizers.
+static int PerFunctionOptLevel() {
   return LLVMIROptimizeArg >= 0 ? LLVMIROptimizeArg : optimize;
 }
 
-// GuessAtInliningThreshold - Figure out a reasonable threshold to pass llvm's
-// inliner.  gcc has many options that control inlining, but we have decided
-// not to support anything like that for llvm-gcc.
-static unsigned GuessAtInliningThreshold() {
-  if (optimize_size)
-    // Reduce inline limit.
-    return 75;
-
-  if (IROptLevel() >= 3)
-    return 275;
-  return 225;
+/// ModuleOptLevel - The optimization level to be used by the module level IR
+/// optimizers.
+static int ModuleOptLevel() {
+  return LLVMIROptimizeArg >= 0 ? LLVMIROptimizeArg : optimize;
 }
 
 // SizeOfGlobalMatchesDecl - Whether the size of the given global value is the
@@ -519,7 +513,6 @@ static void InitializeBackend(void) {
   InstallLanguageSettings();
 
   // Configure the pass builder.
-  PassBuilder.OptLevel = IROptLevel();
   PassBuilder.SizeLevel = optimize_size;
   PassBuilder.DisableSimplifyLibCalls = flag_no_simplify_libcalls;
   PassBuilder.DisableUnrollLoops = !flag_unroll_loops;
@@ -561,6 +554,7 @@ static void createPerFunctionOptimizationPasses() {
   PerFunctionPasses->add(createVerifierPass());
 #endif
 
+  PassBuilder.OptLevel = PerFunctionOptLevel();
   PassBuilder.populateFunctionPassManager(*PerFunctionPasses);
 
   // If there are no module-level passes that have to be run, we codegen as
@@ -602,8 +596,18 @@ static void createPerModuleOptimizationPasses() {
   bool NeedAlwaysInliner = false;
   llvm::Pass *InliningPass = 0;
   if (flag_inline_small_functions && !flag_no_inline) {
-    // Inline small functions.
-    InliningPass = createFunctionInliningPass(GuessAtInliningThreshold());
+    // Inline small functions.  Figure out a reasonable threshold to pass llvm's
+    // inliner.  GCC has many options that control inlining, but we have decided
+    // not to support anything like that for dragonegg.
+    unsigned Threshold;
+    if (optimize_size)
+      // Reduce inline limit.
+      Threshold = 75;
+    else if (ModuleOptLevel() >= 3)
+      Threshold = 275;
+    else
+      Threshold = 225;
+    InliningPass = createFunctionInliningPass(Threshold);
   } else {
     // If full inliner is not run, check if always-inline is needed to handle
     // functions that are  marked as always_inline.
@@ -619,6 +623,7 @@ static void createPerModuleOptimizationPasses() {
       InliningPass = createAlwaysInlinerPass();  // Inline always_inline funcs
   }
 
+  PassBuilder.OptLevel = ModuleOptLevel();
   PassBuilder.Inliner = InliningPass;
   PassBuilder.populateModulePassManager(*PerModulePasses);
 
