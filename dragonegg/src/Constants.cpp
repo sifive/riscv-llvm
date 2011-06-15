@@ -716,6 +716,8 @@ static Constant *ConvertCST(tree exp, TargetFolder &) {
 }
 
 static Constant *ConvertSTRING_CST(tree exp, TargetFolder &) {
+  // TODO: Enhance GCC's native_encode_expr to handle arbitrary strings and not
+  // just those with a byte component type; then ConvertCST can handle strings.
   const ArrayType *StrTy = cast<ArrayType>(ConvertType(TREE_TYPE(exp)));
   const Type *ElTy = StrTy->getElementType();
 
