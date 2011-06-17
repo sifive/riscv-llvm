@@ -1456,92 +1456,136 @@ void TreeToLLVM::BeginBlock(BasicBlock *BB) {
   Builder.SetInsertPoint(BB);  // It is now the current block.
 }
 
-/// CopyAggregate - Recursively traverse the potientially aggregate src/dest
-/// ptrs, copying all of the elements.
-static void CopyAggregate(MemRef DestLoc, MemRef SrcLoc,
-                          LLVMBuilder &Builder, tree gccType) {
-  assert(DestLoc.Ptr->getType() == SrcLoc.Ptr->getType() &&
-         "Cannot copy between two pointers of different type!");
-  const Type *ElTy =
-    cast<PointerType>(DestLoc.Ptr->getType())->getElementType();
+static const unsigned TooCostly = 8;
 
-  unsigned Alignment = std::min(DestLoc.getAlignment(), SrcLoc.getAlignment());
+/// CostOfAccessingAllElements - Return a number representing the cost of doing
+/// an element by element copy of the specified type.  If it is clear that the
+/// type should not be copied this way, for example because it has a bazillion
+/// elements or contains fields of variable size, then TooCostly (or larger) is
+/// returned.
+static unsigned CostOfAccessingAllElements(tree type) {
+  // If the type is incomplete, enormous or of variable size then don't copy it.
+  if (!isInt64(TYPE_SIZE(type), true))
+    return TooCostly;
 
-  if (ElTy->isSingleValueType()) {
-    LoadInst *V = Builder.CreateLoad(SrcLoc.Ptr, SrcLoc.Volatile);
-    StoreInst *S = Builder.CreateStore(V, DestLoc.Ptr, DestLoc.Volatile);
-    V->setAlignment(Alignment);
-    S->setAlignment(Alignment);
-  } else if (const StructType *STy = dyn_cast<StructType>(ElTy)) {
-    const StructLayout *SL = getTargetData().getStructLayout(STy);
-    for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
-      if (gccType && isPaddingElement(gccType, i))
-        continue;
-      Value *DElPtr = Builder.CreateStructGEP(DestLoc.Ptr, i);
-      Value *SElPtr = Builder.CreateStructGEP(SrcLoc.Ptr, i);
-      unsigned Align = MinAlign(Alignment, SL->getElementOffset(i));
-      CopyAggregate(MemRef(DElPtr, Align, DestLoc.Volatile),
-                    MemRef(SElPtr, Align, SrcLoc.Volatile),
-                    Builder, 0);
+  // A scalar copy has a cost of 1.
+  if (!AGGREGATE_TYPE_P(type))
+    return 1;
+
+  // The cost of a record type is the sum of the costs of its fields.
+  if (TREE_CODE(type) == RECORD_TYPE) {
+    const Type *Ty = ConvertType(type);
+    unsigned TotalCost = 0;
+    for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
+      assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
+      // Bitfields are too hard - give up.
+      if (DECL_BIT_FIELD(Field))
+        return TooCostly;
+      // If there is no corresponding LLVM field then something funky is going
+      // on - just give up.
+      if (GetFieldIndex(Field, Ty) == INT_MIN)
+        return TooCostly;
+      TotalCost += CostOfAccessingAllElements(TREE_TYPE(Field));
+      if (TotalCost >= TooCostly)
+        return TooCostly;
     }
-  } else {
-    const ArrayType *ATy = cast<ArrayType>(ElTy);
-    unsigned EltSize = getTargetData().getTypeAllocSize(ATy->getElementType());
-    for (unsigned i = 0, e = ATy->getNumElements(); i != e; ++i) {
-      Value *DElPtr = Builder.CreateStructGEP(DestLoc.Ptr, i);
-      Value *SElPtr = Builder.CreateStructGEP(SrcLoc.Ptr, i);
-      unsigned Align = MinAlign(Alignment, i * EltSize);
-      CopyAggregate(MemRef(DElPtr, Align, DestLoc.Volatile),
-                    MemRef(SElPtr, Align, SrcLoc.Volatile),
-                    Builder, 0);
+    return TotalCost;
+  }
+
+  // For array types, multiply the array length by the component cost.
+  if (TREE_CODE(type) == ARRAY_TYPE) {
+    // If this is an array with a funky component type then just give up.
+    if (!isSequentialCompatible(type))
+      return TooCostly;
+    uint64_t ArrayLength = ArrayLengthOf(type);
+    if (ArrayLength >= TooCostly)
+      return TooCostly;
+    unsigned ComponentCost = CostOfAccessingAllElements(TREE_TYPE(type));
+    if (ComponentCost >= TooCostly)
+      return TooCostly;
+    return ArrayLength * ComponentCost;
+  }
+
+  // Other types are not supported.
+  return TooCostly;
+}
+
+/// CopyElementByElement - Recursively traverse the potentially aggregate
+/// src/dest ptrs, copying all of the elements.  Helper for EmitAggregateCopy.
+void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
+                                      tree type) {
+  if (!AGGREGATE_TYPE_P(type)) {
+    // Copy scalar.
+    StoreRegisterToMemory(LoadRegisterFromMemory(SrcLoc, type, Builder),
+                          DestLoc, type, Builder);
+    return;
+  }
+
+  if (TREE_CODE(type) == RECORD_TYPE) {
+    // Ensure the source and destination are pointers to the record type.
+    const Type *Ty = ConvertType(type);
+    DestLoc.Ptr = Builder.CreateBitCast(DestLoc.Ptr, Ty->getPointerTo());
+    SrcLoc.Ptr = Builder.CreateBitCast(SrcLoc.Ptr, Ty->getPointerTo());
+
+    // Copy each field in turn.
+    for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
+      // Get the address of the field.
+      int FieldIdx = GetFieldIndex(Field, Ty);
+      assert(FieldIdx != INT_MIN && "Should not be copying if no LLVM field!");
+      Value *DestFieldPtr = Builder.CreateStructGEP(DestLoc.Ptr, FieldIdx);
+      Value *SrcFieldPtr = Builder.CreateStructGEP(SrcLoc.Ptr, FieldIdx);
+
+      // Compute the field's alignment.
+      unsigned DestFieldAlign = DestLoc.getAlignment();
+      unsigned SrcFieldAlign = SrcLoc.getAlignment();
+      if (FieldIdx) {
+        DestFieldAlign = MinAlign(DestFieldAlign, DECL_ALIGN(Field) / 8);
+        SrcFieldAlign = MinAlign(SrcFieldAlign, DECL_ALIGN(Field) / 8);
+      }
+
+      // Copy the field.
+      MemRef DestFieldLoc(DestFieldPtr, DestFieldAlign, DestLoc.Volatile);
+      MemRef SrcFieldLoc(SrcFieldPtr, SrcFieldAlign, SrcLoc.Volatile);
+      CopyElementByElement(DestFieldLoc, SrcFieldLoc, TREE_TYPE(Field));
     }
+    return;
+  }
+
+  assert(TREE_CODE(type) == ARRAY_TYPE && "Expected an array!");
+
+  // Turn the source and destination into pointers to the component type.
+  const Type *CompType = ConvertType(TREE_TYPE(type));
+  DestLoc.Ptr = Builder.CreateBitCast(DestLoc.Ptr, CompType->getPointerTo());
+  SrcLoc.Ptr = Builder.CreateBitCast(SrcLoc.Ptr, CompType->getPointerTo());
+
+  // Copy each component in turn.
+  unsigned ComponentBytes = getTargetData().getTypeAllocSize(CompType);
+  unsigned ArrayLength = ArrayLengthOf(type);
+  for (unsigned i = 0; i != ArrayLength; ++i) {
+    // Get the address of the component.
+    Value *DestCompPtr = DestLoc.Ptr, *SrcCompPtr = SrcLoc.Ptr;
+    if (i) {
+      DestCompPtr = Builder.CreateConstInBoundsGEP1_32(DestCompPtr, i);
+      SrcCompPtr = Builder.CreateConstInBoundsGEP1_32(SrcCompPtr, i);
+    }
+
+    // Compute the component's alignment.
+    unsigned DestCompAlign = DestLoc.getAlignment();
+    unsigned SrcCompAlign = SrcLoc.getAlignment();
+    if (i) {
+      DestCompAlign = MinAlign(DestCompAlign, i * ComponentBytes);
+      SrcCompAlign = MinAlign(SrcCompAlign, i * ComponentBytes);
+    }
+
+    // Copy the component.
+    MemRef DestCompLoc(DestCompPtr, DestCompAlign, DestLoc.Volatile);
+    MemRef SrcCompLoc(SrcCompPtr, SrcCompAlign, SrcLoc.Volatile);
+    CopyElementByElement(DestCompLoc, SrcCompLoc, TREE_TYPE(type));
   }
 }
 
-/// CountAggregateElements - Return the number of elements in the specified type
-/// that will need to be loaded/stored if we copy this by explicit accesses.
-static unsigned CountAggregateElements(const Type *Ty) {
-  if (Ty->isSingleValueType()) return 1;
-
-  if (const StructType *STy = dyn_cast<StructType>(Ty)) {
-    unsigned NumElts = 0;
-    for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i)
-      NumElts += CountAggregateElements(STy->getElementType(i));
-    return NumElts;
-  } else {
-    const ArrayType *ATy = cast<ArrayType>(Ty);
-    return ATy->getNumElements()*CountAggregateElements(ATy->getElementType());
-  }
-}
-
-/// containsFPField - indicates whether the given LLVM type
-/// contains any floating point elements.
-
-static bool containsFPField(const Type *LLVMTy) {
-  if (LLVMTy->isFloatingPointTy())
-    return true;
-  const StructType* STy = dyn_cast<StructType>(LLVMTy);
-  if (STy) {
-    for (StructType::element_iterator I = STy->element_begin(),
-                                      E = STy->element_end(); I != E; I++) {
-      const Type *Ty = *I;
-      if (Ty->isFloatingPointTy())
-        return true;
-      if (Ty->isStructTy() && containsFPField(Ty))
-        return true;
-      const ArrayType *ATy = dyn_cast<ArrayType>(Ty);
-      if (ATy && containsFPField(ATy->getElementType()))
-        return true;
-      const VectorType *VTy = dyn_cast<VectorType>(Ty);
-      if (VTy && containsFPField(VTy->getElementType()))
-        return true;
-    }
-  }
-  return false;
-}
-
-#ifndef TARGET_LLVM_MIN_BYTES_COPY_BY_MEMCPY
-#define TARGET_LLVM_MIN_BYTES_COPY_BY_MEMCPY 64
+#ifndef TARGET_DRAGONEGG_MEMCPY_COST
+#define TARGET_DRAGONEGG_MEMCPY_COST 4
 #endif
 
 /// EmitAggregateCopy - Copy the elements from SrcLoc to DestLoc, using the
@@ -1550,30 +1594,11 @@ void TreeToLLVM::EmitAggregateCopy(MemRef DestLoc, MemRef SrcLoc, tree type) {
   if (DestLoc.Ptr == SrcLoc.Ptr && !DestLoc.Volatile && !SrcLoc.Volatile)
     return;  // noop copy.
 
-  // If the type is small, copy the elements instead of using a block copy.
-  const Type *LLVMTy = ConvertType(type);
-  unsigned NumElts = CountAggregateElements(LLVMTy);
-  if (TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
-      (NumElts == 1 ||
-       TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type)) <
-       TARGET_LLVM_MIN_BYTES_COPY_BY_MEMCPY)) {
-
-    // Some targets (x87) cannot pass non-floating-point values using FP
-    // instructions.  The LLVM type for a union may include FP elements,
-    // even if some of the union fields do not; it is unsafe to pass such
-    // converted types element by element.  PR 2680.
-
-    // If the GCC type is not fully covered by the LLVM type, use memcpy. This
-    // can occur with unions etc.
-    if ((TREE_CODE(type) != UNION_TYPE || !containsFPField(LLVMTy)) &&
-        !TheTypeConverter->GCCTypeOverlapsWithLLVMTypePadding(type, LLVMTy) &&
-        // Don't copy tons of tiny elements.
-        NumElts <= 8) {
-      DestLoc.Ptr = Builder.CreateBitCast(DestLoc.Ptr, LLVMTy->getPointerTo());
-      SrcLoc.Ptr = Builder.CreateBitCast(SrcLoc.Ptr, LLVMTy->getPointerTo());
-      CopyAggregate(DestLoc, SrcLoc, Builder, type);
-      return;
-    }
+  // If the type is small, copy element by element instead of using memcpy.
+  unsigned Cost = CostOfAccessingAllElements(type);
+  if (Cost < TooCostly && Cost < TARGET_DRAGONEGG_MEMCPY_COST) {
+    CopyElementByElement(DestLoc, SrcLoc, type);
+    return;
   }
 
   Value *TypeSize = EmitRegister(TYPE_SIZE_UNIT(type));
@@ -1581,50 +1606,77 @@ void TreeToLLVM::EmitAggregateCopy(MemRef DestLoc, MemRef SrcLoc, tree type) {
              std::min(DestLoc.getAlignment(), SrcLoc.getAlignment()));
 }
 
-/// ZeroAggregate - Recursively traverse the potentially aggregate DestLoc,
-/// zero'ing all of the elements.
-static void ZeroAggregate(MemRef DestLoc, LLVMBuilder &Builder) {
-  const Type *ElTy =
-    cast<PointerType>(DestLoc.Ptr->getType())->getElementType();
-  if (ElTy->isSingleValueType()) {
-    StoreInst *St = Builder.CreateStore(Constant::getNullValue(ElTy),
-                                        DestLoc.Ptr, DestLoc.Volatile);
-    St->setAlignment(DestLoc.getAlignment());
-  } else if (const StructType *STy = dyn_cast<StructType>(ElTy)) {
-    const StructLayout *SL = getTargetData().getStructLayout(STy);
-    for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
-      Value *Ptr = Builder.CreateStructGEP(DestLoc.Ptr, i);
-      unsigned Alignment = MinAlign(DestLoc.getAlignment(),
-                                    SL->getElementOffset(i));
-      ZeroAggregate(MemRef(Ptr, Alignment, DestLoc.Volatile), Builder);
+/// ZeroElementByElement - Recursively traverse the potentially aggregate
+/// DestLoc, zero'ing all of the elements.  Helper for EmitAggregateZero.
+void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
+  if (!AGGREGATE_TYPE_P(type)) {
+    // Zero scalar.
+    StoreRegisterToMemory(Constant::getNullValue(getRegType(type)), DestLoc,
+                          type, Builder);
+    return;
+  }
+
+  if (TREE_CODE(type) == RECORD_TYPE) {
+    // Ensure the pointer is to the record type.
+    const Type *Ty = ConvertType(type);
+    DestLoc.Ptr = Builder.CreateBitCast(DestLoc.Ptr, Ty->getPointerTo());
+
+    // Zero each field in turn.
+    for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
+      // Get the address of the field.
+      int FieldIdx = GetFieldIndex(Field, Ty);
+      assert(FieldIdx != INT_MIN && "Should not be zeroing if no LLVM field!");
+      Value *FieldPtr = Builder.CreateStructGEP(DestLoc.Ptr, FieldIdx);
+
+      // Compute the field's alignment.
+      unsigned FieldAlign = DestLoc.getAlignment();
+      if (FieldIdx)
+        FieldAlign = MinAlign(FieldAlign, DECL_ALIGN(Field) / 8);
+
+      // Zero the field.
+      MemRef FieldLoc(FieldPtr, FieldAlign, DestLoc.Volatile);
+      ZeroElementByElement(FieldLoc, TREE_TYPE(Field));
     }
-  } else {
-    const ArrayType *ATy = cast<ArrayType>(ElTy);
-    unsigned EltSize = getTargetData().getTypeAllocSize(ATy->getElementType());
-    for (unsigned i = 0, e = ATy->getNumElements(); i != e; ++i) {
-      Value *Ptr = Builder.CreateStructGEP(DestLoc.Ptr, i);
-      unsigned Alignment = MinAlign(DestLoc.getAlignment(), i * EltSize);
-      ZeroAggregate(MemRef(Ptr, Alignment, DestLoc.Volatile), Builder);
-    }
+    return;
+  }
+
+  assert(TREE_CODE(type) == ARRAY_TYPE && "Expected an array!");
+
+  // Turn the pointer into a pointer to the component type.
+  const Type *CompType = ConvertType(TREE_TYPE(type));
+  DestLoc.Ptr = Builder.CreateBitCast(DestLoc.Ptr, CompType->getPointerTo());
+
+  // Zero each component in turn.
+  unsigned ComponentBytes = getTargetData().getTypeAllocSize(CompType);
+  unsigned ArrayLength = ArrayLengthOf(type);
+  for (unsigned i = 0; i != ArrayLength; ++i) {
+    // Get the address of the component.
+    Value *CompPtr = DestLoc.Ptr;
+    if (i)
+      CompPtr = Builder.CreateConstInBoundsGEP1_32(CompPtr, i);
+
+    // Compute the component's alignment.
+    unsigned CompAlign = DestLoc.getAlignment();
+    if (i)
+      CompAlign = MinAlign(CompAlign, i * ComponentBytes);
+
+    // Zero the component.
+    MemRef CompLoc(CompPtr, CompAlign, DestLoc.Volatile);
+    ZeroElementByElement(CompLoc, TREE_TYPE(type));
   }
 }
 
+#ifndef TARGET_DRAGONEGG_MEMSET_COST
+#define TARGET_DRAGONEGG_MEMSET_COST 4
+#endif
+
 /// EmitAggregateZero - Zero the elements of DestLoc.
 void TreeToLLVM::EmitAggregateZero(MemRef DestLoc, tree type) {
-  // If the type is small, copy the elements instead of using a block copy.
-  if (TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
-      TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type)) < 128) {
-    const Type *LLVMTy = ConvertType(type);
-
-    // If the GCC type is not fully covered by the LLVM type, use memset. This
-    // can occur with unions etc.
-    if (!TheTypeConverter->GCCTypeOverlapsWithLLVMTypePadding(type, LLVMTy) &&
-        // Don't zero tons of tiny elements.
-        CountAggregateElements(LLVMTy) <= 8) {
-      DestLoc.Ptr = Builder.CreateBitCast(DestLoc.Ptr, LLVMTy->getPointerTo());
-      ZeroAggregate(DestLoc, Builder);
-      return;
-    }
+  // If the type is small, zero element by element instead of using memset.
+  unsigned Cost = CostOfAccessingAllElements(type);
+  if (Cost < TooCostly && Cost < TARGET_DRAGONEGG_MEMSET_COST) {
+    ZeroElementByElement(DestLoc, type);
+    return;
   }
 
   EmitMemSet(DestLoc.Ptr, Builder.getInt8(0),

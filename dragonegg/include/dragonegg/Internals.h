@@ -204,12 +204,6 @@ public:
   /// of the given GCC type (getRegType should be used for values in registers).
   const Type *ConvertType(tree_node *type);
 
-  /// GCCTypeOverlapsWithLLVMTypePadding - Return true if the specified GCC type
-  /// has any data that overlaps with structure padding in the specified LLVM
-  /// type.
-  static bool GCCTypeOverlapsWithLLVMTypePadding(tree_node *t, const Type *Ty);
-
-
   /// ConvertFunctionType - Convert the specified FUNCTION_TYPE or METHOD_TYPE
   /// tree to an LLVM type.  This does the same thing that ConvertType does, but
   /// it also returns the function's LLVM calling convention and attributes.
@@ -570,8 +564,16 @@ private: // Helper functions.
   /// the previous block falls through into it, add an explicit branch.
   void BeginBlock(BasicBlock *BB);
 
+  /// CopyElementByElement - Recursively traverse the potentially aggregate
+  /// src/dest ptrs, copying all of the elements.  Helper for EmitAggregateCopy.
+  void CopyElementByElement(MemRef DestLoc, MemRef SrcLoc, tree_node *type);
+
+  /// ZeroElementByElement - Recursively traverse the potentially aggregate
+  /// DestLoc, zero'ing all of the elements.  Helper for EmitAggregateZero.
+  void ZeroElementByElement(MemRef DestLoc, tree_node *type);
+
   /// EmitAggregateZero - Zero the elements of DestLoc.
-  void EmitAggregateZero(MemRef DestLoc, tree_node *GCCType);
+  void EmitAggregateZero(MemRef DestLoc, tree_node *type);
 
   /// EmitMemCpy/EmitMemMove/EmitMemSet - Emit an llvm.memcpy/llvm.memmove or
   /// llvm.memset call with the specified operands.  Returns DestPtr bitcast
