@@ -104,12 +104,12 @@ clean::
 -include $(ALL_OBJECTS:.o=.d)
 
 # The following target exists for the benefit of the dragonegg maintainers, and
-# is not used in a normal build.
+# is not used in a normal build.  You need to specify the path to the GCC build
+# directory in GCC_BUILD_DIR.
 GENGTYPE_INPUT=$(SRC_DIR)/cache.c
 GENGTYPE_OUTPUT=$(INCLUDE_DIR)/dragonegg/gt-cache.h
 gt-cache.h::
-	cd $(HOME)/GCC/objects/gcc && ./build/gengtype \
-	  -P $(GENGTYPE_OUTPUT) $(GCC_PLUGIN_DIR) gtyp-input.list \
-	    $(GENGTYPE_INPUT)
-	sed -i "s/ggc_cache_tab .*\[\]/ggc_cache_tab gt_ggc_rc__gt_cache_h[]/" $(GENGTYPE_OUTPUT)
-	sed -i "s/ggc_root_tab .*\[\]/ggc_root_tab gt_pch_rc__gt_cache_h[]/" $(GENGTYPE_OUTPUT)
+	$(QUIET)$(GCC_BUILD_DIR)/gcc/build/gengtype \
+	-r $(GCC_BUILD_DIR)/gcc/gtype.state \
+	-P $(GENGTYPE_OUTPUT) $(GENGTYPE_INPUT)
+	$(QUIET)sed -i "s/__.*gt/__gt/" $(GENGTYPE_OUTPUT)
