@@ -5080,6 +5080,7 @@ bool TreeToLLVM::EmitBuiltinPrefetch(gimple stmt) {
   Value *Ptr = EmitMemory(gimple_call_arg(stmt, 0));
   Value *ReadWrite = 0;
   Value *Locality = 0;
+  Value *Data = 0;
 
   if (gimple_call_num_args(stmt) > 1) { // Args 1/2 are optional
     ReadWrite = EmitMemory(gimple_call_arg(stmt, 1));
@@ -5117,12 +5118,13 @@ bool TreeToLLVM::EmitBuiltinPrefetch(gimple stmt) {
     ReadWrite = Builder.getInt32(0);
   if (Locality == 0)
     Locality = Builder.getInt32(3);
+  if (Data == 0)
+    Data = Builder.getInt32(1);
 
   Ptr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
 
-  Value *Ops[3] = { Ptr, ReadWrite, Locality };
-  Builder.CreateCall(Intrinsic::getDeclaration(TheModule, Intrinsic::prefetch),
-                     Ops, Ops+3);
+  Builder.CreateCall4(Intrinsic::getDeclaration(TheModule, Intrinsic::prefetch),
+                      Ptr, ReadWrite, Locality, Data);
   return true;
 }
 
