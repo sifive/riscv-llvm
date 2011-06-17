@@ -1463,11 +1463,13 @@ static Constant *AddressOfDecl(tree exp, TargetFolder &) {
   return cast<GlobalValue>(DEFINITION_LLVM(exp));
 }
 
+#if (GCC_MINOR < 6)
 /// AddressOfINDIRECT_REF - Return the address of a dereference.
 static Constant *AddressOfINDIRECT_REF(tree exp, TargetFolder &Folder) {
   // The address is just the dereferenced operand.  Get it as an LLVM constant.
   return getAsRegister(TREE_OPERAND(exp, 0), Folder);
 }
+#endif
 
 /// AddressOfLABEL_DECL - Return the address of a label.
 static Constant *AddressOfLABEL_DECL(tree exp, TargetFolder &) {
@@ -1518,9 +1520,11 @@ static Constant *AddressOfImpl(tree exp, TargetFolder &Folder) {
     Addr = AddressOfDecl(exp, Folder);
     break;
   case INDIRECT_REF:
+#if (GCC_MINOR < 6)
   case MISALIGNED_INDIRECT_REF:
     Addr = AddressOfINDIRECT_REF(exp, Folder);
     break;
+#endif
   case LABEL_DECL:
     Addr = AddressOfLABEL_DECL(exp, Folder);
     break;
