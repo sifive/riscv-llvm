@@ -49,7 +49,11 @@ static GTY ((if_marked ("tree_llvm_map_marked_p"),
   htab_t llvm_cache;
 
 /* Garbage collector header.  */
-#include "dragonegg/gt-cache.h"
+#if (GCC_MINOR > 5)
+#include "dragonegg/gt-cache-4.6.h"
+#else
+#include "dragonegg/gt-cache-4.5.h"
+#endif
 
 /* llvm_has_cached - Returns whether a value has been associated with the
    tree.  */
@@ -98,7 +102,12 @@ const void *llvm_set_cached(union tree_node *tree, const void *val) {
   gcc_assert(slot);
 
   if (!*slot) {
-    *slot = GGC_NEW(struct tree_llvm_map);
+    *slot =
+#if (GCC_MINOR > 5)
+      ggc_alloc_tree_llvm_map();
+#else
+      GGC_NEW(struct tree_llvm_map);
+#endif
     (*slot)->base.from = tree;
   }
 
