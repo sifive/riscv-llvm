@@ -306,7 +306,11 @@ static void ConfigureLLVM(void) {
     Args.push_back("--time-passes");
   if (!quiet_flag  || flag_detailed_statistics)
     Args.push_back("--stats");
+#if (GCC_MINOR > 5)
+  if (fast_math_flags_set_p(&global_options))
+#else
   if (fast_math_flags_set_p())
+#endif
     Args.push_back("--enable-unsafe-fp-math");
   if (flag_finite_math_only) {
     Args.push_back("--enable-no-nans-fp-math");
@@ -1359,8 +1363,12 @@ static void llvm_start_unit(void * /*gcc_data*/, void * /*user_data*/) {
   // Output LLVM IR if the user requested generation of lto data.
   EmitIR |= flag_generate_lto != 0;
   // We have the same needs as GCC's LTO.  Always claim to be doing LTO.
-  flag_lto = 1;
-  flag_whopr = 0;
+  flag_lto =
+#if (GCC_MINOR > 5)
+    "";
+#else
+    1;
+#endif
   flag_generate_lto = 1;
   flag_whole_program = 0;
 #else
@@ -1908,11 +1916,16 @@ static struct ipa_opt_pass_d pass_ipa_null = {
     NULL,	/* generate_summary */
     NULL,	/* write_summary */
     NULL,	/* read_summary */
-    NULL,	/* function_read_summary */
-    NULL,	/* stmt_fixup */
-    0,		/* TODOs */
-    NULL,	/* function_transform */
-    NULL	/* variable_transform */
+#if (GCC_MINOR > 5)
+    NULL,		/* write_optimization_summary */
+    NULL,		/* read_optimization_summary */
+#else
+    NULL,		/* function_read_summary */
+#endif
+    NULL,		/* stmt_fixup */
+    0,			/* function_transform_todo_flags_start */
+    NULL,		/* function_transform */
+    NULL		/* variable_transform */
 };
 
 /// pass_rtl_null - RTL pass that does nothing.
