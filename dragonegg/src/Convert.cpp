@@ -5556,7 +5556,7 @@ bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt, Value *&/*Result*/) {
 Value *TreeToLLVM::CreateComplex(Value *Real, Value *Imag) {
   assert(Real->getType() == Imag->getType() && "Component type mismatch!");
   const Type *EltTy = Real->getType();
-  Value *Result = UndefValue::get(StructType::get(Context, EltTy, EltTy, NULL));
+  Value *Result = UndefValue::get(StructType::get(EltTy, EltTy, NULL));
   Result = Builder.CreateInsertValue(Result, Real, 0);
   Result = Builder.CreateInsertValue(Result, Imag, 1);
   return Result;

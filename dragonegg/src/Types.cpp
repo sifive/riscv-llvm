@@ -511,7 +511,7 @@ const Type *getRegType(tree type) {
 
   case COMPLEX_TYPE: {
     const Type *EltTy = getRegType(TREE_TYPE(type));
-    return StructType::get(Context, EltTy, EltTy, NULL);
+    return StructType::get(EltTy, EltTy, NULL);
   }
 
   case OFFSET_TYPE:
@@ -615,7 +615,7 @@ const Type *TypeConverter::ConvertType(tree type) {
     if ((Ty = GET_TYPE_LLVM(type))) return Ty;
     Ty = ConvertType(TREE_TYPE(type));
     assert(!Ty->isAbstract() && "should use TypeDB.setType()");
-    Ty = StructType::get(Context, Ty, Ty, NULL);
+    Ty = StructType::get(Ty, Ty, NULL);
     Ty = SET_TYPE_LLVM(type, Ty);
     break;
   }
@@ -743,7 +743,7 @@ const Type *TypeConverter::ConvertType(tree type) {
         getTargetData().getTypeAllocSizeInBits(Ty);
       if (PadBits) {
         const Type *Padding = ArrayType::get(Type::getInt8Ty(Context), PadBits / 8);
-        Ty = StructType::get(Context, Ty, Padding, NULL);
+        Ty = StructType::get(Ty, Padding, NULL);
       }
     }
 
