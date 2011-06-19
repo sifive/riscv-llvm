@@ -71,7 +71,7 @@ struct HandlerEntry {
   const char *Name; BuiltinCode Handler;
 };
 
-static bool LT(const HandlerEntry &E, const HandlerEntry &F) {
+static bool HandlerLT(const HandlerEntry &E, const HandlerEntry &F) {
   return strcmp(E.Name, F.Name) < 0;
 }
 
@@ -116,7 +116,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     static bool Checked = false;
     if (!Checked) {
       for (unsigned i = 1; i < N; ++i)
-        assert(LT(Handlers[i-1], Handlers[i]) && "Handlers not sorted!");
+        assert(HandlerLT(Handlers[i-1], Handlers[i]) && "Handlers not sorted!");
       Checked = true;
     }
 #endif
@@ -126,7 +126,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     // All builtins handled here have a name starting with __builtin_ia32_.
     if (!strncmp(Identifier, "__builtin_ia32_", 15)) {
       HandlerEntry ToFind = { Identifier + 15, SearchForHandler };
-      const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind, LT);
+      const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind,
+                                               HandlerLT);
       if ((E < Handlers + N) && !strcmp(E->Name, ToFind.Name))
         Handler = E->Handler;
     }
@@ -831,12 +832,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   return false;
 }
 
-/* These are defined in i386.c */
-#define MAX_CLASSES 4
-extern "C" enum machine_mode type_natural_mode(tree, CUMULATIVE_ARGS *);
-extern "C" int examine_argument(enum machine_mode, const_tree, int, int*, int*);
-extern "C" int classify_argument(enum machine_mode, const_tree,
-                               enum x86_64_reg_class classes[MAX_CLASSES], int);
+// One day we will do parameter marshalling right: by using CUMULATIVE_ARGS.
+// While waiting for that happy day, just include a chunk of i386.c.
+#include "ABIHack.inc"
 
 /* Target hook for llvm-abi.h. It returns true if an aggregate of the
    specified type should be passed in memory. This is only called for
