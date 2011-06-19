@@ -2100,12 +2100,14 @@ plugin_init(struct plugin_name_args *plugin_info,
 
     // Leave pass_ipa_function_and_variable_visibility.  Needed for correctness.
 
+#if (GCC_MINOR < 6)
     // Turn off pass_ipa_early_inline.
     pass_info.pass = &pass_simple_ipa_null.pass;
     pass_info.reference_pass_name = "einline_ipa";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+#endif
 
     // Leave pass_ipa_free_lang_data.
 
