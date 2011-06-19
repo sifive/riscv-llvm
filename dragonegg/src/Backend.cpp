@@ -1970,7 +1970,7 @@ static struct simple_ipa_opt_pass pass_simple_ipa_null =
 
 
 // Garbage collector roots.
-extern const struct ggc_cache_tab gt_ggc_rc__gt_llvm_cache_h[];
+extern const struct ggc_cache_tab gt_ggc_rc__gt_cache_h[];
 
 
 /// PluginFlags - Flag arguments for the plugin.
@@ -2084,7 +2084,7 @@ plugin_init(struct plugin_name_args *plugin_info,
 
   // Register our garbage collector roots.
   register_callback (plugin_name, PLUGIN_REGISTER_GGC_CACHES, NULL,
-                     (void *)gt_ggc_rc__gt_llvm_cache_h);
+                     (void *)gt_ggc_rc__gt_cache_h);
 
   // Perform late initialization just before processing the compilation unit.
   register_callback (plugin_name, PLUGIN_START_UNIT, llvm_start_unit, NULL);

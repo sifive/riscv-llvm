@@ -113,3 +113,4 @@ gt-cache.h::
 	-r $(GCC_BUILD_DIR)/gcc/gtype.state \
 	-P $(GENGTYPE_OUTPUT) $(GENGTYPE_INPUT)
 	$(QUIET)sed -i "s/__.*gt/__gt/" $(GENGTYPE_OUTPUT)
+	$(QUIET)sed -i "s/_$(GCC_MAJOR)_$(GCC_MINOR)_/_/" $(GENGTYPE_OUTPUT)

@@ -788,7 +788,7 @@ gt_ggc_m_P13tree_llvm_map4htab (void *x_p)
 
 /* GC roots.  */
 
-EXPORTED_CONST struct ggc_cache_tab gt_ggc_rc__gt_llvm_cache_h[] = {
+EXPORTED_CONST struct ggc_cache_tab gt_ggc_rc__gt_cache_h[] = {
   {
     &llvm_cache,
     1,
