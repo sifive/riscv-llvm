@@ -60,7 +60,19 @@ extern "C" {
 #include "tree-flow.h"
 #include "tree-pass.h"
 
+#if (GCC_MINOR < 6)
 extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
+#else
+// TODO: Submit a GCC patch to install "regs.h" as a plugin header.
+struct target_regs {
+  unsigned char x_hard_regno_nregs[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];
+  enum machine_mode x_reg_raw_mode[FIRST_PSEUDO_REGISTER];
+};
+
+extern struct target_regs default_target_regs;
+
+#define reg_raw_mode (default_target_regs.x_reg_raw_mode)
+#endif
 }
 
 static LLVMContext &Context = getGlobalContext();
