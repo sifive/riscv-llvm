@@ -60,7 +60,6 @@ extern "C" {
 #include "tree-flow.h"
 #include "tree-pass.h"
 
-extern int get_pointer_alignment (tree exp, unsigned int max_align);
 extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
 }
 
@@ -1306,9 +1305,11 @@ LValue TreeToLLVM::EmitLV(tree exp) {
   case INDIRECT_REF:
     LV = EmitLV_INDIRECT_REF(exp);
     break;
+#if (GCC_MINOR < 6)
   case MISALIGNED_INDIRECT_REF:
     LV = EmitLV_MISALIGNED_INDIRECT_REF(exp);
     break;
+#endif
   }
 
   // Check that the type of the lvalue is indeed that of a pointer to the tree
@@ -4692,7 +4693,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_APPLY:
   case BUILT_IN_RETURN:
   case BUILT_IN_SAVEREGS:
+#if (GCC_MINOR < 6)
   case BUILT_IN_ARGS_INFO:
+#endif
   case BUILT_IN_NEXT_ARG:
   case BUILT_IN_CLASSIFY_TYPE:
   case BUILT_IN_AGGREGATE_INCOMING_ADDRESS:
@@ -5971,6 +5974,7 @@ LValue TreeToLLVM::EmitLV_INDIRECT_REF(tree exp) {
   return LV;
 }
 
+#if (GCC_MINOR < 6)
 LValue TreeToLLVM::EmitLV_MISALIGNED_INDIRECT_REF(tree exp) {
   // The lvalue is just the address.  The alignment is given by operand 1.
   unsigned Alignment = tree_low_cst(TREE_OPERAND(exp, 1), true);
@@ -5986,6 +5990,7 @@ LValue TreeToLLVM::EmitLV_MISALIGNED_INDIRECT_REF(tree exp) {
                                  ConvertType(TREE_TYPE(exp))->getPointerTo());
   return LV;
 }
+#endif
 
 LValue TreeToLLVM::EmitLV_VIEW_CONVERT_EXPR(tree exp) {
   // The address is the address of the operand.
@@ -8497,7 +8502,9 @@ Value *TreeToLLVM::EmitAssignSingleRHS(tree rhs) {
   case COMPONENT_REF:
   case IMAGPART_EXPR:
   case INDIRECT_REF:
+#if (GCC_MINOR < 6)
   case MISALIGNED_INDIRECT_REF:
+#endif
   case REALPART_EXPR:
   case TARGET_MEM_REF:
   case VIEW_CONVERT_EXPR:
