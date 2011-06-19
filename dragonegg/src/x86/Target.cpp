@@ -41,6 +41,7 @@ extern "C" {
 #include "target.h"
 #include "tree.h"
 
+#include "diagnostic.h"
 #include "gimple.h"
 #include "toplev.h"
 }
