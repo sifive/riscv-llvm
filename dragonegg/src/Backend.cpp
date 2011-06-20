@@ -697,7 +697,7 @@ static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
     // __attribute__(constructor) can be on a function with any type.  Make sure
     // the pointer is void()*.
     StructInit[1] = TheFolder->CreateBitCast(Tors[i].first, FPTy);
-    InitList.push_back(ConstantStruct::get(Context, StructInit, false));
+    InitList.push_back(ConstantStruct::getAnon(Context, StructInit));
   }
   Constant *Array = ConstantArray::get(
     ArrayType::get(InitList[0]->getType(), InitList.size()), InitList);
@@ -769,8 +769,7 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
         lineNo
       };
 
-      AttributeAnnotateGlobals.push_back(
-        ConstantStruct::get(Context, Element, 4, false));
+      AttributeAnnotateGlobals.push_back(ConstantStruct::getAnon(Element));
     }
 
     // Get next annotate attribute.

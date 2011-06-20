@@ -521,7 +521,7 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
       ExtractRegisterFromConstantImpl(C, elt_type, StartingBit, Folder),
       ExtractRegisterFromConstantImpl(C, elt_type, StartingBit + Stride, Folder)
     };
-    return ConstantStruct::get(Context, Vals, 2, false);
+    return ConstantStruct::getAnon(Vals);
   }
 
   case OFFSET_TYPE:
@@ -615,7 +615,7 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
     Real = RepresentAsMemory(Real, elt_type, Folder);
     Imag = RepresentAsMemory(Imag, elt_type, Folder);
     Constant *Vals[2] = { Real, Imag };
-    Result = ConstantStruct::get(Context, Vals, 2, false);
+    Result = ConstantStruct::getAnon(Vals);
     break;
   }
 
@@ -644,7 +644,7 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
     }
     // The elements may have funky types, so forming a vector may not always be
     // possible.
-    Result = ConstantStruct::get(Context, Vals, false);
+    Result = ConstantStruct::getAnon(Vals);
     break;
   }
 
@@ -839,8 +839,11 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
       unsigned PadBits = EltSize - ValSize;
       assert(PadBits % BITS_PER_UNIT == 0 && "Non-unit type size?");
       unsigned Units = PadBits / BITS_PER_UNIT;
-      Constant *Padding = UndefValue::get(GetUnitType(Context, Units));
-      Val = ConstantStruct::get(Context, false, Val, Padding, NULL);
+      Constant *Elts[] = {
+        Val, UndefValue::get(GetUnitType(Context, Units))
+      };
+      
+      Val = ConstantStruct::getAnon(Elts);
     }
 
     // Get the index position of the element within the array.  Note that this
@@ -926,7 +929,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
 
   // Return as a struct if the contents are not homogeneous.
   if (UseStruct || Pack)
-    return ConstantStruct::get(Context, Elts, Pack);
+    return ConstantStruct::getAnon(Context, Elts, Pack);
 
   // Make the IR more pleasant by returning as a vector if the GCC type was a
   // vector.  However this is only correct if the initial values had the same
@@ -1214,7 +1217,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   }
 
   // Okay, we're done, return the computed elements.
-  return ConstantStruct::get(Context, Elts, Pack);
+  return ConstantStruct::getAnon(Context, Elts, Pack);
 }
 
 static Constant *ConvertCONSTRUCTOR(tree exp, TargetFolder &Folder) {

@@ -6206,7 +6206,7 @@ Constant *TreeToLLVM::EmitComplexRegisterConstant(tree reg) {
     EmitRegisterConstant(TREE_REALPART(reg)),
     EmitRegisterConstant(TREE_IMAGPART(reg))
   };
-  return ConstantStruct::get(Context, Elts, 2, false);
+  return ConstantStruct::getAnon(Elts);
 }
 
 /// EmitIntegerRegisterConstant - Turn the given INTEGER_CST into an LLVM
