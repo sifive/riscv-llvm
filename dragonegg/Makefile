@@ -1,5 +1,5 @@
 # Specify the gcc executable you will use the dragonegg plugin with here.
-GCC?=gcc-4.5
+GCC?=gcc
 
 # Specify the copy of LLVM you will build the plugin against by giving its
 # llvm-config here.  To use an installed copy of LLVM, specify the installed

@@ -2,87 +2,52 @@
 - BUILD INSTRUCTIONS -
 ----------------------
 
+Prerequisites
+-------------
+
+The dragonegg plugin works with gcc 4.5 or gcc 4.6, so you will need to have one
+of these installed.  Many linux distributions ship one or both of them, perhaps
+as an addon package; binaries can be downloaded for most platforms.  Otherwise
+you can always build one of these gcc versions yourself.  Both plugin support
+(--enable-plugin) and support for link time optimization (--enable-lto) need
+to be enabled in gcc, but since they are enabled by default on most platforms
+this should be the case.
+
 Step 0: Build and install llvm
 ------------------------------
 
-I'm assuming anyone reading this knows how to build and install llvm.
-You need the latest llvm from the subversion repository.
-
-Step 1: Build gcc
------------------
-
-Obtain a copy of the source code for the gcc-4.5 release.  You can get it from
-one of the gcc mirrors, see http://gcc.gnu.org/mirrors.html.  Alternatively, you
-can use the gcc-4.5 branch of the gcc subversion repository:
-  svn checkout svn://gcc.gnu.org/svn/gcc/branches/gcc-4_5-branch SomeLocalDir
-If you are feeling brave then you can try gcc mainline:
-  svn checkout svn://gcc.gnu.org/svn/gcc/trunk SomeLocalDir
-Changes on gcc mainline occasionally break the plugin, so your mileage may vary.
-You can find a subversion revision number that is known to work well in the file
-gcc_revision_tested_with (in the same directory as this README).
-
-Apply the patches in the gcc-patches subdirectory, if any.  The following should
-do the trick ("SomeLocalDir" is where you checked/unpacked the gcc source):
-  cat gcc-patches/*.diff | patch -d SomeLocalDir -p1
-
-Configure gcc with your favorite options and also with --enable-plugin and
---enable-lto.  Build gcc and install it somewhere.  If you don't have libelf
-installed then the configure step may fail because the configure script thinks
-that LTO requires libelf, though in fact it does not when using dragonegg.  See
-  http://gcc.gnu.org/wiki/LinkTimeOptimization#Building_the_branch
-In theory the gcc you build can be a cross-compiler, and the plugin should work
-and build code for the targeted platform.  I don't think anyone has ever tried
-this though.
-
-Darwin special: the gcc configure script thinks darwin doesn't support dynamic
-libraries and concludes that plugins won't work.  You can find patches to fix
-this here:
-http://gcc.gnu.org/ml/gcc-patches/2010-04/msg00610.html
-NOTE: This may be fixed in gcc mainline (gcc 4.6).
-
-Darwin special 2: the gcc configure script thinks darwin doesn't support LTO
-because it is not an ELF platform.  Dragonegg repurposes the LTO infrastructure,
-and thus needs LTO support enabled, but it makes no use of the parts of LTO that
-require ELF.  You just need to turn off the ELF check in the configure script.
-If anyone has a patch to do this, I will be happy to add it here!
-NOTE: This is fixed in gcc mainline (gcc 4.6).
+I'm assuming anyone reading this knows how to build and install llvm.  The
+version of llvm must match the version of the plugin, so if you are building
+dragonegg-3.0 then you should use llvm-3.0, while if you are building the
+development version of dragonegg then use the development version of llvm.
 
 
-Step 2: Build the plugin
+Step 1: Build the plugin
 ------------------------
 
 Build the plugin like this:
-  GCC=PATH_TO_JUST_INSTALLED_GCC make
-This should be done in the directory containing this README.
+  GCC=PATH_TO_INSTALLED_GCC make
+This command should be executed in the directory containing this README.
 
 The plugin needs to know about the version of gcc it will be loaded into, which
-is why you need to specify the gcc installed in step 1 via the GCC variable like
-this.  If you have arranged for the new gcc to occur in your path with the name
-gcc-4.5 (using a symbolic link for example) then you can build the plugin using:
+is why you need to specify your version of gcc 4.5/4.6 via the GCC variable like
+this.  If you don't set the GCC variable then by default "gcc" is used, so you
+can just do
   make
+to build if your system gcc is gcc version 4.5 or 4.6.
+
 The plugin is compiled using the system compiler, and not with the gcc specified
-in the GCC variable (which wouldn't work if you built a cross compiler).  If you
-want to also compile the plugin with the new gcc, you can do:
-  CC=PATH_TO_JUST_INSTALLED_GCC CXX=PATH_TO_JUST_INSTALLED_GCC GCC=PATH_TO_JUST_INSTALLED_GCC make
+in the GCC variable (which wouldn't work if it is a cross compiler).  If you
+want to also compile the plugin with your copy gcc 4.5/4.6, you can do:
+  CC=PATH_TO_INSTALLED_GCC CXX=PATH_TO_INSTALLED_GCC GCC=PATH_TO_INSTALLED_GCC make
 
 The build system runs the "llvm-config" program (which should be in your path if
-you installed LLVM properly in step 0) to find out about the copy of LLVM you
+you installed llvm properly in step 0) to find out about the copy of LLVM you
 installed, so there is no need to tell the build system explicitly about LLVM.
 If llvm-config is not in your path then you can specify where to find it using
 the LLVM_CONFIG variable.
 
 The end result of the build is a shared library, dragonegg.so.
-
--------------------------
-- COMMON BUILD PROBLEMS -
--------------------------
-
-To build gcc-4.5 you need the GMP, MPC and MPFR libraries.  If you installed the
-libraries locally, so their header files are not in the standard system include
-path, then the dragonegg build will probably fail due to failing to find header
-files like mpc.h.  To solve this, use CPPFLAGS to add additional include paths,
-for example:
-  CPPFLAGS="-I/path/to/header/files" make
 
 
 ----------------------
@@ -90,7 +55,7 @@ for example:
 ----------------------
 
 Run gcc as usual, but pass -fplugin=./dragonegg.so as an extra command line
-argument.  Make sure you use the gcc you installed above, not the system gcc!
+argument.  Make sure you use the gcc you built dragonegg against (see step 1)!
 
 
 ------------------

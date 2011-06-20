@@ -37,19 +37,22 @@
   <!--=====================================================================-->
 
   <ul>
-  <li>C works well, for example you can build a working gcc using it</li>
+  <li>C works well, for example you can build a working gcc using it.</li>
   <li>C++ works fairly well, for example you can build LLVM, clang and boost
   with it (the resulting LLVM and clang work correctly; boost mostly works but
-  there are some mysterious failures)</li>
+  there are some mysterious failures).</li>
   <li>Fortran works fairly well, for example SPEC CPU mostly compiles and works,
-  but there are some failures</li>
+  but there are some failures.  These have all been fixed in the development
+  version.</li>
   <li>It can compile quite a lot of Ada, and the compiled code mostly seems to
-  work</li>
-  <li>It can compile a small amount of Obj-C and Obj-C++</li>
-  <li>It can compile simple Java programs</li>
-  <li>Limited debug info</li>
-  <li>Requires patching gcc</li>
-  <li>Only supports x86-32 and x86-64</li>
+  work.</li>
+  <li>It can compile a small amount of Obj-C and Obj-C++.</li>
+  <li>It can compile simple Java programs, but they don't execute properly
+  (this is a consequence of the java front-end not supporting GCC's LTO).</li>
+  <li>Limited debug info.</li>
+  <li>Versions 2.9 and earlier require patching gcc (the development version
+  does not).</li>
+  <li>Only supports x86-32 and x86-64.</li>
   <li>Only supports linux, darwin and freebsd (additional gcc patches may be
       needed on darwin, see the <tt>README</tt> file).
   </ul>
@@ -278,12 +281,7 @@ declare i32 @puts(i8* nocapture) nounwind
      <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
   <p><a href="http://llvm.org/docs/GettingStarted.html">Build LLVM</a> in the
   usual way.</p>
-  <p>Get the <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5 source code</a>:</p>
-     <pre>	svn co http://gcc.gnu.org/svn/gcc/branches/gcc-4_5-branch gcc-4.5</pre>
-  <p>Apply all of the patches in <tt>dragonegg/gcc-patches/</tt>, if any, to the
-     gcc-4.5 source. You need to pass the <tt>-p1</tt> option to <tt>patch</tt>.
-     <a href="http://gcc.gnu.org/install/">Build and install gcc-4.5</a> in the
-     usual way.</p>
+  <p>Install gcc-4.5 or gcc-4.6 (you do not need to build your own copy).</p>
   <p>Doing</p>
      <pre>	GCC=path_to_just_installed_gcc make</pre>
   <p>in the <tt>dragonegg</tt> directory should then build <tt>dragonegg.so</tt>.

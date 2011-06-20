@@ -100,18 +100,10 @@ if [ ! -e $GCC_SOURCE ] ; then
   svn co -r $GCC_REVISION svn://gcc.gnu.org/svn/gcc/branches/gcc-4_5-branch $GCC_SOURCE
 elif [ ! -L $GCC_SOURCE ] ; then	# Do not update symbolic links.  This is
 					# for the benefit of the buildbots.
-  echo "Reverting any applied patches"
-  svn revert -R $GCC_SOURCE/gcc
   echo "Updating GCC"
   svn update -r $GCC_REVISION $GCC_SOURCE
 fi
 
-
-# Apply any needed patches to GCC
-for PATCH in $DRAGONEGG_SOURCE/gcc-patches/*.diff ; do
-  echo "Applying patch $PATCH"
-  patch -d $GCC_SOURCE -p1 < $PATCH
-done
 
 PLUGIN_OPTION= # No plugin yet
 PREV_DRAGONEGG_BUILD= # No previous dragonegg
