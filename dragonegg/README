@@ -28,6 +28,12 @@ Step 1: Build the plugin
 Build the plugin like this:
   GCC=PATH_TO_INSTALLED_GCC make
 This command should be executed in the directory containing this README.
+The plugin makes use of various gcc headers that are usually shipped with gcc.
+However some linux distributions, for example debian and ubuntu, have split the
+headers out of gcc into a separate package.  So if you get errors along the
+lines of "config.h not found", check whether gcc headers like "config.h" and
+"tree.h" are installed.  On debian the package containing headers is called
+gcc-4.5-plugin-dev or gcc-4.6-plugin-dev.
 
 The plugin needs to know about the version of gcc it will be loaded into, which
 is why you need to specify your version of gcc 4.5/4.6 via the GCC variable like
