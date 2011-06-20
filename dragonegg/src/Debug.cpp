@@ -619,9 +619,6 @@ DIType DebugInfo::createArrayType(tree type) {
     return DIType();
   }
 
-  if (TREE_CODE(type) == VECTOR_TYPE)
-    type = TREE_TYPE (TYPE_FIELDS (TYPE_DEBUG_REPRESENTATION_TYPE (type)));
-
   // Add the dimensions of the array.  FIXME: This loses CV qualifiers from
   // interior arrays, do we care?  Why aren't nested arrays represented the
   // obvious/recursive way?
@@ -629,24 +626,29 @@ DIType DebugInfo::createArrayType(tree type) {
 
   // There will be ARRAY_TYPE nodes for each rank.  Followed by the derived
   // type.
-  tree atype = type;
-  tree EltTy = TREE_TYPE(atype);
-  for (; TREE_CODE(atype) == ARRAY_TYPE;
-       atype = TREE_TYPE(atype)) {
-    tree Domain = TYPE_DOMAIN(atype);
-    if (Domain) {
-      // FIXME - handle dynamic ranges
-      tree MinValue = TYPE_MIN_VALUE(Domain);
-      tree MaxValue = TYPE_MAX_VALUE(Domain);
-      uint64_t Low = 0;
-      uint64_t Hi = 0;
-      if (isInt64(MinValue, false))
-        Low = getINTEGER_CSTVal(MinValue);
-      if (isInt64(MaxValue, false))
-        Hi = getINTEGER_CSTVal(MaxValue);
-      Subscripts.push_back(DebugFactory.GetOrCreateSubrange(Low, Hi));
+  tree EltTy = TREE_TYPE(type);
+  if (TREE_CODE(type) == ARRAY_TYPE) {
+    tree atype = type;
+    for (; TREE_CODE(atype) == ARRAY_TYPE; atype = TREE_TYPE(atype)) {
+      tree Domain = TYPE_DOMAIN(atype);
+      if (Domain) {
+        // FIXME - handle dynamic ranges
+        tree MinValue = TYPE_MIN_VALUE(Domain);
+        tree MaxValue = TYPE_MAX_VALUE(Domain);
+        uint64_t Low = 0;
+        uint64_t Hi = 0;
+        if (isInt64(MinValue, false))
+          Low = getINTEGER_CSTVal(MinValue);
+        if (isInt64(MaxValue, false))
+          Hi = getINTEGER_CSTVal(MaxValue);
+        Subscripts.push_back(DebugFactory.GetOrCreateSubrange(Low, Hi));
+      }
+      EltTy = TREE_TYPE(atype);
     }
-    EltTy = TREE_TYPE(atype);
+  } else {
+    assert(TREE_CODE(type) == VECTOR_TYPE && "Not an array or vector type!");
+    unsigned Length = TYPE_VECTOR_SUBPARTS(type);
+    Subscripts.push_back(DebugFactory.GetOrCreateSubrange(0, Length));
   }
 
   llvm::DIArray SubscriptArray =
