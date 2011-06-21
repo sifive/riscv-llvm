@@ -281,7 +281,9 @@ declare i32 @puts(i8* nocapture) nounwind
      <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
   <p><a href="http://llvm.org/docs/GettingStarted.html">Build LLVM</a> in the
   usual way.</p>
-  <p>Install gcc-4.5 or gcc-4.6 (you do not need to build your own copy).</p>
+  <p>Install gcc-4.5 or gcc-4.6 (you do not need to build your own copy).  On
+  debian and ubuntu you need to install the corresponding plugin-dev package
+  (gcc-4.5-plugin-dev or gcc-4.6-plugin-dev).</p>
   <p>Doing</p>
      <pre>	GCC=path_to_just_installed_gcc make</pre>
   <p>in the <tt>dragonegg</tt> directory should then build <tt>dragonegg.so</tt>.
