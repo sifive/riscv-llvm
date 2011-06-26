@@ -3659,7 +3659,7 @@ Value *TreeToLLVM::BuildVector(const std::vector<Value*> &Ops) {
 
   // If this is a constant vector, create a ConstantVector.
   if (AllConstants) {
-    std::vector<Constant*> CstOps;
+    SmallVector<Constant*, 16> CstOps;
     for (unsigned i = 0, e = Ops.size(); i != e; ++i)
       CstOps.push_back(cast<Constant>(Ops[i]));
     return ConstantVector::get(CstOps);
@@ -3704,7 +3704,7 @@ Value *TreeToLLVM::BuildVectorShuffle(Value *InVec1, Value *InVec2, ...) {
   unsigned NumElements = cast<VectorType>(InVec1->getType())->getNumElements();
 
   // Get all the indexes from varargs.
-  std::vector<Constant*> Idxs;
+  SmallVector<Constant*, 16> Idxs;
   va_list VA;
   va_start(VA, InVec2);
   for (unsigned i = 0; i != NumElements; ++i) {
@@ -6346,7 +6346,7 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
     return getDefaultValue(getRegType(TREE_TYPE(reg)));
 
   // Convert the elements.
-  SmallVector<Constant*, 8> Elts;
+  SmallVector<Constant*, 16> Elts;
   const IntegerType *IntTy = getTargetData().getIntPtrType(Context);
   for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt)) {
     Constant *Elt = EmitRegisterConstant(TREE_VALUE(elt));
