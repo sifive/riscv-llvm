@@ -80,6 +80,20 @@ static LLVMContext &Context = getGlobalContext();
 STATISTIC(NumBasicBlocks, "Number of basic blocks converted");
 STATISTIC(NumStatements,  "Number of gimple statements converted");
 
+/// getIntegerValue - Return the specified INTEGER_CST as an APInt.
+APInt getIntegerValue(tree exp) {
+  double_int val = tree_to_double_int(exp);
+  unsigned NumBits = TYPE_PRECISION(TREE_TYPE(exp));
+
+  if (integerPartWidth == HOST_BITS_PER_WIDE_INT)
+    return APInt(NumBits, /*numWords*/2, (integerPart*)&val);
+  assert(integerPartWidth == 2 * HOST_BITS_PER_WIDE_INT &&
+         "Unsupported host integer width!");
+  unsigned ShiftAmt = HOST_BITS_PER_WIDE_INT;
+  integerPart Part = integerPart(val.low) + (integerPart(val.high) << ShiftAmt);
+  return APInt(NumBits, Part);
+}
+
 /// getINTEGER_CSTVal - Return the specified INTEGER_CST value as a uint64_t.
 ///
 uint64_t getINTEGER_CSTVal(tree exp) {
@@ -1286,6 +1300,11 @@ LValue TreeToLLVM::EmitLV(tree exp) {
   case SSA_NAME:
     LV = EmitLV_SSA_NAME(exp);
     break;
+#if (GCC_MINOR > 5)
+  case MEM_REF:
+    LV = EmitLV_MEM_REF(exp);
+    break;
+#endif
   case TARGET_MEM_REF:
     LV = EmitLV_TARGET_MEM_REF(exp);
     break;
@@ -5986,6 +6005,29 @@ LValue TreeToLLVM::EmitLV_INDIRECT_REF(tree exp) {
   return LV;
 }
 
+#if (GCC_MINOR > 5)
+LValue TreeToLLVM::EmitLV_MEM_REF(tree exp) {
+  // The address is the first operand offset in bytes by the second.
+  Value *Addr = EmitRegister(TREE_OPERAND(exp, 0));
+  if (!integer_zerop(TREE_OPERAND(exp, 1))) {
+    // Convert to a byte pointer and displace by the offset.
+    Addr = Builder.CreateBitCast(Addr, GetUnitPointerType(Context));
+    APInt Offset = getIntegerValue(TREE_OPERAND(exp, 1));
+    // The address is always inside the referenced object, so "inbounds".
+    Addr = Builder.CreateInBoundsGEP(Addr, ConstantInt::get(Context, Offset));
+  }
+
+  // Ensure the pointer has the right type.
+  Addr = Builder.CreateBitCast(Addr,
+                               ConvertType(TREE_TYPE(exp))->getPointerTo());
+  unsigned Alignment = std::max(TYPE_ALIGN(TREE_TYPE (exp)),
+                                get_object_alignment(exp, BIGGEST_ALIGNMENT));
+  bool Volatile = TREE_THIS_VOLATILE(exp);
+
+  return LValue(Addr, Alignment / 8, Volatile);
+}
+#endif
+
 #if (GCC_MINOR < 6)
 LValue TreeToLLVM::EmitLV_MISALIGNED_INDIRECT_REF(tree exp) {
   // The lvalue is just the address.  The alignment is given by operand 1.
@@ -8514,6 +8556,9 @@ Value *TreeToLLVM::EmitAssignSingleRHS(tree rhs) {
   case COMPONENT_REF:
   case IMAGPART_EXPR:
   case INDIRECT_REF:
+#if (GCC_MINOR > 5)
+  case MEM_REF:
+#endif
 #if (GCC_MINOR < 6)
   case MISALIGNED_INDIRECT_REF:
 #endif

@@ -268,8 +268,11 @@ extern const Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace = 0);
 /// INT_MAX if there is no such LLVM field.
 int GetFieldIndex(tree_node *decl, const Type *Ty);
 
+/// getIntegerValue - Return the specified INTEGER_CST as an APInt.
+APInt getIntegerValue(tree_node *exp);
+
 /// getINTEGER_CSTVal - Return the specified INTEGER_CST value as a uint64_t.
-///
+/// TODO: Remove this and use getIntegerValue instead.
 uint64_t getINTEGER_CSTVal(tree_node *exp);
 
 /// isInt64 - Return true if t is an INTEGER_CST that fits in a 64 bit integer.
@@ -805,6 +808,9 @@ private:
   LValue EmitLV_COMPONENT_REF(tree_node *exp);
   LValue EmitLV_DECL(tree_node *exp);
   LValue EmitLV_INDIRECT_REF(tree_node *exp);
+#if (GCC_MINOR > 5)
+  LValue EmitLV_MEM_REF(tree_node *exp);
+#endif
 #if (GCC_MINOR < 6)
   LValue EmitLV_MISALIGNED_INDIRECT_REF(tree_node *exp);
 #endif
