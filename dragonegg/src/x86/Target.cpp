@@ -661,9 +661,9 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       // If palignr is shifting the pair of input vectors less than 9 bytes,
       // emit a shuffle instruction.
       if (shiftVal <= 8) {
-        const llvm::Type *IntTy = Type::getInt32Ty(Context);
-        const llvm::Type *EltTy = Type::getInt8Ty(Context);
-        const llvm::Type *VecTy = VectorType::get(EltTy, 8);
+        const Type *IntTy = Type::getInt32Ty(Context);
+        const Type *EltTy = Type::getInt8Ty(Context);
+        const Type *VecTy = VectorType::get(EltTy, 8);
 
         Ops[1] = Builder.CreateBitCast(Ops[1], VecTy);
         Ops[0] = Builder.CreateBitCast(Ops[0], VecTy);
@@ -681,8 +681,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       // than 16 bytes, emit a logical right shift of the destination.
       if (shiftVal < 16) {
         // MMX has these as 1 x i64 vectors for some odd optimization reasons.
-        const llvm::Type *EltTy = Type::getInt64Ty(Context);
-        const llvm::Type *VecTy = VectorType::get(EltTy, 1);
+        const Type *EltTy = Type::getInt64Ty(Context);
+        const Type *VecTy = VectorType::get(EltTy, 1);
 
         Ops[0] = Builder.CreateBitCast(Ops[0], VecTy, "cast");
         Ops[1] = ConstantInt::get(VecTy, (shiftVal-8) * 8);
@@ -713,14 +713,14 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       // If palignr is shifting the pair of input vectors less than 17 bytes,
       // emit a shuffle instruction.
       if (shiftVal <= 16) {
-        const llvm::Type *IntTy = Type::getInt32Ty(Context);
-        const llvm::Type *EltTy = Type::getInt8Ty(Context);
-        const llvm::Type *VecTy = VectorType::get(EltTy, 16);
+        const Type *IntTy = Type::getInt32Ty(Context);
+        const Type *EltTy = Type::getInt8Ty(Context);
+        const Type *VecTy = VectorType::get(EltTy, 16);
 
         Ops[1] = Builder.CreateBitCast(Ops[1], VecTy);
         Ops[0] = Builder.CreateBitCast(Ops[0], VecTy);
 
-        llvm::SmallVector<Constant*, 16> Indices;
+        SmallVector<Constant*, 16> Indices;
         for (unsigned i = 0; i != 16; ++i)
           Indices.push_back(ConstantInt::get(IntTy, shiftVal + i));
 
@@ -732,16 +732,16 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       // If palignr is shifting the pair of input vectors more than 16 but less
       // than 32 bytes, emit a logical right shift of the destination.
       if (shiftVal < 32) {
-        const llvm::Type *EltTy = Type::getInt64Ty(Context);
-        const llvm::Type *VecTy = VectorType::get(EltTy, 2);
-        const llvm::Type *IntTy = Type::getInt32Ty(Context);
+        const Type *EltTy = Type::getInt64Ty(Context);
+        const Type *VecTy = VectorType::get(EltTy, 2);
+        const Type *IntTy = Type::getInt32Ty(Context);
 
         Ops[0] = Builder.CreateBitCast(Ops[0], VecTy, "cast");
         Ops[1] = ConstantInt::get(IntTy, (shiftVal-16) * 8);
 
         // create i32 constant
-        llvm::Function *F = Intrinsic::getDeclaration(TheModule,
-                                                  Intrinsic::x86_sse2_psrl_dq);
+        Function *F = Intrinsic::getDeclaration(TheModule,
+                                                Intrinsic::x86_sse2_psrl_dq);
         Result = Builder.CreateCall(F, &Ops[0], &Ops[0] + 2, "palignr");
         return true;
       }
@@ -1551,10 +1551,10 @@ static void llvm_x86_extract_mrv_array_element(Value *Src, Value *Dest,
                                                bool isVolatile) {
   Value *EVI = Builder.CreateExtractValue(Src, SrcFieldNo, "mrv_gr");
   const StructType *STy = cast<StructType>(Src->getType());
-  llvm::Value *Idxs[3];
-  Idxs[0] = ConstantInt::get(llvm::Type::getInt32Ty(Context), 0);
-  Idxs[1] = ConstantInt::get(llvm::Type::getInt32Ty(Context), DestFieldNo);
-  Idxs[2] = ConstantInt::get(llvm::Type::getInt32Ty(Context), DestElemNo);
+  Value *Idxs[3];
+  Idxs[0] = ConstantInt::get(Type::getInt32Ty(Context), 0);
+  Idxs[1] = ConstantInt::get(Type::getInt32Ty(Context), DestFieldNo);
+  Idxs[2] = ConstantInt::get(Type::getInt32Ty(Context), DestElemNo);
   Value *GEP = Builder.CreateGEP(Dest, Idxs, Idxs+3, "mrv_gep");
   if (STy->getElementType(SrcFieldNo)->isVectorTy()) {
     Value *ElemIndex = ConstantInt::get(Type::getInt32Ty(Context), SrcElemNo);
@@ -1621,17 +1621,17 @@ void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,
 
     // Special treatement for _Complex.
     if (DestElemType->isStructTy()) {
-      llvm::Value *Idxs[3];
-      Idxs[0] = ConstantInt::get(llvm::Type::getInt32Ty(Context), 0);
-      Idxs[1] = ConstantInt::get(llvm::Type::getInt32Ty(Context), DNO);
+      Value *Idxs[3];
+      Idxs[0] = ConstantInt::get(Type::getInt32Ty(Context), 0);
+      Idxs[1] = ConstantInt::get(Type::getInt32Ty(Context), DNO);
 
-      Idxs[2] = ConstantInt::get(llvm::Type::getInt32Ty(Context), 0);
+      Idxs[2] = ConstantInt::get(Type::getInt32Ty(Context), 0);
       Value *GEP = Builder.CreateGEP(Dest, Idxs, Idxs+3, "mrv_gep");
       Value *EVI = Builder.CreateExtractValue(Src, 0, "mrv_gr");
       Builder.CreateStore(EVI, GEP, isVolatile);
       ++SNO;
 
-      Idxs[2] = ConstantInt::get(llvm::Type::getInt32Ty(Context), 1);
+      Idxs[2] = ConstantInt::get(Type::getInt32Ty(Context), 1);
       GEP = Builder.CreateGEP(Dest, Idxs, Idxs+3, "mrv_gep");
       EVI = Builder.CreateExtractValue(Src, 1, "mrv_gr");
       Builder.CreateStore(EVI, GEP, isVolatile);
