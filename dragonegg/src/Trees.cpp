@@ -141,3 +141,55 @@ bool hasNUW(tree type) {
 bool hasNSW(tree type) {
   return !TYPE_UNSIGNED(type) && !TYPE_OVERFLOW_WRAPS(type);
 }
+
+/// getIntegerValue - Return the specified INTEGER_CST as an APInt.
+APInt getIntegerValue(tree exp) {
+  double_int val = tree_to_double_int(exp);
+  unsigned NumBits = TYPE_PRECISION(TREE_TYPE(exp));
+
+  if (integerPartWidth == HOST_BITS_PER_WIDE_INT)
+    return APInt(NumBits, /*numWords*/2, (integerPart*)&val);
+  assert(integerPartWidth == 2 * HOST_BITS_PER_WIDE_INT &&
+         "Unsupported host integer width!");
+  unsigned ShiftAmt = HOST_BITS_PER_WIDE_INT;
+  integerPart Part = integerPart(val.low) + (integerPart(val.high) << ShiftAmt);
+  return APInt(NumBits, Part);
+}
+
+/// isInt64 - Return true if t is an INTEGER_CST that fits in a 64 bit integer.
+/// If Unsigned is false, returns whether it fits in a int64_t.  If Unsigned is
+/// true, returns whether the value is non-negative and fits in a uint64_t.
+/// Always returns false for overflowed constants.
+bool isInt64(tree t, bool Unsigned) {
+  if (!t)
+    return false;
+  if (HOST_BITS_PER_WIDE_INT == 64)
+    return host_integerp(t, Unsigned) && !TREE_OVERFLOW (t);
+  assert(HOST_BITS_PER_WIDE_INT == 32 &&
+         "Only 32- and 64-bit hosts supported!");
+  return
+    (TREE_CODE (t) == INTEGER_CST && !TREE_OVERFLOW (t))
+    && ((TYPE_UNSIGNED(TREE_TYPE(t)) == Unsigned) ||
+        // If the constant is signed and we want an unsigned result, check
+        // that the value is non-negative.  If the constant is unsigned and
+        // we want a signed result, check it fits in 63 bits.
+        (HOST_WIDE_INT)TREE_INT_CST_HIGH(t) >= 0);
+}
+
+/// getInt64 - Extract the value of an INTEGER_CST as a 64 bit integer.  If
+/// Unsigned is false, the value must fit in a int64_t.  If Unsigned is true,
+/// the value must be non-negative and fit in a uint64_t.  Must not be used on
+/// overflowed constants.  These conditions can be checked by calling isInt64.
+uint64_t getInt64(tree t, bool Unsigned) {
+  assert(isInt64(t, Unsigned) && "invalid constant!");
+  (void)Unsigned; // Otherwise unused if asserts off - avoid compiler warning.
+  unsigned HOST_WIDE_INT LO = (unsigned HOST_WIDE_INT)TREE_INT_CST_LOW(t);
+  if (HOST_BITS_PER_WIDE_INT == 64) {
+    return (uint64_t)LO;
+  } else {
+    assert(HOST_BITS_PER_WIDE_INT == 32 &&
+           "Only 32- and 64-bit hosts supported!");
+    unsigned HOST_WIDE_INT HI = (unsigned HOST_WIDE_INT)TREE_INT_CST_HIGH(t);
+    return ((uint64_t)HI << 32) | (uint64_t)LO;
+  }
+}

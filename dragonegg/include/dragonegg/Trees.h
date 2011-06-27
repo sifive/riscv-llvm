@@ -23,6 +23,9 @@
 #ifndef DRAGONEGG_TREES_H
 #define DRAGONEGG_TREES_H
 
+// LLVM headers
+#include "llvm/ADT/APInt.h"
+
 // System headers
 #include <string>
 
@@ -40,5 +43,20 @@ bool hasNUW(tree_node *type);
 /// hasNSW - Return whether overflowing signed operations on this type result
 /// in undefined behaviour.
 bool hasNSW(tree_node *type);
+
+/// getIntegerValue - Return the specified INTEGER_CST as an APInt.
+llvm::APInt getIntegerValue(tree_node *exp);
+
+/// isInt64 - Return true if t is an INTEGER_CST that fits in a 64 bit integer.
+/// If Unsigned is false, returns whether it fits in a int64_t.  If Unsigned is
+/// true, returns whether the value is non-negative and fits in a uint64_t.
+/// Always returns false for overflowed constants or if t is NULL.
+bool isInt64(tree_node *t, bool Unsigned);
+
+/// getInt64 - Extract the value of an INTEGER_CST as a 64 bit integer.  If
+/// Unsigned is false, the value must fit in a int64_t.  If Unsigned is true,
+/// the value must be non-negative and fit in a uint64_t.  Must not be used on
+/// overflowed constants.  These conditions can be checked by calling isInt64.
+uint64_t getInt64(tree_node *t, bool Unsigned);
 
 #endif /* DRAGONEGG_TREES_H */

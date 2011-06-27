@@ -23,6 +23,7 @@
 
 // Plugin headers
 #include "dragonegg/Debug.h"
+#include "dragonegg/Trees.h"
 
 // LLVM headers
 #include "llvm/Module.h"
@@ -89,15 +90,15 @@ static uint64_t NodeSizeInBits(tree Node) {
   } else if (TYPE_P(Node)) {
     if (TYPE_SIZE(Node) == NULL_TREE)
       return 0;
-    else if (isInt64(TYPE_SIZE(Node), 1))
-      return getINTEGER_CSTVal(TYPE_SIZE(Node));
+    else if (isInt64(TYPE_SIZE(Node), true))
+      return getInt64(TYPE_SIZE(Node), true);
     else
       return TYPE_ALIGN(Node);
   } else if (DECL_P(Node)) {
     if (DECL_SIZE(Node) == NULL_TREE)
       return 0;
     else if (isInt64(DECL_SIZE(Node), 1))
-      return getINTEGER_CSTVal(DECL_SIZE(Node));
+      return getInt64(DECL_SIZE(Node), 1);
     else
       return DECL_ALIGN(Node);
   }
@@ -635,12 +636,12 @@ DIType DebugInfo::createArrayType(tree type) {
         // FIXME - handle dynamic ranges
         tree MinValue = TYPE_MIN_VALUE(Domain);
         tree MaxValue = TYPE_MAX_VALUE(Domain);
-        uint64_t Low = 0;
-        uint64_t Hi = 0;
+        int64_t Low = 0;
+        int64_t Hi = 0;
         if (isInt64(MinValue, false))
-          Low = getINTEGER_CSTVal(MinValue);
+          Low = getInt64(MinValue, false);
         if (isInt64(MaxValue, false))
-          Hi = getINTEGER_CSTVal(MaxValue);
+          Hi = getInt64(MaxValue, false);
         Subscripts.push_back(DebugFactory.GetOrCreateSubrange(Low, Hi));
       }
       EltTy = TREE_TYPE(atype);
@@ -674,7 +675,7 @@ DIType DebugInfo::createEnumType(tree type) {
       tree EnumValue = TREE_VALUE(Link);
       if (TREE_CODE(EnumValue) == CONST_DECL)
         EnumValue = DECL_INITIAL(EnumValue);
-      int64_t Value = getINTEGER_CSTVal(EnumValue);
+      int64_t Value = getInt64(EnumValue, false);
       const char *EnumName = IDENTIFIER_POINTER(TREE_PURPOSE(Link));
       Elements.push_back(DebugFactory.CreateEnumerator(EnumName, Value));
     }
@@ -793,10 +794,10 @@ DIType DebugInfo::createStructType(tree type) {
       // Check for zero BINFO_OFFSET.
       // FIXME : Is this correct ?
       unsigned Offset = BINFO_OFFSET(BInfo) ?
-        getINTEGER_CSTVal(BINFO_OFFSET(BInfo))*8 : 0;
+        getInt64(BINFO_OFFSET(BInfo), true)*8 : 0;
 
       if (BINFO_VIRTUAL_P (BInfo))
-        Offset = 0 - getINTEGER_CSTVal(BINFO_VPTR_FIELD (BInfo));
+        Offset = 0 - getInt64(BINFO_VPTR_FIELD (BInfo), false);
       // FIXME : name, size, align etc...
       DIType DTy =
         DebugFactory.CreateDerivedType(DW_TAG_inheritance,

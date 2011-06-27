@@ -29,6 +29,7 @@ extern "C" {
 #include "dragonegg/Debug.h"
 #include "dragonegg/OS.h"
 #include "dragonegg/Target.h"
+#include "dragonegg/Trees.h"
 
 // LLVM headers
 #define DEBUG_TYPE "plugin"
