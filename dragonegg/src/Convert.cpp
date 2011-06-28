@@ -5960,8 +5960,7 @@ LValue TreeToLLVM::EmitLV_MEM_REF(tree exp) {
   }
 
   // Ensure the pointer has the right type.
-  Addr = Builder.CreateBitCast(Addr,
-                               ConvertType(TREE_TYPE(exp))->getPointerTo());
+  Addr = Builder.CreateBitCast(Addr, getPointerToType(TREE_TYPE(exp)));
   unsigned Alignment = std::max(TYPE_ALIGN(TREE_TYPE (exp)),
                                 get_object_alignment(exp, BIGGEST_ALIGNMENT));
   bool Volatile = TREE_THIS_VOLATILE(exp);
@@ -6070,8 +6069,7 @@ LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
   }
 
   // The result can be of a different pointer type even if we didn't advance it.
-  Addr = Builder.CreateBitCast(Addr,
-                               ConvertType(TREE_TYPE(exp))->getPointerTo());
+  Addr = Builder.CreateBitCast(Addr, getPointerToType(TREE_TYPE(exp)));
   unsigned Alignment = TYPE_ALIGN(TREE_TYPE (exp));
 #if (GCC_MINOR < 6)
   Alignment = get_object_alignment(exp, Alignment, BIGGEST_ALIGNMENT);

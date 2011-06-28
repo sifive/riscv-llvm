@@ -242,6 +242,10 @@ inline const Type *ConvertType(tree_node *type) {
   return TheTypeConverter->ConvertType(type);
 }
 
+/// getPointerToType - Returns the LLVM register type to use for a pointer to
+/// the given GCC type.
+const Type *getPointerToType(tree_node *type);
+
 /// getDefaultValue - Return the default value to use for a constant or global
 /// that has no value specified.  For example in C like languages such variables
 /// are initialized to zero, while in Ada they hold an undefined value.

@@ -550,6 +550,15 @@ const Type *getRegType(tree type) {
   }
 }
 
+/// getPointerToType - Returns the LLVM register type to use for a pointer to
+/// the given GCC type.
+const Type *getPointerToType(tree type) {
+  if (VOID_TYPE_P(type))
+    // void* -> byte*
+    return GetUnitPointerType(Context);
+  // FIXME: Handle address spaces.
+  return ConvertType(type)->getPointerTo();
+}
 
 const Type *TypeConverter::ConvertType(tree type) {
   if (type == error_mark_node) return Type::getInt32Ty(Context);
