@@ -6026,54 +6026,61 @@ LValue TreeToLLVM::EmitLV_SSA_NAME(tree exp) {
 
 LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
   // TODO: Take the address space into account.
-  // TODO: Improve the alignment estimate.
 
-  // The address is &symbol + base + index * step + offset.
-  struct mem_address addr;
-  get_address_description (exp, &addr);
-
-  LValue Ref;
+  Value *Addr;
   Value *Delta = 0; // Offset from base pointer in units
-  if (addr.symbol) {
-    Ref = EmitLV(addr.symbol);
-    if (addr.base && !integer_zerop (addr.base))
-      Delta = EmitRegister(addr.base);
+#if (GCC_MINOR > 5)
+  // Starting with gcc 4.6 the address is base + index * step + index2 + offset.
+  Addr = EmitRegister(TMR_BASE(exp));
+  if (TMR_INDEX2(exp) && !integer_zerop (TMR_INDEX2(exp)))
+    Delta = EmitRegister(TMR_INDEX2(exp));
+#else
+  // In gcc 4.5 the address is &symbol + base + index * step + offset.
+  if (TMR_SYMBOL(exp)) {
+    Addr = EmitLV(TMR_SYMBOL(exp)).Ptr;
+    if (TMR_BASE(exp) && !integer_zerop (TMR_BASE(exp)))
+      Delta = EmitRegister(TMR_BASE(exp));
   } else {
-    assert(addr.base && "TARGET_MEM_REF has neither base nor symbol!");
-    Value *Base = EmitRegister(addr.base);
+    assert(TMR_BASE(exp) && "TARGET_MEM_REF has neither base nor symbol!");
+    Addr = EmitRegister(TMR_BASE(exp));
     // The type of BASE is sizetype or a pointer type.  Convert sizetype to i8*.
-    // TODO: In mainline BASE always has pointer type.
-    if (!isa<PointerType>(Base->getType()))
-      Base = Builder.CreateIntToPtr(Base, GetUnitPointerType(Context));
-    Ref = LValue(Base, 1);
+    if (!isa<PointerType>(Addr->getType()))
+      Addr = Builder.CreateIntToPtr(Addr, GetUnitPointerType(Context));
   }
+#endif
 
-  if (addr.index) {
-    Value *Index = EmitRegister(addr.index);
-    if (addr.step && !integer_onep (addr.step))
-      Index = Builder.CreateMul(Index, EmitRegisterConstant(addr.step));
+  if (TMR_INDEX(exp)) {
+    Value *Index = EmitRegister(TMR_INDEX(exp));
+    if (TMR_STEP(exp) && !integer_onep (TMR_STEP(exp)))
+      Index = Builder.CreateMul(Index, EmitRegisterConstant(TMR_STEP(exp)));
     Delta = Delta ? Builder.CreateAdd(Delta, Index) : Index;
   }
 
-  if (addr.offset && !integer_zerop (addr.offset)) {
-    Constant *Offset = EmitRegisterConstant(addr.offset);
-    Delta = Delta ? Builder.CreateAdd(Delta, Offset) : Offset;
+  if (TMR_OFFSET(exp) && !integer_zerop (TMR_OFFSET(exp))) {
+    Constant *Off = ConstantInt::get(Context, getIntegerValue(TMR_OFFSET(exp)));
+    Delta = Delta ? Builder.CreateAdd(Delta, Off) : Off;
   }
 
   if (Delta) {
     // Advance the base pointer by the given number of units.
-    Ref.Ptr = Builder.CreateBitCast(Ref.Ptr, GetUnitPointerType(Context));
-    Ref.Ptr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
-      Builder.CreateInBoundsGEP(Ref.Ptr, Delta)
-      : Builder.CreateGEP(Ref.Ptr, Delta);
-    Ref.setAlignment(1); // Let the optimizers compute the alignment.
+    Addr = Builder.CreateBitCast(Addr, GetUnitPointerType(Context));
+    Addr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
+      Builder.CreateInBoundsGEP(Addr, Delta)
+      : Builder.CreateGEP(Addr, Delta);
   }
 
   // The result can be of a different pointer type even if we didn't advance it.
-  Ref.Ptr = Builder.CreateBitCast(Ref.Ptr,
-                                  ConvertType(TREE_TYPE(exp))->getPointerTo());
+  Addr = Builder.CreateBitCast(Addr,
+                               ConvertType(TREE_TYPE(exp))->getPointerTo());
+  unsigned Alignment = TYPE_ALIGN(TREE_TYPE (exp));
+#if (GCC_MINOR < 6)
+  Alignment = get_object_alignment(exp, Alignment, BIGGEST_ALIGNMENT);
+#else
+  Alignment = std::max(Alignment, get_object_alignment(exp, BIGGEST_ALIGNMENT));
+#endif
+  bool Volatile = TREE_THIS_VOLATILE(exp);
 
-  return Ref;
+  return LValue(Addr, Alignment / 8, Volatile);
 }
 
 Constant *TreeToLLVM::AddressOfLABEL_DECL(tree exp) {
