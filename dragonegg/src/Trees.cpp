@@ -152,7 +152,8 @@ APInt getIntegerValue(tree exp) {
   assert(integerPartWidth == 2 * HOST_BITS_PER_WIDE_INT &&
          "Unsupported host integer width!");
   unsigned ShiftAmt = HOST_BITS_PER_WIDE_INT;
-  integerPart Part = integerPart(val.low) + (integerPart(val.high) << ShiftAmt);
+  integerPart Part = integerPart((unsigned HOST_WIDE_INT)val.low) +
+    (integerPart((unsigned HOST_WIDE_INT)val.high) << ShiftAmt);
   return APInt(NumBits, Part);
 }
 

@@ -6201,23 +6201,7 @@ Constant *TreeToLLVM::EmitComplexRegisterConstant(tree reg) {
 /// EmitIntegerRegisterConstant - Turn the given INTEGER_CST into an LLVM
 /// constant of the corresponding register type.
 Constant *TreeToLLVM::EmitIntegerRegisterConstant(tree reg) {
-  unsigned Precision = TYPE_PRECISION(TREE_TYPE(reg));
-
-  ConstantInt *CI;
-  if (HOST_BITS_PER_WIDE_INT < integerPartWidth) {
-    assert(2 * HOST_BITS_PER_WIDE_INT <= integerPartWidth &&
-           "Unsupported host integer precision!");
-    unsigned ShiftAmt = HOST_BITS_PER_WIDE_INT;
-    integerPart Val = (integerPart)(unsigned HOST_WIDE_INT)TREE_INT_CST_LOW(reg)
-      + ((integerPart)(unsigned HOST_WIDE_INT)TREE_INT_CST_HIGH(reg) << ShiftAmt);
-    CI = ConstantInt::get(Context, APInt(Precision, Val));
-  } else {
-    assert(HOST_BITS_PER_WIDE_INT == integerPartWidth &&
-           "The engines cannae' take it captain!");
-    integerPart Parts[] = { TREE_INT_CST_LOW(reg), TREE_INT_CST_HIGH(reg) };
-    CI = ConstantInt::get(Context, APInt(Precision, 2, Parts));
-  }
-
+  ConstantInt *CI = ConstantInt::get(Context, getIntegerValue(reg));
   // The destination can be a pointer, integer or floating point type so we need
   // a generalized cast here
   const Type *Ty = getRegType(TREE_TYPE(reg));
