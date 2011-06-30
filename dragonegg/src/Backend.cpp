@@ -405,12 +405,13 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   std::string FeatureStr;
   // The target can set LLVM_SET_SUBTARGET_FEATURES to configure the LLVM
   // backend.
+  std::string CPU;
 #ifdef LLVM_SET_SUBTARGET_FEATURES
   SubtargetFeatures Features;
-  LLVM_SET_SUBTARGET_FEATURES(Features);
+  LLVM_SET_SUBTARGET_FEATURES(CPU, Features);
   FeatureStr = Features.getString();
 #endif
-  TheTarget = TME->createTargetMachine(TargetTriple, FeatureStr);
+  TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr);
   TheTarget->setMCUseCFI(flag_dwarf2_cfi_asm);
   assert(TheTarget->getTargetData()->isBigEndian() == BYTES_BIG_ENDIAN);
 }
