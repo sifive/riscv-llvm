@@ -1620,8 +1620,8 @@ static struct ipa_opt_pass_d pass_emit_aliases = {
     NULL		/* variable_transform */
 };
 
-/// emit_variables - Output GCC global variables to the LLVM IR.
-static void emit_variables(cgraph_node_set /*set*/
+/// emit_var_aliases - Output GCC global variable aliases to the LLVM IR.
+static void emit_var_aliases(cgraph_node_set /*set*/
 #if (GCC_MINOR > 5)
                            , varpool_node_set /*vset*/
 #endif
@@ -1631,54 +1631,43 @@ static void emit_variables(cgraph_node_set /*set*/
 
   InitializeBackend();
 
-  // Output all externally visible global variables, whether they are used in
-  // this compilation unit or not, as well as any internal variables explicitly
-  // marked with the 'used' attribute.  All other internal variables are output
-  // when their user is, or discarded if unused.
-  struct varpool_node *vnode;
-  FOR_EACH_STATIC_VARIABLE (vnode) {
-    tree var = vnode->decl;
-    if (TREE_CODE(var) == VAR_DECL &&
-        (TREE_PUBLIC(var) || DECL_PRESERVE_P(var)))
-      emit_global(var);
-  }
-
   // Emit any aliases.
   alias_pair *p;
   for (unsigned i = 0; VEC_iterate(alias_pair, alias_pairs, i, p); i++)
     emit_alias(p->decl, p->target);
 }
 
-/// pass_emit_variables - IPA pass that turns GCC variables into LLVM IR.
-static struct ipa_opt_pass_d pass_emit_variables = {
+/// pass_emit_var_aliases - IPA pass that outputs GCC global variable aliases
+/// into LLVM IR.
+static struct ipa_opt_pass_d pass_emit_var_aliases = {
     {
       IPA_PASS,
-      "emit_variables",	/* name */
-      gate_emission,	/* gate */
-      NULL,		/* execute */
-      NULL,		/* sub */
-      NULL,		/* next */
-      0,		/* static_pass_number */
-      TV_NONE,		/* tv_id */
-      0,		/* properties_required */
-      0,		/* properties_provided */
-      0,		/* properties_destroyed */
-      0,		/* todo_flags_start */
-      0			/* todo_flags_finish */
+      "emit_var_aliases",	/* name */
+      gate_emission,		/* gate */
+      NULL,			/* execute */
+      NULL,			/* sub */
+      NULL,			/* next */
+      0,			/* static_pass_number */
+      TV_NONE,			/* tv_id */
+      0,			/* properties_required */
+      0,			/* properties_provided */
+      0,			/* properties_destroyed */
+      0,			/* todo_flags_start */
+      0				/* todo_flags_finish */
     },
-    NULL,		/* generate_summary */
-    emit_variables,	/* write_summary */
-    NULL,		/* read_summary */
+    NULL,			/* generate_summary */
+    emit_var_aliases,		/* write_summary */
+    NULL,			/* read_summary */
 #if (GCC_MINOR > 5)
-    NULL,		/* write_optimization_summary */
-    NULL,		/* read_optimization_summary */
+    NULL,			/* write_optimization_summary */
+    NULL,			/* read_optimization_summary */
 #else
-    NULL,		/* function_read_summary */
+    NULL,			/* function_read_summary */
 #endif
-    NULL,		/* stmt_fixup */
-    0,			/* function_transform_todo_flags_start */
-    NULL,		/* function_transform */
-    NULL		/* variable_transform */
+    NULL,			/* stmt_fixup */
+    0,				/* function_transform_todo_flags_start */
+    NULL,			/* function_transform */
+    NULL			/* variable_transform */
 };
 
 /// rtl_emit_function - Turn a gimple function into LLVM IR.  This is called
@@ -1721,23 +1710,37 @@ static struct rtl_opt_pass pass_rtl_emit_function =
 };
 
 
-/// llvm_finish - Run shutdown code when GCC exits.
-static void llvm_finish(void * /*gcc_data*/, void * /*user_data*/) {
-  FinalizePlugin();
-}
-
 /// llvm_finish_unit - Finish the .s file.  This is called by GCC once the
 /// compilation unit has been completely processed.
 static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
+//TODO  timevar_push(TV_LLVM_PERFILE);
   if (!quiet_flag)
     errs() << "Finishing compilation unit\n";
 
   InitializeBackend();
 
-//TODO  timevar_push(TV_LLVM_PERFILE);
+  // Output all externally visible global variables, whether they are used in
+  // this compilation unit or not, as well as any internal variables explicitly
+  // marked with the 'used' attribute.  All other internal variables are output
+  // when their user is, or discarded if unused.
+  for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next) {
+    if (!vnode->needed)
+      continue;
+#if (GCC_MINOR > 5)
+    if (vnode->in_other_partition)
+      continue;
+#endif
+    if (vnode->alias)
+      continue;
+    tree var = vnode->decl;
+    if (TREE_CODE(var) == VAR_DECL && !DECL_EXTERNAL(var) &&
+        (TREE_PUBLIC(var) || DECL_PRESERVE_P(var) || TREE_THIS_VOLATILE(var)))
+      emit_global(var);
+  }
+
   LLVMContext &Context = getGlobalContext();
 
   createPerFunctionOptimizationPasses();
@@ -1834,6 +1837,11 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 
   // We have finished - shutdown the plugin.  Doing this here ensures that timer
   // info and other statistics are not intermingled with those produced by GCC.
+  FinalizePlugin();
+}
+
+/// llvm_finish - Run shutdown code when GCC exits.
+static void llvm_finish(void * /*gcc_data*/, void * /*user_data*/) {
   FinalizePlugin();
 }
 
@@ -2029,7 +2037,7 @@ plugin_init(struct plugin_name_args *plugin_info,
   }
 
   // Provide GCC with our version and help information.
-  register_callback (plugin_name, PLUGIN_INFO, NULL, &llvm_plugin_info);
+  register_callback(plugin_name, PLUGIN_INFO, NULL, &llvm_plugin_info);
 
   // Process any plugin arguments.
   {
@@ -2084,11 +2092,11 @@ plugin_init(struct plugin_name_args *plugin_info,
   TakeoverAsmOutput();
 
   // Register our garbage collector roots.
-  register_callback (plugin_name, PLUGIN_REGISTER_GGC_CACHES, NULL,
-                     (void *)gt_ggc_rc__gt_cache_h);
+  register_callback(plugin_name, PLUGIN_REGISTER_GGC_CACHES, NULL,
+                    (void *)gt_ggc_rc__gt_cache_h);
 
   // Perform late initialization just before processing the compilation unit.
-  register_callback (plugin_name, PLUGIN_START_UNIT, llvm_start_unit, NULL);
+  register_callback(plugin_name, PLUGIN_START_UNIT, llvm_start_unit, NULL);
 
   // Turn off all gcc optimization passes.
   if (!EnableGCCOptimizations) {
@@ -2107,7 +2115,7 @@ plugin_init(struct plugin_name_args *plugin_info,
     pass_info.reference_pass_name = "einline_ipa";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 #endif
 
     // Leave pass_ipa_free_lang_data.
@@ -2141,14 +2149,14 @@ plugin_init(struct plugin_name_args *plugin_info,
     pass_info.reference_pass_name = "early_optimizations";
     pass_info.ref_pass_instance_number = 1;
     pass_info.pos_op = PASS_POS_INSERT_BEFORE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Turn off pass_early_local_passes::pass_all_early_optimizations.
     pass_info.pass = &pass_gimple_null.pass;
     pass_info.reference_pass_name = "early_optimizations";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Leave pass_early_local_passes::pass_release_ssa_names. ???
 
@@ -2162,14 +2170,14 @@ plugin_init(struct plugin_name_args *plugin_info,
     pass_info.reference_pass_name = "increase_alignment";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Turn off pass_ipa_matrix_reorg.
     pass_info.pass = &pass_simple_ipa_null.pass;
     pass_info.reference_pass_name = "matrix-reorg";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Leave pass_ipa_whole_program_visibility. ???
 
@@ -2178,49 +2186,49 @@ plugin_init(struct plugin_name_args *plugin_info,
     pass_info.reference_pass_name = "cp";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Turn off pass_ipa_inline.
     pass_info.pass = &pass_ipa_null.pass;
     pass_info.reference_pass_name = "inline";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Turn off pass_ipa_reference.
     pass_info.pass = &pass_ipa_null.pass;
     pass_info.reference_pass_name = "static-var";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Turn off pass_ipa_pure_const.
     pass_info.pass = &pass_ipa_null.pass;
     pass_info.reference_pass_name = "pure-const";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Turn off pass_ipa_type_escape.
     pass_info.pass = &pass_simple_ipa_null.pass;
     pass_info.reference_pass_name = "type-escape-var";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Turn off pass_ipa_pta.
     pass_info.pass = &pass_simple_ipa_null.pass;
     pass_info.reference_pass_name = "pta";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Turn off pass_ipa_struct_reorg.
     pass_info.pass = &pass_simple_ipa_null.pass;
     pass_info.reference_pass_name = "ipa_struct_reorg";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
   }
 
   // Replace the LTO gimple pass with a pass that converts same-body aliases and
@@ -2229,15 +2237,15 @@ plugin_init(struct plugin_name_args *plugin_info,
   pass_info.reference_pass_name = "lto_gimple_out";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-  // Replace the LTO decls pass with a pass that converts global variables to
-  // LLVM IR.
-  pass_info.pass = &pass_emit_variables.pass;
+  // Replace the LTO decls pass with a pass that converts global variable
+  // aliases to LLVM IR.
+  pass_info.pass = &pass_emit_var_aliases.pass;
   pass_info.reference_pass_name = "lto_decls_out";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
 #if (GCC_MINOR < 6)
   // Disable any other LTO passes.
@@ -2245,7 +2253,7 @@ plugin_init(struct plugin_name_args *plugin_info,
   pass_info.reference_pass_name = "lto_wpa_fixup";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 #endif
 
   if (!EnableGCCOptimizations) {
@@ -2254,56 +2262,56 @@ plugin_init(struct plugin_name_args *plugin_info,
     pass_info.reference_pass_name = "ehdisp";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Disable pass_all_optimizations, which runs after LLVM conversion.
     pass_info.pass = &pass_gimple_null.pass;
     pass_info.reference_pass_name = "*all_optimizations";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Disable pass_lower_complex_O0, which runs after LLVM conversion.
     pass_info.pass = &pass_gimple_null.pass;
     pass_info.reference_pass_name = "cplxlower0";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Disable pass_cleanup_eh, which runs after LLVM conversion.
     pass_info.pass = &pass_gimple_null.pass;
     pass_info.reference_pass_name = "ehcleanup";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Disable pass_lower_resx, which runs after LLVM conversion.
     pass_info.pass = &pass_gimple_null.pass;
     pass_info.reference_pass_name = "resx";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Disable pass_nrv, which runs after LLVM conversion.
     pass_info.pass = &pass_gimple_null.pass;
     pass_info.reference_pass_name = "nrv";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Disable pass_mudflap_2, which runs after LLVM conversion.
     pass_info.pass = &pass_gimple_null.pass;
     pass_info.reference_pass_name = "mudflap2";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // Disable pass_cleanup_cfg_post_optimizing, which runs after LLVM conversion.
     pass_info.pass = &pass_gimple_null.pass;
     pass_info.reference_pass_name = "optimized";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
-    register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+    register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
     // TODO: Disable pass_warn_function_noreturn?
   }
@@ -2313,26 +2321,27 @@ plugin_init(struct plugin_name_args *plugin_info,
   pass_info.reference_pass_name = "expand";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
   // Turn off all other rtl passes.
   pass_info.pass = &pass_gimple_null.pass;
   pass_info.reference_pass_name = "*rest_of_compilation";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
   pass_info.pass = &pass_rtl_null.pass;
   pass_info.reference_pass_name = "*clean_state";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
-  register_callback (plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+  register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-  // Finish the .s file once the compilation unit has been completely processed.
-  register_callback (plugin_name, PLUGIN_FINISH_UNIT, llvm_finish_unit, NULL);
+  // Output GCC global variables to the LLVM IR and finish the .s file once the
+  // compilation unit has been completely processed.
+  register_callback(plugin_name, PLUGIN_FINISH_UNIT, llvm_finish_unit, NULL);
 
   // Run shutdown code when GCC exits.
-  register_callback (plugin_name, PLUGIN_FINISH, llvm_finish, NULL);
+  register_callback(plugin_name, PLUGIN_FINISH, llvm_finish, NULL);
 
   return 0;
 }
