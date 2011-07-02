@@ -1620,56 +1620,6 @@ static struct ipa_opt_pass_d pass_emit_aliases = {
     NULL		/* variable_transform */
 };
 
-/// emit_var_aliases - Output GCC global variable aliases to the LLVM IR.
-static void emit_var_aliases(cgraph_node_set /*set*/
-#if (GCC_MINOR > 5)
-                           , varpool_node_set /*vset*/
-#endif
-                           ) {
-  if (errorcount || sorrycount)
-    return; // Do not process broken code.
-
-  InitializeBackend();
-
-  // Emit any aliases.
-  alias_pair *p;
-  for (unsigned i = 0; VEC_iterate(alias_pair, alias_pairs, i, p); i++)
-    emit_alias(p->decl, p->target);
-}
-
-/// pass_emit_var_aliases - IPA pass that outputs GCC global variable aliases
-/// into LLVM IR.
-static struct ipa_opt_pass_d pass_emit_var_aliases = {
-    {
-      IPA_PASS,
-      "emit_var_aliases",	/* name */
-      gate_emission,		/* gate */
-      NULL,			/* execute */
-      NULL,			/* sub */
-      NULL,			/* next */
-      0,			/* static_pass_number */
-      TV_NONE,			/* tv_id */
-      0,			/* properties_required */
-      0,			/* properties_provided */
-      0,			/* properties_destroyed */
-      0,			/* todo_flags_start */
-      0				/* todo_flags_finish */
-    },
-    NULL,			/* generate_summary */
-    emit_var_aliases,		/* write_summary */
-    NULL,			/* read_summary */
-#if (GCC_MINOR > 5)
-    NULL,			/* write_optimization_summary */
-    NULL,			/* read_optimization_summary */
-#else
-    NULL,			/* function_read_summary */
-#endif
-    NULL,			/* stmt_fixup */
-    0,				/* function_transform_todo_flags_start */
-    NULL,			/* function_transform */
-    NULL			/* variable_transform */
-};
-
 /// rtl_emit_function - Turn a gimple function into LLVM IR.  This is called
 /// once for each function in the compilation unit if GCC optimizations are
 /// enabled.
@@ -1733,12 +1683,19 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
     if (vnode->in_other_partition)
       continue;
 #endif
-    if (vnode->alias)
+    tree decl = vnode->decl;
+    if (vnode->alias) {
+      tree alias = lookup_attribute("alias", DECL_ATTRIBUTES(decl));
+      assert(alias && "Have alias target but no alias!");
+      alias = TREE_VALUE(TREE_VALUE(alias));
+      alias = get_identifier(TREE_STRING_POINTER(alias));
+      emit_alias(decl, alias);
       continue;
-    tree var = vnode->decl;
-    if (TREE_CODE(var) == VAR_DECL && !DECL_EXTERNAL(var) &&
-        (TREE_PUBLIC(var) || DECL_PRESERVE_P(var) || TREE_THIS_VOLATILE(var)))
-      emit_global(var);
+    }
+    if (TREE_CODE(decl) == VAR_DECL && !DECL_EXTERNAL(decl) &&
+        (TREE_PUBLIC(decl) || DECL_PRESERVE_P(decl) ||
+         TREE_THIS_VOLATILE(decl)))
+      emit_global(decl);
   }
 
   LLVMContext &Context = getGlobalContext();
@@ -2239,16 +2196,14 @@ plugin_init(struct plugin_name_args *plugin_info,
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-  // Replace the LTO decls pass with a pass that converts global variable
-  // aliases to LLVM IR.
-  pass_info.pass = &pass_emit_var_aliases.pass;
+  // Disable any other LTO passes.
+  pass_info.pass = &pass_ipa_null.pass;
   pass_info.reference_pass_name = "lto_decls_out";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
 #if (GCC_MINOR < 6)
-  // Disable any other LTO passes.
   pass_info.pass = &pass_ipa_null.pass;
   pass_info.reference_pass_name = "lto_wpa_fixup";
   pass_info.ref_pass_instance_number = 0;
