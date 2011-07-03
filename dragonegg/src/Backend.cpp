@@ -1672,10 +1672,10 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 
   InitializeBackend();
 
-  // Output all externally visible global variables, whether they are used in
-  // this compilation unit or not, as well as any internal variables explicitly
-  // marked with the 'used' attribute.  All other internal variables are output
-  // when their user is, or discarded if unused.
+  // Output all externally visible global variables and aliases as well as any
+  // internal variables explicitly marked with the 'used' attribute.  All other
+  // internal variables and aliases are output when their user is, or discarded
+  // if unused.
   for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next) {
     if (!vnode->needed)
       continue;
