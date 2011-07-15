@@ -333,7 +333,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
     SignedRange StrideRange(0, Stride);
     for (unsigned i = FirstElt; i < LastElt; ++i) {
       // Extract the element.
-      Constant *Elt = Folder.CreateExtractValue(C, &i, 1);
+      Constant *Elt = Folder.CreateExtractValue(C, i);
       // View it as a bunch of bits.
       BitSlice EltBits = ViewAsBits(Elt, StrideRange, Folder);
       // Add to the already known bits.
@@ -353,7 +353,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
     BitSlice Bits;
     for (unsigned i = FirstIdx; i < LastIdx; ++i) {
       // Extract the field.
-      Constant *Field = Folder.CreateExtractValue(C, &i, 1);
+      Constant *Field = Folder.CreateExtractValue(C, i);
       // View it as a bunch of bits.
       const Type *FieldTy = Field->getType();
       unsigned FieldStoreSize = getTargetData().getTypeStoreSizeInBits(FieldTy);
@@ -610,8 +610,8 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
   case COMPLEX_TYPE: {
     tree elt_type = TREE_TYPE(type);
     unsigned Idx[2] = {0, 1};
-    Constant *Real = Folder.CreateExtractValue(C, Idx, 1);
-    Constant *Imag = Folder.CreateExtractValue(C, Idx + 1, 1);
+    Constant *Real = Folder.CreateExtractValue(C, Idx[0]);
+    Constant *Imag = Folder.CreateExtractValue(C, Idx[1]);
     Real = RepresentAsMemory(Real, elt_type, Folder);
     Imag = RepresentAsMemory(Imag, elt_type, Folder);
     Constant *Vals[2] = { Real, Imag };
