@@ -570,7 +570,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Value *Arg1 = Ops[1];
     if (flip) std::swap(Arg0, Arg1);
     Value *CallOps[3] = { Arg0, Arg1, Pred };
-    Result = Builder.CreateCall(cmpps, CallOps, CallOps+3);
+    Result = Builder.CreateCall(cmpps, CallOps);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
@@ -587,7 +587,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_cmp_ss);
     Value *Pred = ConstantInt::get(Type::getInt8Ty(Context), PredCode);
     Value *CallOps[3] = { Ops[0], Ops[1], Pred };
-    Result = Builder.CreateCall(cmpss, CallOps, CallOps+3);
+    Result = Builder.CreateCall(cmpss, CallOps);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
@@ -612,7 +612,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     if (flip) std::swap(Arg0, Arg1);
 
     Value *CallOps[3] = { Arg0, Arg1, Pred };
-    Result = Builder.CreateCall(cmppd, CallOps, CallOps+3);
+    Result = Builder.CreateCall(cmppd, CallOps);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
@@ -629,7 +629,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
       Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse2_cmp_sd);
     Value *Pred = ConstantInt::get(Type::getInt8Ty(Context), PredCode);
     Value *CallOps[3] = { Ops[0], Ops[1], Pred };
-    Result = Builder.CreateCall(cmpsd, CallOps, CallOps+3);
+    Result = Builder.CreateCall(cmpsd, CallOps);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   }
@@ -690,7 +690,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
         // create i32 constant
         Function *F = Intrinsic::getDeclaration(TheModule,
                                                 Intrinsic::x86_mmx_psrl_q);
-        Result = Builder.CreateCall(F, &Ops[0], &Ops[0] + 2, "palignr");
+        Result = Builder.CreateCall(F, ArrayRef<Value *>(&Ops[0], 2),
+                                    "palignr");
         return true;
       }
 
@@ -742,7 +743,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
         // create i32 constant
         Function *F = Intrinsic::getDeclaration(TheModule,
                                                 Intrinsic::x86_sse2_psrl_dq);
-        Result = Builder.CreateCall(F, &Ops[0], &Ops[0] + 2, "palignr");
+        Result = Builder.CreateCall(F, ArrayRef<Value *>(&Ops[0], 2),
+                                    "palignr");
         return true;
       }
 
