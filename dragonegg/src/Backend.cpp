@@ -243,7 +243,7 @@ bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
     return true;
   assert(isInt64(DECL_SIZE(decl), true) && "Global decl with variable size!");
 
-  const Type *Ty = GV->getType()->getElementType();
+  Type *Ty = GV->getType()->getElementType();
   // If the LLVM type has no size then a useful comparison cannot be made.
   if (!Ty->isSized())
     return true;
@@ -688,9 +688,9 @@ static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
 
   LLVMContext &Context = getGlobalContext();
 
-  const Type *FPTy =
+  Type *FPTy =
     FunctionType::get(Type::getVoidTy(Context),
-                      std::vector<const Type*>(), false);
+                      std::vector<Type*>(), false);
   FPTy = FPTy->getPointerTo();
 
   for (unsigned i = 0, e = Tors.size(); i != e; ++i) {
@@ -743,7 +743,7 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
   Constant *lineNo = ConstantInt::get(Type::getInt32Ty(Context),
                                       DECL_SOURCE_LINE(decl));
   Constant *file = ConvertMetadataStringToGV(DECL_SOURCE_FILE(decl));
-  const Type *SBP = Type::getInt8PtrTy(Context);
+  Type *SBP = Type::getInt8PtrTy(Context);
   file = TheFolder->CreateBitCast(file, SBP);
 
   // There may be multiple annotate attributes. Pass return of lookup_attr
@@ -805,7 +805,7 @@ static void emit_global(tree decl) {
   if (DECL_INITIAL(decl) == 0 || DECL_INITIAL(decl) == error_mark_node) {
     // Reconvert the type in case the forward def of the global and the real def
     // differ in type (e.g. declared as 'int A[]', and defined as 'int A[100]').
-    const Type *Ty = ConvertType(TREE_TYPE(decl));
+    Type *Ty = ConvertType(TREE_TYPE(decl));
     Init = getDefaultValue(Ty);
   } else {
     // Temporarily set an initializer for the global, so we don't infinitely
@@ -1070,7 +1070,7 @@ Value *make_decl_llvm(tree decl) {
     if (FnEntry == 0) {
       CallingConv::ID CC;
       AttrListPtr PAL;
-      const FunctionType *Ty =
+      FunctionType *Ty =
         TheTypeConverter->ConvertFunctionType(TREE_TYPE(decl), decl, NULL,
                                               CC, PAL);
       FnEntry = Function::Create(Ty, Function::ExternalLinkage, Name, TheModule);
@@ -1112,7 +1112,7 @@ Value *make_decl_llvm(tree decl) {
   } else {
     assert((TREE_CODE(decl) == VAR_DECL ||
             TREE_CODE(decl) == CONST_DECL) && "Not a function or var decl?");
-    const Type *Ty = ConvertType(TREE_TYPE(decl));
+    Type *Ty = ConvertType(TREE_TYPE(decl));
     GlobalVariable *GV ;
 
     // If we have "extern void foo", make the global have type {} instead of
@@ -1259,7 +1259,7 @@ void register_ctor_dtor(Function *Fn, int InitPrio, bool isCtor) {
 //FIXME  // adaptor which would be simpler and more efficient.  In the meantime, just
 //FIXME  // adapt the adaptor.
 //FIXME  raw_os_ostream RO(FS);
-//FIXME  WriteTypeSymbolic(RO, (const Type*)LLVM, TheModule);
+//FIXME  WriteTypeSymbolic(RO, (Type*)LLVM, TheModule);
 //FIXME}
 
 /// extractRegisterName - Get a register name given its decl. In 4.2 unlike 4.0
@@ -1720,7 +1720,7 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 
   if (!AttributeUsedGlobals.empty()) {
     std::vector<Constant *> AUGs;
-    const Type *SBP = Type::getInt8PtrTy(Context);
+    Type *SBP = Type::getInt8PtrTy(Context);
     for (SmallSetVector<Constant *,32>::iterator
            AI = AttributeUsedGlobals.begin(),
            AE = AttributeUsedGlobals.end(); AI != AE; ++AI) {
@@ -1739,7 +1739,7 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 
   if (!AttributeCompilerUsedGlobals.empty()) {
     std::vector<Constant *> ACUGs;
-    const Type *SBP = Type::getInt8PtrTy(Context);
+    Type *SBP = Type::getInt8PtrTy(Context);
     for (SmallSetVector<Constant *,32>::iterator
            AI = AttributeCompilerUsedGlobals.begin(),
            AE = AttributeCompilerUsedGlobals.end(); AI != AE; ++AI) {

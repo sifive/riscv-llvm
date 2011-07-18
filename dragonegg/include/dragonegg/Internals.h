@@ -202,12 +202,12 @@ public:
 
   /// ConvertType - Returns the LLVM type to use for memory that holds a value
   /// of the given GCC type (getRegType should be used for values in registers).
-  const Type *ConvertType(tree_node *type);
+  Type *ConvertType(tree_node *type);
 
   /// ConvertFunctionType - Convert the specified FUNCTION_TYPE or METHOD_TYPE
   /// tree to an LLVM type.  This does the same thing that ConvertType does, but
   /// it also returns the function's LLVM calling convention and attributes.
-  const FunctionType *ConvertFunctionType(tree_node *type,
+  FunctionType *ConvertFunctionType(tree_node *type,
                                           tree_node *decl,
                                           tree_node *static_chain,
                                           CallingConv::ID &CallingConv,
@@ -216,14 +216,14 @@ public:
   /// ConvertArgListToFnType - Given a DECL_ARGUMENTS list on an GCC tree,
   /// return the LLVM type corresponding to the function.  This is useful for
   /// turning "T foo(...)" functions into "T foo(void)" functions.
-  const FunctionType *ConvertArgListToFnType(tree_node *type,
+  FunctionType *ConvertArgListToFnType(tree_node *type,
                                              tree_node *arglist,
                                              tree_node *static_chain,
                                              CallingConv::ID &CallingConv,
                                              AttrListPtr &PAL);
 
 private:
-  const Type *ConvertRECORD(tree_node *type);
+  Type *ConvertRECORD(tree_node *type);
   bool DecodeStructFields(tree_node *Field, StructTypeConversionInfo &Info);
   void DecodeStructBitField(tree_node *Field, StructTypeConversionInfo &Info);
   void SelectUnionMember(tree_node *type, StructTypeConversionInfo &Info);
@@ -234,22 +234,22 @@ extern TypeConverter *TheTypeConverter;
 /// getRegType - Returns the LLVM type to use for registers that hold a value
 /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
 /// determine the LLVM type to return.
-const Type *getRegType(tree_node *type);
+Type *getRegType(tree_node *type);
 
 /// ConvertType - Returns the LLVM type to use for memory that holds a value
 /// of the given GCC type (getRegType should be used for values in registers).
-inline const Type *ConvertType(tree_node *type) {
+inline Type *ConvertType(tree_node *type) {
   return TheTypeConverter->ConvertType(type);
 }
 
 /// getPointerToType - Returns the LLVM register type to use for a pointer to
 /// the given GCC type.
-const Type *getPointerToType(tree_node *type);
+Type *getPointerToType(tree_node *type);
 
 /// getDefaultValue - Return the default value to use for a constant or global
 /// that has no value specified.  For example in C like languages such variables
 /// are initialized to zero, while in Ada they hold an undefined value.
-inline Constant *getDefaultValue(const Type *Ty) {
+inline Constant *getDefaultValue(Type *Ty) {
   return flag_default_initialize_globals ?
     Constant::getNullValue(Ty) : UndefValue::get(Ty);
 }
@@ -258,19 +258,19 @@ inline Constant *getDefaultValue(const Type *Ty) {
 /// otherwise returns an array of such integers with 'NumUnits' elements.  For
 /// example, on a machine which has 16 bit bytes returns an i16 or an array of
 /// i16.
-extern const Type *GetUnitType(LLVMContext &C, unsigned NumUnits = 1);
+extern Type *GetUnitType(LLVMContext &C, unsigned NumUnits = 1);
 
 /// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
 /// address unit wide.  For example, on a machine which has 16 bit bytes returns
 /// an i16*.
-extern const Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace = 0);
+extern Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace = 0);
 
 /// GetFieldIndex - Return the index of the field in the given LLVM type that
 /// corresponds to the GCC field declaration 'decl'.  This means that the LLVM
 /// and GCC fields start in the same byte (if 'decl' is a bitfield, this means
 /// that its first bit is within the byte the LLVM field starts at).  Returns
 /// INT_MAX if there is no such LLVM field.
-int GetFieldIndex(tree_node *decl, const Type *Ty);
+int GetFieldIndex(tree_node *decl, Type *Ty);
 
 /// isPassedByInvisibleReference - Return true if the specified type should be
 /// passed by 'invisible reference'. In other words, instead of passing the
@@ -475,22 +475,22 @@ public:
 
   /// CastToAnyType - Cast the specified value to the specified type regardless
   /// of the types involved. This is an inferred cast.
-  Value *CastToAnyType (Value *V, bool VSigned, const Type *Ty, bool TySigned);
+  Value *CastToAnyType (Value *V, bool VSigned, Type *Ty, bool TySigned);
 
   /// CastToUIntType - Cast the specified value to the specified type assuming
   /// that V's type and Ty are integral types. This arbitrates between BitCast,
   /// Trunc and ZExt.
-  Value *CastToUIntType(Value *V, const Type *Ty);
+  Value *CastToUIntType(Value *V, Type *Ty);
 
   /// CastToSIntType - Cast the specified value to the specified type assuming
   /// that V's type and Ty are integral types. This arbitrates between BitCast,
   /// Trunc and SExt.
-  Value *CastToSIntType(Value *V, const Type *Ty);
+  Value *CastToSIntType(Value *V, Type *Ty);
 
   /// CastToFPType - Cast the specified value to the specified type assuming
   /// that V's type and Ty are floating point types. This arbitrates between
   /// BitCast, FPTrunc and FPExt.
-  Value *CastToFPType(Value *V, const Type *Ty);
+  Value *CastToFPType(Value *V, Type *Ty);
 
   /// CreateAnyAdd - Add two LLVM scalar values with the given GCC type.  Does
   /// not support complex numbers.  The type is used to set overflow flags.
@@ -511,10 +511,10 @@ public:
   /// CreateTemporary - Create a new alloca instruction of the specified type,
   /// inserting it into the entry block and returning it.  The resulting
   /// instruction's type is a pointer to the specified type.
-  AllocaInst *CreateTemporary(const Type *Ty, unsigned align=0);
+  AllocaInst *CreateTemporary(Type *Ty, unsigned align=0);
 
   /// CreateTempLoc - Like CreateTemporary, but returns a MemRef.
-  MemRef CreateTempLoc(const Type *Ty);
+  MemRef CreateTempLoc(Type *Ty);
 
   /// EmitAggregateCopy - Copy the elements from SrcLoc to DestLoc, using the
   /// GCC type specified by GCCType to know which elements to copy.
@@ -649,7 +649,7 @@ private:
   /// that the original and target types are LLVM register types that correspond
   /// to GCC scalar types t1 and t2 satisfying useless_type_conversion_p(t1, t2)
   /// or useless_type_conversion_p(t2, t1).
-  Value *TriviallyTypeConvert(Value *V, const Type *Ty) {
+  Value *TriviallyTypeConvert(Value *V, Type *Ty) {
     // If useless_type_conversion_p(t1, t2) holds then the corresponding LLVM
     // register types are either equal or are both pointer types.
     if (V->getType() == Ty)
@@ -891,7 +891,7 @@ private:
                             tree_node *fndecl,
                             const MemRef *DestLoc,
                             Value *&Result,
-                            const Type *ResultType,
+                            Type *ResultType,
                             std::vector<Value*> &Ops);
 
 public:

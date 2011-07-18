@@ -173,7 +173,7 @@ BitSlice BitSlice::ExtendRange(SignedRange r, TargetFolder &Folder) const {
   if (R == r)
     return *this;
   assert(!r.empty() && "Empty ranges did not evaluate as equal?");
-  const Type *ExtTy = IntegerType::get(Context, r.getWidth());
+  Type *ExtTy = IntegerType::get(Context, r.getWidth());
   // If the slice contains no bits then every bit of the extension is zero.
   if (empty())
     return BitSlice(r, Constant::getNullValue(ExtTy));
@@ -206,7 +206,7 @@ Constant *BitSlice::getBits(SignedRange r, TargetFolder &Folder) const {
   // Quick exit if the desired range matches that of the slice.
   if (R == r)
     return Contents;
-  const Type *RetTy = IntegerType::get(Context, r.getWidth());
+  Type *RetTy = IntegerType::get(Context, r.getWidth());
   // If the slice contains no bits then every returned bit is undefined.
   if (empty())
     return UndefValue::get(RetTy);
@@ -267,7 +267,7 @@ BitSlice BitSlice::ReduceRange(SignedRange r, TargetFolder &Folder) const {
     C = Folder.CreateLShr(C, ShiftAmt);
   }
   // Truncate to the new type.
-  const Type *RedTy = IntegerType::get(Context, r.getWidth());
+  Type *RedTy = IntegerType::get(Context, r.getWidth());
   C = Folder.CreateTruncOrBitCast(C, RedTy);
   return BitSlice(r, C);
 }
@@ -281,7 +281,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
     return BitSlice();
 
   // Sanitize the range to make life easier in what follows.
-  const Type *Ty = C->getType();
+  Type *Ty = C->getType();
   int StoreSize = getTargetData().getTypeStoreSizeInBits(Ty);
   R = R.Meet(SignedRange(0, StoreSize));
 
@@ -295,7 +295,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
     DieAbjectly("Unsupported type!");
   case Type::PointerTyID: {
     // Cast to an integer with the same number of bits and return that.
-    const IntegerType *IntTy = getTargetData().getIntPtrType(Context);
+    IntegerType *IntTy = getTargetData().getIntPtrType(Context);
     return BitSlice(0, StoreSize, Folder.CreatePtrToInt(C, IntTy));
   }
   case Type::DoubleTyID:
@@ -307,7 +307,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
   case Type::X86_MMXTyID: {
     // Bitcast to an integer with the same number of bits and return that.
     unsigned BitWidth = Ty->getPrimitiveSizeInBits();
-    const IntegerType *IntTy = IntegerType::get(Context, BitWidth);
+    IntegerType *IntTy = IntegerType::get(Context, BitWidth);
     C = Folder.CreateBitCast(C, IntTy);
     // Be careful about where the bits are placed in case this is a funky type
     // like i1.  If the width is a multiple of the address unit then there is
@@ -319,8 +319,8 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
   }
 
   case Type::ArrayTyID: {
-    const ArrayType *ATy = cast<ArrayType>(Ty);
-    const Type *EltTy = ATy->getElementType();
+    ArrayType *ATy = cast<ArrayType>(Ty);
+    Type *EltTy = ATy->getElementType();
     const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
     assert(Stride > 0 && "Store size smaller than alloc size?");
     // Elements with indices in [FirstElt, LastElt) overlap the range.
@@ -343,7 +343,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
   }
 
   case Type::StructTyID: {
-    const StructType *STy = cast<StructType>(Ty);
+    StructType *STy = cast<StructType>(Ty);
     const StructLayout *SL = getTargetData().getStructLayout(STy);
     // Fields with indices in [FirstIdx, LastIdx) overlap the range.
     unsigned FirstIdx = SL->getElementContainingOffset((R.getFirst()+7)/8);
@@ -355,7 +355,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
       // Extract the field.
       Constant *Field = Folder.CreateExtractValue(C, i);
       // View it as a bunch of bits.
-      const Type *FieldTy = Field->getType();
+      Type *FieldTy = Field->getType();
       unsigned FieldStoreSize = getTargetData().getTypeStoreSizeInBits(FieldTy);
       BitSlice FieldBits = ViewAsBits(Field, SignedRange(0, FieldStoreSize),
                                       Folder);
@@ -366,8 +366,8 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
   }
 
   case Type::VectorTyID: {
-    const VectorType *VTy = cast<VectorType>(Ty);
-    const Type *EltTy = VTy->getElementType();
+    VectorType *VTy = cast<VectorType>(Ty);
+    Type *EltTy = VTy->getElementType();
     const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
     assert(Stride > 0 && "Store size smaller than alloc size?");
     // Elements with indices in [FirstElt, LastElt) overlap the range.
@@ -397,7 +397,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
 /// same constant as you would get by storing the bits of 'C' to memory (with
 /// the first bit stored being 'StartingBit') and then loading out a (constant)
 /// value of type 'Ty' from the stored to memory location.
-static Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit,
+static Constant *InterpretAsType(Constant *C, Type* Ty, int StartingBit,
                                  TargetFolder &Folder) {
   if (C->getType() == Ty)
     return C;
@@ -426,7 +426,7 @@ static Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit,
   case Type::PointerTyID: {
     // Interpret as an integer with the same number of bits then cast back to
     // the original type.
-    const IntegerType *IntTy = getTargetData().getIntPtrType(Context);
+    IntegerType *IntTy = getTargetData().getIntPtrType(Context);
     C = InterpretAsType(C, IntTy, StartingBit, Folder);
     return Folder.CreateIntToPtr(C, Ty);
   }
@@ -439,15 +439,15 @@ static Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit,
     // Interpret as an integer with the same number of bits then cast back to
     // the original type.
     unsigned BitWidth = Ty->getPrimitiveSizeInBits();
-    const IntegerType *IntTy = IntegerType::get(Context, BitWidth);
+    IntegerType *IntTy = IntegerType::get(Context, BitWidth);
     return Folder.CreateBitCast(InterpretAsType(C, IntTy, StartingBit, Folder),
                                 Ty);
   }
 
   case Type::ArrayTyID: {
     // Interpret each array element in turn.
-    const ArrayType *ATy = cast<ArrayType>(Ty);
-    const Type *EltTy = ATy->getElementType();
+    ArrayType *ATy = cast<ArrayType>(Ty);
+    Type *EltTy = ATy->getElementType();
     const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
     const unsigned NumElts = ATy->getNumElements();
     std::vector<Constant*> Vals(NumElts);
@@ -458,7 +458,7 @@ static Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit,
 
   case Type::StructTyID: {
     // Interpret each struct field in turn.
-    const StructType *STy = cast<StructType>(Ty);
+    StructType *STy = cast<StructType>(Ty);
     const StructLayout *SL = getTargetData().getStructLayout(STy);
     unsigned NumElts = STy->getNumElements();
     std::vector<Constant*> Vals(NumElts);
@@ -471,8 +471,8 @@ static Constant *InterpretAsType(Constant *C, const Type* Ty, int StartingBit,
 
   case Type::VectorTyID: {
     // Interpret each vector element in turn.
-    const VectorType *VTy = cast<VectorType>(Ty);
-    const Type *EltTy = VTy->getElementType();
+    VectorType *VTy = cast<VectorType>(Ty);
+    Type *EltTy = VTy->getElementType();
     const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
     const unsigned NumElts = VTy->getNumElements();
     SmallVector<Constant*, 16> Vals(NumElts);
@@ -509,7 +509,7 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
     // This roundabout approach means we get the right result on both little and
     // big endian machines.
     uint64_t Size = getInt64(TYPE_SIZE(type), true);
-    const Type *MemTy = IntegerType::get(Context, Size);
+    Type *MemTy = IntegerType::get(Context, Size);
     C = InterpretAsType(C, MemTy, StartingBit, Folder);
     return Folder.CreateTruncOrBitCast(C, getRegType(type));
   }
@@ -539,7 +539,7 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
     unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
     unsigned Stride = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
     SmallVector<Constant*, 16> Vals(NumElts);
-    const IntegerType *IntPtrTy = getTargetData().getIntPtrType(Context);
+    IntegerType *IntPtrTy = getTargetData().getIntPtrType(Context);
     for (unsigned i = 0; i != NumElts; ++i) {
       Vals[i] = ExtractRegisterFromConstantImpl(C, elt_type,
                                                 StartingBit+i*Stride, Folder);
@@ -599,7 +599,7 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
     // to an i32.  This approach means we get the right result on both little
     // and big endian machines.
     uint64_t Size = getInt64(TYPE_SIZE(type), true);
-    const Type *MemTy = IntegerType::get(Context, Size);
+    Type *MemTy = IntegerType::get(Context, Size);
     // We can extend in any way, but get nicer IR by respecting signedness.
     bool isSigned = !TYPE_UNSIGNED(type);
     Result = isSigned ? Folder.CreateSExtOrBitCast(C, MemTy) :
@@ -677,8 +677,8 @@ static Constant *ConvertInitializerWithCast(tree exp, tree type,
     return C;
   // No cast is needed if the LLVM types are the same.  This occurs often since
   // many different GCC types usually map to the same LLVM type.
-  const Type *SrcTy = getRegType(TREE_TYPE(exp));
-  const Type *DestTy = getRegType(type);
+  Type *SrcTy = getRegType(TREE_TYPE(exp));
+  Type *DestTy = getRegType(type);
   if (SrcTy == DestTy)
     return C;
 
@@ -718,8 +718,8 @@ static Constant *ConvertCST(tree exp, TargetFolder &) {
 static Constant *ConvertSTRING_CST(tree exp, TargetFolder &) {
   // TODO: Enhance GCC's native_encode_expr to handle arbitrary strings and not
   // just those with a byte component type; then ConvertCST can handle strings.
-  const ArrayType *StrTy = cast<ArrayType>(ConvertType(TREE_TYPE(exp)));
-  const Type *ElTy = StrTy->getElementType();
+  ArrayType *StrTy = cast<ArrayType>(ConvertType(TREE_TYPE(exp)));
+  Type *ElTy = StrTy->getElementType();
 
   unsigned Len = (unsigned)TREE_STRING_LENGTH(exp);
 
@@ -797,10 +797,10 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   const TargetData &TD = getTargetData();
 
   tree init_type = TREE_TYPE(exp);
-  const Type *InitTy = ConvertType(init_type);
+  Type *InitTy = ConvertType(init_type);
 
   tree elt_type = TREE_TYPE(init_type);
-  const Type *EltTy = ConvertType(elt_type);
+  Type *EltTy = ConvertType(elt_type);
 
   // Check that the element type has a known, constant size.
   assert(isSequentialCompatible(init_type) && "Variable sized array element!");
@@ -903,7 +903,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // an array of unions, and the various unions had different parts initialized.
   // While there, compute the maximum element alignment.
   bool UseStruct = false;
-  const Type *ActualEltTy = Elts[0]->getType();
+  Type *ActualEltTy = Elts[0]->getType();
   unsigned MaxAlign = TD.getABITypeAlignment(ActualEltTy);
   for (unsigned i = 1; i != NumElts; ++i)
     if (Elts[i]->getType() != ActualEltTy) {
@@ -960,7 +960,7 @@ class FieldContents {
   Constant *getAsBits() const {
     if (R.empty())
       return 0;
-    const Type *IntTy = IntegerType::get(Context, R.getWidth());
+    Type *IntTy = IntegerType::get(Context, R.getWidth());
     return InterpretAsType(C, IntTy, R.getFirst() - Starts, Folder);
   }
 
@@ -978,7 +978,7 @@ class FieldContents {
       return false;
     // If the constant is wider than the range then it needs to be truncated
     // before being passed to the user.
-    const Type *Ty = C->getType();
+    Type *Ty = C->getType();
     unsigned AllocBits = TD.getTypeAllocSizeInBits(Ty);
     return AllocBits <= (unsigned)R.getWidth();
   }
@@ -1084,7 +1084,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
       assert(FirstBit <= TypeSize && "Field off end of type!");
       // Determine the width of the field.
       uint64_t BitWidth;
-      const Type *FieldTy = ConvertType(TREE_TYPE(field));
+      Type *FieldTy = ConvertType(TREE_TYPE(field));
       if (isInt64(DECL_SIZE(field), true)) {
         // The field has a size and it is a constant, so use it.  Note that
         // this size may be smaller than the type size.  For example, if the
@@ -1325,7 +1325,7 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
   // The initializer should always be at least as big as the constructor's type,
   // and except in the cases of incomplete types or types with variable size the
   // sizes should be the same.
-  const Type *Ty = ConvertType(TREE_TYPE(exp));
+  Type *Ty = ConvertType(TREE_TYPE(exp));
   if (Ty->isSized()) {
     uint64_t InitSize = getTargetData().getTypeAllocSizeInBits(Init->getType());
     uint64_t TypeSize = getTargetData().getTypeAllocSizeInBits(Ty);
@@ -1414,7 +1414,7 @@ static Constant *AddressOfARRAY_REF(tree exp, TargetFolder &Folder) {
   // Avoid any assumptions about how the array type is represented in LLVM by
   // doing the GEP on a pointer to the first array element.
   Constant *ArrayAddr = AddressOfImpl(array, Folder);
-  const Type *EltTy = ConvertType(TREE_TYPE(TREE_TYPE(array)));
+  Type *EltTy = ConvertType(TREE_TYPE(TREE_TYPE(array)));
   ArrayAddr = Folder.CreateBitCast(ArrayAddr, EltTy->getPointerTo());
 
   return POINTER_TYPE_OVERFLOW_UNDEFINED ?
@@ -1453,7 +1453,7 @@ static Constant *AddressOfCOMPONENT_REF(tree exp, TargetFolder &Folder) {
   assert(BitStart == 0 &&
          "It's a bitfield reference or we didn't get to the field!");
 
-  const Type *UnitPtrTy = GetUnitPointerType(Context);
+  Type *UnitPtrTy = GetUnitPointerType(Context);
   Constant *StructAddr = AddressOfImpl(TREE_OPERAND(exp, 0), Folder);
   Constant *FieldPtr = Folder.CreateBitCast(StructAddr, UnitPtrTy);
   FieldPtr = Folder.CreateInBoundsGetElementPtr(FieldPtr, &Offset, 1);
@@ -1533,7 +1533,7 @@ static Constant *AddressOfImpl(tree exp, TargetFolder &Folder) {
 
   // Ensure that the address has the expected type.  It is simpler to do this
   // once here rather than in every AddressOf helper.
-  const Type *Ty;
+  Type *Ty;
   if (VOID_TYPE_P(TREE_TYPE(exp)))
     Ty = GetUnitPointerType(Context); // void* -> i8*.
   else
