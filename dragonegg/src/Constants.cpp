@@ -1257,8 +1257,8 @@ static Constant *ConvertPOINTER_PLUS_EXPR(tree exp, TargetFolder &Folder) {
   // Convert the pointer into an i8* and add the offset to it.
   Ptr = Folder.CreateBitCast(Ptr, GetUnitPointerType(Context));
   Constant *Result = POINTER_TYPE_OVERFLOW_UNDEFINED ?
-    Folder.CreateInBoundsGetElementPtr(Ptr, &Idx, 1) :
-    Folder.CreateGetElementPtr(Ptr, &Idx, 1);
+    Folder.CreateInBoundsGetElementPtr(Ptr, Idx) :
+    Folder.CreateGetElementPtr(Ptr, Idx);
 
   // The result may be of a different pointer type.
   Result = Folder.CreateBitCast(Result, getRegType(TREE_TYPE(exp)));
@@ -1418,8 +1418,8 @@ static Constant *AddressOfARRAY_REF(tree exp, TargetFolder &Folder) {
   ArrayAddr = Folder.CreateBitCast(ArrayAddr, EltTy->getPointerTo());
 
   return POINTER_TYPE_OVERFLOW_UNDEFINED ?
-    Folder.CreateInBoundsGetElementPtr(ArrayAddr, &IndexVal, 1) :
-    Folder.CreateGetElementPtr(ArrayAddr, &IndexVal, 1);
+    Folder.CreateInBoundsGetElementPtr(ArrayAddr, IndexVal) :
+    Folder.CreateGetElementPtr(ArrayAddr, IndexVal);
 }
 
 /// AddressOfCOMPONENT_REF - Return the address of a field in a record.
@@ -1456,7 +1456,7 @@ static Constant *AddressOfCOMPONENT_REF(tree exp, TargetFolder &Folder) {
   Type *UnitPtrTy = GetUnitPointerType(Context);
   Constant *StructAddr = AddressOfImpl(TREE_OPERAND(exp, 0), Folder);
   Constant *FieldPtr = Folder.CreateBitCast(StructAddr, UnitPtrTy);
-  FieldPtr = Folder.CreateInBoundsGetElementPtr(FieldPtr, &Offset, 1);
+  FieldPtr = Folder.CreateInBoundsGetElementPtr(FieldPtr, Offset);
 
   return FieldPtr;
 }
