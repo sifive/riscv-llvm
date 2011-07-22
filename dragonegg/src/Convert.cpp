@@ -912,7 +912,7 @@ Function *TreeToLLVM::FinishFunctionBody() {
         Idxs[0] = Builder.getInt32(0);
         for (unsigned ri = 0; ri < STy->getNumElements(); ++ri) {
           Idxs[1] = Builder.getInt32(ri);
-          Value *GEP = Builder.CreateGEP(R1, Idxs, Idxs+2, "mrv_gep");
+          Value *GEP = Builder.CreateGEP(R1, Idxs, "mrv_gep");
           Value *E = Builder.CreateLoad(GEP, "mrv");
           RetVals.push_back(E);
         }

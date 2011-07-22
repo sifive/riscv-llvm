@@ -1557,7 +1557,7 @@ static void llvm_x86_extract_mrv_array_element(Value *Src, Value *Dest,
   Idxs[0] = ConstantInt::get(Type::getInt32Ty(Context), 0);
   Idxs[1] = ConstantInt::get(Type::getInt32Ty(Context), DestFieldNo);
   Idxs[2] = ConstantInt::get(Type::getInt32Ty(Context), DestElemNo);
-  Value *GEP = Builder.CreateGEP(Dest, Idxs, Idxs+3, "mrv_gep");
+  Value *GEP = Builder.CreateGEP(Dest, Idxs, "mrv_gep");
   if (STy->getElementType(SrcFieldNo)->isVectorTy()) {
     Value *ElemIndex = ConstantInt::get(Type::getInt32Ty(Context), SrcElemNo);
     Value *EVIElem = Builder.CreateExtractElement(EVI, ElemIndex, "mrv");
@@ -1628,13 +1628,13 @@ void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,
       Idxs[1] = ConstantInt::get(Type::getInt32Ty(Context), DNO);
 
       Idxs[2] = ConstantInt::get(Type::getInt32Ty(Context), 0);
-      Value *GEP = Builder.CreateGEP(Dest, Idxs, Idxs+3, "mrv_gep");
+      Value *GEP = Builder.CreateGEP(Dest, Idxs, "mrv_gep");
       Value *EVI = Builder.CreateExtractValue(Src, 0, "mrv_gr");
       Builder.CreateStore(EVI, GEP, isVolatile);
       ++SNO;
 
       Idxs[2] = ConstantInt::get(Type::getInt32Ty(Context), 1);
-      GEP = Builder.CreateGEP(Dest, Idxs, Idxs+3, "mrv_gep");
+      GEP = Builder.CreateGEP(Dest, Idxs, "mrv_gep");
       EVI = Builder.CreateExtractValue(Src, 1, "mrv_gr");
       Builder.CreateStore(EVI, GEP, isVolatile);
       ++DNO; ++SNO;
