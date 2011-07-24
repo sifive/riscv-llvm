@@ -308,7 +308,7 @@ namespace {
         isShadowRet(false) {}
 
     /// getCallingConv - This provides the desired CallingConv for the function.
-    CallingConv::ID& getCallingConv(void) { return CallingConv; }
+    CallingConv::ID getCallingConv(void) { return CallingConv; }
 
     void HandlePad(llvm::Type * /*LLVMTy*/) {
       ++AI;
@@ -2579,7 +2579,7 @@ namespace {
         isShadowRet(false), isAggrRet(false), Offset(0) { }
 
     /// getCallingConv - This provides the desired CallingConv for the function.
-    CallingConv::ID& getCallingConv(void) { return CallingConv; }
+    CallingConv::ID getCallingConv(void) { return CallingConv; }
 
     // Push the address of an argument.
     void pushAddress(Value *Loc) {

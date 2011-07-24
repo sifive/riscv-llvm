@@ -42,7 +42,7 @@ namespace llvm {
 /// interface that can be subclassed.
 struct DefaultABIClient {
   virtual ~DefaultABIClient() {}
-  virtual CallingConv::ID& getCallingConv(void) = 0;
+  virtual CallingConv::ID getCallingConv(void) = 0;
   virtual bool isShadowReturn() const { return false; }
 
   /// HandleScalarResult - This callback is invoked if the function returns a

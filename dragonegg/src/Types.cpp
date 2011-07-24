@@ -714,7 +714,7 @@ namespace {
     }
 
     /// getCallingConv - This provides the desired CallingConv for the function.
-    CallingConv::ID& getCallingConv(void) { return CallingConv; }
+    CallingConv::ID getCallingConv(void) { return CallingConv; }
 
     bool isShadowReturn() const { return isShadowRet; }
 
