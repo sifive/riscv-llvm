@@ -190,8 +190,8 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
   // not include variable sized fields here.
   std::vector<Type*> Elts;
   if (Ty->isVoidTy()) {
-    // Handle void explicitly as an opaque type.
-    Type *OpTy = OpaqueType::get(getGlobalContext());
+    // Handle void explicitly as a {} type.
+    Type *OpTy = StructType::get(getGlobalContext());
     C.HandleScalarArgument(OpTy, type);
     ScalarElts.push_back(OpTy);
   } else if (isPassedByInvisibleReference(type)) { // variable size -> by-ref.
