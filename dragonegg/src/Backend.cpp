@@ -1241,27 +1241,6 @@ void register_ctor_dtor(Function *Fn, int InitPrio, bool isCtor) {
   (isCtor ? &StaticCtors:&StaticDtors)->push_back(std::make_pair(Fn, InitPrio));
 }
 
-//FIXME/// print_llvm - Print the specified LLVM chunk like an operand, called by
-//FIXME/// print-tree.c for tree dumps.
-//FIXMEvoid print_llvm(FILE *file, void *LLVM) {
-//FIXME  oFILEstream FS(file);
-//FIXME  FS << "LLVM: ";
-//FIXME  WriteAsOperand(FS, (Value*)LLVM, true, TheModule);
-//FIXME}
-//FIXME
-//FIXME/// print_llvm_type - Print the specified LLVM type symbolically, called by
-//FIXME/// print-tree.c for tree dumps.
-//FIXMEvoid print_llvm_type(FILE *file, void *LLVM) {
-//FIXME  oFILEstream FS(file);
-//FIXME  FS << "LLVM: ";
-//FIXME
-//FIXME  // FIXME: oFILEstream can probably be removed in favor of a new raw_ostream
-//FIXME  // adaptor which would be simpler and more efficient.  In the meantime, just
-//FIXME  // adapt the adaptor.
-//FIXME  raw_os_ostream RO(FS);
-//FIXME  WriteTypeSymbolic(RO, (Type*)LLVM, TheModule);
-//FIXME}
-
 /// extractRegisterName - Get a register name given its decl. In 4.2 unlike 4.0
 /// these names have been run through set_user_assembler_name which means they
 /// may have a leading star at this point; compensate.
