@@ -28,6 +28,7 @@
 #include "llvm/Intrinsics.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/IRBuilder.h"
@@ -169,11 +170,6 @@ int get_decl_index(tree_node *);
 
 void changeLLVMConstant(Constant *Old, Constant *New);
 void register_ctor_dtor(Function *, int, bool);
-void readLLVMTypesStringTable();
-void writeLLVMTypesStringTable();
-void readLLVMValues();
-void writeLLVMValues();
-void clearTargetBuiltinCache();
 const char *extractRegisterName(tree_node *);
 void handleVisibility(tree_node *decl, GlobalValue *GV);
 Twine getLLVMAssemblerName(tree_node *);
@@ -187,18 +183,17 @@ bool isPaddingElement(tree_node*, unsigned N);
 /// TypeConverter - Implement the converter from GCC types to LLVM types.
 ///
 class TypeConverter {
-  /// ConvertingStruct - If we are converting a RECORD or UNION to an LLVM type
-  /// we set this flag to true.
-  bool ConvertingStruct;
+  enum ConversionStatus {
+    CS_Normal,   // Not in any specific context
+    CS_Struct,   // Recursively converting inside a struct
+    CS_StructPtr // Recursively converting under a pointer in a struct.
+  } RecursionStatus;
 
-  /// PointersToReresolve - When ConvertingStruct is true, we handling of
-  /// POINTER_TYPE and REFERENCE_TYPE is changed to return
-  /// opaque*'s instead of recursively calling ConvertType.  When this happens,
-  /// we add the POINTER_TYPE to this list.
-  ///
-  std::vector<tree_node*> PointersToReresolve;
+  /// When in a CS_StructPtr context, we defer layout of a struct until we clear
+  /// the outermost struct.
+  SmallVector<union tree_node*, 8> StructsDeferred;
 public:
-  TypeConverter() : ConvertingStruct(false) {}
+  TypeConverter() : RecursionStatus(CS_Normal) {}
 
   /// ConvertType - Returns the LLVM type to use for memory that holds a value
   /// of the given GCC type (getRegType should be used for values in registers).

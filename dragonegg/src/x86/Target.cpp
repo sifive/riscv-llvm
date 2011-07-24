@@ -857,7 +857,7 @@ static bool llvm_x86_64_should_pass_aggregate_in_memory(tree TreeType,
 static bool llvm_x86_is_all_integer_types(Type *Ty) {
   for (Type::subtype_iterator I = Ty->subtype_begin(), E = Ty->subtype_end();
        I != E; ++I) {
-    Type *STy = I->get();
+    Type *STy = *I;
     if (!STy->isIntOrIntVectorTy() && !STy->isPointerTy())
       return false;
   }
