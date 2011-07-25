@@ -24,10 +24,10 @@
 #define DRAGONEGG_OS_H
 
 /* Yes, we support PIC codegen for linux targets! */
-#define LLVM_SET_TARGET_OPTIONS(argvec)              \
-  if (flag_pic)                                      \
-    argvec.push_back ("--relocation-model=pic");     \
-  else                                               \
-    argvec.push_back ("--relocation-model=static");
+#define LLVM_SET_RELOC_MODEL(RelocModel)	\
+  if (flag_pic)					\
+    RelocModel = Reloc::PIC_;			\
+  else						\
+    RelocModel = Reloc::Static;
 
 #endif /* DRAGONEGG_OS_H */

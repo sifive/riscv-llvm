@@ -39,6 +39,7 @@ extern "C" {
 #include "llvm/Assembly/PrintModulePass.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
+#include "llvm/MC/MCCodeGenInfo.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PassManagerBuilder.h"
@@ -413,7 +414,15 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   LLVM_SET_SUBTARGET_FEATURES(CPU, Features);
   FeatureStr = Features.getString();
 #endif
-  TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr);
+
+  // The target can set LLVM_SET_RELOC_MODEL to configure the relocation
+  // model used by the LLVM backend.
+  Reloc::Model RelocModel = Reloc::Default;
+#ifdef LLVM_SET_RELOC_MODEL
+  LLVM_SET_RELOC_MODEL(RelocModel);
+#endif
+  TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr,
+                                       RelocModel);
   TheTarget->setMCUseCFI(flag_dwarf2_cfi_asm);
   assert(TheTarget->getTargetData()->isBigEndian() == BYTES_BIG_ENDIAN);
 }
