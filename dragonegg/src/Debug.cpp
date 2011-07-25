@@ -1645,7 +1645,8 @@ DIVariable DIFactory::CreateVariable(unsigned Tag, DIDescriptor Context,
     F,
     ConstantInt::get(Type::getInt32Ty(VMContext), LineNo),
     Ty,
-    ConstantInt::get(Type::getInt32Ty(VMContext), Flags)
+    ConstantInt::get(Type::getInt32Ty(VMContext), Flags),
+    Constant::getNullValue(Type::getInt32Ty(VMContext))
   };
   MDNode *Node = MDNode::get(VMContext, Elts);
   if (AlwaysPreserve) {
@@ -1682,6 +1683,8 @@ DIVariable DIFactory::CreateComplexVariable(unsigned Tag, DIDescriptor Context,
   Elts.push_back(F);
   Elts.push_back(ConstantInt::get(Type::getInt32Ty(VMContext), LineNo));
   Elts.push_back(Ty);
+  Elts.push_back(llvm::Constant::getNullValue(Type::getInt32Ty(VMContext)));
+  Elts.push_back(llvm::Constant::getNullValue(Type::getInt32Ty(VMContext)));
   Elts.append(Addr, Addr+NumAddr);
 
   return DIVariable(MDNode::get(VMContext, Elts));
