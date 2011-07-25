@@ -371,33 +371,39 @@ enum x86_64_reg_class
 #define LLVM_CANONICAL_ADDRESS_CONSTRAINTS "im"
 
 /* Propagate code model setting to backend */
-#define LLVM_SET_MACHINE_OPTIONS(argvec)                \
-  do {                                                  \
-    switch (ix86_cmodel) {                              \
-    default:                                            \
-      sorry ("code model %<%s%> not supported yet",     \
-             ix86_cmodel_string);                       \
-      break;                                            \
-    case CM_SMALL:                                      \
-    case CM_SMALL_PIC:                                  \
-      argvec.push_back("--code-model=small");           \
-      break;                                            \
-    case CM_KERNEL:                                     \
-      argvec.push_back("--code-model=kernel");          \
-      break;                                            \
-    case CM_MEDIUM:                                     \
-    case CM_MEDIUM_PIC:                                 \
-      argvec.push_back("--code-model=medium");          \
-      break;                                            \
-    case CM_32:                                         \
-      argvec.push_back("--code-model=default");         \
-      break;                                            \
-    }                                                   \
-    if (TARGET_OMIT_LEAF_FRAME_POINTER)                 \
-      argvec.push_back("--disable-non-leaf-fp-elim");   \
-                                                        \
-    if (ix86_force_align_arg_pointer)                   \
-      argvec.push_back("-force-align-stack");           \
+#define LLVM_SET_CODE_MODEL(CMModel)			\
+  switch (ix86_cmodel) {				\
+  default:						\
+    sorry ("code model %<%s%> not supported yet",	\
+           ix86_cmodel_string);				\
+    break;						\
+  case CM_32:						\
+    CMModel = CodeModel::Default;			\
+    break;						\
+  case CM_SMALL:					\
+  case CM_SMALL_PIC:					\
+    CMModel = CodeModel::Small;				\
+    break;						\
+  case CM_KERNEL:					\
+    CMModel = CodeModel::Kernel;			\
+    break;						\
+  case CM_MEDIUM:					\
+  case CM_MEDIUM_PIC:					\
+    CMModel = CodeModel::Medium;			\
+    break;						\
+  case CM_LARGE:					\
+  case CM_LARGE_PIC:					\
+    CMModel = CodeModel::Large;				\
+    break;						\
+  }
+
+#define LLVM_SET_MACHINE_OPTIONS(argvec)		\
+  do {							\
+    if (TARGET_OMIT_LEAF_FRAME_POINTER)			\
+      argvec.push_back("--disable-non-leaf-fp-elim");	\
+							\
+    if (ix86_force_align_arg_pointer)			\
+      argvec.push_back("-force-align-stack");		\
   } while (0)
 
 #endif /* DRAGONEGG_TARGET_H */
