@@ -408,12 +408,16 @@ Type *TypeConverter::ConvertType(tree type) {
     if (RecursionStatus == CS_Struct)
       RecursionStatus = CS_StructPtr;
 
-    Ty = ConvertType(TREE_TYPE(type));
+    if (RecursionStatus != CS_StructPtr)
+      Ty = ConvertType(TREE_TYPE(type));
+    else
+      // FIXME: Hack to avoid crashes with the new LLVM type system.
+      Ty = GetUnitType(Context);
 
     RecursionStatus = SavedCS;
 
     if (Ty->isVoidTy())
-      Ty = Type::getInt8Ty(Context);  // void* -> i8*
+      Ty = GetUnitType(Context);  // void* -> byte*
     return SET_TYPE_LLVM(type, Ty->getPointerTo());
   }
 
