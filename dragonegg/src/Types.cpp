@@ -1405,7 +1405,6 @@ void TypeConverter::SelectUnionMember(tree type,
   bool FindBiggest = TREE_CODE(type) != QUAL_UNION_TYPE;
 
   Type *UnionTy = 0;
-  tree GccUnionTy = 0;
   tree UnionField = 0;
   unsigned MinAlign = ~0U;
   uint64_t BestSize = FindBiggest ? 0 : ~(uint64_t)0;
@@ -1439,7 +1438,6 @@ void TypeConverter::SelectUnionMember(tree type,
         (!FindBiggest && Size < BestSize)) {
       UnionTy = TheTy;
       UnionField = Field;
-      GccUnionTy = TheGccTy;
       BestSize = Size;
       MinAlign = Align;
     }
