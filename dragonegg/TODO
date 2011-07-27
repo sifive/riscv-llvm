@@ -36,6 +36,27 @@ Stop hooking directly into target specific ABI code (which requires patching
 gcc).  Instead, either try to get ABI info from the gcc hooks (which may mean
 translating RTL) or reuse the clang code.
 
+Testing
+-------
+
+Add nightly testers that build using dragonegg.
+
+Move the old FrontendXYZ tests from LLVM to dragonegg.
+
+Add a "compilator" lit test mode that compiles everything it is
+pointed at using gcc and dragonegg, and generates "fail" if gcc
+compiles something but dragonegg doesn't (and vice versa).  Point
+the compilator at the gcc and clang testsuites.  Have some buildbots
+that do this.
+
+Make the dragonegg testsuite public.  Have some buildbots run it.
+
+Have the dragonegg self-host script also check that "make check"
+is working fine after LLVM is built.
+
+Have the dragonegg buildbots use a proper buildbot script rather than
+just handing everything off to the dragonegg self-host script.
+
 Code quality
 ------------
 
