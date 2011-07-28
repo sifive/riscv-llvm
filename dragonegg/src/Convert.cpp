@@ -2413,7 +2413,7 @@ Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
   // Perform a cast here if necessary.  For example, GCC sometimes forms an
   // ADDR_EXPR where the operand is an array, and the ADDR_EXPR type is a
   // pointer to the first element.
-  return Builder.CreateBitCast(LV.Ptr, ConvertType(TREE_TYPE(exp)));
+  return Builder.CreateBitCast(LV.Ptr, getRegType(TREE_TYPE(exp)));
 }
 
 Value *TreeToLLVM::EmitCondExpr(tree exp) {
@@ -6308,6 +6308,11 @@ Value *TreeToLLVM::Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
     return Builder.CreateIntCast(V, RegTy, /*isSigned*/!TYPE_UNSIGNED(type));
   }
 
+  if (RegTy->isPointerTy()) {
+    assert(MemTy->isPointerTy() && "Type mismatch!");
+    return Builder.CreateBitCast(V, RegTy);
+  }
+
   if (RegTy->isStructTy()) {
     assert(TREE_CODE(type) == COMPLEX_TYPE && "Expected a complex type!");
     assert(MemTy->isStructTy() && "Type mismatch!");
@@ -6348,6 +6353,11 @@ Value *TreeToLLVM::Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
   if (MemTy->isIntegerTy()) {
     assert(RegTy->isIntegerTy() && "Type mismatch!");
     return Builder.CreateIntCast(V, MemTy, /*isSigned*/!TYPE_UNSIGNED(type));
+  }
+
+  if (MemTy->isPointerTy()) {
+    assert(RegTy->isPointerTy() && "Type mismatch!");
+    return Builder.CreateBitCast(V, MemTy);
   }
 
   if (MemTy->isStructTy()) {
