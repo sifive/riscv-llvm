@@ -2441,7 +2441,7 @@ Value *TreeToLLVM::EmitCondExpr(tree exp) {
 
 Value *TreeToLLVM::EmitOBJ_TYPE_REF(tree exp) {
   return Builder.CreateBitCast(EmitRegister(OBJ_TYPE_REF_EXPR(exp)),
-                               ConvertType(TREE_TYPE(exp)));
+                               getRegType(TREE_TYPE(exp)));
 }
 
 /// EmitCONSTRUCTOR - emit the constructor into the location specified by
