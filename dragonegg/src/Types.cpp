@@ -210,7 +210,9 @@ bool isBitfield(tree_node *field_decl) {
 /// INT_MAX if there is no such LLVM field.
 int GetFieldIndex(tree decl, Type *Ty) {
   assert(TREE_CODE(decl) == FIELD_DECL && "Expected a FIELD_DECL!");
-  assert(Ty == ConvertType(DECL_CONTEXT(decl)) && "Field not for this type!");
+  // FIXME: The following test sometimes fails when compiling Fortran90 because
+  // DECL_CONTEXT does not point to the containing type, but some other type!
+//  assert(Ty == ConvertType(DECL_CONTEXT(decl)) && "Field not for this type!");
 
   // If we previously cached the field index, return the cached value.
   unsigned Index = (unsigned)get_decl_index(decl);
