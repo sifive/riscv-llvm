@@ -2434,6 +2434,7 @@ Value *TreeToLLVM::EmitCondExpr(tree exp) {
   // Emit the true and false values.
   Value *TrueVal = EmitRegister(TREE_OPERAND(exp, 1));
   Value *FalseVal = EmitRegister(TREE_OPERAND(exp, 2));
+  FalseVal = TriviallyTypeConvert(FalseVal, TrueVal->getType());
 
   // Select the value to use based on the condition.
   return Builder.CreateSelect(CondVal, TrueVal, FalseVal);
