@@ -37,18 +37,18 @@ extern "C" {
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/MC/MCCodeGenInfo.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Transforms/IPO.h"
-#include "llvm/Analysis/Verifier.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetRegistry.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 // System headers
 #include <gmp.h>
