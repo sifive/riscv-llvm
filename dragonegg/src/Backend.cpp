@@ -44,6 +44,8 @@ extern "C" {
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Analysis/Verifier.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetRegistry.h"
