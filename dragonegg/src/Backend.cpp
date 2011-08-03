@@ -35,6 +35,7 @@ extern "C" {
 #define DEBUG_TYPE "plugin"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
+#include "llvm/PassManager.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Assembly/PrintModulePass.h"
 #include "llvm/Bitcode/ReaderWriter.h"
