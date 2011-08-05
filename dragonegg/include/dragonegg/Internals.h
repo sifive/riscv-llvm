@@ -190,16 +190,6 @@ inline Constant *getDefaultValue(Type *Ty) {
 /// thing by value, pass the address of a temporary.
 bool isPassedByInvisibleReference(tree_node *type);
 
-/// OffsetIsLLVMCompatible - Return true if the given field is offset from the
-/// start of the record by a constant amount which is not humongously big.
-extern bool OffsetIsLLVMCompatible(tree_node *field_decl);
-
-/// isBitfield - Returns whether to treat the specified field as a bitfield.
-bool isBitfield(tree_node *field_decl);
-
-/// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
-extern uint64_t getFieldOffsetInBits(tree_node *field);
-
 /// ValidateRegisterVariable - Check that a static "asm" variable is
 /// well-formed.  If not, emit error messages and return true.  If so, return
 /// false.

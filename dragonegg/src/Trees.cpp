@@ -194,3 +194,45 @@ uint64_t getInt64(tree t, bool Unsigned) {
     return ((uint64_t)HI << 32) | (uint64_t)LO;
   }
 }
+
+/// OffsetIsLLVMCompatible - Return true if the given field is offset from the
+/// start of the record by a constant amount which is not humongously big.
+bool OffsetIsLLVMCompatible(tree field_decl) {
+  return isInt64(DECL_FIELD_OFFSET(field_decl), true);
+}
+
+/// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
+uint64_t getFieldOffsetInBits(tree field) {
+  assert(OffsetIsLLVMCompatible(field) && "Offset is not constant!");
+  uint64_t Result = getInt64(DECL_FIELD_BIT_OFFSET(field), true);
+  Result += getInt64(DECL_FIELD_OFFSET(field), true) * BITS_PER_UNIT;
+  return Result;
+}
+
+/// isBitfield - Returns whether to treat the specified field as a bitfield.
+bool isBitfield(tree_node *field_decl) {
+  if (!DECL_BIT_FIELD(field_decl))
+    return false;
+
+  // A bitfield.  But do we need to treat it as one?
+
+  assert(DECL_FIELD_BIT_OFFSET(field_decl) && "Bitfield with no bit offset!");
+  if (TREE_INT_CST_LOW(DECL_FIELD_BIT_OFFSET(field_decl)) & 7)
+    // Does not start on a byte boundary - must treat as a bitfield.
+    return true;
+
+  if (!isInt64(TYPE_SIZE (TREE_TYPE(field_decl)), true))
+    // No size or variable sized - play safe, treat as a bitfield.
+    return true;
+
+  uint64_t TypeSizeInBits = getInt64(TYPE_SIZE (TREE_TYPE(field_decl)), true);
+  assert(!(TypeSizeInBits & 7) && "A type with a non-byte size!");
+
+  assert(DECL_SIZE(field_decl) && "Bitfield with no bit size!");
+  uint64_t FieldSizeInBits = getInt64(DECL_SIZE(field_decl), true);
+  if (FieldSizeInBits < TypeSizeInBits)
+    // Not wide enough to hold the entire type - treat as a bitfield.
+    return true;
+
+  return false;
+}

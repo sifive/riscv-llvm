@@ -59,4 +59,14 @@ bool isInt64(tree_node *t, bool Unsigned);
 /// overflowed constants.  These conditions can be checked by calling isInt64.
 uint64_t getInt64(tree_node *t, bool Unsigned);
 
+/// OffsetIsLLVMCompatible - Return true if the given field is offset from the
+/// start of the record by a constant amount which is not humongously big.
+extern bool OffsetIsLLVMCompatible(tree_node *field_decl);
+
+/// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
+extern uint64_t getFieldOffsetInBits(tree_node *field);
+
+/// isBitfield - Returns whether to treat the specified field as a bitfield.
+bool isBitfield(tree_node *field_decl);
+
 #endif /* DRAGONEGG_TREES_H */

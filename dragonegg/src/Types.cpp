@@ -58,6 +58,10 @@ static LLVMContext &Context = getGlobalContext();
 /// SCCInProgress - Set of mutually dependent types currently being converted.
 static const std::vector<tree_node*> *SCCInProgress;
 
+//===----------------------------------------------------------------------===//
+//                          Viewing types as graphs
+//===----------------------------------------------------------------------===//
+
 /// ContainedTypeIterator - A convenience class for viewing a type as a graph,
 /// where the nodes of the graph are types and there is an edge from type A to
 /// type B iff A "contains" B.  A record type contains the types of its fields,
@@ -197,52 +201,7 @@ namespace {
 
 
 //===----------------------------------------------------------------------===//
-//                   Matching LLVM types with GCC trees
-//===----------------------------------------------------------------------===//
-
-// GET_TYPE_LLVM/SET_TYPE_LLVM - Associate an LLVM type with each TREE type.
-// These are lazily computed by ConvertType.
-
-static Type *llvm_set_type(tree Tr, Type *Ty) {
-  assert(TYPE_P(Tr) && "Expected a gcc type!");
-
-  // Check that the LLVM and GCC types have the same size, or, if the type has
-  // variable size, that the LLVM type is not bigger than any possible value of
-  // the GCC type.
-#ifndef NDEBUG
-  if (Ty->isSized() && isInt64(TYPE_SIZE(Tr), true)) {
-    uint64_t LLVMSize = getTargetData().getTypeAllocSizeInBits(Ty);
-    if (getInt64(TYPE_SIZE(Tr), true) != LLVMSize) {
-      errs() << "GCC: ";
-      debug_tree(Tr);
-      errs() << "LLVM: ";
-      Ty->print(errs());
-      errs() << " (" << LLVMSize << " bits)\n";
-      DieAbjectly("LLVM type size doesn't match GCC type size!");
-    }
-  }
-#endif
-
-  return (Type *)llvm_set_cached(Tr, Ty);
-}
-
-#define SET_TYPE_LLVM(NODE, TYPE) llvm_set_type(NODE, TYPE)
-
-static Type *llvm_get_type(tree Tr) {
-  assert(TYPE_P(Tr) && "Expected a gcc type!");
-  return (Type *)llvm_get_cached(Tr);
-}
-
-#define GET_TYPE_LLVM(NODE) llvm_get_type(NODE)
-
-static bool llvm_has_type(tree Tr) {
-  assert(TYPE_P(Tr) && "Expected a gcc type!");
-  return llvm_has_cached(Tr);
-}
-
-
-//===----------------------------------------------------------------------===//
-//                       Type Conversion Utilities
+//                                 Utilities
 //===----------------------------------------------------------------------===//
 
 /// ArrayLengthOf - Returns the length of the given gcc array type, or NO_LENGTH
@@ -256,101 +215,6 @@ uint64_t ArrayLengthOf(tree type) {
   int64_t Range = getInt64(range, false);
   return Range < 0 ? 0 : 1 + (uint64_t)Range;
 }
-
-/// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
-uint64_t getFieldOffsetInBits(tree field) {
-  assert(OffsetIsLLVMCompatible(field) && "Offset is not constant!");
-  uint64_t Result = getInt64(DECL_FIELD_BIT_OFFSET(field), true);
-  Result += getInt64(DECL_FIELD_OFFSET(field), true) * BITS_PER_UNIT;
-  return Result;
-}
-
-/// GetUnitType - Returns an integer one address unit wide if 'NumUnits' is 1;
-/// otherwise returns an array of such integers with 'NumUnits' elements.  For
-/// example, on a machine which has 16 bit bytes returns an i16 or an array of
-/// i16.
-Type *GetUnitType(LLVMContext &C, unsigned NumUnits) {
-  assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
-  Type *UnitTy = IntegerType::get(C, BITS_PER_UNIT);
-  if (NumUnits == 1)
-    return UnitTy;
-  return ArrayType::get(UnitTy, NumUnits);
-}
-
-/// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
-/// address unit wide.  For example, on a machine which has 16 bit bytes returns
-/// an i16*.
-Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace) {
-  return GetUnitType(C)->getPointerTo(AddrSpace);
-}
-
-// isPassedByInvisibleReference - Return true if an argument of the specified
-// type should be passed in by invisible reference.
-//
-bool isPassedByInvisibleReference(tree Type) {
-  // Don't crash in this case.
-  if (Type == error_mark_node)
-    return false;
-
-  // FIXME: Search for TREE_ADDRESSABLE in calls.c, and see if there are other
-  // cases that make arguments automatically passed in by reference.
-  return TREE_ADDRESSABLE(Type) || TYPE_SIZE(Type) == 0 ||
-         TREE_CODE(TYPE_SIZE(Type)) != INTEGER_CST;
-}
-
-/// isSequentialCompatible - Return true if the specified gcc array, pointer or
-/// vector type and the corresponding LLVM SequentialType lay out their elements
-/// identically in memory, so doing a GEP accesses the right memory location.
-/// We assume that objects without a known size do not.
-bool isSequentialCompatible(tree type) {
-  assert((TREE_CODE(type) == ARRAY_TYPE ||
-          TREE_CODE(type) == POINTER_TYPE ||
-          TREE_CODE(type) == VECTOR_TYPE ||
-          TREE_CODE(type) == REFERENCE_TYPE) && "not a sequential type!");
-  // This relies on gcc types with constant size mapping to LLVM types with the
-  // same size.  It is possible for the component type not to have a size:
-  // struct foo;  extern foo bar[];
-  return isInt64(TYPE_SIZE(TREE_TYPE(type)), true);
-}
-
-/// OffsetIsLLVMCompatible - Return true if the given field is offset from the
-/// start of the record by a constant amount which is not humongously big.
-bool OffsetIsLLVMCompatible(tree field_decl) {
-  return isInt64(DECL_FIELD_OFFSET(field_decl), true);
-}
-
-/// isBitfield - Returns whether to treat the specified field as a bitfield.
-bool isBitfield(tree_node *field_decl) {
-  if (!DECL_BIT_FIELD(field_decl))
-    return false;
-
-  // A bitfield.  But do we need to treat it as one?
-
-  assert(DECL_FIELD_BIT_OFFSET(field_decl) && "Bitfield with no bit offset!");
-  if (TREE_INT_CST_LOW(DECL_FIELD_BIT_OFFSET(field_decl)) & 7)
-    // Does not start on a byte boundary - must treat as a bitfield.
-    return true;
-
-  if (!isInt64(TYPE_SIZE (TREE_TYPE(field_decl)), true))
-    // No size or variable sized - play safe, treat as a bitfield.
-    return true;
-
-  uint64_t TypeSizeInBits = getInt64(TYPE_SIZE (TREE_TYPE(field_decl)), true);
-  assert(!(TypeSizeInBits & 7) && "A type with a non-byte size!");
-
-  assert(DECL_SIZE(field_decl) && "Bitfield with no bit size!");
-  uint64_t FieldSizeInBits = getInt64(DECL_SIZE(field_decl), true);
-  if (FieldSizeInBits < TypeSizeInBits)
-    // Not wide enough to hold the entire type - treat as a bitfield.
-    return true;
-
-  return false;
-}
-
-
-//===----------------------------------------------------------------------===//
-//                              Helper Routines
-//===----------------------------------------------------------------------===//
 
 /// GetFieldIndex - Return the index of the field in the given LLVM type that
 /// corresponds to the GCC field declaration 'decl'.  This means that the LLVM
@@ -400,6 +264,101 @@ int GetFieldIndex(tree decl, Type *Ty) {
 
   // Found an appropriate LLVM field - return it.
   return set_decl_index(decl, Index);
+}
+
+/// GetUnitType - Returns an integer one address unit wide if 'NumUnits' is 1;
+/// otherwise returns an array of such integers with 'NumUnits' elements.  For
+/// example, on a machine which has 16 bit bytes returns an i16 or an array of
+/// i16.
+Type *GetUnitType(LLVMContext &C, unsigned NumUnits) {
+  // The following assertion is here because just about every place that calls
+  // this routine implicitly assumes this.
+  assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
+  Type *UnitTy = IntegerType::get(C, BITS_PER_UNIT);
+  if (NumUnits == 1)
+    return UnitTy;
+  return ArrayType::get(UnitTy, NumUnits);
+}
+
+/// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
+/// address unit wide.  For example, on a machine which has 16 bit bytes returns
+/// an i16*.
+Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace) {
+  return GetUnitType(C)->getPointerTo(AddrSpace);
+}
+
+/// isSequentialCompatible - Return true if the specified gcc array, pointer or
+/// vector type and the corresponding LLVM SequentialType lay out their elements
+/// identically in memory, so doing a GEP accesses the right memory location.
+/// We assume that objects without a known size do not.
+bool isSequentialCompatible(tree type) {
+  assert((TREE_CODE(type) == ARRAY_TYPE ||
+          TREE_CODE(type) == POINTER_TYPE ||
+          TREE_CODE(type) == VECTOR_TYPE ||
+          TREE_CODE(type) == REFERENCE_TYPE) && "not a sequential type!");
+  // This relies on gcc types with constant size mapping to LLVM types with the
+  // same size.  It is possible for the component type not to have a size:
+  // struct foo;  extern foo bar[];
+  return isInt64(TYPE_SIZE(TREE_TYPE(type)), true);
+}
+
+//===----------------------------------------------------------------------===//
+//                   Matching LLVM types with GCC trees
+//===----------------------------------------------------------------------===//
+
+// llvm_get_type/llvm_set_type - Associate an LLVM type with each TREE type.
+// These are lazily computed by ConvertType.
+
+static Type *llvm_set_type(tree Tr, Type *Ty) {
+  assert(TYPE_P(Tr) && "Expected a gcc type!");
+
+  // Check that the LLVM and GCC types have the same size, or, if the type has
+  // variable size, that the LLVM type is not bigger than any possible value of
+  // the GCC type.
+#ifndef NDEBUG
+  if (Ty->isSized() && isInt64(TYPE_SIZE(Tr), true)) {
+    uint64_t LLVMSize = getTargetData().getTypeAllocSizeInBits(Ty);
+    if (getInt64(TYPE_SIZE(Tr), true) != LLVMSize) {
+      errs() << "GCC: ";
+      debug_tree(Tr);
+      errs() << "LLVM: ";
+      Ty->print(errs());
+      errs() << " (" << LLVMSize << " bits)\n";
+      DieAbjectly("LLVM type size doesn't match GCC type size!");
+    }
+  }
+#endif
+
+  return (Type *)llvm_set_cached(Tr, Ty);
+}
+
+static Type *llvm_get_type(tree Tr) {
+  assert(TYPE_P(Tr) && "Expected a gcc type!");
+  return (Type *)llvm_get_cached(Tr);
+}
+
+static bool llvm_has_type(tree Tr) {
+  assert(TYPE_P(Tr) && "Expected a gcc type!");
+  return llvm_has_cached(Tr);
+}
+
+
+//===----------------------------------------------------------------------===//
+//                       Type Conversion Utilities
+//===----------------------------------------------------------------------===//
+
+// isPassedByInvisibleReference - Return true if an argument of the specified
+// type should be passed in by invisible reference.
+//
+bool isPassedByInvisibleReference(tree Type) {
+  // Don't crash in this case.
+  if (Type == error_mark_node)
+    return false;
+
+  // FIXME: Search for TREE_ADDRESSABLE in calls.c, and see if there are other
+  // cases that make arguments automatically passed in by reference.
+  return TREE_ADDRESSABLE(Type) || TYPE_SIZE(Type) == 0 ||
+         TREE_CODE(TYPE_SIZE(Type)) != INTEGER_CST;
 }
 
 
@@ -876,247 +835,251 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
 /// StructTypeConversionInfo - A temporary structure that is used when
 /// translating a RECORD_TYPE to an LLVM type.
-struct StructTypeConversionInfo {
-  std::vector<Type*> Elements;
-  std::vector<uint64_t> ElementOffsetInBytes;
-  std::vector<uint64_t> ElementSizeInBytes;
-  std::vector<bool> PaddingElement; // True if field is used for padding
-  const TargetData &TD;
-  unsigned GCCStructAlignmentInBytes;
-  bool Packed; // True if struct is packed
-  bool AllBitFields; // True if all struct fields are bit fields
-  bool LastFieldStartsAtNonByteBoundry;
-  unsigned ExtraBitsAvailable; // Non-zero if last field is bit field and it
-                               // does not use all allocated bits
+namespace {
 
-  StructTypeConversionInfo(TargetMachine &TM, unsigned GCCAlign, bool P)
-    : TD(*TM.getTargetData()), GCCStructAlignmentInBytes(GCCAlign),
-      Packed(P), AllBitFields(true), LastFieldStartsAtNonByteBoundry(false),
-      ExtraBitsAvailable(0) {}
+  struct StructTypeConversionInfo {
+    std::vector<Type*> Elements;
+    std::vector<uint64_t> ElementOffsetInBytes;
+    std::vector<uint64_t> ElementSizeInBytes;
+    std::vector<bool> PaddingElement; // True if field is used for padding
+    const TargetData &TD;
+    unsigned GCCStructAlignmentInBytes;
+    bool Packed; // True if struct is packed
+    bool AllBitFields; // True if all struct fields are bit fields
+    bool LastFieldStartsAtNonByteBoundry;
+    unsigned ExtraBitsAvailable; // Non-zero if last field is bit field and it
+                                 // does not use all allocated bits
 
-  void lastFieldStartsAtNonByteBoundry(bool value) {
-    LastFieldStartsAtNonByteBoundry = value;
-  }
+    StructTypeConversionInfo(TargetMachine &TM, unsigned GCCAlign, bool P)
+      : TD(*TM.getTargetData()), GCCStructAlignmentInBytes(GCCAlign),
+        Packed(P), AllBitFields(true), LastFieldStartsAtNonByteBoundry(false),
+        ExtraBitsAvailable(0) {}
 
-  void extraBitsAvailable (unsigned E) {
-    ExtraBitsAvailable = E;
-  }
+    void lastFieldStartsAtNonByteBoundry(bool value) {
+      LastFieldStartsAtNonByteBoundry = value;
+    }
 
-  bool isPacked() { return Packed; }
+    void extraBitsAvailable (unsigned E) {
+      ExtraBitsAvailable = E;
+    }
 
-  void markAsPacked() {
-    Packed = true;
-  }
+    bool isPacked() { return Packed; }
 
-  void allFieldsAreNotBitFields() {
-    AllBitFields = false;
-    // Next field is not a bitfield.
-    LastFieldStartsAtNonByteBoundry = false;
-  }
+    void markAsPacked() {
+      Packed = true;
+    }
 
-  unsigned getGCCStructAlignmentInBytes() const {
-    return GCCStructAlignmentInBytes;
-  }
+    void allFieldsAreNotBitFields() {
+      AllBitFields = false;
+      // Next field is not a bitfield.
+      LastFieldStartsAtNonByteBoundry = false;
+    }
 
-  /// getTypeAlignment - Return the alignment of the specified type in bytes.
-  ///
-  unsigned getTypeAlignment(Type *Ty) const {
-    return Packed ? 1 : TD.getABITypeAlignment(Ty);
-  }
+    unsigned getGCCStructAlignmentInBytes() const {
+      return GCCStructAlignmentInBytes;
+    }
 
-  /// getTypeSize - Return the size of the specified type in bytes.
-  ///
-  uint64_t getTypeSize(Type *Ty) const {
-    return TD.getTypeAllocSize(Ty);
-  }
+    /// getTypeAlignment - Return the alignment of the specified type in bytes.
+    ///
+    unsigned getTypeAlignment(Type *Ty) const {
+      return Packed ? 1 : TD.getABITypeAlignment(Ty);
+    }
 
-  /// fillInLLVMType - Return the LLVM type for the specified object.
-  ///
-  void fillInLLVMType(StructType *STy) const {
-    // Use Packed type if Packed is set or all struct fields are bitfields.
-    // Empty struct is not packed unless packed is set.
-    STy->setBody(Elements, Packed || (!Elements.empty() && AllBitFields));
-  }
+    /// getTypeSize - Return the size of the specified type in bytes.
+    ///
+    uint64_t getTypeSize(Type *Ty) const {
+      return TD.getTypeAllocSize(Ty);
+    }
 
-  /// getAlignmentAsLLVMStruct - Return the alignment of this struct if it were
-  /// converted to an LLVM type.
-  uint64_t getAlignmentAsLLVMStruct() const {
-    if (Packed || AllBitFields) return 1;
-    unsigned MaxAlign = 1;
-    for (unsigned i = 0, e = Elements.size(); i != e; ++i)
-      MaxAlign = std::max(MaxAlign, getTypeAlignment(Elements[i]));
-    return MaxAlign;
-  }
+    /// fillInLLVMType - Return the LLVM type for the specified object.
+    ///
+    void fillInLLVMType(StructType *STy) const {
+      // Use Packed type if Packed is set or all struct fields are bitfields.
+      // Empty struct is not packed unless packed is set.
+      STy->setBody(Elements, Packed || (!Elements.empty() && AllBitFields));
+    }
 
-  /// getSizeAsLLVMStruct - Return the size of this struct if it were converted
-  /// to an LLVM type.  This is the end of last element push an alignment pad at
-  /// the end.
-  uint64_t getSizeAsLLVMStruct() const {
-    if (Elements.empty()) return 0;
-    unsigned MaxAlign = getAlignmentAsLLVMStruct();
-    uint64_t Size = ElementOffsetInBytes.back()+ElementSizeInBytes.back();
-    return (Size+MaxAlign-1) & ~(MaxAlign-1);
-  }
+    /// getAlignmentAsLLVMStruct - Return the alignment of this struct if it were
+    /// converted to an LLVM type.
+    uint64_t getAlignmentAsLLVMStruct() const {
+      if (Packed || AllBitFields) return 1;
+      unsigned MaxAlign = 1;
+      for (unsigned i = 0, e = Elements.size(); i != e; ++i)
+        MaxAlign = std::max(MaxAlign, getTypeAlignment(Elements[i]));
+      return MaxAlign;
+    }
 
-  // If this is a Packed struct and ExtraBitsAvailable is not zero then
-  // remove Extra bytes if ExtraBitsAvailable > 8.
-  void RemoveExtraBytes () {
+    /// getSizeAsLLVMStruct - Return the size of this struct if it were converted
+    /// to an LLVM type.  This is the end of last element push an alignment pad at
+    /// the end.
+    uint64_t getSizeAsLLVMStruct() const {
+      if (Elements.empty()) return 0;
+      unsigned MaxAlign = getAlignmentAsLLVMStruct();
+      uint64_t Size = ElementOffsetInBytes.back()+ElementSizeInBytes.back();
+      return (Size+MaxAlign-1) & ~(MaxAlign-1);
+    }
 
-    unsigned NoOfBytesToRemove = ExtraBitsAvailable/8;
+    // If this is a Packed struct and ExtraBitsAvailable is not zero then
+    // remove Extra bytes if ExtraBitsAvailable > 8.
+    void RemoveExtraBytes () {
 
-    if (!Packed && !AllBitFields)
-      return;
+      unsigned NoOfBytesToRemove = ExtraBitsAvailable/8;
 
-    if (NoOfBytesToRemove == 0)
-      return;
+      if (!Packed && !AllBitFields)
+        return;
 
-    Type *LastType = Elements.back();
-    unsigned PadBytes = 0;
+      if (NoOfBytesToRemove == 0)
+        return;
 
-    if (LastType->isIntegerTy(8))
-      PadBytes = 1 - NoOfBytesToRemove;
-    else if (LastType->isIntegerTy(16))
-      PadBytes = 2 - NoOfBytesToRemove;
-    else if (LastType->isIntegerTy(32))
-      PadBytes = 4 - NoOfBytesToRemove;
-    else if (LastType->isIntegerTy(64))
-      PadBytes = 8 - NoOfBytesToRemove;
-    else
-      return;
+      Type *LastType = Elements.back();
+      unsigned PadBytes = 0;
 
-    assert (PadBytes > 0 && "Unable to remove extra bytes");
+      if (LastType->isIntegerTy(8))
+        PadBytes = 1 - NoOfBytesToRemove;
+      else if (LastType->isIntegerTy(16))
+        PadBytes = 2 - NoOfBytesToRemove;
+      else if (LastType->isIntegerTy(32))
+        PadBytes = 4 - NoOfBytesToRemove;
+      else if (LastType->isIntegerTy(64))
+        PadBytes = 8 - NoOfBytesToRemove;
+      else
+        return;
 
-    // Update last element type and size, element offset is unchanged.
-    Type *Pad =  ArrayType::get(Type::getInt8Ty(Context), PadBytes);
-    unsigned OriginalSize = ElementSizeInBytes.back();
-    Elements.pop_back();
-    Elements.push_back(Pad);
+      assert (PadBytes > 0 && "Unable to remove extra bytes");
 
-    ElementSizeInBytes.pop_back();
-    ElementSizeInBytes.push_back(OriginalSize - NoOfBytesToRemove);
-  }
+      // Update last element type and size, element offset is unchanged.
+      Type *Pad =  ArrayType::get(Type::getInt8Ty(Context), PadBytes);
+      unsigned OriginalSize = ElementSizeInBytes.back();
+      Elements.pop_back();
+      Elements.push_back(Pad);
 
-  /// ResizeLastElementIfOverlapsWith - If the last element in the struct
-  /// includes the specified byte, remove it. Return true struct
-  /// layout is sized properly. Return false if unable to handle ByteOffset.
-  /// In this case caller should redo this struct as a packed structure.
-  bool ResizeLastElementIfOverlapsWith(uint64_t ByteOffset, tree /*Field*/,
-                                       Type *Ty) {
-    Type *SavedTy = NULL;
+      ElementSizeInBytes.pop_back();
+      ElementSizeInBytes.push_back(OriginalSize - NoOfBytesToRemove);
+    }
 
-    if (!Elements.empty()) {
-      assert(ElementOffsetInBytes.back() <= ByteOffset &&
-             "Cannot go backwards in struct");
+    /// ResizeLastElementIfOverlapsWith - If the last element in the struct
+    /// includes the specified byte, remove it. Return true struct
+    /// layout is sized properly. Return false if unable to handle ByteOffset.
+    /// In this case caller should redo this struct as a packed structure.
+    bool ResizeLastElementIfOverlapsWith(uint64_t ByteOffset, tree /*Field*/,
+                                         Type *Ty) {
+      Type *SavedTy = NULL;
 
-      SavedTy = Elements.back();
-      if (ElementOffsetInBytes.back()+ElementSizeInBytes.back() > ByteOffset) {
-        // The last element overlapped with this one, remove it.
-        uint64_t PoppedOffset = ElementOffsetInBytes.back();
-        Elements.pop_back();
-        ElementOffsetInBytes.pop_back();
-        ElementSizeInBytes.pop_back();
-        PaddingElement.pop_back();
-        uint64_t EndOffset = getNewElementByteOffset(1);
-        if (EndOffset < PoppedOffset) {
-          // Make sure that some field starts at the position of the
-          // field we just popped.  Otherwise we might end up with a
-          // gcc non-bitfield being mapped to an LLVM field with a
-          // different offset.
-          Type *Pad = Type::getInt8Ty(Context);
-          if (PoppedOffset != EndOffset + 1)
-            Pad = ArrayType::get(Pad, PoppedOffset - EndOffset);
-          addElement(Pad, EndOffset, PoppedOffset - EndOffset);
+      if (!Elements.empty()) {
+        assert(ElementOffsetInBytes.back() <= ByteOffset &&
+               "Cannot go backwards in struct");
+
+        SavedTy = Elements.back();
+        if (ElementOffsetInBytes.back()+ElementSizeInBytes.back() > ByteOffset) {
+          // The last element overlapped with this one, remove it.
+          uint64_t PoppedOffset = ElementOffsetInBytes.back();
+          Elements.pop_back();
+          ElementOffsetInBytes.pop_back();
+          ElementSizeInBytes.pop_back();
+          PaddingElement.pop_back();
+          uint64_t EndOffset = getNewElementByteOffset(1);
+          if (EndOffset < PoppedOffset) {
+            // Make sure that some field starts at the position of the
+            // field we just popped.  Otherwise we might end up with a
+            // gcc non-bitfield being mapped to an LLVM field with a
+            // different offset.
+            Type *Pad = Type::getInt8Ty(Context);
+            if (PoppedOffset != EndOffset + 1)
+              Pad = ArrayType::get(Pad, PoppedOffset - EndOffset);
+            addElement(Pad, EndOffset, PoppedOffset - EndOffset);
+          }
         }
       }
+
+      // Get the LLVM type for the field.  If this field is a bitfield, use the
+      // declared type, not the shrunk-to-fit type that GCC gives us in TREE_TYPE.
+      unsigned ByteAlignment = getTypeAlignment(Ty);
+      uint64_t NextByteOffset = getNewElementByteOffset(ByteAlignment);
+      if (NextByteOffset > ByteOffset ||
+          ByteAlignment > getGCCStructAlignmentInBytes()) {
+        // LLVM disagrees as to where this field should go in the natural field
+        // ordering.  Therefore convert to a packed struct and try again.
+        return false;
+      }
+
+      // If alignment won't round us up to the right boundary, insert explicit
+      // padding.
+      if (NextByteOffset < ByteOffset) {
+        uint64_t CurOffset = getNewElementByteOffset(1);
+        Type *Pad = Type::getInt8Ty(Context);
+        if (SavedTy && LastFieldStartsAtNonByteBoundry)
+          // We want to reuse SavedType to access this bit field.
+          // e.g. struct __attribute__((packed)) {
+          //  unsigned int A,
+          //  unsigned short B : 6,
+          //                 C : 15;
+          //  char D; };
+          //  In this example, previous field is C and D is current field.
+          addElement(SavedTy, CurOffset, ByteOffset - CurOffset);
+        else if (ByteOffset - CurOffset != 1)
+          Pad = ArrayType::get(Pad, ByteOffset - CurOffset);
+        addElement(Pad, CurOffset, ByteOffset - CurOffset);
+      }
+      return true;
     }
 
-    // Get the LLVM type for the field.  If this field is a bitfield, use the
-    // declared type, not the shrunk-to-fit type that GCC gives us in TREE_TYPE.
-    unsigned ByteAlignment = getTypeAlignment(Ty);
-    uint64_t NextByteOffset = getNewElementByteOffset(ByteAlignment);
-    if (NextByteOffset > ByteOffset ||
-        ByteAlignment > getGCCStructAlignmentInBytes()) {
-      // LLVM disagrees as to where this field should go in the natural field
-      // ordering.  Therefore convert to a packed struct and try again.
-      return false;
+    /// FieldNo - Remove the specified field and all of the fields that come after
+    /// it.
+    void RemoveFieldsAfter(unsigned FieldNo) {
+      Elements.erase(Elements.begin()+FieldNo, Elements.end());
+      ElementOffsetInBytes.erase(ElementOffsetInBytes.begin()+FieldNo,
+                                 ElementOffsetInBytes.end());
+      ElementSizeInBytes.erase(ElementSizeInBytes.begin()+FieldNo,
+                               ElementSizeInBytes.end());
+      PaddingElement.erase(PaddingElement.begin()+FieldNo,
+                           PaddingElement.end());
     }
 
-    // If alignment won't round us up to the right boundary, insert explicit
-    // padding.
-    if (NextByteOffset < ByteOffset) {
-      uint64_t CurOffset = getNewElementByteOffset(1);
-      Type *Pad = Type::getInt8Ty(Context);
-      if (SavedTy && LastFieldStartsAtNonByteBoundry)
-        // We want to reuse SavedType to access this bit field.
-        // e.g. struct __attribute__((packed)) {
-        //  unsigned int A,
-        //  unsigned short B : 6,
-        //                 C : 15;
-        //  char D; };
-        //  In this example, previous field is C and D is current field.
-        addElement(SavedTy, CurOffset, ByteOffset - CurOffset);
-      else if (ByteOffset - CurOffset != 1)
-        Pad = ArrayType::get(Pad, ByteOffset - CurOffset);
-      addElement(Pad, CurOffset, ByteOffset - CurOffset);
+    /// getNewElementByteOffset - If we add a new element with the specified
+    /// alignment, what byte offset will it land at?
+    uint64_t getNewElementByteOffset(unsigned ByteAlignment) {
+      if (Elements.empty()) return 0;
+      uint64_t LastElementEnd =
+        ElementOffsetInBytes.back() + ElementSizeInBytes.back();
+
+      return (LastElementEnd+ByteAlignment-1) & ~(ByteAlignment-1);
     }
-    return true;
-  }
 
-  /// FieldNo - Remove the specified field and all of the fields that come after
-  /// it.
-  void RemoveFieldsAfter(unsigned FieldNo) {
-    Elements.erase(Elements.begin()+FieldNo, Elements.end());
-    ElementOffsetInBytes.erase(ElementOffsetInBytes.begin()+FieldNo,
-                               ElementOffsetInBytes.end());
-    ElementSizeInBytes.erase(ElementSizeInBytes.begin()+FieldNo,
-                             ElementSizeInBytes.end());
-    PaddingElement.erase(PaddingElement.begin()+FieldNo,
-                         PaddingElement.end());
-  }
+    /// addElement - Add an element to the structure with the specified type,
+    /// offset and size.
+    void addElement(Type *Ty, uint64_t Offset, uint64_t Size,
+                    bool ExtraPadding = false) {
+      Elements.push_back(Ty);
+      ElementOffsetInBytes.push_back(Offset);
+      ElementSizeInBytes.push_back(Size);
+      PaddingElement.push_back(ExtraPadding);
+      lastFieldStartsAtNonByteBoundry(false);
+      ExtraBitsAvailable = 0;
+    }
 
-  /// getNewElementByteOffset - If we add a new element with the specified
-  /// alignment, what byte offset will it land at?
-  uint64_t getNewElementByteOffset(unsigned ByteAlignment) {
-    if (Elements.empty()) return 0;
-    uint64_t LastElementEnd =
-      ElementOffsetInBytes.back() + ElementSizeInBytes.back();
+    /// getFieldEndOffsetInBytes - Return the byte offset of the byte immediately
+    /// after the specified field.  For example, if FieldNo is 0 and the field
+    /// is 4 bytes in size, this will return 4.
+    uint64_t getFieldEndOffsetInBytes(unsigned FieldNo) const {
+      assert(FieldNo < ElementOffsetInBytes.size() && "Invalid field #!");
+      return ElementOffsetInBytes[FieldNo]+ElementSizeInBytes[FieldNo];
+    }
 
-    return (LastElementEnd+ByteAlignment-1) & ~(ByteAlignment-1);
-  }
+    /// getEndUnallocatedByte - Return the first byte that isn't allocated at the
+    /// end of a structure.  For example, for {}, it's 0, for {int} it is 4, for
+    /// {int,short}, it is 6.
+    uint64_t getEndUnallocatedByte() const {
+      if (ElementOffsetInBytes.empty()) return 0;
+      return getFieldEndOffsetInBytes(ElementOffsetInBytes.size()-1);
+    }
 
-  /// addElement - Add an element to the structure with the specified type,
-  /// offset and size.
-  void addElement(Type *Ty, uint64_t Offset, uint64_t Size,
-                  bool ExtraPadding = false) {
-    Elements.push_back(Ty);
-    ElementOffsetInBytes.push_back(Offset);
-    ElementSizeInBytes.push_back(Size);
-    PaddingElement.push_back(ExtraPadding);
-    lastFieldStartsAtNonByteBoundry(false);
-    ExtraBitsAvailable = 0;
-  }
+    void addNewBitField(uint64_t Size, uint64_t Extra,
+                        uint64_t FirstUnallocatedByte);
 
-  /// getFieldEndOffsetInBytes - Return the byte offset of the byte immediately
-  /// after the specified field.  For example, if FieldNo is 0 and the field
-  /// is 4 bytes in size, this will return 4.
-  uint64_t getFieldEndOffsetInBytes(unsigned FieldNo) const {
-    assert(FieldNo < ElementOffsetInBytes.size() && "Invalid field #!");
-    return ElementOffsetInBytes[FieldNo]+ElementSizeInBytes[FieldNo];
-  }
+    void dump() const;
+  };
 
-  /// getEndUnallocatedByte - Return the first byte that isn't allocated at the
-  /// end of a structure.  For example, for {}, it's 0, for {int} it is 4, for
-  /// {int,short}, it is 6.
-  uint64_t getEndUnallocatedByte() const {
-    if (ElementOffsetInBytes.empty()) return 0;
-    return getFieldEndOffsetInBytes(ElementOffsetInBytes.size()-1);
-  }
-
-  void addNewBitField(uint64_t Size, uint64_t Extra,
-                      uint64_t FirstUnallocatedByte);
-
-  void dump() const;
-};
+} // Unnamed namespace.
 
 // Add new element which is a bit field. Size is not the size of bit field,
 // but size of bits required to determine type of new Field which will be
@@ -1498,8 +1461,8 @@ static void SelectUnionMember(tree type, StructTypeConversionInfo &Info) {
 static Type *ConvertRECORD(tree type) {
   assert(TYPE_SIZE(type) && "Incomplete types should be handled elsewhere!");
 
-  assert(GET_TYPE_LLVM(type) && isa<StructType>(GET_TYPE_LLVM(type)) &&
-         cast<StructType>(GET_TYPE_LLVM(type))->isOpaque() &&
+  assert(llvm_get_type(type) && isa<StructType>(llvm_get_type(type)) &&
+         cast<StructType>(llvm_get_type(type))->isOpaque() &&
          "Incorrect placeholder for struct type!");
 
   // Record those fields which will be converted to LLVM fields.
@@ -1590,7 +1553,7 @@ static Type *ConvertRECORD(tree type) {
   } else
     Info->RemoveExtraBytes();
 
-  StructType *ResultTy = cast<StructType>(GET_TYPE_LLVM(type));
+  StructType *ResultTy = cast<StructType>(llvm_get_type(type));
   Info->fillInLLVMType(ResultTy);
 
   return ResultTy;
@@ -1658,7 +1621,7 @@ static bool mayRecurse(tree type) {
       return false;
 
     // If the type was not previously converted then converting it may recurse.
-    Type *Ty = GET_TYPE_LLVM(type);
+    Type *Ty = llvm_get_type(type);
     if (!Ty)
       return true;
 
@@ -1778,7 +1741,7 @@ static Type *ConvertNonRecursiveType(tree type) {
   case REFERENCE_TYPE: {
     // If these types are not recursive it can only be because they were already
     // converted and we can safely return the result of the previous conversion.
-    Type *Ty = GET_TYPE_LLVM(type);
+    Type *Ty = llvm_get_type(type);
     assert(Ty && "Type not already converted!");
     return Ty;
   }
@@ -1795,10 +1758,10 @@ static Type *ConvertNonRecursiveType(tree type) {
   }
 
   case COMPLEX_TYPE: {
-    if (Type *Ty = GET_TYPE_LLVM(type)) return Ty;
+    if (Type *Ty = llvm_get_type(type)) return Ty;
     Type *Ty = ConvertNonRecursiveType(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
     Ty = StructType::get(Ty, Ty, NULL);
-    return SET_TYPE_LLVM(type, Ty);
+    return llvm_set_type(type, Ty);
   }
 
   case OFFSET_TYPE:
@@ -1828,15 +1791,15 @@ static Type *ConvertNonRecursiveType(tree type) {
   case QUAL_UNION_TYPE:
   case UNION_TYPE:
     // If the type was already converted then return the already computed type.
-    if (Type *Ty = GET_TYPE_LLVM(type)) return Ty;
+    if (Type *Ty = llvm_get_type(type)) return Ty;
 
     // Otherwise this must be an incomplete type - return an opaque struct.
     assert(!TYPE_SIZE(type) && "Expected an incomplete type!");
-    return SET_TYPE_LLVM(type, StructType::createNamed(Context,
+    return llvm_set_type(type, StructType::createNamed(Context,
                                                      getDescriptiveName(type)));
 
   case VECTOR_TYPE: {
-    if (Type *Ty = GET_TYPE_LLVM(type)) return Ty;
+    if (Type *Ty = llvm_get_type(type)) return Ty;
     Type *Ty;
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers.
@@ -1845,7 +1808,7 @@ static Type *ConvertNonRecursiveType(tree type) {
     else
       Ty = ConvertNonRecursiveType(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
     Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));
-    return SET_TYPE_LLVM(type, Ty);
+    return llvm_set_type(type, Ty);
   }
 
   case VOID_TYPE:
@@ -1883,7 +1846,7 @@ static Type *ConvertRecursiveType(tree type) {
   case QUAL_UNION_TYPE:
   case RECORD_TYPE:
   case UNION_TYPE:
-    return SET_TYPE_LLVM(type, ConvertRECORD(type));
+    return llvm_set_type(type, ConvertRECORD(type));
 
   case POINTER_TYPE:
   case REFERENCE_TYPE: {
@@ -1932,12 +1895,12 @@ static Type *ConvertRecursiveType(tree type) {
       if (TREE_CODE(pointee) == QUAL_UNION_TYPE ||
           TREE_CODE(pointee) == RECORD_TYPE ||
           TREE_CODE(pointee) == UNION_TYPE)
-        PointeeTy = GET_TYPE_LLVM(pointee);
+        PointeeTy = llvm_get_type(pointee);
       else
         PointeeTy = StructType::get(Context);
     }
 
-    return SET_TYPE_LLVM(type, PointeeTy->getPointerTo());
+    return llvm_set_type(type, PointeeTy->getPointerTo());
   }
 
   case METHOD_TYPE:
@@ -1945,7 +1908,7 @@ static Type *ConvertRecursiveType(tree type) {
     CallingConv::ID CallingConv;
     AttrListPtr PAL;
     // No declaration to pass through, passing NULL.
-    return SET_TYPE_LLVM(type, ConvertFunctionType(type, NULL, NULL,
+    return llvm_set_type(type, ConvertFunctionType(type, NULL, NULL,
                                                    CallingConv, PAL));
   }
 
@@ -1974,7 +1937,7 @@ static Type *ConvertRecursiveType(tree type) {
       }
     }
 
-    return SET_TYPE_LLVM(type, Ty);
+    return llvm_set_type(type, Ty);
   }
   }
 }
@@ -2022,7 +1985,7 @@ Type *ConvertType(tree type) {
       }
       // If the type used to be incomplete then a opaque struct placeholder may
       // have been created for it already.
-      Type *Ty = GET_TYPE_LLVM(some_type);
+      Type *Ty = llvm_get_type(some_type);
       if (Ty) {
         assert(isa<StructType>(Ty) && cast<StructType>(Ty)->isOpaque() &&
                "Recursive struct already fully converted!");
@@ -2030,7 +1993,7 @@ Type *ConvertType(tree type) {
       }
       // Otherwise register a placeholder for this type.
       Ty = StructType::createNamed(Context, getDescriptiveName(some_type));
-      SET_TYPE_LLVM(some_type, Ty);
+      llvm_set_type(some_type, Ty);
     }
 
     // Now convert every type in the SCC, filling in the placeholders created
@@ -2050,7 +2013,7 @@ Type *ConvertType(tree type) {
 
   // At this point every type reachable from this one has been converted, and
   // the conversion results cached.  Return the value computed for the type.
-  Type *Ty = GET_TYPE_LLVM(type);
+  Type *Ty = llvm_get_type(type);
   assert(Ty && "Type not converted!");
   return Ty;
 }

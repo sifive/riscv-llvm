@@ -36,6 +36,23 @@ namespace llvm {
 }
 union tree_node;
 
+//===----------------------------------------------------------------------===//
+//                                 Utilities
+//===----------------------------------------------------------------------===//
+
+#define NO_LENGTH (~(uint64_t)0)
+
+/// ArrayLengthOf - Returns the length of the given gcc array type, or NO_LENGTH
+/// if the array has variable or unknown length.
+extern uint64_t ArrayLengthOf(tree_node *type);
+
+/// GetFieldIndex - Return the index of the field in the given LLVM type that
+/// corresponds to the GCC field declaration 'decl'.  This means that the LLVM
+/// and GCC fields start in the same byte (if 'decl' is a bitfield, this means
+/// that its first bit is within the byte the LLVM field starts at).  Returns
+/// INT_MAX if there is no such LLVM field.
+int GetFieldIndex(tree_node *decl, llvm::Type *Ty);
+
 /// GetUnitType - Returns an integer one address unit wide if 'NumUnits' is 1;
 /// otherwise returns an array of such integers with 'NumUnits' elements.  For
 /// example, on a machine which has 16 bit bytes returns an i16 or an array of
@@ -47,6 +64,12 @@ extern llvm::Type *GetUnitType(llvm::LLVMContext &C, unsigned NumUnits = 1);
 /// an i16*.
 extern llvm::Type *GetUnitPointerType(llvm::LLVMContext &C,
                                       unsigned AddrSpace = 0);
+
+/// isSequentialCompatible - Return true if the specified gcc array, pointer or
+/// vector type and the corresponding LLVM SequentialType lay out their elements
+/// identically in memory, so doing a GEP accesses the right memory location.
+/// We assume that objects without a known size do not.
+extern bool isSequentialCompatible(tree_node *type);
 
 /// getRegType - Returns the LLVM type to use for registers that hold a value
 /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
@@ -76,24 +99,5 @@ llvm::FunctionType *ConvertArgListToFnType(tree_node *type, tree_node *arglist,
                                            tree_node *static_chain,
                                            llvm::CallingConv::ID &CC,
                                            llvm::AttrListPtr &PAL);
-
-/// GetFieldIndex - Return the index of the field in the given LLVM type that
-/// corresponds to the GCC field declaration 'decl'.  This means that the LLVM
-/// and GCC fields start in the same byte (if 'decl' is a bitfield, this means
-/// that its first bit is within the byte the LLVM field starts at).  Returns
-/// INT_MAX if there is no such LLVM field.
-int GetFieldIndex(tree_node *decl, llvm::Type *Ty);
-
-/// isSequentialCompatible - Return true if the specified gcc array, pointer or
-/// vector type and the corresponding LLVM SequentialType lay out their elements
-/// identically in memory, so doing a GEP accesses the right memory location.
-/// We assume that objects without a known size do not.
-extern bool isSequentialCompatible(tree_node *type);
-
-#define NO_LENGTH (~(uint64_t)0)
-
-/// ArrayLengthOf - Returns the length of the given gcc array type, or NO_LENGTH
-/// if the array has variable or unknown length.
-extern uint64_t ArrayLengthOf(tree_node *type);
 
 #endif /* DRAGONEGG_TYPES_H */
