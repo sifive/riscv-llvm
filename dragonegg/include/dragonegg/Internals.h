@@ -183,17 +183,10 @@ bool isPaddingElement(tree_node*, unsigned N);
 /// TypeConverter - Implement the converter from GCC types to LLVM types.
 ///
 class TypeConverter {
-  enum ConversionStatus {
-    CS_Normal,   // Not in any specific context
-    CS_Struct,   // Recursively converting inside a struct
-    CS_StructPtr // Recursively converting under a pointer in a struct.
-  } RecursionStatus;
-
-  /// When in a CS_StructPtr context, we defer layout of a struct until we clear
-  /// the outermost struct.
-  SmallVector<union tree_node*, 8> StructsDeferred;
+  /// SCCInProgress - Set of mutually dependent types currently being converted.
+  const std::vector<tree_node*> *SCCInProgress;
 public:
-  TypeConverter() : RecursionStatus(CS_Normal) {}
+  TypeConverter() : SCCInProgress(0) {}
 
   /// ConvertType - Returns the LLVM type to use for memory that holds a value
   /// of the given GCC type (getRegType should be used for values in registers).
@@ -219,6 +212,7 @@ public:
 
 private:
   Type *ConvertRECORD(tree_node *type);
+  Type *ConvertRecursiveType(tree_node *type);
   bool DecodeStructFields(tree_node *Field, StructTypeConversionInfo &Info);
   void DecodeStructBitField(tree_node *Field, StructTypeConversionInfo &Info);
   void SelectUnionMember(tree_node *type, StructTypeConversionInfo &Info);
