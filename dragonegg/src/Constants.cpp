@@ -22,6 +22,7 @@
 
 // Plugin headers
 #include "dragonegg/Constants.h"
+#include "dragonegg/Internals.h"
 #include "dragonegg/Trees.h"
 #include "dragonegg/Types.h"
 #include "dragonegg/ADT/IntervalList.h"
