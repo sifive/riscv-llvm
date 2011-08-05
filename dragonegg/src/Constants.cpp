@@ -22,8 +22,8 @@
 
 // Plugin headers
 #include "dragonegg/Constants.h"
-#include "dragonegg/Internals.h"
 #include "dragonegg/Trees.h"
+#include "dragonegg/Types.h"
 #include "dragonegg/ADT/IntervalList.h"
 #include "dragonegg/ADT/Range.h"
 extern "C" {
@@ -53,6 +53,8 @@ extern "C" {
 #include "flags.h"
 #include "tm_p.h"
 }
+
+using namespace llvm;
 
 static LLVMContext &Context = getGlobalContext();
 

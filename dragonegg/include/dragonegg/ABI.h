@@ -29,6 +29,7 @@
 // Plugin headers
 #include "dragonegg/Internals.h"
 #include "dragonegg/Target.h"
+#include "dragonegg/Types.h"
 
 // LLVM headers
 #include "llvm/LLVMContext.h"

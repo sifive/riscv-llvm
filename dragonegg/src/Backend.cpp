@@ -30,6 +30,7 @@ extern "C" {
 #include "dragonegg/OS.h"
 #include "dragonegg/Target.h"
 #include "dragonegg/Trees.h"
+#include "dragonegg/Types.h"
 
 // LLVM headers
 #define DEBUG_TYPE "plugin"
@@ -100,7 +101,6 @@ DebugInfo *TheDebugInfo = 0;
 PassManagerBuilder PassBuilder;
 TargetMachine *TheTarget = 0;
 TargetFolder *TheFolder = 0;
-TypeConverter *TheTypeConverter = 0;
 raw_ostream *OutStream = 0; // Stream to write assembly code to.
 formatted_raw_ostream FormattedOutStream;
 
@@ -533,7 +533,6 @@ static void InitializeBackend(void) {
   // Create a module to hold the generated LLVM IR.
   CreateModule(TargetTriple);
 
-  TheTypeConverter = new TypeConverter();
   TheFolder = new TargetFolder(TheTarget->getTargetData());
 
   if (debug_info_level > DINFO_LEVEL_NONE)
@@ -1092,9 +1091,8 @@ Value *make_decl_llvm(tree decl) {
     if (FnEntry == 0) {
       CallingConv::ID CC;
       AttrListPtr PAL;
-      FunctionType *Ty =
-        TheTypeConverter->ConvertFunctionType(TREE_TYPE(decl), decl, NULL,
-                                              CC, PAL);
+      FunctionType *Ty = ConvertFunctionType(TREE_TYPE(decl), decl, NULL, CC,
+                                             PAL);
       FnEntry = Function::Create(Ty, Function::ExternalLinkage, Name, TheModule);
       FnEntry->setCallingConv(CC);
       FnEntry->setAttributes(PAL);

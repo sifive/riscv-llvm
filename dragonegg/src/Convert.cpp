@@ -26,6 +26,7 @@
 #include "dragonegg/Constants.h"
 #include "dragonegg/Debug.h"
 #include "dragonegg/Trees.h"
+#include "dragonegg/Types.h"
 
 // LLVM headers
 #include "llvm/Module.h"
@@ -518,16 +519,12 @@ void TreeToLLVM::StartFunctionBody() {
   }
 
   if (getFunctionTypeFromArgList)
-    FTy = TheTypeConverter->ConvertArgListToFnType(TREE_TYPE(FnDecl),
-                                                   DECL_ARGUMENTS(FnDecl),
-                                                   static_chain,
-                                                   CallingConv, PAL);
+    FTy = ConvertArgListToFnType(TREE_TYPE(FnDecl), DECL_ARGUMENTS(FnDecl),
+                                 static_chain, CallingConv, PAL);
   else
     // Otherwise, just get the type from the function itself.
-    FTy = TheTypeConverter->ConvertFunctionType(TREE_TYPE(FnDecl),
-                                                FnDecl,
-                                                static_chain,
-                                                CallingConv, PAL);
+    FTy = ConvertFunctionType(TREE_TYPE(FnDecl), FnDecl, static_chain,
+                              CallingConv, PAL);
 
   // If we've already seen this function and created a prototype, and if the
   // proto has the right LLVM type, just use it.
@@ -8539,11 +8536,8 @@ Value *TreeToLLVM::OutputCallRHS(gimple stmt, const MemRef *DestLoc) {
   CallingConv::ID CallingConv;
   AttrListPtr PAL;
 
-  Type *Ty =
-    TheTypeConverter->ConvertFunctionType(function_type,
-                                          fndecl,
-                                          gimple_call_chain(stmt),
-                                          CallingConv, PAL);
+  Type *Ty = ConvertFunctionType(function_type, fndecl, gimple_call_chain(stmt),
+                                 CallingConv, PAL);
 
   // If this is a direct call to a function using a static chain then we need
   // to ensure the function type is the one just calculated: it has an extra

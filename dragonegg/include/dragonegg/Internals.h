@@ -56,7 +56,6 @@ namespace llvm {
   class Constant;
   class ConstantInt;
   class Type;
-  class FunctionType;
   class TargetMachine;
   class TargetData;
   class DebugInfo;
@@ -174,66 +173,9 @@ const char *extractRegisterName(tree_node *);
 void handleVisibility(tree_node *decl, GlobalValue *GV);
 Twine getLLVMAssemblerName(tree_node *);
 
-struct StructTypeConversionInfo;
-
 /// Return true if and only if field no. N from struct type T is a padding
 /// element added to match llvm struct type size and gcc struct type size.
 bool isPaddingElement(tree_node*, unsigned N);
-
-/// TypeConverter - Implement the converter from GCC types to LLVM types.
-///
-class TypeConverter {
-  /// SCCInProgress - Set of mutually dependent types currently being converted.
-  const std::vector<tree_node*> *SCCInProgress;
-public:
-  TypeConverter() : SCCInProgress(0) {}
-
-  /// ConvertType - Returns the LLVM type to use for memory that holds a value
-  /// of the given GCC type (getRegType should be used for values in registers).
-  Type *ConvertType(tree_node *type);
-
-  /// ConvertFunctionType - Convert the specified FUNCTION_TYPE or METHOD_TYPE
-  /// tree to an LLVM type.  This does the same thing that ConvertType does, but
-  /// it also returns the function's LLVM calling convention and attributes.
-  FunctionType *ConvertFunctionType(tree_node *type,
-                                          tree_node *decl,
-                                          tree_node *static_chain,
-                                          CallingConv::ID &CallingConv,
-                                          AttrListPtr &PAL);
-
-  /// ConvertArgListToFnType - Given a DECL_ARGUMENTS list on an GCC tree,
-  /// return the LLVM type corresponding to the function.  This is useful for
-  /// turning "T foo(...)" functions into "T foo(void)" functions.
-  FunctionType *ConvertArgListToFnType(tree_node *type,
-                                             tree_node *arglist,
-                                             tree_node *static_chain,
-                                             CallingConv::ID &CallingConv,
-                                             AttrListPtr &PAL);
-
-private:
-  Type *ConvertRECORD(tree_node *type);
-  Type *ConvertRecursiveType(tree_node *type);
-  bool DecodeStructFields(tree_node *Field, StructTypeConversionInfo &Info);
-  void DecodeStructBitField(tree_node *Field, StructTypeConversionInfo &Info);
-  void SelectUnionMember(tree_node *type, StructTypeConversionInfo &Info);
-};
-
-extern TypeConverter *TheTypeConverter;
-
-/// getRegType - Returns the LLVM type to use for registers that hold a value
-/// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
-/// determine the LLVM type to return.
-Type *getRegType(tree_node *type);
-
-/// ConvertType - Returns the LLVM type to use for memory that holds a value
-/// of the given GCC type (getRegType should be used for values in registers).
-inline Type *ConvertType(tree_node *type) {
-  return TheTypeConverter->ConvertType(type);
-}
-
-/// getPointerToType - Returns the LLVM register type to use for a pointer to
-/// the given GCC type.
-Type *getPointerToType(tree_node *type);
 
 /// getDefaultValue - Return the default value to use for a constant or global
 /// that has no value specified.  For example in C like languages such variables
@@ -243,44 +185,14 @@ inline Constant *getDefaultValue(Type *Ty) {
     Constant::getNullValue(Ty) : UndefValue::get(Ty);
 }
 
-/// GetUnitType - Returns an integer one address unit wide if 'NumUnits' is 1;
-/// otherwise returns an array of such integers with 'NumUnits' elements.  For
-/// example, on a machine which has 16 bit bytes returns an i16 or an array of
-/// i16.
-extern Type *GetUnitType(LLVMContext &C, unsigned NumUnits = 1);
-
-/// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
-/// address unit wide.  For example, on a machine which has 16 bit bytes returns
-/// an i16*.
-extern Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace = 0);
-
-/// GetFieldIndex - Return the index of the field in the given LLVM type that
-/// corresponds to the GCC field declaration 'decl'.  This means that the LLVM
-/// and GCC fields start in the same byte (if 'decl' is a bitfield, this means
-/// that its first bit is within the byte the LLVM field starts at).  Returns
-/// INT_MAX if there is no such LLVM field.
-int GetFieldIndex(tree_node *decl, Type *Ty);
-
 /// isPassedByInvisibleReference - Return true if the specified type should be
 /// passed by 'invisible reference'. In other words, instead of passing the
 /// thing by value, pass the address of a temporary.
 bool isPassedByInvisibleReference(tree_node *type);
 
-/// isSequentialCompatible - Return true if the specified gcc array, pointer or
-/// vector type and the corresponding LLVM SequentialType lay out their elements
-/// identically in memory, so doing a GEP accesses the right memory location.
-/// We assume that objects without a known size do not.
-extern bool isSequentialCompatible(tree_node *type);
-
 /// OffsetIsLLVMCompatible - Return true if the given field is offset from the
 /// start of the record by a constant amount which is not humongously big.
 extern bool OffsetIsLLVMCompatible(tree_node *field_decl);
-
-#define NO_LENGTH (~(uint64_t)0)
-
-/// ArrayLengthOf - Returns the length of the given gcc array type, or NO_LENGTH
-/// if the array has variable or unknown length.
-extern uint64_t ArrayLengthOf(tree_node *type);
 
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
 bool isBitfield(tree_node *field_decl);
