@@ -1659,6 +1659,37 @@ static struct rtl_opt_pass pass_rtl_emit_function =
 };
 
 
+/// llvm_emit_globals - Output GCC global variables and aliases to the LLVM IR.
+static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
+  if (errorcount || sorrycount)
+    return; // Do not process broken code.
+
+  InitializeBackend();
+
+  // Output all externally visible global variables as well as any internal
+  // variables explicitly marked with the 'used' attribute.  Other internal
+  // variables and aliases are output when their user is, or discarded if
+  // unused.
+  for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next) {
+    if (!vnode->needed || vnode->alias)
+      continue;
+#if (GCC_MINOR > 5)
+    if (vnode->in_other_partition)
+      continue;
+#endif
+    tree decl = vnode->decl;
+    if (TREE_CODE(decl) == VAR_DECL && !DECL_EXTERNAL(decl) &&
+        (TREE_PUBLIC(decl) || DECL_PRESERVE_P(decl) ||
+         TREE_THIS_VOLATILE(decl)))
+      emit_global(decl);
+  }
+
+  // Emit any aliases.
+  alias_pair *p;
+  for (unsigned i = 0; VEC_iterate(alias_pair, alias_pairs, i, p); i++)
+    emit_alias(p->decl, p->target);
+}
+
 /// llvm_finish_unit - Finish the .s file.  This is called by GCC once the
 /// compilation unit has been completely processed.
 static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
@@ -1670,32 +1701,6 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
     errs() << "Finishing compilation unit\n";
 
   InitializeBackend();
-
-  // Output all externally visible global variables and aliases as well as any
-  // internal variables explicitly marked with the 'used' attribute.  All other
-  // internal variables and aliases are output when their user is, or discarded
-  // if unused.
-  for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next) {
-    if (!vnode->needed)
-      continue;
-#if (GCC_MINOR > 5)
-    if (vnode->in_other_partition)
-      continue;
-#endif
-    tree decl = vnode->decl;
-    if (vnode->alias) {
-      tree alias = lookup_attribute("alias", DECL_ATTRIBUTES(decl));
-      assert(alias && "Have alias target but no alias!");
-      alias = TREE_VALUE(TREE_VALUE(alias));
-      alias = get_identifier(TREE_STRING_POINTER(alias));
-      emit_alias(decl, alias);
-      continue;
-    }
-    if (TREE_CODE(decl) == VAR_DECL && !DECL_EXTERNAL(decl) &&
-        (TREE_PUBLIC(decl) || DECL_PRESERVE_P(decl) ||
-         TREE_THIS_VOLATILE(decl)))
-      emit_global(decl);
-  }
 
   LLVMContext &Context = getGlobalContext();
 
@@ -2209,6 +2214,13 @@ plugin_init(struct plugin_name_args *plugin_info,
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 #endif
+
+  // Output GCC global variables and aliases to the LLVM IR.  This needs to be
+  // done before the compilation unit is finished, since aliases are no longer
+  // available then.  On the other hand it seems wise to output them after the
+  // IPA passes have run, since these are the passes that modify globals.
+  register_callback(plugin_name, PLUGIN_ALL_IPA_PASSES_END, llvm_emit_globals,
+                    NULL);
 
   if (!EnableGCCOptimizations) {
     // Disable pass_lower_eh_dispatch, which runs after LLVM conversion.
