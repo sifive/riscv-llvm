@@ -1539,17 +1539,6 @@ static void emit_same_body_alias(struct cgraph_node *alias,
   TREE_ASM_WRITTEN(alias->decl) = 1;
 }
 
-/// emit_file_scope_asm - Emit the specified string as a file-scope inline
-/// asm block.
-static void emit_file_scope_asm(tree string) {
-  if (errorcount || sorrycount)
-    return; // Do not process broken code.
-
-  if (TREE_CODE(string) == ADDR_EXPR)
-    string = TREE_OPERAND(string, 0);
-  TheModule->appendModuleInlineAsm(TREE_STRING_POINTER (string));
-}
-
 /// emit_aliases - Convert same-body aliases and file-scope asm into LLVM IR.
 static void emit_aliases(cgraph_node_set set
 #if (GCC_MINOR > 5)
@@ -1577,13 +1566,6 @@ static void emit_aliases(cgraph_node_set set
         emit_same_body_alias(alias, node);
     }
   }
-
-  // Emit any file-scope asms.
-  for (struct cgraph_asm_node *can = cgraph_asm_nodes; can; can = can->next)
-    emit_file_scope_asm(can->asm_str);
-
-  // Remove the asms so gcc doesn't waste time outputting them.
-  cgraph_asm_nodes = NULL;
 }
 
 /// pass_emit_aliases - IPA pass that converts same-body aliases and file-scope
@@ -1659,12 +1641,23 @@ static struct rtl_opt_pass pass_rtl_emit_function =
 };
 
 
-/// llvm_emit_globals - Output GCC global variables and aliases to the LLVM IR.
+/// llvm_emit_globals - Output GCC global variables, aliases and asm's to the
+/// LLVM IR.
 static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
   InitializeBackend();
+
+  // Emit any file-scope asms.
+  for (struct cgraph_asm_node *can = cgraph_asm_nodes; can; can = can->next) {
+    tree string = can->asm_str;
+    if (TREE_CODE(string) == ADDR_EXPR)
+      string = TREE_OPERAND(string, 0);
+    TheModule->appendModuleInlineAsm(TREE_STRING_POINTER (string));
+  }
+  // Remove the asms so gcc doesn't waste time outputting them.
+  cgraph_asm_nodes = NULL;
 
   // Output all externally visible global variables as well as any internal
   // variables explicitly marked with the 'used' attribute.  Other internal
@@ -2215,7 +2208,7 @@ plugin_init(struct plugin_name_args *plugin_info,
   register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 #endif
 
-  // Output GCC global variables and aliases to the LLVM IR.  This needs to be
+  // Output GCC global variables, aliases and asm's to the IR.  This needs to be
   // done before the compilation unit is finished, since aliases are no longer
   // available then.  On the other hand it seems wise to output them after the
   // IPA passes have run, since these are the passes that modify globals.
