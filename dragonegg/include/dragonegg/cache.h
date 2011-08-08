@@ -28,10 +28,6 @@
 
 union tree_node;
 
-/* llvm_has_cached - Returns whether a value has been associated with the
-   tree.  */
-extern int llvm_has_cached(union tree_node *tree);
-
 /* llvm_get_cached - Returns the value associated with the tree, or NULL.  */
 extern const void *llvm_get_cached(union tree_node *tree);
 

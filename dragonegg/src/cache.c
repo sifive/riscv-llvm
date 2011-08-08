@@ -55,18 +55,6 @@ static GTY ((if_marked ("tree_llvm_map_marked_p"),
 #include "dragonegg/gt-cache-4.5.h"
 #endif
 
-/* llvm_has_cached - Returns whether a value has been associated with the
-   tree.  */
-int llvm_has_cached(union tree_node *tree) {
-  struct tree_map_base in;
-
-  if (!llvm_cache)
-    return false;
-
-  in.from = tree;
-  return htab_find(llvm_cache, &in) != NULL;
-}
-
 /* llvm_get_cached - Returns the value associated with the tree, or NULL.  */
 const void *llvm_get_cached(union tree_node *tree) {
   struct tree_llvm_map *h;

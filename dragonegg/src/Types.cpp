@@ -338,8 +338,7 @@ static Type *llvm_get_type(tree Tr) {
 }
 
 static bool llvm_has_type(tree Tr) {
-  assert(TYPE_P(Tr) && "Expected a gcc type!");
-  return llvm_has_cached(Tr);
+  return llvm_get_type(Tr) != 0;
 }
 
 
