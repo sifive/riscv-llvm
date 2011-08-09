@@ -21,15 +21,13 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
+#include "dragonegg/Cache.h"
 #include "dragonegg/Constants.h"
 #include "dragonegg/Internals.h"
 #include "dragonegg/Trees.h"
 #include "dragonegg/Types.h"
 #include "dragonegg/ADT/IntervalList.h"
 #include "dragonegg/ADT/Range.h"
-extern "C" {
-#include "dragonegg/cache.h"
-}
 
 // LLVM headers
 #include "llvm/GlobalVariable.h"
@@ -1277,7 +1275,7 @@ static Constant *ConvertVIEW_CONVERT_EXPR(tree exp, TargetFolder &Folder) {
 /// ConvertInitializerImpl - Implementation of ConvertInitializer.
 static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
   // If we already converted the initializer then return the cached copy.
-  if (Constant *C = (Constant *)llvm_get_cached(exp))
+  if (Constant *C = cast_or_null<Constant>(getCachedValue(exp)))
     return C;
 
   Constant *Init;
@@ -1344,7 +1342,7 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
 
   // Cache the result of converting the initializer since the same tree is often
   // converted multiple times.
-  llvm_set_cached(exp, Init);
+  setCachedValue(exp, Init);
 
   return Init;
 }

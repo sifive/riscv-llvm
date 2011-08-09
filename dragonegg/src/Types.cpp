@@ -23,11 +23,9 @@
 
 // Plugin headers
 #include "dragonegg/ABI.h"
+#include "dragonegg/Cache.h"
 #include "dragonegg/Trees.h"
 #include "dragonegg/Types.h"
-extern "C" {
-#include "dragonegg/cache.h"
-}
 
 // LLVM headers
 #include "llvm/Module.h"
@@ -306,7 +304,7 @@ bool isSequentialCompatible(tree type) {
 //                   Matching LLVM types with GCC trees
 //===----------------------------------------------------------------------===//
 
-// llvm_get_type/llvm_set_type - Associate an LLVM type with each TREE type.
+// llvm_set_type - Associate an LLVM type with each TREE type.
 // These are lazily computed by ConvertType.
 
 static Type *llvm_set_type(tree Tr, Type *Ty) {
@@ -329,16 +327,8 @@ static Type *llvm_set_type(tree Tr, Type *Ty) {
   }
 #endif
 
-  return (Type *)llvm_set_cached(Tr, Ty);
-}
-
-static Type *llvm_get_type(tree Tr) {
-  assert(TYPE_P(Tr) && "Expected a gcc type!");
-  return (Type *)llvm_get_cached(Tr);
-}
-
-static bool llvm_has_type(tree Tr) {
-  return llvm_get_type(Tr) != 0;
+  setCachedType(Tr, Ty);
+  return Ty;
 }
 
 
@@ -1460,8 +1450,8 @@ static void SelectUnionMember(tree type, StructTypeConversionInfo &Info) {
 static Type *ConvertRECORD(tree type) {
   assert(TYPE_SIZE(type) && "Incomplete types should be handled elsewhere!");
 
-  assert(llvm_get_type(type) && isa<StructType>(llvm_get_type(type)) &&
-         cast<StructType>(llvm_get_type(type))->isOpaque() &&
+  assert(getCachedType(type) && isa<StructType>(getCachedType(type)) &&
+         cast<StructType>(getCachedType(type))->isOpaque() &&
          "Incorrect placeholder for struct type!");
 
   // Record those fields which will be converted to LLVM fields.
@@ -1552,7 +1542,7 @@ static Type *ConvertRECORD(tree type) {
   } else
     Info->RemoveExtraBytes();
 
-  StructType *ResultTy = cast<StructType>(llvm_get_type(type));
+  StructType *ResultTy = cast<StructType>(getCachedType(type));
   Info->fillInLLVMType(ResultTy);
 
   return ResultTy;
@@ -1605,7 +1595,7 @@ static bool mayRecurse(tree type) {
   case POINTER_TYPE:
   case REFERENCE_TYPE:
     // Converting these types may recurse unless the type was already converted.
-    return !llvm_has_type(type);
+    return getCachedType(type) == 0;
 
   case QUAL_UNION_TYPE:
   case RECORD_TYPE:
@@ -1620,7 +1610,7 @@ static bool mayRecurse(tree type) {
       return false;
 
     // If the type was not previously converted then converting it may recurse.
-    Type *Ty = llvm_get_type(type);
+    Type *Ty = getCachedType(type);
     if (!Ty)
       return true;
 
@@ -1740,7 +1730,7 @@ static Type *ConvertNonRecursiveType(tree type) {
   case REFERENCE_TYPE: {
     // If these types are not recursive it can only be because they were already
     // converted and we can safely return the result of the previous conversion.
-    Type *Ty = llvm_get_type(type);
+    Type *Ty = getCachedType(type);
     assert(Ty && "Type not already converted!");
     return Ty;
   }
@@ -1757,7 +1747,7 @@ static Type *ConvertNonRecursiveType(tree type) {
   }
 
   case COMPLEX_TYPE: {
-    if (Type *Ty = llvm_get_type(type)) return Ty;
+    if (Type *Ty = getCachedType(type)) return Ty;
     Type *Ty = ConvertNonRecursiveType(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
     Ty = StructType::get(Ty, Ty, NULL);
     return llvm_set_type(type, Ty);
@@ -1790,7 +1780,7 @@ static Type *ConvertNonRecursiveType(tree type) {
   case QUAL_UNION_TYPE:
   case UNION_TYPE:
     // If the type was already converted then return the already computed type.
-    if (Type *Ty = llvm_get_type(type)) return Ty;
+    if (Type *Ty = getCachedType(type)) return Ty;
 
     // Otherwise this must be an incomplete type - return an opaque struct.
     assert(!TYPE_SIZE(type) && "Expected an incomplete type!");
@@ -1798,7 +1788,7 @@ static Type *ConvertNonRecursiveType(tree type) {
                                                      getDescriptiveName(type)));
 
   case VECTOR_TYPE: {
-    if (Type *Ty = llvm_get_type(type)) return Ty;
+    if (Type *Ty = getCachedType(type)) return Ty;
     Type *Ty;
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers.
@@ -1894,7 +1884,7 @@ static Type *ConvertRecursiveType(tree type) {
       if (TREE_CODE(pointee) == QUAL_UNION_TYPE ||
           TREE_CODE(pointee) == RECORD_TYPE ||
           TREE_CODE(pointee) == UNION_TYPE)
-        PointeeTy = llvm_get_type(pointee);
+        PointeeTy = getCachedType(pointee);
       else
         PointeeTy = StructType::get(Context);
     }
@@ -1979,12 +1969,12 @@ Type *ConvertType(tree type) {
       if (TREE_CODE(some_type) != QUAL_UNION_TYPE &&
           TREE_CODE(some_type) != RECORD_TYPE &&
           TREE_CODE(some_type) != UNION_TYPE) {
-        assert(!llvm_has_type(some_type) && "Type already converted!");
+        assert(!getCachedType(some_type) && "Type already converted!");
         continue;
       }
       // If the type used to be incomplete then a opaque struct placeholder may
       // have been created for it already.
-      Type *Ty = llvm_get_type(some_type);
+      Type *Ty = getCachedType(some_type);
       if (Ty) {
         assert(isa<StructType>(Ty) && cast<StructType>(Ty)->isOpaque() &&
                "Recursive struct already fully converted!");
@@ -2012,7 +2002,7 @@ Type *ConvertType(tree type) {
 
   // At this point every type reachable from this one has been converted, and
   // the conversion results cached.  Return the value computed for the type.
-  Type *Ty = llvm_get_type(type);
+  Type *Ty = getCachedType(type);
   assert(Ty && "Type not converted!");
   return Ty;
 }

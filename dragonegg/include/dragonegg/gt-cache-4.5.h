@@ -21,10 +21,18 @@ along with GCC; see the file COPYING3.  If not see
 
 /* GC marker procedures.  */
 /* macros and declarations */
-#define gt_ggc_m_13tree_llvm_map(X) do { \
-  if (X != NULL) gt_ggc_mx_tree_llvm_map (X);\
+#define gt_ggc_m_11tree2WeakVH(X) do { \
+  if (X != NULL) gt_ggc_mx_tree2WeakVH (X);\
   } while (0)
-extern void gt_ggc_mx_tree_llvm_map (void *);
+extern void gt_ggc_mx_tree2WeakVH (void *);
+#define gt_ggc_m_9tree2Type(X) do { \
+  if (X != NULL) gt_ggc_mx_tree2Type (X);\
+  } while (0)
+extern void gt_ggc_mx_tree2Type (void *);
+#define gt_ggc_m_8tree2int(X) do { \
+  if (X != NULL) gt_ggc_mx_tree2int (X);\
+  } while (0)
+extern void gt_ggc_mx_tree2int (void *);
 #define gt_ggc_m_15interface_tuple(X) do { \
   if (X != NULL) gt_ggc_mx_interface_tuple (X);\
   } while (0)
@@ -105,14 +113,6 @@ extern void gt_ggc_mx_binding_level (void *);
   if (X != NULL) gt_ggc_mx_opt_stack (X);\
   } while (0)
 extern void gt_ggc_mx_opt_stack (void *);
-#define gt_ggc_m_16def_pragma_macro(X) do { \
-  if (X != NULL) gt_ggc_mx_def_pragma_macro (X);\
-  } while (0)
-extern void gt_ggc_mx_def_pragma_macro (void *);
-#define gt_ggc_m_22def_pragma_macro_value(X) do { \
-  if (X != NULL) gt_ggc_mx_def_pragma_macro_value (X);\
-  } while (0)
-extern void gt_ggc_mx_def_pragma_macro_value (void *);
 #define gt_ggc_m_11align_stack(X) do { \
   if (X != NULL) gt_ggc_mx_align_stack (X);\
   } while (0)
@@ -169,10 +169,6 @@ extern void gt_ggc_mx_named_label_use_entry (void *);
   if (X != NULL) gt_ggc_mx_VEC_deferred_access_check_gc (X);\
   } while (0)
 extern void gt_ggc_mx_VEC_deferred_access_check_gc (void *);
-#define gt_ggc_m_11tinst_level(X) do { \
-  if (X != NULL) gt_ggc_mx_tinst_level (X);\
-  } while (0)
-extern void gt_ggc_mx_tinst_level (void *);
 #define gt_ggc_m_18sorted_fields_type(X) do { \
   if (X != NULL) gt_ggc_mx_sorted_fields_type (X);\
   } while (0)
@@ -185,6 +181,10 @@ extern void gt_ggc_mx_VEC_tree_pair_s_gc (void *);
   if (X != NULL) gt_ggc_mx_named_label_entry (X);\
   } while (0)
 extern void gt_ggc_mx_named_label_entry (void *);
+#define gt_ggc_m_32VEC_qualified_typedef_usage_t_gc(X) do { \
+  if (X != NULL) gt_ggc_mx_VEC_qualified_typedef_usage_t_gc (X);\
+  } while (0)
+extern void gt_ggc_mx_VEC_qualified_typedef_usage_t_gc (void *);
 #define gt_ggc_m_14cp_token_cache(X) do { \
   if (X != NULL) gt_ggc_mx_cp_token_cache (X);\
   } while (0)
@@ -221,6 +221,10 @@ extern void gt_ggc_mx_binding_entry_s (void *);
   if (X != NULL) gt_ggc_mx_binding_table_s (X);\
   } while (0)
 extern void gt_ggc_mx_binding_table_s (void *);
+#define gt_ggc_m_11tinst_level(X) do { \
+  if (X != NULL) gt_ggc_mx_tinst_level (X);\
+  } while (0)
+extern void gt_ggc_mx_tinst_level (void *);
 #define gt_ggc_m_14VEC_tinfo_s_gc(X) do { \
   if (X != NULL) gt_ggc_mx_VEC_tinfo_s_gc (X);\
   } while (0)
@@ -261,6 +265,10 @@ extern void gt_ggc_mx_ssa_operand_memory_d (void *);
   if (X != NULL) gt_ggc_mx_scev_info_str (X);\
   } while (0)
 extern void gt_ggc_mx_scev_info_str (void *);
+#define gt_ggc_m_24VEC_mem_addr_template_gc(X) do { \
+  if (X != NULL) gt_ggc_mx_VEC_mem_addr_template_gc (X);\
+  } while (0)
+extern void gt_ggc_mx_VEC_mem_addr_template_gc (void *);
 #define gt_ggc_m_13VEC_gimple_gc(X) do { \
   if (X != NULL) gt_ggc_mx_VEC_gimple_gc (X);\
   } while (0)
@@ -565,6 +573,10 @@ extern void gt_ggc_mx_lang_tree_node (void *);
   if (X != NULL) gt_ggc_mx_tree_statement_list_node (X);\
   } while (0)
 extern void gt_ggc_mx_tree_statement_list_node (void *);
+#define gt_ggc_m_9var_ann_d(X) do { \
+  if (X != NULL) gt_ggc_mx_var_ann_d (X);\
+  } while (0)
+extern void gt_ggc_mx_var_ann_d (void *);
 #define gt_ggc_m_9lang_decl(X) do { \
   if (X != NULL) gt_ggc_mx_lang_decl (X);\
   } while (0)
@@ -589,10 +601,6 @@ extern void gt_ggc_mx_ptr_info_def (void *);
   if (X != NULL) gt_ggc_mx_VEC_constructor_elt_gc (X);\
   } while (0)
 extern void gt_ggc_mx_VEC_constructor_elt_gc (void *);
-#define gt_ggc_m_10tree_ann_d(X) do { \
-  if (X != NULL) gt_ggc_mx_tree_ann_d (X);\
-  } while (0)
-extern void gt_ggc_mx_tree_ann_d (void *);
 #define gt_ggc_m_17VEC_alias_pair_gc(X) do { \
   if (X != NULL) gt_ggc_mx_VEC_alias_pair_gc (X);\
   } while (0)
@@ -713,14 +721,15 @@ extern void gt_ggc_m_II17splay_tree_node_s (void *);
 extern void gt_ggc_m_SP9tree_node17splay_tree_node_s (void *);
 extern void gt_ggc_m_P9tree_nodeP9tree_node17splay_tree_node_s (void *);
 extern void gt_ggc_m_IP9tree_node17splay_tree_node_s (void *);
-extern void gt_ggc_m_P13tree_llvm_map4htab (void *);
+extern void gt_ggc_m_P11tree2WeakVH4htab (void *);
+extern void gt_ggc_m_P9tree2Type4htab (void *);
+extern void gt_ggc_m_P8tree2int4htab (void *);
 extern void gt_ggc_m_P15interface_tuple4htab (void *);
 extern void gt_ggc_m_P16volatilized_type4htab (void *);
 extern void gt_ggc_m_P17string_descriptor4htab (void *);
 extern void gt_ggc_m_P14type_assertion4htab (void *);
 extern void gt_ggc_m_P18treetreehash_entry4htab (void *);
 extern void gt_ggc_m_P17module_htab_entry4htab (void *);
-extern void gt_ggc_m_P16def_pragma_macro4htab (void *);
 extern void gt_ggc_m_P21pending_abstract_type4htab (void *);
 extern void gt_ggc_m_P10spec_entry4htab (void *);
 extern void gt_ggc_m_P16cxx_int_tree_map4htab (void *);
@@ -761,9 +770,9 @@ extern void gt_ggc_m_P9tree_node4htab (void *);
 /* functions code */
 
 void
-gt_ggc_mx_tree_llvm_map (void *x_p)
+gt_ggc_mx_tree2WeakVH (void *x_p)
 {
-  struct tree_llvm_map * const x = (struct tree_llvm_map *)x_p;
+  struct tree2WeakVH * const x = (struct tree2WeakVH *)x_p;
   if (ggc_test_and_set_mark (x))
     {
       gt_ggc_m_9tree_node ((*x).base.from);
@@ -771,7 +780,27 @@ gt_ggc_mx_tree_llvm_map (void *x_p)
 }
 
 void
-gt_ggc_m_P13tree_llvm_map4htab (void *x_p)
+gt_ggc_mx_tree2Type (void *x_p)
+{
+  struct tree2Type * const x = (struct tree2Type *)x_p;
+  if (ggc_test_and_set_mark (x))
+    {
+      gt_ggc_m_9tree_node ((*x).base.from);
+    }
+}
+
+void
+gt_ggc_mx_tree2int (void *x_p)
+{
+  struct tree2int * const x = (struct tree2int *)x_p;
+  if (ggc_test_and_set_mark (x))
+    {
+      gt_ggc_m_9tree_node ((*x).base.from);
+    }
+}
+
+void
+gt_ggc_m_P11tree2WeakVH4htab (void *x_p)
 {
   struct htab * const x = (struct htab *)x_p;
   if (ggc_test_and_set_mark (x))
@@ -779,7 +808,39 @@ gt_ggc_m_P13tree_llvm_map4htab (void *x_p)
       if ((*x).entries != NULL) {
         size_t i0;
         for (i0 = 0; i0 != (size_t)(((*x)).size); i0++) {
-          gt_ggc_m_13tree_llvm_map ((*x).entries[i0]);
+          gt_ggc_m_11tree2WeakVH ((*x).entries[i0]);
+        }
+        ggc_mark ((*x).entries);
+      }
+    }
+}
+
+void
+gt_ggc_m_P9tree2Type4htab (void *x_p)
+{
+  struct htab * const x = (struct htab *)x_p;
+  if (ggc_test_and_set_mark (x))
+    {
+      if ((*x).entries != NULL) {
+        size_t i0;
+        for (i0 = 0; i0 != (size_t)(((*x)).size); i0++) {
+          gt_ggc_m_9tree2Type ((*x).entries[i0]);
+        }
+        ggc_mark ((*x).entries);
+      }
+    }
+}
+
+void
+gt_ggc_m_P8tree2int4htab (void *x_p)
+{
+  struct htab * const x = (struct htab *)x_p;
+  if (ggc_test_and_set_mark (x))
+    {
+      if ((*x).entries != NULL) {
+        size_t i0;
+        for (i0 = 0; i0 != (size_t)(((*x)).size); i0++) {
+          gt_ggc_m_8tree2int ((*x).entries[i0]);
         }
         ggc_mark ((*x).entries);
       }
@@ -790,12 +851,28 @@ gt_ggc_m_P13tree_llvm_map4htab (void *x_p)
 
 EXPORTED_CONST struct ggc_cache_tab gt_ggc_rc__gt_cache_h[] = {
   {
-    &llvm_cache,
+    &WeakVHCache,
     1,
-    sizeof (llvm_cache),
-    &gt_ggc_mx_tree_llvm_map,
+    sizeof (WeakVHCache),
+    &gt_ggc_mx_tree2WeakVH,
     NULL,
-    &tree_llvm_map_marked_p
+    &tree2WeakVH_marked_p
+  },
+  {
+    &TypeCache,
+    1,
+    sizeof (TypeCache),
+    &gt_ggc_mx_tree2Type,
+    NULL,
+    &tree2Type_marked_p
+  },
+  {
+    &intCache,
+    1,
+    sizeof (intCache),
+    &gt_ggc_mx_tree2int,
+    NULL,
+    &tree2int_marked_p
   },
   LAST_GGC_CACHE_TAB
 };

@@ -40,7 +40,7 @@ TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
 REVISION:=$(shell svnversion -n $(TOP_DIR))
 
 PLUGIN=dragonegg.so
-PLUGIN_OBJECTS=cache.o Backend.o Constants.o Convert.o Debug.o DefaultABI.o \
+PLUGIN_OBJECTS=Backend.o Cache.o Constants.o Convert.o Debug.o DefaultABI.o \
 	       Trees.o Types.o bits_and_bobs.o
 
 TARGET_OBJECT=Target.o
@@ -77,10 +77,6 @@ $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
 	$(QUIET)$(CXX) -o $@ $^ $(shell $(LLVM_CONFIG) --libs support) \
 	$(LD_OPTIONS)
 
-%.o : $(SRC_DIR)/%.c $(TARGET_UTIL)
-	@echo Compiling $*.c
-	$(QUIET)$(CC) -c $(TARGET_HEADERS) $(CPP_OPTIONS) $(CFLAGS) $<
-
 %.o : $(SRC_DIR)/%.cpp $(TARGET_UTIL)
 	@echo Compiling $*.cpp
 	$(QUIET)$(CXX) -c $(TARGET_HEADERS) $(CPP_OPTIONS) $(CXXFLAGS) $<
@@ -106,7 +102,7 @@ clean::
 # The following target exists for the benefit of the dragonegg maintainers, and
 # is not used in a normal build.  You need to specify the path to the GCC build
 # directory in GCC_BUILD_DIR.
-GENGTYPE_INPUT=$(SRC_DIR)/cache.c
+GENGTYPE_INPUT=$(SRC_DIR)/Cache.cpp
 GENGTYPE_OUTPUT=$(INCLUDE_DIR)/dragonegg/gt-cache-$(GCC_MAJOR).$(GCC_MINOR).h
 gt-cache.h::
 	$(QUIET)$(GCC_BUILD_DIR)/gcc/build/gengtype \

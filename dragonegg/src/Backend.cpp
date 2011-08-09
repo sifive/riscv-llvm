@@ -22,9 +22,7 @@
 //===----------------------------------------------------------------------===//
 
 // Plugin headers
-extern "C" {
-#include "dragonegg/cache.h"
-}
+#include "dragonegg/Cache.h"
 #include "dragonegg/Constants.h"
 #include "dragonegg/Debug.h"
 #include "dragonegg/OS.h"
@@ -134,13 +132,14 @@ static void createPerModuleOptimizationPasses();
 /// set_decl_llvm - Remember the LLVM value for a GCC declaration.
 Value *set_decl_llvm (tree t, Value *V) {
   assert(HAS_RTL_P(t) && "Expected a declaration with RTL!");
-  return (Value *)llvm_set_cached(t, V);
+  setCachedValue(t, V);
+  return V;
 }
 
 /// get_decl_llvm - Retrieve the LLVM value for a GCC declaration, or NULL.
 Value *get_decl_llvm(tree t) {
   assert(HAS_RTL_P(t) && "Expected a declaration with RTL!");
-  return (Value *)llvm_get_cached(t);
+  return getCachedValue(t);
 }
 
 /// set_decl_index - Associate a non-negative number with the given GCC
@@ -148,9 +147,7 @@ Value *get_decl_llvm(tree t) {
 int set_decl_index(tree t, int i) {
   assert(!HAS_RTL_P(t) && "Expected a declaration without RTL!");
   assert(i >= 0 && "Negative indices not allowed!");
-  // In order to use zero as a special value (see get_decl_index) map the range
-  // 0 .. INT_MAX to -1 .. INT_MIN.
-  llvm_set_cached(t, (void *)(intptr_t)(-i - 1));
+  setCachedInteger(t, i);
   return i;
 }
 
@@ -158,9 +155,10 @@ int set_decl_index(tree t, int i) {
 /// declaration.  Returns a negative value if no such association has been made.
 int get_decl_index(tree t) {
   assert(!HAS_RTL_P(t) && "Expected a declaration without RTL!");
-  // Map the range -1 .. INT_MIN back to 0 .. INT_MAX (see set_decl_index) and
-  // send 0 (aka void) to -1.
-  return -(1 + (int)(intptr_t)llvm_get_cached(t));
+  int Idx;
+  if (getCachedInteger(t, Idx))
+    return Idx;
+  return -1;
 }
 
 /// changeLLVMConstant - Replace Old with New everywhere, updating all maps
@@ -189,7 +187,7 @@ void changeLLVMConstant(Constant *Old, Constant *New) {
       StaticDtors[i].first = New;
   }
 
-  llvm_replace_cached(Old, New);
+  // No need to update the value cache - it autoupdates on RAUW.
 }
 
 /// handleVisibility - Forward decl visibility style to global.
