@@ -133,13 +133,13 @@ std::string getDescriptiveName(tree t) {
 /// hasNUW - Return whether overflowing unsigned operations on this type result
 /// in undefined behaviour.
 bool hasNUW(tree type) {
-  return TYPE_UNSIGNED(type) && !TYPE_OVERFLOW_WRAPS(type);
+  return TYPE_UNSIGNED(type) && TYPE_OVERFLOW_UNDEFINED(type);
 }
 
 /// hasNSW - Return whether overflowing signed operations on this type result
 /// in undefined behaviour.
 bool hasNSW(tree type) {
-  return !TYPE_UNSIGNED(type) && !TYPE_OVERFLOW_WRAPS(type);
+  return !TYPE_UNSIGNED(type) && TYPE_OVERFLOW_UNDEFINED(type);
 }
 
 /// getIntegerValue - Return the specified INTEGER_CST as an APInt.
