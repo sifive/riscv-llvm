@@ -869,17 +869,17 @@ static void emit_global(tree decl) {
     Linkage = GlobalValue::LinkerPrivateLinkage;
   } else if (!TREE_PUBLIC(decl)) {
     Linkage = GlobalValue::InternalLinkage;
-  } else if (DECL_COMDAT(decl)) {
-    Linkage = GlobalValue::getLinkOnceLinkage(flag_odr);
-  } else if (DECL_ONE_ONLY(decl)) {
-    Linkage = GlobalValue::getWeakLinkage(flag_odr);
   } else if (DECL_WEAK(decl)) {
     // The user may have explicitly asked for weak linkage - ignore flag_odr.
     Linkage = GlobalValue::WeakAnyLinkage;
+  } else if (DECL_ONE_ONLY(decl)) {
+    Linkage = GlobalValue::getWeakLinkage(flag_odr);
   } else if (DECL_COMMON(decl) &&  // DECL_COMMON is only meaningful if no init
              (!DECL_INITIAL(decl) || DECL_INITIAL(decl) == error_mark_node)) {
     // llvm-gcc also includes DECL_VIRTUAL_P here.
     Linkage = GlobalValue::CommonLinkage;
+  } else if (DECL_COMDAT(decl)) {
+    Linkage = GlobalValue::getLinkOnceLinkage(flag_odr);
   } else {
     Linkage = GV->getLinkage();
   }
@@ -1668,9 +1668,8 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
 #if (GCC_MINOR > 5)
         varpool_can_remove_if_no_refs(vnode)
 #else
-        0 // FIXME: Code below broke buildbots.
-//        (DECL_COMDAT(decl) || (DECL_ARTIFICIAL(decl) &&
-//                               !vnode->externally_visible))
+        (DECL_COMDAT(decl) || (DECL_ARTIFICIAL(decl) &&
+                               !vnode->externally_visible))
 #endif
        )
       continue;
