@@ -1466,7 +1466,7 @@ static unsigned CostOfAccessingAllElements(tree type) {
   // For array types, multiply the array length by the component cost.
   if (TREE_CODE(type) == ARRAY_TYPE) {
     // If this is an array with a funky component type then just give up.
-    if (!isSequentialCompatible(type))
+    if (!isSizeCompatible(TREE_TYPE(type)))
       return TooCostly;
     uint64_t ArrayLength = ArrayLengthOf(type);
     if (ArrayLength >= TooCostly)
@@ -5636,7 +5636,7 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
                                    /*isSigned*/!TYPE_UNSIGNED(IndexType));
 
   // If we are indexing over a fixed-size type, just use a GEP.
-  if (isSequentialCompatible(ArrayTreeType)) {
+  if (isSizeCompatible(ElementType)) {
     // Avoid any assumptions about how the array type is represented in LLVM by
     // doing the GEP on a pointer to the first array element.
     Type *EltTy = ConvertType(ElementType);

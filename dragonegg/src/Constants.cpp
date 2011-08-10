@@ -804,7 +804,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   Type *EltTy = ConvertType(elt_type);
 
   // Check that the element type has a known, constant size.
-  assert(isSequentialCompatible(init_type) && "Variable sized array element!");
+  assert(isSizeCompatible(elt_type) && "Variable sized array element!");
   uint64_t EltSize = TD.getTypeAllocSizeInBits(EltTy);
 
   /// Elts - The initial values to use for the array elements.  A null entry
@@ -1397,7 +1397,7 @@ static Constant *AddressOfARRAY_REF(tree exp, TargetFolder &Folder) {
   assert(TREE_CODE(TREE_TYPE(array)) == ARRAY_TYPE && "Unknown ARRAY_REF!");
 
   // Check for variable sized reference.
-  assert(isSequentialCompatible(TREE_TYPE(array)) &&
+  assert(isSizeCompatible(TREE_TYPE(TREE_TYPE(array))) &&
          "Global with variable size?");
 
   // Get the index into the array as an LLVM integer constant.

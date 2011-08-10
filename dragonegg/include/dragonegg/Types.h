@@ -65,11 +65,10 @@ extern llvm::Type *GetUnitType(llvm::LLVMContext &C, unsigned NumUnits = 1);
 extern llvm::Type *GetUnitPointerType(llvm::LLVMContext &C,
                                       unsigned AddrSpace = 0);
 
-/// isSequentialCompatible - Return true if the specified gcc array, pointer or
-/// vector type and the corresponding LLVM SequentialType lay out their elements
-/// identically in memory, so doing a GEP accesses the right memory location.
-/// We assume that objects without a known size do not.
-extern bool isSequentialCompatible(tree_node *type);
+/// isSizeCompatible - Return true if the specified gcc type is guaranteed to be
+/// turned by ConvertType into an LLVM type of the same size (i.e. TYPE_SIZE the
+/// same as getTypeAllocSizeInBits).
+extern bool isSizeCompatible(tree_node *type);
 
 /// getRegType - Returns the LLVM type to use for registers that hold a value
 /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to

@@ -285,20 +285,13 @@ Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace) {
   return GetUnitType(C)->getPointerTo(AddrSpace);
 }
 
-/// isSequentialCompatible - Return true if the specified gcc array, pointer or
-/// vector type and the corresponding LLVM SequentialType lay out their elements
-/// identically in memory, so doing a GEP accesses the right memory location.
-/// We assume that objects without a known size do not.
-bool isSequentialCompatible(tree type) {
-  assert((TREE_CODE(type) == ARRAY_TYPE ||
-          TREE_CODE(type) == POINTER_TYPE ||
-          TREE_CODE(type) == VECTOR_TYPE ||
-          TREE_CODE(type) == REFERENCE_TYPE) && "not a sequential type!");
-  // This relies on gcc types with constant size mapping to LLVM types with the
-  // same size.  It is possible for the component type not to have a size:
-  // struct foo;  extern foo bar[];
-  return isInt64(TYPE_SIZE(TREE_TYPE(type)), true);
+/// isSizeCompatible - Return true if the specified gcc type is guaranteed to be
+/// turned by ConvertType into an LLVM type of the same size (i.e. TYPE_SIZE the
+/// same as getTypeAllocSizeInBits).
+bool isSizeCompatible(tree type) {
+  return isInt64(TYPE_SIZE(type), true);
 }
+
 
 //===----------------------------------------------------------------------===//
 //                   Matching LLVM types with GCC trees
@@ -310,11 +303,11 @@ bool isSequentialCompatible(tree type) {
 static Type *llvm_set_type(tree Tr, Type *Ty) {
   assert(TYPE_P(Tr) && "Expected a gcc type!");
 
+#ifndef NDEBUG
   // Check that the LLVM and GCC types have the same size, or, if the type has
   // variable size, that the LLVM type is not bigger than any possible value of
   // the GCC type.
-#ifndef NDEBUG
-  if (Ty->isSized() && isInt64(TYPE_SIZE(Tr), true)) {
+  if (Ty->isSized() && isSizeCompatible(Tr)) {
     uint64_t LLVMSize = getTargetData().getTypeAllocSizeInBits(Ty);
     if (getInt64(TYPE_SIZE(Tr), true) != LLVMSize) {
       errs() << "GCC: ";
