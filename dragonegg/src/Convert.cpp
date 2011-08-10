@@ -6499,8 +6499,11 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
   // Otherwise the symbol is a VAR_DECL, PARM_DECL or RESULT_DECL.  Since a
   // default definition is only created if the very first reference to the
   // variable in the function is a read operation, and refers to the value
-  // read, it has an undefined value except for PARM_DECLs.
-  if (TREE_CODE(var) != PARM_DECL)
+  // read, it has an undefined value for VAR_DECLs (a RESULT_DECL can have
+  // an initial value if the function returns a class by value).
+  assert((TREE_CODE(var) == PARM_DECL || TREE_CODE(var) == RESULT_DECL ||
+          TREE_CODE(var) == VAR_DECL) && "Unsupported SSA name definition!");
+  if (TREE_CODE(var) == VAR_DECL)
     return DefineSSAName(reg, UndefValue::get(getRegType(TREE_TYPE(reg))));
 
   // Read the initial value of the parameter and associate it with the ssa name.
