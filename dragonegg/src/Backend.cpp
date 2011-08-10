@@ -863,25 +863,23 @@ static void emit_global(tree decl) {
   // Set the linkage.
   GlobalValue::LinkageTypes Linkage;
 
-  if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS)
-      && false) {// FIXME DECL_LLVM_PRIVATE(decl)) {
+  if (false) {// FIXME DECL_LLVM_PRIVATE(decl)) {
     Linkage = GlobalValue::PrivateLinkage;
-  } else if (CODE_CONTAINS_STRUCT (TREE_CODE (decl), TS_DECL_WITH_VIS)
-             && false) {//FIXME DECL_LLVM_LINKER_PRIVATE(decl)) {
+  } else if (false) {//FIXME DECL_LLVM_LINKER_PRIVATE(decl)) {
     Linkage = GlobalValue::LinkerPrivateLinkage;
   } else if (!TREE_PUBLIC(decl)) {
     Linkage = GlobalValue::InternalLinkage;
+  } else if (DECL_COMDAT(decl)) {
+    Linkage = GlobalValue::getLinkOnceLinkage(flag_odr);
+  } else if (DECL_ONE_ONLY(decl)) {
+    Linkage = GlobalValue::getWeakLinkage(flag_odr);
   } else if (DECL_WEAK(decl)) {
     // The user may have explicitly asked for weak linkage - ignore flag_odr.
     Linkage = GlobalValue::WeakAnyLinkage;
-  } else if (DECL_ONE_ONLY(decl)) {
-    Linkage = GlobalValue::getWeakLinkage(flag_odr);
   } else if (DECL_COMMON(decl) &&  // DECL_COMMON is only meaningful if no init
              (!DECL_INITIAL(decl) || DECL_INITIAL(decl) == error_mark_node)) {
     // llvm-gcc also includes DECL_VIRTUAL_P here.
     Linkage = GlobalValue::CommonLinkage;
-  } else if (DECL_COMDAT(decl)) {
-    Linkage = GlobalValue::getLinkOnceLinkage(flag_odr);
   } else {
     Linkage = GV->getLinkage();
   }
@@ -1664,11 +1662,17 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
   for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next) {
     if (!vnode->needed || vnode->alias)
       continue;
-#if (GCC_MINOR > 5)
-    if (vnode->in_other_partition)
-      continue;
-#endif
     tree decl = vnode->decl;
+    // If this variable need not be output if unused, then skip it.
+    if (!vnode->force_output && vnode->analyzed &&
+#if (GCC_MINOR > 5)
+        varpool_can_remove_if_no_refs(vnode)
+#else
+        (DECL_COMDAT(decl) || (DECL_ARTIFICIAL(decl) &&
+                               !vnode->externally_visible))
+#endif
+       )
+      continue;
     if (TREE_CODE(decl) == VAR_DECL && !DECL_EXTERNAL(decl) &&
         (TREE_PUBLIC(decl) || DECL_PRESERVE_P(decl) ||
          TREE_THIS_VOLATILE(decl)))
