@@ -1668,8 +1668,9 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
 #if (GCC_MINOR > 5)
         varpool_can_remove_if_no_refs(vnode)
 #else
-        (DECL_COMDAT(decl) || (DECL_ARTIFICIAL(decl) &&
-                               !vnode->externally_visible))
+        0 // FIXME: Code below broke buildbots.
+//        (DECL_COMDAT(decl) || (DECL_ARTIFICIAL(decl) &&
+//                               !vnode->externally_visible))
 #endif
        )
       continue;
