@@ -1655,27 +1655,35 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
   // Remove the asms so gcc doesn't waste time outputting them.
   cgraph_asm_nodes = NULL;
 
-  // Output all externally visible global variables as well as any internal
-  // variables explicitly marked with the 'used' attribute.  Other internal
-  // variables and aliases are output when their user is, or discarded if
-  // unused.
+  // Some global variables must be output even if unused, for example because
+  // they are externally visible.  Output them now.  All other variables are
+  // output when their user is, or discarded if unused.
   for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next) {
-    if (!vnode->needed || vnode->alias)
+    // If the node is explicitly marked as not being needed, then skip it.
+    if (!vnode->needed)
       continue;
+    // If the node is an alias then skip it - aliases are handled below.
+    if (vnode->alias)
+      continue;
+
+    // If this variable must be output even if unused then output it.
     tree decl = vnode->decl;
-    // If this variable need not be output if unused, then skip it.
-    if (!vnode->force_output && vnode->analyzed &&
+    if (vnode->analyzed && (
 #if (GCC_MINOR > 5)
-        varpool_can_remove_if_no_refs(vnode)
+        !varpool_can_remove_if_no_refs(vnode)
 #else
-        (DECL_COMDAT(decl) || (DECL_ARTIFICIAL(decl) &&
-                               !vnode->externally_visible))
+        vnode->force_output || (!DECL_COMDAT(decl) &&
+                                 (!DECL_ARTIFICIAL(decl) ||
+                                  vnode->externally_visible))
 #endif
-       )
-      continue;
-    if (TREE_CODE(decl) == VAR_DECL && !DECL_EXTERNAL(decl) &&
-        (TREE_PUBLIC(decl) || DECL_PRESERVE_P(decl) ||
-         TREE_THIS_VOLATILE(decl)))
+       ))
+      // TODO: Remove the check on the following lines.  It only exists to avoid
+      // outputting block addresses when not compiling the function containing
+      // the block.  We need to support outputting block addresses at odd times
+      // anyway since the GCC optimizers can generate these.
+      if (TREE_CODE(decl) == VAR_DECL && !DECL_EXTERNAL(decl) &&
+          (TREE_PUBLIC(decl) || DECL_PRESERVE_P(decl) ||
+           TREE_THIS_VOLATILE(decl)))
       emit_global(decl);
   }
 
