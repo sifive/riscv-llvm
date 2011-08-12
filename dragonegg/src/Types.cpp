@@ -1780,8 +1780,8 @@ static Type *ConvertNonRecursiveType(tree type) {
 
     // Otherwise this must be an incomplete type - return an opaque struct.
     assert(!TYPE_SIZE(type) && "Expected an incomplete type!");
-    return llvm_set_type(type, StructType::createNamed(Context,
-                                                     getDescriptiveName(type)));
+    return llvm_set_type(type, StructType::create(Context,
+                                                  getDescriptiveName(type)));
 
   case VECTOR_TYPE: {
     if (Type *Ty = getCachedType(type)) return Ty;
@@ -1977,7 +1977,7 @@ Type *ConvertType(tree type) {
         continue;
       }
       // Otherwise register a placeholder for this type.
-      Ty = StructType::createNamed(Context, getDescriptiveName(some_type));
+      Ty = StructType::create(Context, getDescriptiveName(some_type));
       llvm_set_type(some_type, Ty);
     }
 
