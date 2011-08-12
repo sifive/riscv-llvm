@@ -27,7 +27,6 @@
 #include "dragonegg/Debug.h"
 #include "dragonegg/OS.h"
 #include "dragonegg/Target.h"
-#include "dragonegg/Trees.h"
 #include "dragonegg/Types.h"
 
 // LLVM headers
@@ -76,6 +75,9 @@ extern "C" {
 #include "tree-pass.h"
 #include "version.h"
 }
+
+// Trees header.
+#include "dragonegg/Trees.h"
 
 #if (GCC_MAJOR != 4)
 #error Unsupported GCC major version

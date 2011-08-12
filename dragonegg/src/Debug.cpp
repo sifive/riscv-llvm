@@ -23,7 +23,6 @@
 
 // Plugin headers
 #include "dragonegg/Debug.h"
-#include "dragonegg/Trees.h"
 
 // LLVM headers
 #include "llvm/Module.h"
@@ -47,6 +46,9 @@ extern "C" {
 #include "toplev.h"
 #include "version.h"
 }
+
+// Trees header.
+#include "dragonegg/Trees.h"
 
 using namespace llvm;
 using namespace llvm::dwarf;

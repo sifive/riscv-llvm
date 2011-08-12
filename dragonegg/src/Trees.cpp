@@ -20,10 +20,8 @@
 // This file defines utility functions for working with GCC trees.
 //===----------------------------------------------------------------------===//
 
-// Plugin headers
-#include "dragonegg/Trees.h"
-
 // LLVM headers
+#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Twine.h"
 
 // System headers
@@ -41,6 +39,9 @@ extern "C" {
 
 #include "flags.h"
 }
+
+// Trees header.
+#include "dragonegg/Trees.h"
 
 using namespace llvm;
 
@@ -130,18 +131,6 @@ std::string getDescriptiveName(tree t) {
   return std::string();
 }
 
-/// hasNUW - Return whether overflowing unsigned operations on this type result
-/// in undefined behaviour.
-bool hasNUW(tree type) {
-  return TYPE_UNSIGNED(type) && TYPE_OVERFLOW_UNDEFINED(type);
-}
-
-/// hasNSW - Return whether overflowing signed operations on this type result
-/// in undefined behaviour.
-bool hasNSW(tree type) {
-  return !TYPE_UNSIGNED(type) && TYPE_OVERFLOW_UNDEFINED(type);
-}
-
 /// getIntegerValue - Return the specified INTEGER_CST as an APInt.
 APInt getIntegerValue(tree exp) {
   double_int val = tree_to_double_int(exp);
@@ -193,12 +182,6 @@ uint64_t getInt64(tree t, bool Unsigned) {
     unsigned HOST_WIDE_INT HI = (unsigned HOST_WIDE_INT)TREE_INT_CST_HIGH(t);
     return ((uint64_t)HI << 32) | (uint64_t)LO;
   }
-}
-
-/// OffsetIsLLVMCompatible - Return true if the given field is offset from the
-/// start of the record by a constant amount which is not humongously big.
-bool OffsetIsLLVMCompatible(tree field_decl) {
-  return isInt64(DECL_FIELD_OFFSET(field_decl), true);
 }
 
 /// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.

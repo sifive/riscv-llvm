@@ -25,7 +25,6 @@
 #include "dragonegg/ABI.h"
 #include "dragonegg/Constants.h"
 #include "dragonegg/Debug.h"
-#include "dragonegg/Trees.h"
 #include "dragonegg/Types.h"
 
 // LLVM headers
@@ -75,6 +74,9 @@ extern struct target_regs default_target_regs;
 #define reg_raw_mode (default_target_regs.x_reg_raw_mode)
 #endif
 }
+
+// Trees header.
+#include "dragonegg/Trees.h"
 
 static LLVMContext &Context = getGlobalContext();
 

@@ -24,7 +24,6 @@
 // Plugin headers
 #include "dragonegg/ABI.h"
 #include "dragonegg/Cache.h"
-#include "dragonegg/Trees.h"
 #include "dragonegg/Types.h"
 
 // LLVM headers
@@ -50,6 +49,9 @@ extern "C" {
 #include "target.h"
 #include "tree.h"
 }
+
+// Trees header.
+#include "dragonegg/Trees.h"
 
 static LLVMContext &Context = getGlobalContext();
 
