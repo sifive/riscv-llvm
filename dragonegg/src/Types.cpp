@@ -1994,6 +1994,27 @@ Type *ConvertType(tree type) {
     for (unsigned i = 0, e = SCC.size(); i != e; ++i)
       ConvertType(SCC[i]);
     SCCInProgress = 0;
+
+    // Finally, replace pointer types with a pointer to the pointee type (which
+    // has now been computed).  This means that while uses of the pointer type
+    // by types in the SCC will most likely have been converted into nasty {}*,
+    // uses by types outside the SCC will see a sensible pointer type.  This is
+    // not needed for correctness - it just makes the IR nicer.
+    if (SCC.size() > 1)
+      for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
+        tree some_type = SCC[i];
+        if (POINTER_TYPE_P(some_type)) {
+          tree pointee = TYPE_MAIN_VARIANT(TREE_TYPE(some_type));
+          // The pointee cannot have void type since the SCC contains more than
+          // one type.
+          assert(!VOID_TYPE_P(pointee) && "Self-recursive void*!");
+          // The pointee must have been converted since it has to be in the same
+          // SCC as the pointer (since the SCC contains more than one type).
+          Type *PointeeTy = getCachedType(pointee);
+          assert(PointeeTy && "Pointee not converted!");
+          llvm_set_type(some_type, PointeeTy->getPointerTo());
+        }
+      }
   }
 
   // At this point every type reachable from this one has been converted, and
