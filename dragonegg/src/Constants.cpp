@@ -1452,6 +1452,7 @@ static Constant *AddressOfCOMPONENT_REF(tree exp, TargetFolder &Folder) {
     Offset = Folder.CreateAdd(Offset, ConstantInt::get(Offset->getType(),
                                                        Units));
     BitStart -= Units * BITS_PER_UNIT;
+    (void)BitStart;
   }
   assert(BitStart == 0 &&
          "It's a bitfield reference or we didn't get to the field!");
