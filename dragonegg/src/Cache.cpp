@@ -236,4 +236,5 @@ void setCachedValue(tree t, Value *V) {
   (*slot)->base.from = t;
   WeakVH *W = new(&(*slot)->V) WeakVH(V);
   assert(W == &(*slot)->V && "Pointer was displaced!");
+  (void)W;
 }
