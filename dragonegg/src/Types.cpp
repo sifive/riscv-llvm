@@ -48,6 +48,7 @@ extern "C" {
 #include "coretypes.h"
 #include "target.h"
 #include "tree.h"
+#include "flags.h"
 }
 
 // Trees header.
