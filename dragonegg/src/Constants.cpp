@@ -1467,7 +1467,7 @@ static Constant *AddressOfCOMPONENT_REF(tree exp, TargetFolder &Folder) {
 
 /// AddressOfDecl - Return the address of a global.
 static Constant *AddressOfDecl(tree exp, TargetFolder &) {
-  return cast<GlobalValue>(DEFINITION_LLVM(exp));
+  return cast<Constant>(DEFINITION_LLVM(exp));
 }
 
 /// AddressOfINDIRECT_REF - Return the address of a dereference.
