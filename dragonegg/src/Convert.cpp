@@ -206,7 +206,7 @@ static bool isLocalDecl(tree decl) {
 /// set_decl_local - Remember the LLVM value for a GCC declaration.
 Value *TreeToLLVM::set_decl_local(tree decl, Value *V) {
   if (!isLocalDecl(decl))
-    return set_decl_llvm(decl, V);
+    return SET_DECL_LLVM(decl, V);
   if (V != NULL)
     return LocalDecls[decl] = V;
   LocalDecls.erase(decl);
