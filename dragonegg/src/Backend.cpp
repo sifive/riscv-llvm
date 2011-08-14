@@ -1447,7 +1447,7 @@ static void emit_alias(tree decl, tree target) {
     return; // Do not process broken code.
 
   // Get or create LLVM global for our alias.
-  GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
+  GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl)->stripPointerCasts());
 
   bool weakref = lookup_attribute("weakref", DECL_ATTRIBUTES(decl));
   if (weakref)
@@ -1471,7 +1471,7 @@ static void emit_alias(tree decl, tree target) {
 
     // weakref to external symbol.
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-      Aliasee = new GlobalVariable(*TheModule, GV->getType(),
+      Aliasee = new GlobalVariable(*TheModule, GV->getType()->getElementType(),
                                    GV->isConstant(),
                                    GlobalVariable::ExternalWeakLinkage, NULL,
                                    IDENTIFIER_POINTER(target));
@@ -1483,7 +1483,7 @@ static void emit_alias(tree decl, tree target) {
     else
       assert(0 && "Unsuported global value");
   } else {
-    Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target));
+    Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target)->stripPointerCasts());
   }
 
   GlobalValue::LinkageTypes Linkage = GetLinkageForAlias(decl);
