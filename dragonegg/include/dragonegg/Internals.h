@@ -159,14 +159,6 @@ Value *make_definition_llvm(tree_node *decl);
 // Mapping between GCC declarations and non-negative integers.  The GCC
 // declaration must not satisfy HAS_RTL_P.
 
-/// set_decl_index - Associate a non-negative number with the given GCC
-/// declaration.
-int set_decl_index(tree_node *, int);
-
-/// get_decl_index - Get the non-negative number associated with the given GCC
-/// declaration.  Returns a negative value if no such association has been made.
-int get_decl_index(tree_node *);
-
 void changeLLVMConstant(Constant *Old, Constant *New);
 void register_ctor_dtor(Function *, int, bool);
 const char *extractRegisterName(tree_node *);

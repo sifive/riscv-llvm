@@ -217,6 +217,23 @@ uint64_t ArrayLengthOf(tree type) {
   return Range < 0 ? 0 : 1 + (uint64_t)Range;
 }
 
+/// set_decl_index - Associate a non-negative number with the given GCC
+/// field declaration.
+static int set_decl_index(tree t, int i) {
+  assert(i >= 0 && "Negative indices not allowed!");
+  setCachedInteger(t, i);
+  return i;
+}
+
+/// get_decl_index - Get the non-negative number associated with the given GCC
+/// field decl.  Returns a negative value if no such association has been made.
+static int get_decl_index(tree t) {
+  int Idx;
+  if (getCachedInteger(t, Idx))
+    return Idx;
+  return -1;
+}
+
 /// GetFieldIndex - Return the index of the field in the given LLVM type that
 /// corresponds to the GCC field declaration 'decl'.  This means that the LLVM
 /// and GCC fields start in the same byte (if 'decl' is a bitfield, this means

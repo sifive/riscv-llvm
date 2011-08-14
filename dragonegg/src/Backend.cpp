@@ -146,25 +146,6 @@ Value *get_decl_llvm(tree t) {
   return V ? V->stripPointerCasts() : 0;
 }
 
-/// set_decl_index - Associate a non-negative number with the given GCC
-/// declaration.
-int set_decl_index(tree t, int i) {
-  assert(!HAS_RTL_P(t) && "Expected a declaration without RTL!");
-  assert(i >= 0 && "Negative indices not allowed!");
-  setCachedInteger(t, i);
-  return i;
-}
-
-/// get_decl_index - Get the non-negative number associated with the given GCC
-/// declaration.  Returns a negative value if no such association has been made.
-int get_decl_index(tree t) {
-  assert(!HAS_RTL_P(t) && "Expected a declaration without RTL!");
-  int Idx;
-  if (getCachedInteger(t, Idx))
-    return Idx;
-  return -1;
-}
-
 /// changeLLVMConstant - Replace Old with New everywhere, updating all maps
 /// (except for AttributeAnnotateGlobals, which is a different kind of animal).
 /// At this point we know that New is not in any of these maps.
