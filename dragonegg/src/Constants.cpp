@@ -1276,6 +1276,8 @@ static Constant *ConvertVIEW_CONVERT_EXPR(tree exp, TargetFolder &Folder) {
 
 /// ConvertInitializerImpl - Implementation of ConvertInitializer.
 static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
+  assert(!HAS_RTL_P(exp) && "Cache collision with decl_llvm!");
+
   // If we already converted the initializer then return the cached copy.
   if (Constant *C = cast_or_null<Constant>(getCachedValue(exp)))
     return C;
