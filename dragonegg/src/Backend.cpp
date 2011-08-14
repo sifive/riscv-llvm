@@ -132,8 +132,9 @@ static void createPerModuleOptimizationPasses();
 //===----------------------------------------------------------------------===//
 
 /// set_decl_llvm - Remember the LLVM value for a GCC declaration.
-Value *set_decl_llvm (tree t, Value *V) {
+Value *set_decl_llvm(tree t, Value *V) {
   assert(HAS_RTL_P(t) && "Expected a declaration with RTL!");
+  assert((!V || isa<GlobalValue>(V)) && "Expected a global value!");
   setCachedValue(t, V);
   return V;
 }
@@ -141,7 +142,8 @@ Value *set_decl_llvm (tree t, Value *V) {
 /// get_decl_llvm - Retrieve the LLVM value for a GCC declaration, or NULL.
 Value *get_decl_llvm(tree t) {
   assert(HAS_RTL_P(t) && "Expected a declaration with RTL!");
-  return getCachedValue(t);
+  Value *V = getCachedValue(t);
+  return V ? V->stripPointerCasts() : 0;
 }
 
 /// set_decl_index - Associate a non-negative number with the given GCC
@@ -1447,7 +1449,7 @@ static void emit_alias(tree decl, tree target) {
     return; // Do not process broken code.
 
   // Get or create LLVM global for our alias.
-  GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl)->stripPointerCasts());
+  GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
 
   bool weakref = lookup_attribute("weakref", DECL_ATTRIBUTES(decl));
   if (weakref)
@@ -1483,7 +1485,7 @@ static void emit_alias(tree decl, tree target) {
     else
       assert(0 && "Unsuported global value");
   } else {
-    Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target)->stripPointerCasts());
+    Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target));
   }
 
   GlobalValue::LinkageTypes Linkage = GetLinkageForAlias(decl);
