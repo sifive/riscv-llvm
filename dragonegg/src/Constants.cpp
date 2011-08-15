@@ -1076,22 +1076,23 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // initial value is supplied for a field then the value will overwrite and
   // replace the zero starting value later.
   if (flag_default_initialize_globals) {
-    // Process the fields in reverse order.  This is for the benefit of union
-    // types for which the first field must be default initialized (iterating
-    // in forward order would default initialize the last field).
+    // Record all interesting fields so they can easily be visited backwards.
     SmallVector<tree, 16> Fields;
     for (tree field = TYPE_FIELDS(TREE_TYPE(exp)); field;
          field = TREE_CHAIN(field)) {
       assert(TREE_CODE(field) == FIELD_DECL && "Lang data not freed?");
-      Fields.push_back(field);
+      // Ignore fields with variable or unknown position since they cannot be
+      // default initialized.
+      if (OffsetIsLLVMCompatible(field))
+        Fields.push_back(field);
     }
+
+    // Process the fields in reverse order.  This is for the benefit of union
+    // types for which the first field must be default initialized (iterating
+    // in forward order would default initialize the last field).
     for (SmallVector<tree, 16>::reverse_iterator I = Fields.rbegin(),
          E = Fields.rend(); I != E; ++I) {
       tree field = *I;
-      // If the field has variable or unknown position then it cannot be default
-      // initialized - skip it.
-      if (!OffsetIsLLVMCompatible(field))
-        continue;
       uint64_t FirstBit = getFieldOffsetInBits(field);
       assert(FirstBit <= TypeSize && "Field off end of type!");
       // Determine the width of the field.
