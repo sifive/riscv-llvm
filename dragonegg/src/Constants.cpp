@@ -1083,8 +1083,13 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
       assert(TREE_CODE(field) == FIELD_DECL && "Lang data not freed?");
       // Ignore fields with variable or unknown position since they cannot be
       // default initialized.
-      if (OffsetIsLLVMCompatible(field))
-        Fields.push_back(field);
+      if (!OffsetIsLLVMCompatible(field))
+        continue;
+      // Skip fields that are known not to be present.
+      if (TREE_CODE(TREE_TYPE(exp)) == QUAL_UNION_TYPE &&
+          integer_zerop(DECL_QUALIFIER(field)))
+        continue; 
+      Fields.push_back(field);
     }
 
     // Process the fields in reverse order.  This is for the benefit of union
