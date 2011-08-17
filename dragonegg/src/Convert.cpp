@@ -1456,7 +1456,7 @@ static unsigned CostOfAccessingAllElements(tree type) {
         return TooCostly;
       // If there is no corresponding LLVM field then something funky is going
       // on - just give up.
-      if (GetFieldIndex(Field, Ty) == INT_MIN)
+      if (GetFieldIndex(Field, Ty) == INT_MAX)
         return TooCostly;
       TotalCost += CostOfAccessingAllElements(TREE_TYPE(Field));
       if (TotalCost >= TooCostly)
@@ -1504,7 +1504,7 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
       // Get the address of the field.
       int FieldIdx = GetFieldIndex(Field, Ty);
-      assert(FieldIdx != INT_MIN && "Should not be copying if no LLVM field!");
+      assert(FieldIdx != INT_MAX && "Should not be copying if no LLVM field!");
       Value *DestFieldPtr = Builder.CreateStructGEP(DestLoc.Ptr, FieldIdx);
       Value *SrcFieldPtr = Builder.CreateStructGEP(SrcLoc.Ptr, FieldIdx);
 
@@ -1598,7 +1598,7 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
       // Get the address of the field.
       int FieldIdx = GetFieldIndex(Field, Ty);
-      assert(FieldIdx != INT_MIN && "Should not be zeroing if no LLVM field!");
+      assert(FieldIdx != INT_MAX && "Should not be zeroing if no LLVM field!");
       Value *FieldPtr = Builder.CreateStructGEP(DestLoc.Ptr, FieldIdx);
 
       // Compute the field's alignment.
