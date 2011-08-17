@@ -1451,6 +1451,10 @@ static unsigned CostOfAccessingAllElements(tree type) {
     unsigned TotalCost = 0;
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
       assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
+      // If the field has no size, for example because it is a C-style variable
+      // length array, then just give up.
+      if (!DECL_SIZE(Field))
+        return TooCostly;
       // Ignore fields of size zero.  This way, we don't give up just because
       // there is a size zero field that is not represented in the LLVM type.
       if (integer_zerop(DECL_SIZE(Field)))
@@ -1565,7 +1569,7 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
 }
 
 #ifndef TARGET_DRAGONEGG_MEMCPY_COST
-#define TARGET_DRAGONEGG_MEMCPY_COST 4
+#define TARGET_DRAGONEGG_MEMCPY_COST 5
 #endif
 
 /// EmitAggregateCopy - Copy the elements from SrcLoc to DestLoc, using the
@@ -1650,7 +1654,7 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
 }
 
 #ifndef TARGET_DRAGONEGG_MEMSET_COST
-#define TARGET_DRAGONEGG_MEMSET_COST 4
+#define TARGET_DRAGONEGG_MEMSET_COST 5
 #endif
 
 /// EmitAggregateZero - Zero the elements of DestLoc.
