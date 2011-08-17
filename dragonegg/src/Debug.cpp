@@ -1167,7 +1167,10 @@ DIFactory::DIFactory(Module &m)
 Constant *DIFactory::GetTagConstant(unsigned TAG) {
   assert((TAG & LLVMDebugVersionMask) == 0 &&
          "Tag too large for debug encoding!");
-  return ConstantInt::get(Type::getInt32Ty(VMContext), TAG | LLVMDebugVersion);
+  // llvm has moved forward. DIFactory does not emit debug info in updated form.
+  // Use LLVMDebugVersion10 directly here.
+  return ConstantInt::get(Type::getInt32Ty(VMContext), 
+                          TAG | LLVMDebugVersion10);
 }
 
 //===----------------------------------------------------------------------===//
