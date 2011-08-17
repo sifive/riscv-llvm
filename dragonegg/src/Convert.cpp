@@ -1451,8 +1451,12 @@ static unsigned CostOfAccessingAllElements(tree type) {
     unsigned TotalCost = 0;
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
       assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
+      // Ignore fields of size zero.  This way, we don't give up just because
+      // there is a size zero field that is not represented in the LLVM type.
+      if (integer_zerop(DECL_SIZE(Field)))
+        continue;
       // Bitfields are too hard - give up.
-      if (DECL_BIT_FIELD(Field))
+      if (isBitfield(Field))
         return TooCostly;
       // If there is no corresponding LLVM field then something funky is going
       // on - just give up.
@@ -1502,6 +1506,9 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
 
     // Copy each field in turn.
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
+      // Ignore fields of size zero.
+      if (integer_zerop(DECL_SIZE(Field)))
+        continue;
       // Get the address of the field.
       int FieldIdx = GetFieldIndex(Field, Ty);
       assert(FieldIdx != INT_MAX && "Should not be copying if no LLVM field!");
@@ -1596,6 +1603,9 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
 
     // Zero each field in turn.
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
+      // Ignore fields of size zero.
+      if (integer_zerop(DECL_SIZE(Field)))
+        continue;
       // Get the address of the field.
       int FieldIdx = GetFieldIndex(Field, Ty);
       assert(FieldIdx != INT_MAX && "Should not be zeroing if no LLVM field!");
