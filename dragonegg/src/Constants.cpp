@@ -1028,21 +1028,16 @@ public:
       assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
       return C;
     }
-    assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
-    unsigned Units = R.getWidth() / BITS_PER_UNIT;
-    // Turn the contents into a bunch of bits.  Remember the returned value as
+    // Turn the contents into a bunch of bytes.  Remember the returned value as
     // an optimization in case we are called again.
     // TODO: If the contents only need to be truncated and have struct or array
     // type then we could try to do the truncation by dropping or modifying the
     // last elements of the constant, maybe yielding something less horrible.
-    C = getAsBits();
+    assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
+    unsigned Units = R.getWidth() / BITS_PER_UNIT;
+    C = InterpretAsType(C, GetUnitType(Context, Units), R.getFirst() - Starts,
+                        Folder);
     Starts = R.getFirst();
-    if (isSafeToReturnContentsDirectly(TD))
-      return C;
-    // The integer type used to hold the bits was too big (for example an i24
-    // typically occupies 32 bits so is too big for a range of 24 bits).  Turn
-    // it into an array of bytes instead.
-    C = InterpretAsType(C, GetUnitType(Context, Units), 0, Folder);
     assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
     return C;
   }
@@ -1054,6 +1049,12 @@ public:
 /// disjoint from this one).  After this the range will be the convex hull of
 /// the ranges of the two fields.
 void FieldContents::JoinWith(const FieldContents &S) {
+  if (S.R.empty())
+    return;
+  if (R.empty()) {
+    *this = S;
+    return;
+  }
   // Consider the contents of the fields to be bunches of bits and paste them
   // together.  This can result in a nasty integer constant expression, but as
   // we only get here for bitfields that's mostly harmless.
