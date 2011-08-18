@@ -315,6 +315,8 @@ Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace) {
 /// turned by ConvertType into an LLVM type of the same size (i.e. TYPE_SIZE the
 /// same as getTypeAllocSizeInBits).
 bool isSizeCompatible(tree type) {
+  if (TREE_CODE(type) == FUNCTION_TYPE || TREE_CODE(type) == METHOD_TYPE)
+    return false;
   return isInt64(TYPE_SIZE(type), true);
 }
 
@@ -330,19 +332,39 @@ static Type *llvm_set_type(tree Tr, Type *Ty) {
   assert(TYPE_P(Tr) && "Expected a gcc type!");
 
 #ifndef NDEBUG
-  // Check that the LLVM and GCC types have the same size, or, if the type has
-  // variable size, that the LLVM type is not bigger than any possible value of
-  // the GCC type.
-  if (Ty->isSized() && isSizeCompatible(Tr)) {
-    uint64_t LLVMSize = getTargetData().getTypeAllocSizeInBits(Ty);
-    if (getInt64(TYPE_SIZE(Tr), true) != LLVMSize) {
-      errs() << "GCC: ";
-      debug_tree(Tr);
-      errs() << "LLVM: ";
-      Ty->print(errs());
-      errs() << " (" << LLVMSize << " bits)\n";
-      DieAbjectly("LLVM type size doesn't match GCC type size!");
+  bool Mismatch = false;
+  // Check that the LLVM and GCC types really do have the same size when we say
+  // they do.
+  if (isSizeCompatible(Tr)) {
+    if (!Ty->isSized()) {
+      Mismatch = true;
+      errs() << "No size\n";
+    } else {
+      uint64_t GCCSize = getInt64(TYPE_SIZE(Tr), true);
+      uint64_t LLVMSize = getTargetData().getTypeAllocSizeInBits(Ty);
+      if (LLVMSize != GCCSize) {
+        errs() << "GCC size: " << GCCSize << "; LLVM size: " << LLVMSize
+          << "\n";
+        Mismatch = true;
+      }
     }
+  }
+  // Check that the LLVM type has the same alignment or less than the GCC type.
+  if (Ty->isSized()) {
+    unsigned GCCAlign = TYPE_ALIGN(Tr);
+    unsigned LLVMAlign = getTargetData().getABITypeAlignment(Ty) * 8;
+    if (LLVMAlign > GCCAlign) {
+      errs() << "GCC align: " << GCCAlign << "; LLVM align: " << LLVMAlign
+        << "\n";
+      Mismatch = true;
+    }
+  }
+  if (Mismatch) {
+    errs() << "GCC: ";
+    debug_tree(Tr);
+    errs() << "LLVM: ";
+    Ty->print(errs());
+    DieAbjectly("\nLLVM type doesn't represent GCC type!");
   }
 #endif
 
@@ -1513,7 +1535,9 @@ Type *ConvertType(tree type) {
       }
       // Otherwise register a placeholder for this type.
       Ty = StructType::create(Context, getDescriptiveName(some_type));
-      llvm_set_type(some_type, Ty);
+      // Associate the placeholder with the GCC type without sanity checking
+      // since the type sizes won't match yet.
+      setCachedType(some_type, Ty);
     }
 
     // Now convert every type in the SCC, filling in the placeholders created
