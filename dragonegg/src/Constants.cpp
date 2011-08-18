@@ -1398,12 +1398,13 @@ static Constant *AddressOfCST(tree exp, TargetFolder &Folder) {
 
   // Create a new global variable.
   Slot = new GlobalVariable(*TheModule, Init->getType(), true,
-                            GlobalVariable::PrivateLinkage, Init, ".cst");
+                            GlobalVariable::LinkerPrivateLinkage, Init, ".cst");
   unsigned align = TYPE_ALIGN(TREE_TYPE(exp));
 #ifdef CONSTANT_ALIGNMENT
   align = CONSTANT_ALIGNMENT(exp, align);
 #endif
   Slot->setAlignment(align);
+  Slot->setUnnamedAddr(flag_merge_constants);
 
   return Slot;
 }
