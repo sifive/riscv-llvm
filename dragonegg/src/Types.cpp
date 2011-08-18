@@ -955,12 +955,18 @@ public:
 /// disjoint from this one).  After this the range will be the convex hull of
 /// the ranges of the two fields.
 void TypedRange::JoinWith(const TypedRange &S) {
+  if (S.R.empty())
+    return;
+  if (R.empty()) {
+    *this = S;
+    return;
+  }
   // Use an integer type that covers both ranges.  Turning everything into an
   // integer like this is pretty nasty, but as we only get here for bitfields
   // it is fairly harmless.
   R = R.Join(S.R);
-  Ty = R.empty() ? 0 : IntegerType::get(Context, R.getWidth());
-  Starts = R.empty() ? 0 : R.getFirst();
+  Ty = IntegerType::get(Context, R.getWidth());
+  Starts = R.getFirst();
 }
 
 static Type *ConvertRecord(tree type) {
