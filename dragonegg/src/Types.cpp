@@ -25,6 +25,8 @@
 #include "dragonegg/ABI.h"
 #include "dragonegg/Cache.h"
 #include "dragonegg/Types.h"
+#include "dragonegg/ADT/IntervalList.h"
+#include "dragonegg/ADT/Range.h"
 
 // LLVM headers
 #include "llvm/Module.h"
@@ -259,6 +261,10 @@ int GetFieldIndex(tree decl, Type *Ty) {
   // If this is not a struct type, then for sure there is no corresponding LLVM
   // field (we do not require GCC record types to be converted to LLVM structs).
   if (!STy)
+    return set_decl_index(decl, INT_MAX);
+
+  // If this is an empty struct then there is no corresponding LLVM field.
+  if (STy->element_begin() == STy->element_end())
     return set_decl_index(decl, INT_MAX);
 
   // If the field declaration is at a variable or humongous offset then there
@@ -831,734 +837,246 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   return FunctionType::get(RetTy, ArgTypes, isVarArg);
 }
 
-//===----------------------------------------------------------------------===//
-//                      RECORD/Struct Conversion Routines
-//===----------------------------------------------------------------------===//
+typedef Range<uint64_t> BitRange;
 
-/// StructTypeConversionInfo - A temporary structure that is used when
-/// translating a RECORD_TYPE to an LLVM type.
+/// TypedRange - A type that applies to a range of bits.  Any part of the type
+/// outside of the range is discarded.  The range may be bigger than the type
+/// in which case any extra bits have an undefined type.
 namespace {
 
-  struct StructTypeConversionInfo {
-    std::vector<Type*> Elements;
-    std::vector<uint64_t> ElementOffsetInBytes;
-    std::vector<uint64_t> ElementSizeInBytes;
-    std::vector<bool> PaddingElement; // True if field is used for padding
-    const TargetData &TD;
-    unsigned GCCStructAlignmentInBytes;
-    bool Packed; // True if struct is packed
-    bool AllBitFields; // True if all struct fields are bit fields
-    bool LastFieldStartsAtNonByteBoundry;
-    unsigned ExtraBitsAvailable; // Non-zero if last field is bit field and it
-                                 // does not use all allocated bits
+class TypedRange {
+  BitRange R;      // The range of bits occupied by the type.
+  Type *Ty;        // The type.  May be null if the range is empty.
+  uint64_t Starts; // The first bit of the type is positioned at this offset.
 
-    StructTypeConversionInfo(TargetMachine &TM, unsigned GCCAlign, bool P)
-      : TD(*TM.getTargetData()), GCCStructAlignmentInBytes(GCCAlign),
-        Packed(P), AllBitFields(true), LastFieldStartsAtNonByteBoundry(false),
-        ExtraBitsAvailable(0) {}
+  TypedRange(BitRange r, Type *t, uint64_t starts) :
+    R(r), Ty(t), Starts(starts) {
+    assert((R.empty() || Ty) && "Need type when range not empty!");
+  }
 
-    void lastFieldStartsAtNonByteBoundry(bool value) {
-      LastFieldStartsAtNonByteBoundry = value;
+  /// isSafeToReturnContentsDirectly - Return whether the current value for the
+  /// type properly represents the bits in the range and so can be handed to the
+  /// user as is.
+  bool isSafeToReturnContentsDirectly(const TargetData &TD) const {
+    // If there is no type (allowed when the range is empty) then one needs to
+    // be created.
+    if (!Ty)
+      return false;
+    // If the first bit of the type is not the first bit of the range then it
+    // needs to be displaced before being passed to the user.
+    if (!R.empty() && R.getFirst() != Starts)
+      return false;
+    // If the type is wider than the range then it needs to be truncated before
+    // being passed to the user.
+    uint64_t AllocBits = TD.getTypeAllocSizeInBits(Ty);
+    return AllocBits <= R.getWidth();
+  }
+
+public:
+  /// get - Use the given type for the range [first, last).
+  static TypedRange get(uint64_t first, uint64_t last, Type *Ty) {
+    return TypedRange(BitRange(first, last), Ty, first);
+  }
+
+  // Copy assignment operator.
+  TypedRange &operator=(const TypedRange &other) {
+    R = other.R; Ty = other.Ty; Starts = other.Starts;
+    return *this;
+  }
+
+  /// getRange - Return the range occupied by this field.
+  BitRange getRange() const { return R; }
+
+  /// ChangeRangeTo - Change the range occupied by this field.
+  void ChangeRangeTo(BitRange r) { R = r; }
+
+  /// JoinWith - Form the union of this field with another field (which must be
+  /// disjoint from this one).  After this the range will be the convex hull of
+  /// the ranges of the two fields.
+  void JoinWith(const TypedRange &S);
+
+  /// extractContents - Return the contained bits as a type which covers every
+  /// defined bit in the range, yet is guaranteed to have alloc size no larger
+  /// than the width of the range.  Unlike the other methods for this class this
+  /// one requires that the width of the range be a multiple of an address unit,
+  /// which usually means a multiple of 8.
+  Type *extractContents(const TargetData &TD) {
+    /// If the current value for the type can be used to represent the bits in
+    /// the range then just return it.
+    if (isSafeToReturnContentsDirectly(TD))
+      return Ty;
+    // If the range is empty then return a type with zero size.
+    if (R.empty()) {
+      // Return an empty array.  Remember the returned value as an optimization
+      // in case we are called again.
+      Ty = GetUnitType(Context, 0);
+      assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
+      return Ty;
     }
-
-    void extraBitsAvailable (unsigned E) {
-      ExtraBitsAvailable = E;
-    }
-
-    bool isPacked() { return Packed; }
-
-    void markAsPacked() {
-      Packed = true;
-    }
-
-    void allFieldsAreNotBitFields() {
-      AllBitFields = false;
-      // Next field is not a bitfield.
-      LastFieldStartsAtNonByteBoundry = false;
-    }
-
-    unsigned getGCCStructAlignmentInBytes() const {
-      return GCCStructAlignmentInBytes;
-    }
-
-    /// getTypeAlignment - Return the alignment of the specified type in bytes.
-    ///
-    unsigned getTypeAlignment(Type *Ty) const {
-      return Packed ? 1 : TD.getABITypeAlignment(Ty);
-    }
-
-    /// getTypeSize - Return the size of the specified type in bytes.
-    ///
-    uint64_t getTypeSize(Type *Ty) const {
-      return TD.getTypeAllocSize(Ty);
-    }
-
-    /// fillInLLVMType - Return the LLVM type for the specified object.
-    ///
-    void fillInLLVMType(StructType *STy) const {
-      // Use Packed type if Packed is set or all struct fields are bitfields.
-      // Empty struct is not packed unless packed is set.
-      STy->setBody(Elements, Packed || (!Elements.empty() && AllBitFields));
-    }
-
-    /// getAlignmentAsLLVMStruct - Return the alignment of this struct if it were
-    /// converted to an LLVM type.
-    uint64_t getAlignmentAsLLVMStruct() const {
-      if (Packed || AllBitFields) return 1;
-      unsigned MaxAlign = 1;
-      for (unsigned i = 0, e = Elements.size(); i != e; ++i)
-        MaxAlign = std::max(MaxAlign, getTypeAlignment(Elements[i]));
-      return MaxAlign;
-    }
-
-    /// getSizeAsLLVMStruct - Return the size of this struct if it were converted
-    /// to an LLVM type.  This is the end of last element push an alignment pad at
-    /// the end.
-    uint64_t getSizeAsLLVMStruct() const {
-      if (Elements.empty()) return 0;
-      unsigned MaxAlign = getAlignmentAsLLVMStruct();
-      uint64_t Size = ElementOffsetInBytes.back()+ElementSizeInBytes.back();
-      return (Size+MaxAlign-1) & ~(MaxAlign-1);
-    }
-
-    // If this is a Packed struct and ExtraBitsAvailable is not zero then
-    // remove Extra bytes if ExtraBitsAvailable > 8.
-    void RemoveExtraBytes () {
-
-      unsigned NoOfBytesToRemove = ExtraBitsAvailable/8;
-
-      if (!Packed && !AllBitFields)
-        return;
-
-      if (NoOfBytesToRemove == 0)
-        return;
-
-      Type *LastType = Elements.back();
-      unsigned PadBytes = 0;
-
-      if (LastType->isIntegerTy(8))
-        PadBytes = 1 - NoOfBytesToRemove;
-      else if (LastType->isIntegerTy(16))
-        PadBytes = 2 - NoOfBytesToRemove;
-      else if (LastType->isIntegerTy(32))
-        PadBytes = 4 - NoOfBytesToRemove;
-      else if (LastType->isIntegerTy(64))
-        PadBytes = 8 - NoOfBytesToRemove;
-      else
-        return;
-
-      assert (PadBytes > 0 && "Unable to remove extra bytes");
-
-      // Update last element type and size, element offset is unchanged.
-      Type *Pad =  ArrayType::get(Type::getInt8Ty(Context), PadBytes);
-      unsigned OriginalSize = ElementSizeInBytes.back();
-      Elements.pop_back();
-      Elements.push_back(Pad);
-
-      ElementSizeInBytes.pop_back();
-      ElementSizeInBytes.push_back(OriginalSize - NoOfBytesToRemove);
-    }
-
-    /// ResizeLastElementIfOverlapsWith - If the last element in the struct
-    /// includes the specified byte, remove it. Return true struct
-    /// layout is sized properly. Return false if unable to handle ByteOffset.
-    /// In this case caller should redo this struct as a packed structure.
-    bool ResizeLastElementIfOverlapsWith(uint64_t ByteOffset, tree /*Field*/,
-                                         Type *Ty) {
-      Type *SavedTy = NULL;
-
-      if (!Elements.empty()) {
-        assert(ElementOffsetInBytes.back() <= ByteOffset &&
-               "Cannot go backwards in struct");
-
-        SavedTy = Elements.back();
-        if (ElementOffsetInBytes.back()+ElementSizeInBytes.back() > ByteOffset) {
-          // The last element overlapped with this one, remove it.
-          uint64_t PoppedOffset = ElementOffsetInBytes.back();
-          Elements.pop_back();
-          ElementOffsetInBytes.pop_back();
-          ElementSizeInBytes.pop_back();
-          PaddingElement.pop_back();
-          uint64_t EndOffset = getNewElementByteOffset(1);
-          if (EndOffset < PoppedOffset) {
-            // Make sure that some field starts at the position of the
-            // field we just popped.  Otherwise we might end up with a
-            // gcc non-bitfield being mapped to an LLVM field with a
-            // different offset.
-            Type *Pad = Type::getInt8Ty(Context);
-            if (PoppedOffset != EndOffset + 1)
-              Pad = ArrayType::get(Pad, PoppedOffset - EndOffset);
-            addElement(Pad, EndOffset, PoppedOffset - EndOffset);
-          }
-        }
-      }
-
-      // Get the LLVM type for the field.  If this field is a bitfield, use the
-      // declared type, not the shrunk-to-fit type that GCC gives us in TREE_TYPE.
-      unsigned ByteAlignment = getTypeAlignment(Ty);
-      uint64_t NextByteOffset = getNewElementByteOffset(ByteAlignment);
-      if (NextByteOffset > ByteOffset ||
-          ByteAlignment > getGCCStructAlignmentInBytes()) {
-        // LLVM disagrees as to where this field should go in the natural field
-        // ordering.  Therefore convert to a packed struct and try again.
-        return false;
-      }
-
-      // If alignment won't round us up to the right boundary, insert explicit
-      // padding.
-      if (NextByteOffset < ByteOffset) {
-        uint64_t CurOffset = getNewElementByteOffset(1);
-        Type *Pad = Type::getInt8Ty(Context);
-        if (SavedTy && LastFieldStartsAtNonByteBoundry)
-          // We want to reuse SavedType to access this bit field.
-          // e.g. struct __attribute__((packed)) {
-          //  unsigned int A,
-          //  unsigned short B : 6,
-          //                 C : 15;
-          //  char D; };
-          //  In this example, previous field is C and D is current field.
-          addElement(SavedTy, CurOffset, ByteOffset - CurOffset);
-        else if (ByteOffset - CurOffset != 1)
-          Pad = ArrayType::get(Pad, ByteOffset - CurOffset);
-        addElement(Pad, CurOffset, ByteOffset - CurOffset);
-      }
-      return true;
-    }
-
-    /// FieldNo - Remove the specified field and all of the fields that come after
-    /// it.
-    void RemoveFieldsAfter(unsigned FieldNo) {
-      Elements.erase(Elements.begin()+FieldNo, Elements.end());
-      ElementOffsetInBytes.erase(ElementOffsetInBytes.begin()+FieldNo,
-                                 ElementOffsetInBytes.end());
-      ElementSizeInBytes.erase(ElementSizeInBytes.begin()+FieldNo,
-                               ElementSizeInBytes.end());
-      PaddingElement.erase(PaddingElement.begin()+FieldNo,
-                           PaddingElement.end());
-    }
-
-    /// getNewElementByteOffset - If we add a new element with the specified
-    /// alignment, what byte offset will it land at?
-    uint64_t getNewElementByteOffset(unsigned ByteAlignment) {
-      if (Elements.empty()) return 0;
-      uint64_t LastElementEnd =
-        ElementOffsetInBytes.back() + ElementSizeInBytes.back();
-
-      return (LastElementEnd+ByteAlignment-1) & ~(ByteAlignment-1);
-    }
-
-    /// addElement - Add an element to the structure with the specified type,
-    /// offset and size.
-    void addElement(Type *Ty, uint64_t Offset, uint64_t Size,
-                    bool ExtraPadding = false) {
-      Elements.push_back(Ty);
-      ElementOffsetInBytes.push_back(Offset);
-      ElementSizeInBytes.push_back(Size);
-      PaddingElement.push_back(ExtraPadding);
-      lastFieldStartsAtNonByteBoundry(false);
-      ExtraBitsAvailable = 0;
-    }
-
-    /// getFieldEndOffsetInBytes - Return the byte offset of the byte immediately
-    /// after the specified field.  For example, if FieldNo is 0 and the field
-    /// is 4 bytes in size, this will return 4.
-    uint64_t getFieldEndOffsetInBytes(unsigned FieldNo) const {
-      assert(FieldNo < ElementOffsetInBytes.size() && "Invalid field #!");
-      return ElementOffsetInBytes[FieldNo]+ElementSizeInBytes[FieldNo];
-    }
-
-    /// getEndUnallocatedByte - Return the first byte that isn't allocated at the
-    /// end of a structure.  For example, for {}, it's 0, for {int} it is 4, for
-    /// {int,short}, it is 6.
-    uint64_t getEndUnallocatedByte() const {
-      if (ElementOffsetInBytes.empty()) return 0;
-      return getFieldEndOffsetInBytes(ElementOffsetInBytes.size()-1);
-    }
-
-    void addNewBitField(uint64_t Size, uint64_t Extra,
-                        uint64_t FirstUnallocatedByte);
-
-    void dump() const;
-  };
+    // Represent the range using an array of bytes.  Remember the returned type
+    // as an optimization in case we are called again.
+    // TODO: If the type only needs to be truncated and has struct or array type
+    // then we could try to do the truncation by dropping or modifying the last
+    // elements of the type, maybe yielding something less horrible.
+    assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
+    uint64_t Units = R.getWidth() / BITS_PER_UNIT;
+    Ty = GetUnitType(Context, Units);
+    Starts = R.getFirst();
+    assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
+    return Ty;
+  }
+};
 
 } // Unnamed namespace.
 
-// Add new element which is a bit field. Size is not the size of bit field,
-// but size of bits required to determine type of new Field which will be
-// used to access this bit field.
-// If possible, allocate a field with room for Size+Extra bits.
-void StructTypeConversionInfo::addNewBitField(uint64_t Size, uint64_t Extra,
-                                              uint64_t FirstUnallocatedByte) {
-
-  // Figure out the LLVM type that we will use for the new field.
-  // Note, Size is not necessarily size of the new field. It indicates
-  // additional bits required after FirstunallocatedByte to cover new field.
-  Type *NewFieldTy = 0;
-
-  // First try an ABI-aligned field including (some of) the Extra bits.
-  // This field must satisfy Size <= w && w <= XSize.
-  uint64_t XSize = Size + Extra;
-  for (unsigned w = NextPowerOf2(std::min(UINT64_C(64), XSize))/2;
-       w >= Size && w >= 8; w /= 2) {
-    if (TD.isIllegalInteger(w))
-      continue;
-    // Would a w-sized integer field be aligned here?
-    const unsigned a = TD.getABIIntegerTypeAlignment(w);
-    if (FirstUnallocatedByte & (a-1) || a > getGCCStructAlignmentInBytes())
-      continue;
-    // OK, use w-sized integer.
-    NewFieldTy = IntegerType::get(Context, w);
-    break;
-  }
-
-  // Try an integer field that holds Size bits.
-  if (!NewFieldTy) {
-    if (Size <= 8)
-      NewFieldTy = Type::getInt8Ty(Context);
-    else if (Size <= 16)
-      NewFieldTy = Type::getInt16Ty(Context);
-    else if (Size <= 32)
-      NewFieldTy = Type::getInt32Ty(Context);
-    else {
-      assert(Size <= 64 && "Bitfield too large!");
-      NewFieldTy = Type::getInt64Ty(Context);
-    }
-  }
-
-  // Check that the alignment of NewFieldTy won't cause a gap in the structure!
-  unsigned ByteAlignment = getTypeAlignment(NewFieldTy);
-  if (FirstUnallocatedByte & (ByteAlignment-1) ||
-      ByteAlignment > getGCCStructAlignmentInBytes()) {
-    // Instead of inserting a nice whole field, insert a small array of ubytes.
-    NewFieldTy = ArrayType::get(Type::getInt8Ty(Context), (Size+7)/8);
-  }
-
-  // Finally, add the new field.
-  addElement(NewFieldTy, FirstUnallocatedByte, getTypeSize(NewFieldTy));
-  ExtraBitsAvailable = NewFieldTy->getPrimitiveSizeInBits() - Size;
+/// JoinWith - Form the union of this field with another field (which must be
+/// disjoint from this one).  After this the range will be the convex hull of
+/// the ranges of the two fields.
+void TypedRange::JoinWith(const TypedRange &S) {
+  // Use an integer type that covers both ranges.  Turning everything into an
+  // integer like this is pretty nasty, but as we only get here for bitfields
+  // it is fairly harmless.
+  R = R.Join(S.R);
+  Ty = R.empty() ? 0 : IntegerType::get(Context, R.getWidth());
+  Starts = R.empty() ? 0 : R.getFirst();
 }
 
-void StructTypeConversionInfo::dump() const {
-  raw_ostream &OS = outs();
-  OS << "Info has " << Elements.size() << " fields:\n";
-  for (unsigned i = 0, e = Elements.size(); i != e; ++i) {
-    OS << "  Offset = " << ElementOffsetInBytes[i]
-       << " Size = " << ElementSizeInBytes[i]
-       << " Type = " << *Elements[i] << "\n";
-  }
-  OS.flush();
-}
-
-/// DecodeStructBitField - This method decodes the specified bit-field, adding
-/// or updating the specified StructTypeConversionInfo to reflect it.
-///
-/// Note that in general, we cannot produce a good covering of struct fields for
-/// bitfields.  As such, we only make sure that all bits in a struct that
-/// correspond to a bitfield are represented in the LLVM struct with
-/// (potentially multiple) integer fields of integer type.  This ensures that
-/// initialized globals with bitfields can have the initializers for the
-/// bitfields specified.
-static void DecodeStructBitField(tree Field, StructTypeConversionInfo &Info) {
-  unsigned FieldSizeInBits = TREE_INT_CST_LOW(DECL_SIZE(Field));
-
-  if (FieldSizeInBits == 0)   // Ignore 'int:0', which just affects layout.
-    return;
-
-  // Get the starting offset in the record.
-  uint64_t StartOffsetInBits = getFieldOffsetInBits(Field);
-  uint64_t EndBitOffset    = FieldSizeInBits+StartOffsetInBits;
-
-  // If the last inserted LLVM field completely contains this bitfield, just
-  // ignore this field.
-  if (!Info.Elements.empty()) {
-    uint64_t LastFieldBitOffset = Info.ElementOffsetInBytes.back()*8;
-    unsigned LastFieldBitSize   = Info.ElementSizeInBytes.back()*8;
-    assert(LastFieldBitOffset <= StartOffsetInBits &&
-           "This bitfield isn't part of the last field!");
-    if (EndBitOffset <= LastFieldBitOffset+LastFieldBitSize &&
-        LastFieldBitOffset+LastFieldBitSize >= StartOffsetInBits) {
-      // Already contained in previous field. Update remaining extra bits that
-      // are available.
-      Info.extraBitsAvailable(Info.getEndUnallocatedByte()*8 - EndBitOffset);
-      return;
-    }
-  }
-
-  // Otherwise, this bitfield lives (potentially) partially in the preceding
-  // field and in fields that exist after it.  Add integer-typed fields to the
-  // LLVM struct such that there are no holes in the struct where the bitfield
-  // is: these holes would make it impossible to statically initialize a global
-  // of this type that has an initializer for the bitfield.
-
-  // We want the integer-typed fields as large as possible up to the machine
-  // word size. If there are more bitfields following this one, try to include
-  // them in the same field.
-
-  // Calculate the total number of bits in the continuous group of bitfields
-  // following this one. This is the number of bits that addNewBitField should
-  // try to include.
-  unsigned ExtraSizeInBits = 0;
-  tree LastBitField = 0;
-  for (tree f = TREE_CHAIN(Field); f; f = TREE_CHAIN(f)) {
-    assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
-    if (TREE_CODE(DECL_FIELD_OFFSET(f)) != INTEGER_CST)
-      break;
-    if (isBitfield(f))
-      LastBitField = f;
-    else {
-      // We can use all this bits up to the next non-bitfield.
-      LastBitField = 0;
-      ExtraSizeInBits = getFieldOffsetInBits(f) - EndBitOffset;
-      break;
-    }
-  }
-  // Record ended in a bitfield? Use all of the last byte.
-  if (LastBitField)
-    ExtraSizeInBits = RoundUpToAlignment(getFieldOffsetInBits(LastBitField) +
-      TREE_INT_CST_LOW(DECL_SIZE(LastBitField)), 8) - EndBitOffset;
-
-  // Compute the number of bits that we need to add to this struct to cover
-  // this field.
-  uint64_t FirstUnallocatedByte = Info.getEndUnallocatedByte();
-  uint64_t StartOffsetFromByteBoundry = StartOffsetInBits & 7;
-
-  if (StartOffsetInBits < FirstUnallocatedByte*8) {
-
-    uint64_t AvailableBits = FirstUnallocatedByte * 8 - StartOffsetInBits;
-    // This field's starting point is already allocated.
-    if (StartOffsetFromByteBoundry == 0) {
-      // This field starts at byte boundary. Need to allocate space
-      // for additional bytes not yet allocated.
-      unsigned NumBitsToAdd = FieldSizeInBits - AvailableBits;
-      Info.addNewBitField(NumBitsToAdd, ExtraSizeInBits, FirstUnallocatedByte);
-      return;
-    }
-
-    // Otherwise, this field's starting point is inside previously used byte.
-    // This happens with Packed bit fields. In this case one LLVM Field is
-    // used to access previous field and current field.
-    unsigned prevFieldTypeSizeInBits =
-      Info.ElementSizeInBytes[Info.Elements.size() - 1] * 8;
-
-    unsigned NumBitsRequired = prevFieldTypeSizeInBits
-      + (FieldSizeInBits - AvailableBits);
-
-    if (NumBitsRequired > 64) {
-      // Use bits from previous field.
-      NumBitsRequired = FieldSizeInBits - AvailableBits;
-    } else {
-      // If type used to access previous field is not large enough then
-      // remove previous field and insert new field that is large enough to
-      // hold both fields.
-      Info.RemoveFieldsAfter(Info.Elements.size() - 1);
-      for (unsigned idx = 0; idx < (prevFieldTypeSizeInBits/8); ++idx)
-        FirstUnallocatedByte--;
-    }
-    Info.addNewBitField(NumBitsRequired, ExtraSizeInBits, FirstUnallocatedByte);
-    // Do this after adding Field.
-    Info.lastFieldStartsAtNonByteBoundry(true);
-    return;
-  }
-
-  if (StartOffsetInBits > FirstUnallocatedByte*8) {
-    // If there is padding between the last field and the struct, insert
-    // explicit bytes into the field to represent it.
-    unsigned PadBytes = 0;
-    unsigned PadBits = 0;
-    if (StartOffsetFromByteBoundry != 0) {
-      // New field does not start at byte boundary.
-      PadBits = StartOffsetInBits - (FirstUnallocatedByte*8);
-      PadBytes = PadBits/8;
-      PadBits = PadBits - PadBytes*8;
-    } else
-      PadBytes = StartOffsetInBits/8-FirstUnallocatedByte;
-
-    if (PadBytes) {
-      Type *Pad = Type::getInt8Ty(Context);
-      if (PadBytes != 1)
-        Pad = ArrayType::get(Pad, PadBytes);
-      Info.addElement(Pad, FirstUnallocatedByte, PadBytes);
-    }
-
-    FirstUnallocatedByte = StartOffsetInBits/8;
-    // This field will use some of the bits from this PadBytes, if
-    // starting offset is not at byte boundary.
-    if (StartOffsetFromByteBoundry != 0)
-      FieldSizeInBits += PadBits;
-  }
-
-  // Now, Field starts at FirstUnallocatedByte and everything is aligned.
-  Info.addNewBitField(FieldSizeInBits, ExtraSizeInBits, FirstUnallocatedByte);
-}
-
-/// DecodeStructFields - This method decodes the specified field, if it is a
-/// FIELD_DECL, adding or updating the specified StructTypeConversionInfo to
-/// reflect it.  Return true if field is decoded correctly. Otherwise return
-/// false.
-static bool DecodeStructFields(tree Field, StructTypeConversionInfo &Info) {
-  // Handle bit-fields specially.
-  if (isBitfield(Field)) {
-    // If this field is forcing packed llvm struct then retry entire struct
-    // layout.
-    if (!Info.isPacked()) {
-      // Unnamed bitfield type does not contribute in struct alignment
-      // computations. Use packed llvm structure in such cases.
-      if (!DECL_NAME(Field))
-        return false;
-      // If this field is packed then the struct may need padding fields
-      // before this field.
-      if (DECL_PACKED(Field))
-        return false;
-      // If Field has user defined alignment and it does not match Ty alignment
-      // then convert to a packed struct and try again.
-      if (TYPE_USER_ALIGN(TREE_TYPE(Field))) {
-        Type *Ty = ConvertType(TREE_TYPE(Field));
-        if (TYPE_ALIGN(TREE_TYPE(Field)) !=
-            8 * Info.getTypeAlignment(Ty))
-          return false;
-      }
-    }
-    DecodeStructBitField(Field, Info);
-    return true;
-  }
-
-  Info.allFieldsAreNotBitFields();
-
-  // Get the starting offset in the record.
-  uint64_t StartOffsetInBits = getFieldOffsetInBits(Field);
-  assert((StartOffsetInBits & 7) == 0 && "Non-bit-field has non-byte offset!");
-  uint64_t StartOffsetInBytes = StartOffsetInBits/8;
-
-  Type *Ty = ConvertType(TREE_TYPE(Field));
-
-  // If this field is packed then the struct may need padding fields
-  // before this field.
-  if (DECL_PACKED(Field) && !Info.isPacked())
-    return false;
-  // Pop any previous elements out of the struct if they overlap with this one.
-  // This can happen when the C++ front-end overlaps fields with tail padding in
-  // C++ classes.
-  else if (!Info.ResizeLastElementIfOverlapsWith(StartOffsetInBytes, Field, Ty)) {
-    // LLVM disagrees as to where this field should go in the natural field
-    // ordering.  Therefore convert to a packed struct and try again.
-    return false;
-  }
-  else if (TYPE_USER_ALIGN(TREE_TYPE(Field))
-           && (unsigned)DECL_ALIGN(Field) != 8 * Info.getTypeAlignment(Ty)
-           && !Info.isPacked()) {
-    // If Field has user defined alignment and it does not match Ty alignment
-    // then convert to a packed struct and try again.
-    return false;
-  } else
-    // At this point, we know that adding the element will happen at the right
-    // offset.  Add it.
-    Info.addElement(Ty, StartOffsetInBytes, Info.getTypeSize(Ty));
-  return true;
-}
-
-/// UnionHasOnlyZeroOffsets - Check if a union type has only members with
-/// offsets that are zero, e.g., no Fortran equivalences.
-static bool UnionHasOnlyZeroOffsets(tree type) {
-  for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-    assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
-    if (!OffsetIsLLVMCompatible(Field))
-      return false;
-    if (getFieldOffsetInBits(Field) != 0)
-      return false;
-  }
-  return true;
-}
-
-/// SelectUnionMember - Find the union member with the largest aligment.  If
-/// there are multiple types with the same alignment, select the one with
-/// the largest size. If the type with max. align is smaller than other types,
-/// then we will add padding later on anyway to match union size.
-static void SelectUnionMember(tree type, StructTypeConversionInfo &Info) {
-  bool FindBiggest = TREE_CODE(type) != QUAL_UNION_TYPE;
-
-  Type *UnionTy = 0;
-  tree UnionField = 0;
-  unsigned MinAlign = ~0U;
-  uint64_t BestSize = FindBiggest ? 0 : ~(uint64_t)0;
-  for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-    assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
-    assert(DECL_FIELD_OFFSET(Field) && integer_zerop(DECL_FIELD_OFFSET(Field))
-           && "Union with non-zero offset?");
-
-    // Skip fields that are known not to be present.
-    if (TREE_CODE(type) == QUAL_UNION_TYPE &&
-        integer_zerop(DECL_QUALIFIER(Field)))
-      continue;
-
-    tree TheGccTy = TREE_TYPE(Field);
-
-    // Skip zero-length bitfields.  These are only used for setting the
-    // alignment.
-    if (DECL_BIT_FIELD(Field) && DECL_SIZE(Field) &&
-        integer_zerop(DECL_SIZE(Field)))
-      continue;
-
-    Type *TheTy = ConvertType(TheGccTy);
-    unsigned Align = Info.getTypeAlignment(TheTy);
-    uint64_t Size  = Info.getTypeSize(TheTy);
-
-    // Select TheTy as union type if it is the biggest/smallest field (depending
-    // on the value of FindBiggest).  If more than one field achieves this size
-    // then choose the least aligned.
-    if ((Size == BestSize && Align < MinAlign) ||
-        (FindBiggest && Size > BestSize) ||
-        (!FindBiggest && Size < BestSize)) {
-      UnionTy = TheTy;
-      UnionField = Field;
-      BestSize = Size;
-      MinAlign = Align;
-    }
-
-    // Skip remaining fields if this one is known to be present.
-    if (TREE_CODE(type) == QUAL_UNION_TYPE &&
-        integer_onep(DECL_QUALIFIER(Field)))
-      break;
-  }
-
-  if (UnionTy) {            // Not an empty union.
-    if (8 * Info.getTypeAlignment(UnionTy) > TYPE_ALIGN(type))
-      Info.markAsPacked();
-
-    if (isBitfield(UnionField)) {
-      unsigned FieldSizeInBits = TREE_INT_CST_LOW(DECL_SIZE(UnionField));
-      Info.addNewBitField(FieldSizeInBits, 0, 0);
-    } else {
-      Info.allFieldsAreNotBitFields();
-      Info.addElement(UnionTy, 0, Info.getTypeSize(UnionTy));
-    }
-  }
-}
-
-/// ConvertRECORD - Convert a RECORD_TYPE, UNION_TYPE or QUAL_UNION_TYPE to
-/// an LLVM type.
-// A note on C++ virtual base class layout.  Consider the following example:
-// class A { public: int i0; };
-// class B : public virtual A { public: int i1; };
-// class C : public virtual A { public: int i2; };
-// class D : public virtual B, public virtual C { public: int i3; };
-//
-// The TYPE nodes gcc builds for classes represent that class as it looks
-// standing alone.  Thus B is size 12 and looks like { vptr; i2; baseclass A; }
-// However, this is not the layout used when that class is a base class for
-// some other class, yet the same TYPE node is still used.  D in the above has
-// both a BINFO list entry and a FIELD that reference type B, but the virtual
-// base class A within B is not allocated in that case; B-within-D is only
-// size 8.  The correct size is in the FIELD node (does not match the size
-// in its child TYPE node.)  The fields to be omitted from the child TYPE,
-// as far as I can tell, are always the last ones; but also, there is a
-// TYPE_DECL node sitting in the middle of the FIELD list separating virtual
-// base classes from everything else.
-//
-// Similarly, a nonvirtual base class which has virtual base classes might
-// not contain those virtual base classes when used as a nonvirtual base class.
-// There is seemingly no way to detect this except for the size differential.
-//
-// For LLVM purposes, we build a new type for B-within-D that
-// has the correct size and layout for that usage.
-static Type *ConvertRECORD(tree type) {
+static Type *ConvertRecord(tree type) {
+  // FIXME: This new logic, especially the handling of bitfields, is untested
+  // and probably wrong on big-endian machines.
   assert(TYPE_SIZE(type) && "Incomplete types should be handled elsewhere!");
 
-  assert(getCachedType(type) && isa<StructType>(getCachedType(type)) &&
-         cast<StructType>(getCachedType(type))->isOpaque() &&
+  IntervalList<TypedRange, uint64_t, 8> Layout;
+  const TargetData &TD = getTargetData();
+
+  // Get the size of the type in bits.  If the type has variable or ginormous
+  // size then it is convenient to pretend it is "infinitely" big.
+  uint64_t TypeSize = isInt64(TYPE_SIZE(type), true) ?
+    getInt64(TYPE_SIZE(type), true) : ~0UL;
+
+  // Record all interesting fields so they can easily be visited backwards.
+  SmallVector<tree, 16> Fields;
+  for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
+    assert(TREE_CODE(field) == FIELD_DECL && "Lang data not freed?");
+    // Ignore fields with variable or unknown position since they cannot be
+    // represented by the LLVM type system.
+    if (!OffsetIsLLVMCompatible(field))
+      continue;
+    // Skip fields that are known not to be present.
+    if (TREE_CODE(type) == QUAL_UNION_TYPE &&
+        integer_zerop(DECL_QUALIFIER(field)))
+      continue;
+    Fields.push_back(field);
+  }
+
+  // Process the fields in reverse order.  This is for the benefit of union
+  // types since it means that a zero constant of the LLVM type will fully
+  // initialize the first union member, which is needed if the zero constant
+  // is to be used as the default value for the union type.
+  for (SmallVector<tree, 16>::reverse_iterator I = Fields.rbegin(),
+       E = Fields.rend(); I != E; ++I) {
+    tree field = *I;
+    uint64_t FirstBit = getFieldOffsetInBits(field);
+    assert(FirstBit <= TypeSize && "Field off end of type!");
+    // Determine the width of the field.
+    uint64_t BitWidth;
+    Type *FieldTy = ConvertType(TREE_TYPE(field));
+    if (isInt64(DECL_SIZE(field), true)) {
+      // The field has a size and it is a constant, so use it.  Note that
+      // this size may be smaller than the type size.  For example, if the
+      // next field starts inside alignment padding at the end of this one
+      // then DECL_SIZE will be the size with the padding used by the next
+      // field not included.
+      BitWidth = getInt64(DECL_SIZE(field), true);
+    } else {
+      // If the field has variable or unknown size then use the size of the
+      // LLVM type instead as it gives the minimum size the field may have.
+      assert(FieldTy->isSized() && "Type field has no size!");
+      BitWidth = TD.getTypeAllocSizeInBits(FieldTy);
+      if (FirstBit + BitWidth > TypeSize)
+        BitWidth = TypeSize - FirstBit;
+    }
+    uint64_t LastBit = FirstBit + BitWidth;
+
+    // Set the type of the range of bits occupied by the field to the LLVM type
+    // for the field.
+    Layout.AddInterval(TypedRange::get(FirstBit, LastBit, FieldTy));
+  }
+
+  // Force all fields to begin and end on a byte boundary.  This automagically
+  // takes care of bitfields.
+  Layout.AlignBoundaries(BITS_PER_UNIT);
+
+  // Determine whether to return a packed struct type.  If returning an ordinary
+  // struct would result in a type that is more aligned than the GCC type then
+  // return a packed struct instead.  If a field's alignment would make it start
+  // after its desired position then also use a packed struct type.
+  bool Pack = false;
+  unsigned MaxAlign = TYPE_ALIGN(type);
+  for (unsigned i = 0, e = Layout.getNumIntervals(); i != e; ++i) {
+    TypedRange F = Layout.getInterval(i);
+    uint64_t First = F.getRange().getFirst();
+    Type *Ty = F.extractContents(TD);
+    unsigned Alignment = TD.getABITypeAlignment(Ty) * 8;
+    if (Alignment > MaxAlign || First % Alignment) {
+      Pack = true;
+      break;
+    }
+  }
+
+  // Create the elements that will make up the struct type.  As well as the
+  // fields themselves there may also be padding elements.
+  std::vector<Type*> Elts;
+  Elts.reserve(Layout.getNumIntervals());
+  uint64_t EndOfPrevious = 0; // Offset of first bit after previous element.
+  for (unsigned i = 0, e = Layout.getNumIntervals(); i != e; ++i) {
+    TypedRange F = Layout.getInterval(i);
+    uint64_t First = F.getRange().getFirst();
+    Type *Ty = F.extractContents(TD);
+    assert(EndOfPrevious <= First && "Previous field too big!");
+
+    // If there is a gap then we may need to fill it with padding.
+    if (First > EndOfPrevious) {
+      // There is a gap between the end of the previous field and the start of
+      // this one.  The alignment of the field contents may mean that it will
+      // start at the right offset anyway, but if not then insert padding.
+      bool NeedPadding = true;
+      if (!Pack) {
+        // If the field's alignment will take care of the gap then there is no
+        // need for padding.
+        unsigned Alignment = TD.getABITypeAlignment(Ty) * 8;
+        if (First == (EndOfPrevious + Alignment - 1) / Alignment * Alignment)
+          NeedPadding = false;
+      }
+      if (NeedPadding) {
+        // Fill the gap with an array of bytes.
+        assert((First - EndOfPrevious) % BITS_PER_UNIT == 0 &&
+               "Non-unit field boundaries!");
+        uint64_t Units = (First - EndOfPrevious) / BITS_PER_UNIT;
+        Elts.push_back(GetUnitType(Context, Units));
+      }
+    }
+
+    // Append the field.
+    Elts.push_back(Ty);
+    EndOfPrevious = First + TD.getTypeAllocSizeInBits(Ty);
+  }
+
+  // If the GCC type has a sensible size then we guarantee that LLVM type has
+  // the same size.  If needed, append padding to ensure this.
+  if (TypeSize != ~0UL && EndOfPrevious < TypeSize) {
+    assert((TypeSize - EndOfPrevious) % BITS_PER_UNIT == 0 &&
+           "Non-unit type size?");
+    uint64_t Units = (TypeSize - EndOfPrevious) / BITS_PER_UNIT;
+    Elts.push_back(GetUnitType(Context, Units));
+  }
+
+  // OK, we're done.  Add the fields to the struct type and return it.
+  Type *STy = getCachedType(type);
+  assert(STy && isa<StructType>(STy) && cast<StructType>(STy)->isOpaque() &&
          "Incorrect placeholder for struct type!");
-
-  // Record those fields which will be converted to LLVM fields.
-  SmallVector<std::pair<tree, uint64_t>, 32> Fields;
-  for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-    assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
-    if (OffsetIsLLVMCompatible(Field))
-      Fields.push_back(std::make_pair(Field, getFieldOffsetInBits(Field)));
-  }
-
-  // The fields are almost always sorted, but occasionally not.  Sort them by
-  // field offset.
-  for (unsigned i = 1, e = Fields.size(); i < e; i++)
-    for (unsigned j = i; j && Fields[j].second < Fields[j-1].second; j--)
-      std::swap(Fields[j], Fields[j-1]);
-
-  StructTypeConversionInfo *Info =
-    new StructTypeConversionInfo(*TheTarget, TYPE_ALIGN(type) / 8,
-                                 TYPE_PACKED(type));
-
-  // Convert over all of the elements of the struct.
-  // Workaround to get Fortran EQUIVALENCE working.
-  // TODO: Unify record and union logic and handle this optimally.
-  bool HasOnlyZeroOffsets = TREE_CODE(type) != RECORD_TYPE &&
-    UnionHasOnlyZeroOffsets(type);
-  if (HasOnlyZeroOffsets) {
-    SelectUnionMember(type, *Info);
-  } else {
-    // Convert over all of the elements of the struct.
-    bool retryAsPackedStruct = false;
-    for (unsigned i = 0, e = Fields.size(); i < e; i++)
-      if (DecodeStructFields(Fields[i].first, *Info) == false) {
-        retryAsPackedStruct = true;
-        break;
-      }
-
-    if (retryAsPackedStruct) {
-      delete Info;
-      Info = new StructTypeConversionInfo(*TheTarget, TYPE_ALIGN(type) / 8,
-                                          true);
-      for (unsigned i = 0, e = Fields.size(); i < e; i++)
-        if (DecodeStructFields(Fields[i].first, *Info) == false) {
-          assert(0 && "Unable to decode struct fields.");
-        }
-    }
-  }
-
-  // Insert tail padding if the LLVM struct requires explicit tail padding to
-  // be the same size as the GCC struct or union.  This handles, e.g., "{}" in
-  // C++, and cases where a union has larger alignment than the largest member
-  // does.
-  if (TYPE_SIZE(type) && TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST) {
-    uint64_t GCCTypeSize = getInt64(TYPE_SIZE_UNIT(type), true);
-    uint64_t LLVMStructSize = Info->getSizeAsLLVMStruct();
-
-    if (LLVMStructSize > GCCTypeSize) {
-      Info->RemoveExtraBytes();
-      LLVMStructSize = Info->getSizeAsLLVMStruct();
-    }
-
-    if (LLVMStructSize != GCCTypeSize) {
-      assert(LLVMStructSize < GCCTypeSize &&
-             "LLVM type size doesn't match GCC type size!");
-      uint64_t LLVMLastElementEnd = Info->getNewElementByteOffset(1);
-
-      // If only one byte is needed then insert i8.
-      if (GCCTypeSize-LLVMLastElementEnd == 1)
-        Info->addElement(Type::getInt8Ty(Context), 1, 1);
-      else {
-        if (((GCCTypeSize-LLVMStructSize) % 4) == 0 &&
-            (Info->getAlignmentAsLLVMStruct() %
-             Info->getTypeAlignment(Type::getInt32Ty(Context))) == 0) {
-          // Insert array of i32.
-          unsigned Int32ArraySize = (GCCTypeSize-LLVMStructSize) / 4;
-          Type *PadTy =
-            ArrayType::get(Type::getInt32Ty(Context), Int32ArraySize);
-          Info->addElement(PadTy, GCCTypeSize - LLVMLastElementEnd,
-                           Int32ArraySize, true /* Padding Element */);
-        } else {
-          Type *PadTy = ArrayType::get(Type::getInt8Ty(Context),
-                                             GCCTypeSize-LLVMStructSize);
-          Info->addElement(PadTy, GCCTypeSize - LLVMLastElementEnd,
-                           GCCTypeSize - LLVMLastElementEnd,
-                           true /* Padding Element */);
-        }
-      }
-    }
-  } else
-    Info->RemoveExtraBytes();
-
-  StructType *ResultTy = cast<StructType>(getCachedType(type));
-  Info->fillInLLVMType(ResultTy);
-
-  return ResultTy;
+  cast<StructType>(STy)->setBody(Elts, Pack);
+  return STy;
 }
 
 /// mayRecurse - Return true if converting this type may require breaking a
@@ -1848,7 +1366,7 @@ static Type *ConvertRecursiveType(tree type) {
   case QUAL_UNION_TYPE:
   case RECORD_TYPE:
   case UNION_TYPE:
-    return llvm_set_type(type, ConvertRECORD(type));
+    return llvm_set_type(type, ConvertRecord(type));
 
   case POINTER_TYPE:
   case REFERENCE_TYPE: {
