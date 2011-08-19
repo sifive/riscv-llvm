@@ -886,13 +886,13 @@ static void emit_global(tree decl) {
   TARGET_ADJUST_LLVM_LINKAGE(GV, decl);
 #endif /* TARGET_ADJUST_LLVM_LINKAGE */
 
-  // If this is a constant that never has its address taken then allow it to be
-  // merged with other constants (C and C++ say that different variables should
+  // If this is a variable that never has its address taken then allow it to be
+  // merged with other variables (C and C++ say that different variables should
   // have different addresses, which is why this is only correct if the address
   // is not taken).  However if -fmerge-all-constants was specified then allow
-  // merging even if the address was taken.
-  GV->setUnnamedAddr(GV->isConstant() && (flag_merge_constants >= 2 ||
-                                          !TREE_ADDRESSABLE(decl)));
+  // merging even if the address was taken.  Note that merging will only happen
+  // if the global is constant or later proved to be constant by the optimizers.
+  GV->setUnnamedAddr(flag_merge_constants >= 2 || !TREE_ADDRESSABLE(decl));
 
   handleVisibility(decl, GV);
 
