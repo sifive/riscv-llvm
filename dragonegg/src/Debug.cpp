@@ -1667,7 +1667,7 @@ DIVariable DIFactory::CreateVariable(unsigned Tag, DIDescriptor Context,
       FName = FName.substr(1);
 
 
-    NamedMDNode *FnLocals = getOrInsertFnSpecificMDNode(M, FName);
+    NamedMDNode *FnLocals = getOrInsertFnSpecificMDNode(M, Fn); /* FName);*/
     FnLocals->addOperand(Node);
   }
   return DIVariable(Node);
