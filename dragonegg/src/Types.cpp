@@ -62,7 +62,7 @@ static LLVMContext &Context = getGlobalContext();
 static const std::vector<tree_node*> *SCCInProgress;
 
 //===----------------------------------------------------------------------===//
-//                          Viewing types as graphs
+//                       ... ContainedTypeIterator ...
 //===----------------------------------------------------------------------===//
 
 /// ContainedTypeIterator - A convenience class for viewing a type as a graph,
@@ -290,6 +290,16 @@ int GetFieldIndex(tree decl, Type *Ty) {
   return set_decl_index(decl, Index);
 }
 
+/// getPointerToType - Returns the LLVM register type to use for a pointer to
+/// the given GCC type.
+Type *getPointerToType(tree type) {
+  if (VOID_TYPE_P(type))
+    // void* -> byte*
+    return GetUnitPointerType(Context);
+  // FIXME: Handle address spaces.
+  return ConvertType(type)->getPointerTo();
+}
+
 /// GetUnitType - Returns an integer one address unit wide if 'NumUnits' is 1;
 /// otherwise returns an array of such integers with 'NumUnits' elements.  For
 /// example, on a machine which has 16 bit bytes returns an i16 or an array of
@@ -395,7 +405,7 @@ bool isPassedByInvisibleReference(tree Type) {
 
 
 //===----------------------------------------------------------------------===//
-//                      Main Type Conversion Routines
+//                             ... getRegType ...
 //===----------------------------------------------------------------------===//
 
 /// getRegType - Returns the LLVM type to use for registers that hold a value
@@ -461,20 +471,38 @@ Type *getRegType(tree type) {
   }
 }
 
-/// getPointerToType - Returns the LLVM register type to use for a pointer to
-/// the given GCC type.
-Type *getPointerToType(tree type) {
-  if (VOID_TYPE_P(type))
-    // void* -> byte*
-    return GetUnitPointerType(Context);
-  // FIXME: Handle address spaces.
-  return ConvertType(type)->getPointerTo();
+
+//===----------------------------------------------------------------------===//
+//                            ... ConvertType ...
+//===----------------------------------------------------------------------===//
+
+static Type *ConvertArrayTypeRecursive(tree type) {
+  Type *ElementTy = ConvertType(TREE_TYPE(type));
+  uint64_t NumElements = ArrayLengthOf(type);
+
+  if (NumElements == NO_LENGTH) // Variable length array?
+    NumElements = 0;
+
+  // Create the array type.
+  Type *Ty = ArrayType::get(ElementTy, NumElements);
+
+  // If the user increased the alignment of the array element type, then the
+  // size of the array is rounded up by that alignment even though the size
+  // of the array element type is not (!).  Correct for this if necessary by
+  // adding padding.  May also need padding if the element type has variable
+  // size and the array type has variable length, but by a miracle the product
+  // gives a constant size.
+  if (isInt64(TYPE_SIZE(type), true)) {
+    uint64_t PadBits = getInt64(TYPE_SIZE(type), true) -
+      getTargetData().getTypeAllocSizeInBits(Ty);
+    if (PadBits) {
+      Type *Padding = ArrayType::get(Type::getInt8Ty(Context), PadBits / 8);
+      Ty = StructType::get(Ty, Padding, NULL);
+    }
+  }
+
+  return Ty;
 }
-
-
-//===----------------------------------------------------------------------===//
-//                  FUNCTION/METHOD_TYPE Conversion Routines
-//===----------------------------------------------------------------------===//
 
 namespace {
   class FunctionTypeConversion : public DefaultABIClient {
@@ -585,7 +613,6 @@ namespace {
     }
   };
 }
-
 
 static Attributes HandleArgumentExtension(tree ArgTy) {
   if (TREE_CODE(ArgTy) == BOOLEAN_TYPE) {
@@ -861,6 +888,60 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   return FunctionType::get(RetTy, ArgTypes, isVarArg);
 }
 
+static Type *ConvertPointerTypeRecursive(tree type) {
+  // This is where self-recursion loops are broken, by not converting the type
+  // pointed to if this would cause trouble (the pointer type is turned into
+  // {}* instead).
+  tree pointee = TYPE_MAIN_VARIANT(TREE_TYPE(type));
+
+  // The pointer type is in the strongly connected component (SCC) currently
+  // being converted.  Check whether the pointee is as well.  If there is more
+  // than one type in the SCC then necessarily the pointee type is in the SCC
+  // since any path from the pointer type to the other type necessarily passes
+  // via the pointee.  If the pointer type is the only element of the SCC then
+  // the pointee is only in the SCC if it is equal to the pointer.
+  bool bothInSCC = SCCInProgress->size() != 1 || pointee == type;
+
+  Type *PointeeTy;
+  if (!bothInSCC) {
+    // It is safe to convert the pointee.  This is the common case, as we get
+    // here for pointers to integers and so on.
+    PointeeTy = ConvertType(pointee);
+    if (PointeeTy->isVoidTy())
+      PointeeTy = GetUnitType(Context); // void* -> byte*.
+  } else {
+    // Both the pointer and the pointee type are in the SCC so it is not safe
+    // to convert the pointee type - otherwise we would get an infinite loop.
+    // However if a type, for example an opaque struct placeholder, has been
+    // registered for the pointee then we can return a pointer to it, giving
+    // nicer IR (this is not needed for correctness).  Note that some members
+    // of the SCC may have been converted already at this point (for this to
+    // happen there must be more than one pointer type in the SCC), and thus
+    // will have LLVM types registered for them.  Unfortunately which types
+    // have been converted depends on the order in which we visit the SCC, and
+    // that is not an intrinsic property of the SCC.  This is why we choose to
+    // only use the types registered for records and unions - these are always
+    // available.  As a further attempt to improve the IR, we return an S* for
+    // an array type S[N] if (recursively) S is a record or union type.
+
+    // Drill down through nested arrays to the ultimate element type.  Thanks
+    // to this we may return S* for a (S[])*, which is better than {}*.
+    while (TREE_CODE(pointee) == ARRAY_TYPE)
+      pointee = TYPE_MAIN_VARIANT(TREE_TYPE(pointee));
+
+    // If the pointee is a record or union type then return a pointer to its
+    // placeholder type.  Otherwise return {}*.
+    if (TREE_CODE(pointee) == QUAL_UNION_TYPE ||
+        TREE_CODE(pointee) == RECORD_TYPE ||
+        TREE_CODE(pointee) == UNION_TYPE)
+      PointeeTy = getCachedType(pointee);
+    else
+      PointeeTy = StructType::get(Context);
+  }
+
+  return PointeeTy->getPointerTo();
+}
+
 typedef Range<uint64_t> BitRange;
 
 /// TypedRange - A type that applies to a range of bits.  Any part of the type
@@ -971,7 +1052,7 @@ void TypedRange::JoinWith(const TypedRange &S) {
   Starts = R.getFirst();
 }
 
-static Type *ConvertRecord(tree type) {
+static Type *ConvertRecordTypeRecursive(tree type) {
   // FIXME: This new logic, especially the handling of bitfields, is untested
   // and probably wrong on big-endian machines.
   assert(TYPE_SIZE(type) && "Incomplete types should be handled elsewhere!");
@@ -1186,6 +1267,148 @@ static bool mayRecurse(tree type) {
   }
 }
 
+/// ConvertTypeRecursive - Convert a type when conversion may require breaking
+/// type conversion loops, see mayRecurse.  Note that all types used by but not
+/// in the current strongly connected component (SCC) must have been converted
+/// already.
+static Type *ConvertTypeRecursive(tree type) {
+  assert(type == TYPE_MAIN_VARIANT(type) && "Not converting the main variant!");
+  assert(mayRecurse(type) && "Expected a recursive type!");
+  assert(SCCInProgress && "Missing recursion data!");
+
+#ifndef NDEBUG
+  // Check that the given type is in the current strongly connected component
+  // (SCC) of the type graph.  This should always be the case because SCCs are
+  // visited bottom up.
+  bool inSCC = false;
+  for (unsigned i = 0, e = SCCInProgress->size(); i != e; ++i)
+    if ((*SCCInProgress)[i] == type) {
+      inSCC = true;
+      break;
+    }
+  if (!inSCC)
+    DieAbjectly("Type not in SCC!", type);
+#endif
+
+  switch (TREE_CODE(type)) {
+  default:
+    DieAbjectly("Unexpected type!", type);
+
+  case ARRAY_TYPE:
+    return llvm_set_type(type, ConvertArrayTypeRecursive(type));
+
+  case FUNCTION_TYPE:
+  case METHOD_TYPE: {
+    CallingConv::ID CallingConv;
+    AttrListPtr PAL;
+    // No declaration to pass through, passing NULL.
+    return llvm_set_type(type, ConvertFunctionType(type, NULL, NULL,
+                                                   CallingConv, PAL));
+  }
+
+  case POINTER_TYPE:
+  case REFERENCE_TYPE:
+    return llvm_set_type(type, ConvertPointerTypeRecursive(type));
+
+  case RECORD_TYPE:
+  case UNION_TYPE:
+  case QUAL_UNION_TYPE:
+    return llvm_set_type(type, ConvertRecordTypeRecursive(type));
+  }
+}
+
+/// ConvertTypeNonRecursive - Convert a type when this is known to not require
+/// breaking type conversion loops, see mayRecurse.
+static Type *ConvertTypeNonRecursive(tree type) {
+  assert(type == TYPE_MAIN_VARIANT(type) && "Not converting the main variant!");
+  assert(!mayRecurse(type) && "Expected a non-recursive type!");
+
+  switch (TREE_CODE(type)) {
+  default:
+    DieAbjectly("Unknown or recursive type!", type);
+
+  case ARRAY_TYPE:
+  case FUNCTION_TYPE:
+  case METHOD_TYPE:
+  case POINTER_TYPE:
+  case REFERENCE_TYPE: {
+    // If these types are not recursive it can only be because they were already
+    // converted and we can safely return the result of the previous conversion.
+    Type *Ty = getCachedType(type);
+    assert(Ty && "Type not already converted!");
+    return Ty;
+  }
+
+  case ENUMERAL_TYPE:
+    // If the enum is incomplete return a placeholder type.
+    if (!TYPE_SIZE(type))
+      return Type::getInt32Ty(Context);
+    // Otherwise fall through.
+  case BOOLEAN_TYPE:
+  case INTEGER_TYPE: {
+    uint64_t Size = getInt64(TYPE_SIZE(type), true);
+    return IntegerType::get(Context, Size); // Not worth caching.
+  }
+
+  case COMPLEX_TYPE: {
+    if (Type *Ty = getCachedType(type)) return Ty;
+    Type *Ty = ConvertTypeNonRecursive(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
+    Ty = StructType::get(Ty, Ty, NULL);
+    return llvm_set_type(type, Ty);
+  }
+
+  case OFFSET_TYPE:
+    // Handle OFFSET_TYPE specially.  This is used for pointers to members,
+    // which are really just integer offsets.  Return the appropriate integer
+    // type directly.
+    return getTargetData().getIntPtrType(Context); // Not worth caching.
+
+  case REAL_TYPE:
+    // It is not worth caching the result of this type conversion.
+    switch (TYPE_PRECISION(type)) {
+    default:
+      DieAbjectly("Unknown FP type!", type);
+    case 32: return Type::getFloatTy(Context);
+    case 64: return Type::getDoubleTy(Context);
+    case 80: return Type::getX86_FP80Ty(Context);
+    case 128:
+#ifdef TARGET_POWERPC
+      return Type::getPPC_FP128Ty(Context);
+#else
+      // IEEE quad precision.
+      return Type::getFP128Ty(Context);
+#endif
+    }
+
+  case RECORD_TYPE:
+  case QUAL_UNION_TYPE:
+  case UNION_TYPE:
+    // If the type was already converted then return the already computed type.
+    if (Type *Ty = getCachedType(type)) return Ty;
+
+    // Otherwise this must be an incomplete type - return an opaque struct.
+    assert(!TYPE_SIZE(type) && "Expected an incomplete type!");
+    return llvm_set_type(type, StructType::create(Context,
+                                                  getDescriptiveName(type)));
+
+  case VECTOR_TYPE: {
+    if (Type *Ty = getCachedType(type)) return Ty;
+    Type *Ty;
+    // LLVM does not support vectors of pointers, so turn any pointers into
+    // integers.
+    if (POINTER_TYPE_P(TREE_TYPE(type)))
+      Ty = getTargetData().getIntPtrType(Context);
+    else
+      Ty = ConvertTypeNonRecursive(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
+    Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));
+    return llvm_set_type(type, Ty);
+  }
+
+  case VOID_TYPE:
+    return Type::getVoidTy(Context); // Not worth caching.
+  }
+}
+
 /// RecursiveTypeIterator - A convenience class that visits only those nodes
 /// in the type graph that mayRecurse thinks might be self-referential.  Note
 /// that dereferencing returns the main variant of the contained type rather
@@ -1274,224 +1497,6 @@ namespace llvm {
   };
 }
 
-/// ConvertNonRecursiveType - Convert a type when this is known to not require
-/// breaking type conversion loops, see mayRecurse.
-static Type *ConvertNonRecursiveType(tree type) {
-  assert(type == TYPE_MAIN_VARIANT(type) && "Not converting the main variant!");
-  assert(!mayRecurse(type) && "Expected a non-recursive type!");
-
-  switch (TREE_CODE(type)) {
-  default:
-    DieAbjectly("Unknown or recursive type!", type);
-
-  case ARRAY_TYPE:
-  case FUNCTION_TYPE:
-  case METHOD_TYPE:
-  case POINTER_TYPE:
-  case REFERENCE_TYPE: {
-    // If these types are not recursive it can only be because they were already
-    // converted and we can safely return the result of the previous conversion.
-    Type *Ty = getCachedType(type);
-    assert(Ty && "Type not already converted!");
-    return Ty;
-  }
-
-  case ENUMERAL_TYPE:
-    // If the enum is incomplete return a placeholder type.
-    if (!TYPE_SIZE(type))
-      return Type::getInt32Ty(Context);
-    // Otherwise fall through.
-  case BOOLEAN_TYPE:
-  case INTEGER_TYPE: {
-    uint64_t Size = getInt64(TYPE_SIZE(type), true);
-    return IntegerType::get(Context, Size); // Not worth caching.
-  }
-
-  case COMPLEX_TYPE: {
-    if (Type *Ty = getCachedType(type)) return Ty;
-    Type *Ty = ConvertNonRecursiveType(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
-    Ty = StructType::get(Ty, Ty, NULL);
-    return llvm_set_type(type, Ty);
-  }
-
-  case OFFSET_TYPE:
-    // Handle OFFSET_TYPE specially.  This is used for pointers to members,
-    // which are really just integer offsets.  Return the appropriate integer
-    // type directly.
-    return getTargetData().getIntPtrType(Context); // Not worth caching.
-
-  case REAL_TYPE:
-    // It is not worth caching the result of this type conversion.
-    switch (TYPE_PRECISION(type)) {
-    default:
-      DieAbjectly("Unknown FP type!", type);
-    case 32: return Type::getFloatTy(Context);
-    case 64: return Type::getDoubleTy(Context);
-    case 80: return Type::getX86_FP80Ty(Context);
-    case 128:
-#ifdef TARGET_POWERPC
-      return Type::getPPC_FP128Ty(Context);
-#else
-      // IEEE quad precision.
-      return Type::getFP128Ty(Context);
-#endif
-    }
-
-  case RECORD_TYPE:
-  case QUAL_UNION_TYPE:
-  case UNION_TYPE:
-    // If the type was already converted then return the already computed type.
-    if (Type *Ty = getCachedType(type)) return Ty;
-
-    // Otherwise this must be an incomplete type - return an opaque struct.
-    assert(!TYPE_SIZE(type) && "Expected an incomplete type!");
-    return llvm_set_type(type, StructType::create(Context,
-                                                  getDescriptiveName(type)));
-
-  case VECTOR_TYPE: {
-    if (Type *Ty = getCachedType(type)) return Ty;
-    Type *Ty;
-    // LLVM does not support vectors of pointers, so turn any pointers into
-    // integers.
-    if (POINTER_TYPE_P(TREE_TYPE(type)))
-      Ty = getTargetData().getIntPtrType(Context);
-    else
-      Ty = ConvertNonRecursiveType(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
-    Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));
-    return llvm_set_type(type, Ty);
-  }
-
-  case VOID_TYPE:
-    return Type::getVoidTy(Context); // Not worth caching.
-  }
-}
-
-/// ConvertRecursiveType - Convert a type when conversion may require breaking
-/// type conversion loops, see mayRecurse.  Note that all types used by but not
-/// in the current strongly connected component (SCC) must have been converted
-/// already.
-static Type *ConvertRecursiveType(tree type) {
-  assert(type == TYPE_MAIN_VARIANT(type) && "Not converting the main variant!");
-  assert(mayRecurse(type) && "Expected a recursive type!");
-  assert(SCCInProgress && "Missing recursion data!");
-
-#ifndef NDEBUG
-  // Check that the given type is in the current strongly connected component
-  // (SCC) of the type graph.  This should always be the case because SCCs are
-  // visited bottom up.
-  bool inSCC = false;
-  for (unsigned i = 0, e = SCCInProgress->size(); i != e; ++i)
-    if ((*SCCInProgress)[i] == type) {
-      inSCC = true;
-      break;
-    }
-  if (!inSCC)
-    DieAbjectly("Type not in SCC!", type);
-#endif
-
-  switch (TREE_CODE(type)) {
-  default:
-    DieAbjectly("Unexpected type!", type);
-
-  case QUAL_UNION_TYPE:
-  case RECORD_TYPE:
-  case UNION_TYPE:
-    return llvm_set_type(type, ConvertRecord(type));
-
-  case POINTER_TYPE:
-  case REFERENCE_TYPE: {
-    // This is where self-recursion loops are broken, by not converting the type
-    // pointed to if this would cause trouble (the pointer type is turned into
-    // {}* instead).
-    tree pointee = TYPE_MAIN_VARIANT(TREE_TYPE(type));
-
-    // The pointer type is in the strongly connected component (SCC) currently
-    // being converted.  Check whether the pointee is as well.  If there is more
-    // than one type in the SCC then necessarily the pointee type is in the SCC
-    // since any path from the pointer type to the other type necessarily passes
-    // via the pointee.  If the pointer type is the only element of the SCC then
-    // the pointee is only in the SCC if it is equal to the pointer.
-    bool bothInSCC = SCCInProgress->size() != 1 || pointee == type;
-
-    Type *PointeeTy;
-    if (!bothInSCC) {
-      // It is safe to convert the pointee.  This is the common case, as we get
-      // here for pointers to integers and so on.
-      PointeeTy = ConvertType(pointee);
-      if (PointeeTy->isVoidTy())
-        PointeeTy = GetUnitType(Context); // void* -> byte*.
-    } else {
-      // Both the pointer and the pointee type are in the SCC so it is not safe
-      // to convert the pointee type - otherwise we would get an infinite loop.
-      // However if a type, for example an opaque struct placeholder, has been
-      // registered for the pointee then we can return a pointer to it, giving
-      // nicer IR (this is not needed for correctness).  Note that some members
-      // of the SCC may have been converted already at this point (for this to
-      // happen there must be more than one pointer type in the SCC), and thus
-      // will have LLVM types registered for them.  Unfortunately which types
-      // have been converted depends on the order in which we visit the SCC, and
-      // that is not an intrinsic property of the SCC.  This is why we choose to
-      // only use the types registered for records and unions - these are always
-      // available.  As a further attempt to improve the IR, we return an S* for
-      // an array type S[N] if (recursively) S is a record or union type.
-
-      // Drill down through nested arrays to the ultimate element type.  Thanks
-      // to this we may return S* for a (S[])*, which is better than {}*.
-      while (TREE_CODE(pointee) == ARRAY_TYPE)
-        pointee = TYPE_MAIN_VARIANT(TREE_TYPE(pointee));
-
-      // If the pointee is a record or union type then return a pointer to its
-      // placeholder type.  Otherwise return {}*.
-      if (TREE_CODE(pointee) == QUAL_UNION_TYPE ||
-          TREE_CODE(pointee) == RECORD_TYPE ||
-          TREE_CODE(pointee) == UNION_TYPE)
-        PointeeTy = getCachedType(pointee);
-      else
-        PointeeTy = StructType::get(Context);
-    }
-
-    return llvm_set_type(type, PointeeTy->getPointerTo());
-  }
-
-  case METHOD_TYPE:
-  case FUNCTION_TYPE: {
-    CallingConv::ID CallingConv;
-    AttrListPtr PAL;
-    // No declaration to pass through, passing NULL.
-    return llvm_set_type(type, ConvertFunctionType(type, NULL, NULL,
-                                                   CallingConv, PAL));
-  }
-
-  case ARRAY_TYPE: {
-    Type *ElementTy = ConvertType(TREE_TYPE(type));
-    uint64_t NumElements = ArrayLengthOf(type);
-
-    if (NumElements == NO_LENGTH) // Variable length array?
-      NumElements = 0;
-
-    // Create the array type.
-    Type *Ty = ArrayType::get(ElementTy, NumElements);
-
-    // If the user increased the alignment of the array element type, then the
-    // size of the array is rounded up by that alignment even though the size
-    // of the array element type is not (!).  Correct for this if necessary by
-    // adding padding.  May also need padding if the element type has variable
-    // size and the array type has variable length, but by a miracle the product
-    // gives a constant size.
-    if (isInt64(TYPE_SIZE(type), true)) {
-      uint64_t PadBits = getInt64(TYPE_SIZE(type), true) -
-        getTargetData().getTypeAllocSizeInBits(Ty);
-      if (PadBits) {
-        Type *Padding = ArrayType::get(Type::getInt8Ty(Context), PadBits / 8);
-        Ty = StructType::get(Ty, Padding, NULL);
-      }
-    }
-
-    return llvm_set_type(type, Ty);
-  }
-  }
-}
-
 Type *ConvertType(tree type) {
   if (type == error_mark_node) return Type::getInt32Ty(Context);
 
@@ -1501,11 +1506,11 @@ Type *ConvertType(tree type) {
   // If this type can be converted without special action being needed to avoid
   // conversion loops coming from self-referential types, then convert it.
   if (!mayRecurse(type))
-    return ConvertNonRecursiveType(type);
+    return ConvertTypeNonRecursive(type);
 
   // If we already started a possibly looping type conversion, continue with it.
   if (SCCInProgress)
-    return ConvertRecursiveType(type);
+    return ConvertTypeRecursive(type);
 
   // Begin converting a type for which the conversion may require breaking type
   // conversion loops coming from self-referential types, see mayRecurse.  First
