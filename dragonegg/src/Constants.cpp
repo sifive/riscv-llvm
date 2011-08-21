@@ -1405,6 +1405,9 @@ static Constant *AddressOfCST(tree exp, TargetFolder &Folder) {
   align = CONSTANT_ALIGNMENT(exp, align);
 #endif
   Slot->setAlignment(align);
+  // Allow identical constants to be merged if the user allowed it.
+  // FIXME: maybe this flag should be set unconditionally, and instead the
+  // ConstantMerge pass should be disabled if flag_merge_constants is zero.
   Slot->setUnnamedAddr(flag_merge_constants);
 
   return Slot;
