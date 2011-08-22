@@ -321,11 +321,20 @@ Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace) {
   return GetUnitType(C)->getPointerTo(AddrSpace);
 }
 
+/// isSized - Return true if the GCC type has a size, perhaps variable.  Note
+/// that this returns false for function types, for which the GCC type size
+/// doesn't represent anything useful for us.
+static bool isSized(tree type) {
+  if (TREE_CODE(type) == FUNCTION_TYPE || TREE_CODE(type) == METHOD_TYPE)
+    return false;
+  return TYPE_SIZE(type);
+}
+
 /// isSizeCompatible - Return true if the specified gcc type is guaranteed to be
 /// turned by ConvertType into an LLVM type of the same size (i.e. TYPE_SIZE the
 /// same as getTypeAllocSizeInBits).
 bool isSizeCompatible(tree type) {
-  if (TREE_CODE(type) == FUNCTION_TYPE || TREE_CODE(type) == METHOD_TYPE)
+  if (!isSized(type))
     return false;
   return isInt64(TYPE_SIZE(type), true);
 }
@@ -335,52 +344,54 @@ bool isSizeCompatible(tree type) {
 //                   Matching LLVM types with GCC trees
 //===----------------------------------------------------------------------===//
 
-// llvm_set_type - Associate an LLVM type with each TREE type.
-// These are lazily computed by ConvertType.
-
-static Type *llvm_set_type(tree Tr, Type *Ty) {
-  assert(TYPE_P(Tr) && "Expected a gcc type!");
-
+static Type *CheckTypeConversion(tree type, Type *Ty) {
 #ifndef NDEBUG
   bool Mismatch = false;
+  // If the GCC type has a size, check that the LLVM type does too.  Note that
+  // the LLVM type may have a size when the GCC type does not.  For example a
+  // C variable length array int[] may be converted into [0 x i32].
+  if (isSized(type) && !Ty->isSized()) {
+    Mismatch = true;
+    errs() << "The GCC type has a size but the LLVM type does not!\n";
+  }
   // Check that the LLVM and GCC types really do have the same size when we say
   // they do.
-  if (isSizeCompatible(Tr)) {
-    if (!Ty->isSized()) {
+  if (isSizeCompatible(type) && Ty->isSized()) {
+    uint64_t GCCSize = getInt64(TYPE_SIZE(type), true);
+    uint64_t LLVMSize = getTargetData().getTypeAllocSizeInBits(Ty);
+    if (LLVMSize != GCCSize) {
       Mismatch = true;
-      errs() << "No size\n";
-    } else {
-      uint64_t GCCSize = getInt64(TYPE_SIZE(Tr), true);
-      uint64_t LLVMSize = getTargetData().getTypeAllocSizeInBits(Ty);
-      if (LLVMSize != GCCSize) {
-        errs() << "GCC size: " << GCCSize << "; LLVM size: " << LLVMSize
-          << "\n";
-        Mismatch = true;
-      }
+      errs() << "GCC size: " << GCCSize << "; LLVM size: " << LLVMSize
+        << "!\n";
     }
   }
   // Check that the LLVM type has the same alignment or less than the GCC type.
-// FIXME: Reduce LLVM array alignment when the GCC array has a small alignment
-// (due to an alignment clause?), then turn this back on.
-//  if (Ty->isSized()) {
-//    unsigned GCCAlign = TYPE_ALIGN(Tr);
-//    unsigned LLVMAlign = getTargetData().getABITypeAlignment(Ty) * 8;
-//    if (LLVMAlign > GCCAlign) {
-//      errs() << "GCC align: " << GCCAlign << "; LLVM align: " << LLVMAlign
-//        << "\n";
-//      Mismatch = true;
-//    }
-//  }
+  if (Ty->isSized()) {
+    unsigned GCCAlign = TYPE_ALIGN(type);
+    unsigned LLVMAlign = getTargetData().getABITypeAlignment(Ty) * 8;
+    if (LLVMAlign > GCCAlign) {
+      Mismatch = true;
+      errs() << "GCC align: " << GCCAlign << "; LLVM align: " << LLVMAlign
+        << "\n";
+    }
+  }
   if (Mismatch) {
     errs() << "GCC: ";
-    debug_tree(Tr);
+    debug_tree(type);
     errs() << "LLVM: ";
     Ty->print(errs());
     DieAbjectly("\nLLVM type doesn't represent GCC type!");
   }
 #endif
 
-  setCachedType(Tr, Ty);
+  return Ty;
+}
+
+// RememberTypeConversion - Associate an LLVM type with a GCC type.
+// These are lazily computed by ConvertType.
+static Type *RememberTypeConversion(tree type, Type *Ty) {
+  CheckTypeConversion(type, Ty);
+  setCachedType(type, Ty);
   return Ty;
 }
 
@@ -485,6 +496,10 @@ static Type *ConvertArrayTypeRecursive(tree type) {
 
   // Create the array type.
   Type *Ty = ArrayType::get(ElementTy, NumElements);
+
+  // If the array is underaligned, wrap it in a packed struct.
+  if (TYPE_ALIGN(type) < getTargetData().getABITypeAlignment(Ty) * 8)
+    Ty = StructType::get(Context, Ty, /*isPacked*/ true);
 
   // If the user increased the alignment of the array element type, then the
   // size of the array is rounded up by that alignment even though the size
@@ -1295,25 +1310,25 @@ static Type *ConvertTypeRecursive(tree type) {
     DieAbjectly("Unexpected type!", type);
 
   case ARRAY_TYPE:
-    return llvm_set_type(type, ConvertArrayTypeRecursive(type));
+    return RememberTypeConversion(type, ConvertArrayTypeRecursive(type));
 
   case FUNCTION_TYPE:
   case METHOD_TYPE: {
     CallingConv::ID CallingConv;
     AttrListPtr PAL;
     // No declaration to pass through, passing NULL.
-    return llvm_set_type(type, ConvertFunctionType(type, NULL, NULL,
-                                                   CallingConv, PAL));
+    return RememberTypeConversion(type, ConvertFunctionType(type, NULL, NULL,
+                                                            CallingConv, PAL));
   }
 
   case POINTER_TYPE:
   case REFERENCE_TYPE:
-    return llvm_set_type(type, ConvertPointerTypeRecursive(type));
+    return RememberTypeConversion(type, ConvertPointerTypeRecursive(type));
 
   case RECORD_TYPE:
   case UNION_TYPE:
   case QUAL_UNION_TYPE:
-    return llvm_set_type(type, ConvertRecordTypeRecursive(type));
+    return RememberTypeConversion(type, ConvertRecordTypeRecursive(type));
   }
 }
 
@@ -1336,47 +1351,49 @@ static Type *ConvertTypeNonRecursive(tree type) {
     // converted and we can safely return the result of the previous conversion.
     Type *Ty = getCachedType(type);
     assert(Ty && "Type not already converted!");
-    return Ty;
+    return CheckTypeConversion(type, Ty);
   }
 
   case ENUMERAL_TYPE:
     // If the enum is incomplete return a placeholder type.
     if (!TYPE_SIZE(type))
-      return Type::getInt32Ty(Context);
+      return CheckTypeConversion(type, GetUnitType(Context));
     // Otherwise fall through.
   case BOOLEAN_TYPE:
   case INTEGER_TYPE: {
     uint64_t Size = getInt64(TYPE_SIZE(type), true);
-    return IntegerType::get(Context, Size); // Not worth caching.
+    // Caching the type conversion is not worth it.
+    return CheckTypeConversion(type, IntegerType::get(Context, Size));
   }
 
   case COMPLEX_TYPE: {
     if (Type *Ty = getCachedType(type)) return Ty;
     Type *Ty = ConvertTypeNonRecursive(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
     Ty = StructType::get(Ty, Ty, NULL);
-    return llvm_set_type(type, Ty);
+    return RememberTypeConversion(type, Ty);
   }
 
   case OFFSET_TYPE:
     // Handle OFFSET_TYPE specially.  This is used for pointers to members,
     // which are really just integer offsets.  Return the appropriate integer
     // type directly.
-    return getTargetData().getIntPtrType(Context); // Not worth caching.
+    // Caching the type conversion is not worth it.
+    return CheckTypeConversion(type, getTargetData().getIntPtrType(Context));
 
   case REAL_TYPE:
-    // It is not worth caching the result of this type conversion.
+    // Caching the type conversion is not worth it.
     switch (TYPE_PRECISION(type)) {
     default:
       DieAbjectly("Unknown FP type!", type);
-    case 32: return Type::getFloatTy(Context);
-    case 64: return Type::getDoubleTy(Context);
-    case 80: return Type::getX86_FP80Ty(Context);
+    case 32: return CheckTypeConversion(type, Type::getFloatTy(Context));
+    case 64: return CheckTypeConversion(type, Type::getDoubleTy(Context));
+    case 80: return CheckTypeConversion(type, Type::getX86_FP80Ty(Context));
     case 128:
 #ifdef TARGET_POWERPC
-      return Type::getPPC_FP128Ty(Context);
+      return CheckTypeConversion(type, Type::getPPC_FP128Ty(Context));
 #else
       // IEEE quad precision.
-      return Type::getFP128Ty(Context);
+      return CheckTypeConversion(type, Type::getFP128Ty(Context));
 #endif
     }
 
@@ -1384,12 +1401,14 @@ static Type *ConvertTypeNonRecursive(tree type) {
   case QUAL_UNION_TYPE:
   case UNION_TYPE:
     // If the type was already converted then return the already computed type.
-    if (Type *Ty = getCachedType(type)) return Ty;
+    if (Type *Ty = getCachedType(type))
+      return CheckTypeConversion(type, Ty);
 
     // Otherwise this must be an incomplete type - return an opaque struct.
     assert(!TYPE_SIZE(type) && "Expected an incomplete type!");
-    return llvm_set_type(type, StructType::create(Context,
-                                                  getDescriptiveName(type)));
+    return RememberTypeConversion(type,
+                                  StructType::create(Context,
+                                                     getDescriptiveName(type)));
 
   case VECTOR_TYPE: {
     if (Type *Ty = getCachedType(type)) return Ty;
@@ -1401,11 +1420,12 @@ static Type *ConvertTypeNonRecursive(tree type) {
     else
       Ty = ConvertTypeNonRecursive(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
     Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));
-    return llvm_set_type(type, Ty);
+    return RememberTypeConversion(type, Ty);
   }
 
   case VOID_TYPE:
-    return Type::getVoidTy(Context); // Not worth caching.
+    // Caching the type conversion is not worth it.
+    return CheckTypeConversion(type, Type::getVoidTy(Context));
   }
 }
 
@@ -1584,7 +1604,7 @@ Type *ConvertType(tree type) {
           // SCC as the pointer (since the SCC contains more than one type).
           Type *PointeeTy = getCachedType(pointee);
           assert(PointeeTy && "Pointee not converted!");
-          llvm_set_type(some_type, PointeeTy->getPointerTo());
+          RememberTypeConversion(some_type, PointeeTy->getPointerTo());
         }
       }
   }
