@@ -164,8 +164,6 @@ TreeToLLVM::TreeToLLVM(tree fndecl) :
   Fn = 0;
   ReturnBB = 0;
   ReturnOffset = 0;
-  RewindBB = 0;
-  RewindTmp = 0;
 
   if (EmitDebugInfo()) {
     expanded_location Location = expand_location(DECL_SOURCE_LOCATION (fndecl));
@@ -952,7 +950,6 @@ Function *TreeToLLVM::FinishFunctionBody() {
   // Now that phi nodes have been output, emit pending exception handling code.
   EmitLandingPads();
   EmitFailureBlocks();
-  EmitRewindBlock();
 
   if (EmitDebugInfo()) {
     // FIXME: This should be output just before the return call generated above.
@@ -1955,8 +1952,8 @@ void TreeToLLVM::EmitLandingPads() {
 
   // If a GCC post landing pad is shared by several exception handling regions,
   // or if there is a normal edge to it, then create LLVM landing pads for each
-  // eh region.  Calls to eh.exception and eh.selector will then go in the LLVM
-  // landing pad, which branches to the GCC post landing pad.
+  // eh region.  The landing pad instruction will then go in the LLVM landing
+  // pad, which then branches to the GCC post landing pad.
   for (unsigned LPadNo = 1; LPadNo < NormalInvokes.size(); ++LPadNo) {
     // Get the list of invokes for this GCC landing pad.
     SmallVector<InvokeInst *, 8> &InvokesForPad = NormalInvokes[LPadNo];
@@ -2023,15 +2020,12 @@ void TreeToLLVM::EmitLandingPads() {
     BranchInst::Create(PostPad, LPad);
   }
 
-  // Initialize the exception pointer and selector value for each exception
-  // handling region at the start of the corresponding landing pad.  At this
-  // point each exception handling region has its own landing pad, which is
-  // only reachable via the unwind edges of the region's invokes.
-  std::vector<Value*> Args;
-  Function *ExcIntr = Intrinsic::getDeclaration(TheModule,
-                                                Intrinsic::eh_exception);
-  Function *SlctrIntr = Intrinsic::getDeclaration(TheModule,
-                                                  Intrinsic::eh_selector);
+  // Create the landing pad instruction for each exception handling region at
+  // the start of the corresponding landing pad.  At this point each exception
+  // handling region has its own landing pad, which is only reachable via the
+  // unwind edges of the region's invokes.
+  Type *UnwindDataTy = StructType::get(Builder.getInt8PtrTy(),
+                                       Builder.getInt32Ty(), NULL);
   for (unsigned LPadNo = 1; LPadNo < NormalInvokes.size(); ++LPadNo) {
     // Get the list of invokes for this GCC landing pad.
     SmallVector<InvokeInst *, 8> &InvokesForPad = NormalInvokes[LPadNo];
@@ -2050,96 +2044,76 @@ void TreeToLLVM::EmitLandingPads() {
     // Insert instructions at the start of the landing pad, but after any phis.
     Builder.SetInsertPoint(LPad, LPad->getFirstNonPHI());
 
-    // Fetch the exception pointer.
-    Value *ExcPtr = Builder.CreateCall(ExcIntr, "exc_ptr");
-
-    // Store it if made use of elsewhere.
-    if (RegionNo < ExceptionPtrs.size() && ExceptionPtrs[RegionNo])
-      Builder.CreateStore(ExcPtr, ExceptionPtrs[RegionNo]);
-
-    // Get the exception selector.  The first argument is the exception pointer.
-    Args.push_back(ExcPtr);
-
-    // It is followed by the personality function.
+    // Create the landingpad instruction without any clauses.  Clauses are added
+    // below.
     tree personality = DECL_FUNCTION_PERSONALITY(FnDecl);
     if (!personality) {
       assert(function_needs_eh_personality(cfun) == eh_personality_any &&
              "No exception handling personality!");
       personality = lang_hooks.eh_personality();
     }
-    Args.push_back(Builder.CreateBitCast(DECL_LLVM(personality),
-                                         Type::getInt8PtrTy(Context)));
+    LandingPadInst *LPadInst = Builder.CreateLandingPad(UnwindDataTy,
+                                                        DECL_LLVM(personality),
+                                                        0, "exc");
 
-    Constant *CatchAll = TheModule->getGlobalVariable("llvm.eh.catch.all.value");
-    if (!CatchAll) {
-      // The representation of a catch-all is language specific.
-      // TODO: Remove this hack.
-      Constant *Init = 0;
-      StringRef LanguageName = lang_hooks.name;
-      if (LanguageName == "GNU Ada") {
-        StringRef Name = "__gnat_all_others_value";
-        Init = TheModule->getGlobalVariable(Name);
-        if (!Init)
-          Init = new GlobalVariable(*TheModule, ConvertType(integer_type_node),
-                                    /*isConstant*/true,
-                                    GlobalValue::ExternalLinkage,
-                                    /*Initializer*/NULL, Name);
-      } else {
-        // Other languages use a null pointer.
-        Init = Constant::getNullValue(Type::getInt8PtrTy(Context));
-      }
-      CatchAll = new GlobalVariable(*TheModule, Init->getType(), true,
-                                    GlobalVariable::LinkOnceAnyLinkage,
-                                    Init, "llvm.eh.catch.all.value");
-      cast<GlobalVariable>(CatchAll)->setSection("llvm.metadata");
-      AttributeUsedGlobals.insert(CatchAll);
+    // Store the exception pointer if made use of elsewhere.
+    if (RegionNo < ExceptionPtrs.size() && ExceptionPtrs[RegionNo]) {
+      Value *ExcPtr = Builder.CreateExtractValue(LPadInst, 0, "exc_ptr");
+      Builder.CreateStore(ExcPtr, ExceptionPtrs[RegionNo]);
     }
 
-    bool AllCaught = false; // Did we saw a catch-all or no-throw?
-    bool HasCleanup = false; // Did we see a cleanup?
+    // Store the selector value if made use of elsewhere.
+    if (RegionNo < ExceptionFilters.size() && ExceptionFilters[RegionNo]) {
+      Value *Filter = Builder.CreateExtractValue(LPadInst, 1, "filter");
+      Builder.CreateStore(Filter, ExceptionFilters[RegionNo]);
+    }
+
+    // Add clauses to the landing pad instruction.
+    bool AllCaught = false; // Did we see a catch-all or no-throw?
     SmallSet<Constant *, 8> AlreadyCaught; // Typeinfos known caught already.
     for (; region && !AllCaught; region = region->outer)
       switch (region->type) {
       case ERT_ALLOWED_EXCEPTIONS: {
-        // Filter.
-
-        // Push a fake placeholder value for the length.  The real length is
-        // computed below, once we know which typeinfos we are going to use.
-        unsigned LengthIndex = Args.size();
-        Args.push_back(NULL); // Fake length value.
-
-        // Add the type infos.
+        // Filter.  Compute the list of type infos.
         AllCaught = true;
+        std::vector<Constant*> TypeInfos;
         for (tree type = region->u.allowed.type_list; type;
              type = TREE_CHAIN(type)) {
           Constant *TypeInfo = ConvertTypeInfo(TREE_VALUE(type));
-          // No point in permitting a typeinfo to be thrown if we know it can
-          // never reach the filter.
+          // No point in letting a typeinfo through if we know it can't reach
+          // the filter in the first place.
           if (AlreadyCaught.count(TypeInfo))
             continue;
-          Args.push_back(TypeInfo);
+          TypeInfo = TheFolder->CreateBitCast(TypeInfo, Builder.getInt8PtrTy());
+          TypeInfos.push_back(TypeInfo);
           AllCaught = false;
         }
 
-        // The length is one more than the number of typeinfos.
-        Args[LengthIndex] = Builder.getInt32(Args.size() - LengthIndex);
+        // Add the list of typeinfos as a filter clause.
+        ArrayType *FilterTy = ArrayType::get(Builder.getInt8PtrTy(),
+                                             TypeInfos.size());
+        LPadInst->addClause(ConstantArray::get(FilterTy, TypeInfos));
         break;
       }
       case ERT_CLEANUP:
-        HasCleanup = true;
+        LPadInst->setCleanup(true);
         break;
-      case ERT_MUST_NOT_THROW:
-        // Same as a zero-length filter.
+      case ERT_MUST_NOT_THROW: {
+        // Same as a zero-length filter: add an empty filter clause.
+        ArrayType *FilterTy = ArrayType::get(Builder.getInt8PtrTy(), 0);
+        LPadInst->addClause(ConstantArray::get(FilterTy,
+                                               ArrayRef<Constant*>()));
         AllCaught = true;
-        Args.push_back(Builder.getInt32(1));
         break;
+      }
       case ERT_TRY:
         // Catches.
         for (eh_catch c = region->u.eh_try.first_catch; c ; c = c->next_catch)
           if (!c->type_list) {
-            // Catch-all - push a null pointer.
+            // Catch-all - add a null pointer as a catch clause.
+            LPadInst->addClause(Constant::getNullValue(Builder.getInt8PtrTy()));
             AllCaught = true;
-            Args.push_back(Constant::getNullValue(Type::getInt8PtrTy(Context)));
+            break;
           } else {
             // Add the type infos.
             for (tree type = c->type_list; type; type = TREE_CHAIN(type)) {
@@ -2147,36 +2121,11 @@ void TreeToLLVM::EmitLandingPads() {
               // No point in trying to catch a typeinfo that was already caught.
               if (!AlreadyCaught.insert(TypeInfo))
                 continue;
-              Args.push_back(TypeInfo);
-              AllCaught = TypeInfo == CatchAll;
-              if (AllCaught)
-                break;
+              LPadInst->addClause(TypeInfo);
             }
           }
         break;
       }
-
-    if (HasCleanup) {
-      if (Args.size() == 2)
-        // Insert a sentinel indicating that this is a cleanup-only selector.
-        Args.push_back(Builder.getInt32(0));
-      else if (!AllCaught)
-        // Some exceptions from this region may not be caught by any handler.
-        // Since invokes are required to branch to the unwind label no matter
-        // what exception is being unwound, append a catch-all.  I have a plan
-        // that will make all such horrible hacks unnecessary, but unfortunately
-        // this comment is too short to explain it.
-        Args.push_back(CatchAll);
-    }
-
-    // Emit the selector call.
-    Value *Filter = Builder.CreateCall(SlctrIntr, Args, "filter");
-
-    // Store it if made use of elsewhere.
-    if (RegionNo < ExceptionFilters.size() && ExceptionFilters[RegionNo])
-      Builder.CreateStore(Filter, ExceptionFilters[RegionNo]);
-
-    Args.clear();
   }
 
   NormalInvokes.clear();
@@ -2226,23 +2175,17 @@ void TreeToLLVM::EmitFailureBlocks() {
     if (LandingPad) {
       BeginBlock(LandingPad);
 
-      // Generate an empty (i.e. catch-all) filter in the landing pad.
-      Function *ExcIntr = Intrinsic::getDeclaration(TheModule,
-                                                    Intrinsic::eh_exception);
-      Function *SlctrIntr = Intrinsic::getDeclaration(TheModule,
-                                                      Intrinsic::eh_selector);
-      Value *Args[3];
-      // The exception pointer.
-      Args[0] = Builder.CreateCall(ExcIntr, "exc_ptr");
-      // The personality function.
+      // Generate a landingpad instruction with an empty (i.e. catch-all) filter
+      // clause.
+      Type *UnwindDataTy = StructType::get(Builder.getInt8PtrTy(),
+                                           Builder.getInt32Ty(), NULL);
       tree personality = DECL_FUNCTION_PERSONALITY(FnDecl);
       assert(personality && "No-throw region but no personality function!");
-      Args[1] = Builder.CreateBitCast(DECL_LLVM(personality),
-                                      Type::getInt8PtrTy(Context));
-      // One more than the filter length.
-      Args[2] = Builder.getInt32(1);
-      // Create the selector call.
-      Builder.CreateCall(SlctrIntr, Args, "filter");
+      LandingPadInst *LPadInst =
+        Builder.CreateLandingPad(UnwindDataTy, DECL_LLVM(personality), 1,
+                                 "exc");
+      ArrayType *FilterTy = ArrayType::get(Builder.getInt8PtrTy(), 0);
+      LPadInst->addClause(ConstantArray::get(FilterTy, ArrayRef<Constant*>()));
 
       if (LandingPad != FailureBlock) {
         // Make sure all invokes unwind to the new landing pad.
@@ -2277,34 +2220,6 @@ void TreeToLLVM::EmitFailureBlocks() {
     FailCall->setDoesNotThrow();
     Builder.CreateUnreachable();
   }
-}
-
-/// EmitRewindBlock - Emit the block containing code to continue unwinding an
-/// exception.
-void TreeToLLVM::EmitRewindBlock() {
-  if (!RewindBB)
-    return;
-
-  BeginBlock (RewindBB);
-
-  // The exception pointer to continue unwinding.
-  assert(RewindTmp && "Rewind block but nothing to unwind?");
-  Value *ExcPtr = Builder.CreateLoad(RewindTmp);
-
-  // Generate an explicit call to _Unwind_Resume_or_Rethrow.
-  // FIXME: On ARM this should be a call to __cxa_end_cleanup with no arguments.
-  std::vector<Type*> Params(1, Type::getInt8PtrTy(Context));
-  FunctionType *FTy = FunctionType::get(Type::getVoidTy(Context), Params,
-                                        false);
-  Constant *RewindFn =
-    TheModule->getOrInsertFunction("_Unwind_Resume_or_Rethrow", FTy);
-
-  // Pass it to _Unwind_Resume_or_Rethrow.
-  CallInst *Rewind = Builder.CreateCall(RewindFn, ExcPtr);
-
-  // This call does not return.
-  Rewind->setDoesNotReturn();
-  Builder.CreateUnreachable();
 }
 
 
@@ -8135,7 +8050,7 @@ void TreeToLLVM::RenderGIMPLE_EH_DISPATCH(gimple stmt) {
         if (!AlreadyCaught.insert(TypeInfo))
           continue;
 
-        TypeInfo = Builder.CreateBitCast(TypeInfo, Type::getInt8PtrTy(Context));
+        TypeInfo = Builder.CreateBitCast(TypeInfo, Builder.getInt8PtrTy());
 
         // Call get eh type id.
         Value *TypeID = Builder.CreateCall(TypeIDIntr, TypeInfo, "typeid");
@@ -8220,18 +8135,15 @@ void TreeToLLVM::RenderGIMPLE_RESX(gimple stmt) {
     return;
   }
 
-  // The exception unwinds out of the function.  Note the exception to unwind.
-  if (!RewindTmp) {
-    RewindTmp = CreateTemporary(Type::getInt8PtrTy(Context));
-    RewindTmp->setName("rewind_tmp");
-  }
+  // Unwind the exception out of the function using a resume instruction.
   Value *ExcPtr = Builder.CreateLoad(getExceptionPtr(src_rgn->index));
-  Builder.CreateStore(ExcPtr, RewindTmp);
-
-  // Jump to the block containing the rewind code.
-  if (!RewindBB)
-    RewindBB = BasicBlock::Create(Context, "rewind");
-  Builder.CreateBr(RewindBB);
+  Value *Filter = Builder.CreateLoad(getExceptionFilter(src_rgn->index));
+  Type *UnwindDataTy = StructType::get(Builder.getInt8PtrTy(),
+                                       Builder.getInt32Ty(), NULL);
+  Value *UnwindData = UndefValue::get(UnwindDataTy);
+  UnwindData = Builder.CreateInsertValue(UnwindData, ExcPtr, 0, "exc_ptr");
+  UnwindData = Builder.CreateInsertValue(UnwindData, Filter, 1, "filter");
+  Builder.CreateResume(UnwindData);
 }
 
 void TreeToLLVM::RenderGIMPLE_RETURN(gimple stmt) {

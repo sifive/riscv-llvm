@@ -332,12 +332,6 @@ private:
   /// run if an exception is thrown in this region).
   SmallVector<BasicBlock *, 16> FailureBlocks;
 
-  /// RewindBB - Block containing code that continues unwinding an exception.
-  BasicBlock *RewindBB;
-
-  /// RewindTmp - Local holding the exception to continue unwinding.
-  AllocaInst *RewindTmp;
-
 public:
   TreeToLLVM(tree_node *fndecl);
   ~TreeToLLVM();
@@ -459,10 +453,6 @@ private: // Helper functions.
   /// EmitFailureBlocks - Emit the blocks containing failure code executed when
   /// an exception is thrown in a must-not-throw region.
   void EmitFailureBlocks();
-
-  /// EmitRewindBlock - Emit the block containing code to continue unwinding an
-  /// exception.
-  void EmitRewindBlock();
 
   /// EmitDebugInfo - Return true if debug info is to be emitted for current
   /// function.
