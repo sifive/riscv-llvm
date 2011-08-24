@@ -42,9 +42,9 @@
 #include "llvm/MC/MCCodeGenInfo.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
-#include "llvm/Target/TargetRegistry.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
