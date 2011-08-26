@@ -937,9 +937,16 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // Make the IR more pleasant by returning as a vector if the GCC type was a
   // vector.  However this is only correct if the initial values had the same
   // type as the vector element type, rather than some random other type.
-  return ActualEltTy == EltTy && TREE_CODE(init_type) == VECTOR_TYPE ?
-    ConstantVector::get(Elts) :
-    ConstantArray::get(ArrayType::get(ActualEltTy, Elts.size()), Elts);
+  if (TREE_CODE(init_type) == VECTOR_TYPE && ActualEltTy == EltTy) {
+    // If this is a vector of pointers, convert it to a vector of integers.
+    if (isa<PointerType>(EltTy)) {
+      IntegerType *IntPtrTy = getTargetData().getIntPtrType(Context);
+      for (unsigned i = 0, e = Elts.size(); i != e; ++i)
+        Elts[i] = Folder.CreatePtrToInt(Elts[i], IntPtrTy);
+    }
+    return ConstantVector::get(Elts);
+  }
+  return ConstantArray::get(ArrayType::get(ActualEltTy, Elts.size()), Elts);
 }
 
 /// FieldContents - A constant restricted to a range of bits.  Any part of the
