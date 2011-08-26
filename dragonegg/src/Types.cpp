@@ -650,14 +650,15 @@ static Attributes HandleArgumentExtension(tree ArgTy) {
 /// for the function.  This method takes the DECL_ARGUMENTS list (Args), and
 /// fills in Result with the argument types for the function.  It returns the
 /// specified result type for the function.
-FunctionType *ConvertArgListToFnType(tree type, tree Args, tree static_chain,
+FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
+                                     tree static_chain, bool KNRPromotion,
                                      CallingConv::ID &CallingConv,
                                      AttrListPtr &PAL) {
   tree ReturnType = TREE_TYPE(type);
   SmallVector<Type*, 8> ArgTys;
   Type *RetTy(Type::getVoidTy(Context));
 
-  FunctionTypeConversion Client(RetTy, ArgTys, CallingConv, true /*K&R*/);
+  FunctionTypeConversion Client(RetTy, ArgTys, CallingConv, KNRPromotion);
   DefaultABI ABIConverter(Client);
 
 #ifdef TARGET_ADJUST_LLVM_CC
@@ -695,8 +696,8 @@ FunctionType *ConvertArgListToFnType(tree type, tree Args, tree static_chain,
                                              Attribute::Nest));
   }
 
-  for (; Args && TREE_TYPE(Args) != void_type_node; Args = TREE_CHAIN(Args)) {
-    tree ArgTy = TREE_TYPE(Args);
+  for (ArrayRef<tree>::iterator I = Args.begin(), E = Args.end(); I != E; ++I) {
+    tree ArgTy = TREE_TYPE(*I);
 
     // Determine if there are any attributes for this param.
     Attributes PAttributes = Attribute::None;
@@ -719,7 +720,6 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
                                   AttrListPtr &PAL) {
   Type *RetTy = Type::getVoidTy(Context);
   SmallVector<Type*, 8> ArgTypes;
-  bool isVarArg = false;
   FunctionTypeConversion Client(RetTy, ArgTypes, CallingConv, false/*not K&R*/);
   DefaultABI ABIConverter(Client);
 
@@ -886,13 +886,6 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   if (HasByVal)
     FnAttributes &= ~(Attribute::ReadNone | Attribute::ReadOnly);
 
-  if (flag_force_vararg_prototypes)
-    // If forcing prototypes to be varargs, make all function types varargs
-    // except those for builtin functions.
-    isVarArg = decl ? !DECL_BUILT_IN(decl) : true;
-  else
-    // If the argument list ends with a void type node, it isn't vararg.
-    isVarArg = (Args == 0);
   assert(RetTy && "Return type not specified!");
 
   if (FnAttributes != Attribute::None)
@@ -900,7 +893,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // Finally, make the function type and result attributes.
   PAL = AttrListPtr::get(Attrs.begin(), Attrs.end());
-  return FunctionType::get(RetTy, ArgTypes, isVarArg);
+  return FunctionType::get(RetTy, ArgTypes, stdarg_p(type));
 }
 
 static Type *ConvertPointerTypeRecursive(tree type) {

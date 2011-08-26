@@ -94,8 +94,10 @@ extern llvm::FunctionType *ConvertFunctionType(tree_node *type, tree_node *decl,
 /// ConvertArgListToFnType - Given a DECL_ARGUMENTS list on an GCC tree,
 /// return the LLVM type corresponding to the function.  This is useful for
 /// turning "T foo(...)" functions into "T foo(void)" functions.
-llvm::FunctionType *ConvertArgListToFnType(tree_node *type, tree_node *arglist,
+llvm::FunctionType *ConvertArgListToFnType(tree_node *type,
+                                           ArrayRef<tree_node *> arglist,
                                            tree_node *static_chain,
+                                           bool KNRPromotion,
                                            llvm::CallingConv::ID &CC,
                                            llvm::AttrListPtr &PAL);
 

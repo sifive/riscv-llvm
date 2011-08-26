@@ -464,15 +464,11 @@ bool flag_default_initialize_globals = true; // GCC always initializes to zero
 /// definitions are equivalent).
 bool flag_odr;
 
-/// flag_vararg_requires_arguments - Do not consider functions with no arguments
-/// to take a variable number of arguments (...).  If set then a function like
-/// "T foo() {}" will be treated like "T foo(void) {}" and not "T foo(...) {}".
-bool flag_vararg_requires_arguments;
-
-/// flag_force_vararg_prototypes - Force prototypes to take a variable number of
-/// arguments (...).  This is helpful if the language front-end sometimes emits
-/// calls where the call arguments do not match the callee function declaration.
-bool flag_force_vararg_prototypes;
+/// flag_functions_from_args - Construct function prototypes from the argument
+/// list, ignoring the function type.  This is helpful if the language front-end
+/// sometimes creates functions and/or calls where the arguments do not match
+/// the arguments given in the function type.
+bool flag_functions_from_args;
 
 /// InstallLanguageSettings - Do any language-specific back-end configuration.
 static void InstallLanguageSettings() {
@@ -485,15 +481,14 @@ static void InstallLanguageSettings() {
     flag_default_initialize_globals = false; // Uninitialized means what it says
     flag_odr = true; // Ada obeys the one-definition-rule
   } else if (LanguageName == "GNU C") {
-    flag_vararg_requires_arguments = true; // "T foo() {}" -> "T foo(void) {}"
   } else if (LanguageName == "GNU C++") {
     flag_odr = true; // C++ obeys the one-definition-rule
   } else if (LanguageName == "GNU Fortran") {
-    flag_force_vararg_prototypes = true;
+    flag_functions_from_args = true;
   } else if (LanguageName == "GNU GIMPLE") { // LTO gold plugin
+  } else if (LanguageName == "GNU Go") {
   } else if (LanguageName == "GNU Java") {
   } else if (LanguageName == "GNU Objective-C") {
-    flag_vararg_requires_arguments = true; // "T foo() {}" -> "T foo(void) {}"
   } else if (LanguageName == "GNU Objective-C++") {
     flag_odr = true; // Objective C++ obeys the one-definition-rule
   }

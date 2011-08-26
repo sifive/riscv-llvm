@@ -95,15 +95,11 @@ extern bool flag_default_initialize_globals;
 /// definitions are equivalent).
 extern bool flag_odr;
 
-/// flag_vararg_requires_arguments - Do not consider functions with no arguments
-/// to take a variable number of arguments (...).  If set then a function like
-/// "T foo() {}" will be treated like "T foo(void) {}" and not "T foo(...) {}".
-extern bool flag_vararg_requires_arguments;
-
-/// flag_force_vararg_prototypes - Force prototypes to take a variable number of
-/// arguments (...).  This is helpful if the language front-end sometimes emits
-/// calls where the call arguments do not match the callee function declaration.
-extern bool flag_force_vararg_prototypes;
+/// flag_functions_from_args - Construct function prototypes from the argument
+/// list, ignoring the function type.  This is helpful if the language front-end
+/// sometimes creates functions and/or calls where the arguments do not match
+/// the arguments given in the function type.
+extern bool flag_functions_from_args;
 
 /// AttributeUsedGlobals - The list of globals that are marked attribute(used).
 extern SmallSetVector<Constant *,32> AttributeUsedGlobals;

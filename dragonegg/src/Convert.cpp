@@ -495,36 +495,21 @@ void TreeToLLVM::StartFunctionBody() {
   CallingConv::ID CallingConv;
   AttrListPtr PAL;
 
-  bool getFunctionTypeFromArgList = false;
-
-  // If the function has no arguments and is varargs (...), turn it into a
-  // non-varargs function by scanning the param list for the function.  This
-  // allows C functions declared as "T foo() {}" to be treated like
-  // "T foo(void) {}" and allows us to handle functions with K&R-style
-  // definitions correctly.
-  //
-  // Note that we only do this in C/Objective-C.  Doing this in C++ for
-  // functions explicitly declared as taking (...) is bad.
-  if (TYPE_ARG_TYPES(TREE_TYPE(FnDecl)) == 0 && flag_vararg_requires_arguments)
-    getFunctionTypeFromArgList = true;
-
-  // When forcing vararg prototypes ensure that the function only gets a varargs
-  // part if it was originally declared varargs.
-  if (flag_force_vararg_prototypes) {
-    tree Args = TYPE_ARG_TYPES(TREE_TYPE(FnDecl));
-    while (Args && TREE_VALUE(Args) != void_type_node)
-      Args = TREE_CHAIN(Args);
-    if (Args != 0)
-      getFunctionTypeFromArgList = true;
-  }
-
-  if (getFunctionTypeFromArgList)
-    FTy = ConvertArgListToFnType(TREE_TYPE(FnDecl), DECL_ARGUMENTS(FnDecl),
-                                 static_chain, CallingConv, PAL);
-  else
+  // If this is a K&R-style function: with a type that takes no arguments but
+  // with arguments none the less, then calculate the LLVM type from the list
+  // of arguments.
+  if (flag_functions_from_args || (TYPE_ARG_TYPES(TREE_TYPE(FnDecl)) == 0 &&
+                                   DECL_ARGUMENTS(FnDecl))) {
+    SmallVector<tree, 8> Args;
+    for (tree Arg = DECL_ARGUMENTS(FnDecl); Arg; Arg = TREE_CHAIN(Arg))
+      Args.push_back(Arg);
+    FTy = ConvertArgListToFnType(TREE_TYPE(FnDecl), Args, static_chain,
+                                 !flag_functions_from_args, CallingConv, PAL);
+  } else {
     // Otherwise, just get the type from the function itself.
     FTy = ConvertFunctionType(TREE_TYPE(FnDecl), FnDecl, static_chain,
                               CallingConv, PAL);
+  }
 
   // If we've already seen this function and created a prototype, and if the
   // proto has the right LLVM type, just use it.
@@ -2840,34 +2825,9 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     Client.clear();
   }
 
-  // Compile stuff like:
-  //   %tmp = call float (...)* bitcast (float ()* @foo to float (...)*)( )
-  // to:
-  //   %tmp = call float @foo( )
-  // This commonly occurs due to C "implicit ..." semantics.
-  if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Callee)) {
-    if (CallOperands.empty() && CE->getOpcode() == Instruction::BitCast) {
-      Constant *RealCallee = CE->getOperand(0);
-      assert(RealCallee->getType()->isPointerTy() &&
-             "Bitcast to ptr not from ptr?");
-      PointerType *RealPT = cast<PointerType>(RealCallee->getType());
-      if (FunctionType *RealFT =
-          dyn_cast<FunctionType>(RealPT->getElementType())) {
-        PointerType *ActualPT = cast<PointerType>(Callee->getType());
-        FunctionType *ActualFT =
-          cast<FunctionType>(ActualPT->getElementType());
-        if (RealFT->getReturnType() == ActualFT->getReturnType() &&
-            RealFT->getNumParams() == 0)
-          Callee = RealCallee;
-      }
-    }
-  }
-
   // Unlike LLVM, GCC does not require that call statements provide a value for
   // every function argument (it passes rubbish for arguments with no value).
   // To get the same effect we pass 'undef' for any unspecified arguments.
-  PFTy = cast<PointerType>(Callee->getType());
-  FTy = cast<FunctionType>(PFTy->getElementType());
   if (CallOperands.size() < FTy->getNumParams())
     for (unsigned i = CallOperands.size(), e = FTy->getNumParams(); i != e; ++i)
       CallOperands.push_back(UndefValue::get(FTy->getParamType(i)));
@@ -8467,8 +8427,23 @@ Value *TreeToLLVM::OutputCallRHS(gimple stmt, const MemRef *DestLoc) {
   CallingConv::ID CallingConv;
   AttrListPtr PAL;
 
-  Type *Ty = ConvertFunctionType(function_type, fndecl, gimple_call_chain(stmt),
-                                 CallingConv, PAL);
+  Type *Ty;
+  // If this is a K&R-style function: with a type that takes no arguments but
+  // with arguments none the less, then calculate the LLVM type from the list
+  // of arguments.
+  if (flag_functions_from_args || (TYPE_ARG_TYPES(function_type) == 0 &&
+                                   gimple_call_num_args(stmt) > 0)) {
+    tree *FirstArgAddr = gimple_call_num_args(stmt) > 0 ?
+      gimple_call_arg_ptr(stmt, 0) : NULL;
+    Ty = ConvertArgListToFnType(function_type,
+                                ArrayRef<tree>(FirstArgAddr,
+                                               gimple_call_num_args(stmt)),
+                                gimple_call_chain(stmt),
+                                !flag_functions_from_args, CallingConv, PAL);
+  } else {
+    Ty = ConvertFunctionType(function_type, fndecl, gimple_call_chain(stmt),
+                             CallingConv, PAL);
+  }
 
   // If this is a direct call to a function using a static chain then we need
   // to ensure the function type is the one just calculated: it has an extra
