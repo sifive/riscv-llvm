@@ -893,7 +893,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // Finally, make the function type and result attributes.
   PAL = AttrListPtr::get(Attrs.begin(), Attrs.end());
-  return FunctionType::get(RetTy, ArgTypes, stdarg_p(type));
+  return FunctionType::get(RetTy, ArgTypes, Args == 0);
 }
 
 static Type *ConvertPointerTypeRecursive(tree type) {

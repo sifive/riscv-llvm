@@ -8431,8 +8431,7 @@ Value *TreeToLLVM::OutputCallRHS(gimple stmt, const MemRef *DestLoc) {
   // If this is a K&R-style function: with a type that takes no arguments but
   // with arguments none the less, then calculate the LLVM type from the list
   // of arguments.
-  if (flag_functions_from_args || (TYPE_ARG_TYPES(function_type) == 0 &&
-                                   gimple_call_num_args(stmt) > 0)) {
+  if (flag_functions_from_args) {
     tree *FirstArgAddr = gimple_call_num_args(stmt) > 0 ?
       gimple_call_arg_ptr(stmt, 0) : NULL;
     Ty = ConvertArgListToFnType(function_type,
