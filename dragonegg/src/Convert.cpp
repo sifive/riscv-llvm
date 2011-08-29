@@ -2242,7 +2242,6 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
   LValue LV = EmitLV(exp);
   LV.Volatile = TREE_THIS_VOLATILE(exp);
   // TODO: Arrange for Volatile to already be set in the LValue.
-  Type *Ty = ConvertType(TREE_TYPE(exp));
   unsigned Alignment = LV.getAlignment();
 
   if (!LV.isBitfield()) {
@@ -2250,72 +2249,43 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
     return LoadRegisterFromMemory(LV, TREE_TYPE(exp), Builder);
   } else {
     // This is a bitfield reference.
+    Type *Ty = getRegType(TREE_TYPE(exp));
     if (!LV.BitSize)
       return Constant::getNullValue(Ty);
 
-    Type *ValTy = cast<PointerType>(LV.Ptr->getType())->getElementType();
-    unsigned ValSizeInBits = ValTy->getPrimitiveSizeInBits();
+    // Load the minimum number of bytes that covers the field.
+    unsigned LoadSizeInBits = LV.BitStart + LV.BitSize;
+    LoadSizeInBits = RoundUpToAlignment(LoadSizeInBits, BITS_PER_UNIT);
+    Type *LoadType = IntegerType::get(Context, LoadSizeInBits);
 
-    // The number of loads needed to read the entire bitfield.
-    unsigned Strides = 1 + (LV.BitStart + LV.BitSize - 1) / ValSizeInBits;
+    // Load the bits.
+    Value *Ptr = Builder.CreateBitCast(LV.Ptr, LoadType->getPointerTo());
+    Value *Val = Builder.CreateLoad(Ptr, LV.Volatile);
+    cast<LoadInst>(Val)->setAlignment(Alignment);
 
-    assert(ValTy->isIntegerTy() && "Invalid bitfield lvalue!");
-    assert(ValSizeInBits > LV.BitStart && "Bad bitfield lvalue!");
-    assert(ValSizeInBits >= LV.BitSize && "Bad bitfield lvalue!");
-    assert(2*ValSizeInBits > LV.BitSize+LV.BitStart && "Bad bitfield lvalue!");
+    // Mask the bits out by shifting left first, then shifting right.  The
+    // optimizers will turn this into an "and" in the unsigned case.
 
-    Value *Result = NULL;
-
-    for (unsigned I = 0; I < Strides; I++) {
-      unsigned Index = BYTES_BIG_ENDIAN ? I : Strides - I - 1; // MSB first
-      unsigned ThisFirstBit = Index * ValSizeInBits;
-      unsigned ThisLastBitPlusOne = ThisFirstBit + ValSizeInBits;
-      if (ThisFirstBit < LV.BitStart)
-        ThisFirstBit = LV.BitStart;
-      if (ThisLastBitPlusOne > LV.BitStart+LV.BitSize)
-        ThisLastBitPlusOne = LV.BitStart+LV.BitSize;
-
-      Value *Ptr = Index ?
-        Builder.CreateGEP(LV.Ptr, Builder.getInt32(Index)) : LV.Ptr;
-      LoadInst *LI = Builder.CreateLoad(Ptr, LV.Volatile);
-      LI->setAlignment(Alignment);
-      Value *Val = LI;
-
-      unsigned BitsInVal = ThisLastBitPlusOne - ThisFirstBit;
-      unsigned FirstBitInVal = ThisFirstBit % ValSizeInBits;
-
-      if (BYTES_BIG_ENDIAN)
-        FirstBitInVal = ValSizeInBits-FirstBitInVal-BitsInVal;
-
-      // Mask the bits out by shifting left first, then shifting right.  The
-      // LLVM optimizer will turn this into an AND if this is an unsigned
-      // expression.
-
-      if (FirstBitInVal+BitsInVal != ValSizeInBits) {
-        Value *ShAmt = ConstantInt::get(ValTy, ValSizeInBits -
-                                        (FirstBitInVal+BitsInVal));
-        Val = Builder.CreateShl(Val, ShAmt);
-      }
-
-      // Shift right required?
-      if (ValSizeInBits != BitsInVal) {
-        bool AddSignBits = !TYPE_UNSIGNED(TREE_TYPE(exp)) && !Result;
-        Value *ShAmt = ConstantInt::get(ValTy, ValSizeInBits-BitsInVal);
-        Val = AddSignBits ?
-          Builder.CreateAShr(Val, ShAmt) : Builder.CreateLShr(Val, ShAmt);
-      }
-
-      if (Result) {
-        Value *ShAmt = ConstantInt::get(ValTy, BitsInVal);
-        Result = Builder.CreateShl(Result, ShAmt);
-        Result = Builder.CreateOr(Result, Val);
-      } else {
-        Result = Val;
-      }
+    // Shift the sign bit of the bitfield to the sign bit position in the loaded
+    // type.  This zaps any extra bits occurring after the end of the bitfield.
+    unsigned FirstBitInVal = BYTES_BIG_ENDIAN ?
+      LoadSizeInBits - LV.BitStart - LV.BitSize : LV.BitStart;
+    if (FirstBitInVal + LV.BitSize != LoadSizeInBits) {
+      Value *ShAmt = ConstantInt::get(LoadType, LoadSizeInBits -
+                                      (FirstBitInVal + LV.BitSize));
+      Val = Builder.CreateShl(Val, ShAmt);
     }
+    // Shift the first bit of the bitfield to be bit zero.  This zaps any extra
+    // bits that occurred before the start of the bitfield.  In the signed case
+    // this also duplicates the sign bit, giving a sign extended value.
+    bool isSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
+    Value *ShAmt = ConstantInt::get(LoadType, LoadSizeInBits - LV.BitSize);
+    Val = isSigned ?
+      Builder.CreateAShr(Val, ShAmt) : Builder.CreateLShr(Val, ShAmt);
 
-    return Builder.CreateIntCast(Result, getRegType(TREE_TYPE(exp)),
-                                 /*isSigned*/!TYPE_UNSIGNED(TREE_TYPE(exp)));
+    // Get the bits as a value of the correct type.
+    // FIXME: This assumes the result is an integer.
+    return Builder.CreateIntCast(Val, Ty, isSigned);
   }
 }
 
@@ -5686,8 +5656,6 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
     FieldPtr = Builder.CreateBitCast(FieldPtr, FieldTy->getPointerTo());
   }
 
-  assert(BitStart < 8 && "Bit offset not properly incorporated in the pointer");
-
   // The alignment is given by DECL_ALIGN.  Be conservative and don't assume
   // that the field is properly aligned even if the type is not.
   LVAlign = MinAlign(LVAlign, DECL_ALIGN(FieldDecl) / 8);
@@ -5696,103 +5664,21 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   if (lookup_attribute("annotate", DECL_ATTRIBUTES(FieldDecl)))
     FieldPtr = EmitFieldAnnotation(FieldPtr, FieldDecl);
 
+  // Make sure we return a pointer to the right type.
+  Type *EltTy = ConvertType(TREE_TYPE(exp));
+  FieldPtr = Builder.CreateBitCast(FieldPtr, EltTy->getPointerTo());
+
   if (!isBitfield(FieldDecl)) {
     assert(BitStart == 0 && "Not a bitfield but not at a byte offset!");
-    // Make sure we return a pointer to the right type.
-    Type *EltTy = ConvertType(TREE_TYPE(exp));
-    FieldPtr = Builder.CreateBitCast(FieldPtr, EltTy->getPointerTo());
     return LValue(FieldPtr, LVAlign);
   }
 
-  // If this is a bitfield, the declared type must be an integral type.
-  assert(FieldTy->isIntegerTy() && "Invalid bitfield");
-
+  assert(BitStart < 8 && "Bit offset not properly incorporated in the pointer");
   assert(DECL_SIZE(FieldDecl) &&
          TREE_CODE(DECL_SIZE(FieldDecl)) == INTEGER_CST &&
          "Variable sized bitfield?");
   unsigned BitfieldSize = TREE_INT_CST_LOW(DECL_SIZE(FieldDecl));
-
-  Type *LLVMFieldTy =
-    cast<PointerType>(FieldPtr->getType())->getElementType();
-
-  // If the LLVM notion of the field type contains the entire bitfield being
-  // accessed, use the LLVM type.  This avoids pointer casts and other bad
-  // things that are difficult to clean up later.  This occurs in cases like
-  // "struct X{ unsigned long long x:50; unsigned y:2; }" when accessing y.
-  // We want to access the field as a ulong, not as a uint with an offset.
-  if (LLVMFieldTy->isIntegerTy() &&
-      LLVMFieldTy->getPrimitiveSizeInBits() >= BitStart + BitfieldSize &&
-      LLVMFieldTy->getPrimitiveSizeInBits() ==
-      TD.getTypeAllocSizeInBits(LLVMFieldTy))
-    FieldTy = LLVMFieldTy;
-  else
-    // If the field result type T is a bool or some other curiously sized
-    // integer type, then not all bits may be accessible by advancing a T*
-    // and loading through it.  For example, if the result type is i1 then
-    // only the first bit in each byte would be loaded.  Even if T is byte
-    // sized like an i24 there may be trouble: incrementing a T* will move
-    // the position by 32 bits not 24, leaving the upper 8 of those 32 bits
-    // inaccessible.  Avoid this by rounding up the size appropriately.
-    FieldTy = IntegerType::get(Context, TD.getTypeAllocSizeInBits(FieldTy));
-
-  assert(FieldTy->getPrimitiveSizeInBits() ==
-         TD.getTypeAllocSizeInBits(FieldTy) && "Field type not sequential!");
-
-  // If this is a bitfield, the field may span multiple fields in the LLVM
-  // type.  As such, cast the pointer to be a pointer to the declared type.
-  FieldPtr = Builder.CreateBitCast(FieldPtr, FieldTy->getPointerTo());
-
-  unsigned LLVMValueBitSize = FieldTy->getPrimitiveSizeInBits();
-  // Finally, because bitfields can span LLVM fields, and because the start
-  // of the first LLVM field (where FieldPtr currently points) may be up to
-  // 63 bits away from the start of the bitfield), it is possible that
-  // *FieldPtr doesn't contain any of the bits for this bitfield. If needed,
-  // adjust FieldPtr so that it is close enough to the bitfield that
-  // *FieldPtr contains the first needed bit.  Be careful to make sure that
-  // the pointer remains appropriately aligned.
-  if (BitStart >= LLVMValueBitSize) {
-    // In this case, we know that the alignment of the field is less than
-    // the size of the field.  To get the pointer close enough, add some
-    // number of alignment units to the pointer.
-    unsigned ByteAlignment = TD.getABITypeAlignment(FieldTy);
-    // It is possible that an individual field is Packed. This information is
-    // not reflected in FieldTy. Check DECL_PACKED here.
-    if (DECL_PACKED(FieldDecl))
-      ByteAlignment = 1;
-    assert(ByteAlignment*8 <= LLVMValueBitSize && "Unknown overlap case!");
-    unsigned NumAlignmentUnits = BitStart/(ByteAlignment*8);
-    assert(NumAlignmentUnits && "Not adjusting pointer?");
-
-    // Compute the byte offset, and add it to the pointer.
-    unsigned ByteOffset = NumAlignmentUnits*ByteAlignment;
-    LVAlign = MinAlign(LVAlign, ByteOffset);
-
-    Constant *Offset = ConstantInt::get(TD.getIntPtrType(Context), ByteOffset);
-    FieldPtr = Builder.CreatePtrToInt(FieldPtr, Offset->getType());
-    FieldPtr = Builder.CreateAdd(FieldPtr, Offset);
-    FieldPtr = Builder.CreateIntToPtr(FieldPtr, FieldTy->getPointerTo());
-
-    // Adjust bitstart to account for the pointer movement.
-    BitStart -= ByteOffset*8;
-
-    // Check that this worked.  Note that the bitfield may extend beyond
-    // the end of *FieldPtr, for example because BitfieldSize is the same
-    // as LLVMValueBitSize but BitStart > 0.
-    assert(BitStart < LLVMValueBitSize &&
-           BitStart+BitfieldSize < 2*LLVMValueBitSize &&
-           "Couldn't get bitfield into value!");
-  }
-
-  // Okay, everything is good.  Return this as a bitfield if we can't
-  // return it as a normal l-value. (e.g. "struct X { int X : 32 };" ).
-  LValue LV(FieldPtr, LVAlign);
-  if (BitfieldSize != LLVMValueBitSize || BitStart != 0) {
-    // Writing these fields directly rather than using the appropriate LValue
-    // constructor works around a miscompilation by gcc-4.4 in Release mode.
-    LV.BitStart = BitStart;
-    LV.BitSize = BitfieldSize;
-  }
-  return LV;
+  return LValue(FieldPtr, LVAlign, BitStart, BitfieldSize);
 }
 
 LValue TreeToLLVM::EmitLV_DECL(tree exp) {
@@ -8494,77 +8380,44 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
 
   // Last case, this is a store to a bitfield, so we have to emit a
   // read/modify/write sequence.
-
   if (!LV.BitSize)
     return;
 
-  unsigned Alignment = LV.getAlignment();
+  // Load and store the minimum number of bytes that covers the field.
+  unsigned LoadSizeInBits = LV.BitStart + LV.BitSize;
+  LoadSizeInBits = RoundUpToAlignment(LoadSizeInBits, BITS_PER_UNIT);
+  Type *LoadType = IntegerType::get(Context, LoadSizeInBits);
 
-  Type *ValTy = cast<PointerType>(LV.Ptr->getType())->getElementType();
-  unsigned ValSizeInBits = ValTy->getPrimitiveSizeInBits();
+  // Load the bits.
+  Value *Ptr = Builder.CreateBitCast(LV.Ptr, LoadType->getPointerTo());
+  Value *Val = Builder.CreateLoad(Ptr, LV.Volatile);
+  cast<LoadInst>(Val)->setAlignment(LV.getAlignment());
 
-  // The number of stores needed to write the entire bitfield.
-  unsigned Strides = 1 + (LV.BitStart + LV.BitSize - 1) / ValSizeInBits;
+  // Get the right-hand side as a value of the same type.
+  // FIXME: This assumes the right-hand side is an integer.
+  bool isSigned = !TYPE_UNSIGNED(TREE_TYPE(lhs));
+  RHS = CastToAnyType(RHS, isSigned, LoadType, isSigned);
 
-  assert(ValTy->isIntegerTy() && "Invalid bitfield lvalue!");
-  assert(ValSizeInBits > LV.BitStart && "Bad bitfield lvalue!");
-  assert(ValSizeInBits >= LV.BitSize && "Bad bitfield lvalue!");
-  assert(2*ValSizeInBits > LV.BitSize+LV.BitStart && "Bad bitfield lvalue!");
-
-  bool Signed = !TYPE_UNSIGNED(TREE_TYPE(lhs));
-  RHS = CastToAnyType(RHS, Signed, ValTy, Signed);
-
-  for (unsigned I = 0; I < Strides; I++) {
-    unsigned Index = BYTES_BIG_ENDIAN ? Strides - I - 1 : I; // LSB first
-    unsigned ThisFirstBit = Index * ValSizeInBits;
-    unsigned ThisLastBitPlusOne = ThisFirstBit + ValSizeInBits;
-    if (ThisFirstBit < LV.BitStart)
-      ThisFirstBit = LV.BitStart;
-    if (ThisLastBitPlusOne > LV.BitStart+LV.BitSize)
-      ThisLastBitPlusOne = LV.BitStart+LV.BitSize;
-
-    Value *Ptr = Index ?
-      Builder.CreateGEP(LV.Ptr, Builder.getInt32(Index)) : LV.Ptr;
-    LoadInst *LI = Builder.CreateLoad(Ptr, LV.Volatile);
-    LI->setAlignment(Alignment);
-    Value *OldVal = LI;
-    Value *NewVal = RHS;
-
-    unsigned BitsInVal = ThisLastBitPlusOne - ThisFirstBit;
-    unsigned FirstBitInVal = ThisFirstBit % ValSizeInBits;
-
-    if (BYTES_BIG_ENDIAN)
-      FirstBitInVal = ValSizeInBits-FirstBitInVal-BitsInVal;
-
-    // If not storing into the zero'th bit, shift the Src value to the left.
-    if (FirstBitInVal) {
-      Value *ShAmt = ConstantInt::get(ValTy, FirstBitInVal);
-      NewVal = Builder.CreateShl(NewVal, ShAmt);
-    }
-
-    // Next, if this doesn't touch the top bit, mask out any bits that shouldn't
-    // be set in the result.
-    uint64_t MaskVal = 1;
-    MaskVal = ((MaskVal << BitsInVal)-1) << FirstBitInVal;
-    Constant *Mask = Builder.getInt64(MaskVal);
-    Mask = Builder.getFolder().CreateTruncOrBitCast(Mask, ValTy);
-
-    if (FirstBitInVal+BitsInVal != ValSizeInBits)
-      NewVal = Builder.CreateAnd(NewVal, Mask);
-
-    // Next, mask out the bits this bit-field should include from the old value.
-    Mask = Builder.getFolder().CreateNot(Mask);
-    OldVal = Builder.CreateAnd(OldVal, Mask);
-
-    // Finally, merge the two together and store it.
-    NewVal = Builder.CreateOr(OldVal, NewVal);
-
-    StoreInst *SI = Builder.CreateStore(NewVal, Ptr, LV.Volatile);
-    SI->setAlignment(Alignment);
-
-    if (I + 1 < Strides) {
-      Value *ShAmt = ConstantInt::get(ValTy, BitsInVal);
-      RHS = Builder.CreateLShr(RHS, ShAmt);
-    }
+  // Shift the right-hand side so that its bits are in the right position.
+  unsigned FirstBitInVal = BYTES_BIG_ENDIAN ?
+    LoadSizeInBits - LV.BitStart - LV.BitSize : LV.BitStart;
+  if (FirstBitInVal) {
+    Value *ShAmt = ConstantInt::get(LoadType, FirstBitInVal);
+    RHS = Builder.CreateShl(RHS, ShAmt);
   }
+  // Mask out any bits in the right-hand side that shouldn't be in the result.
+  // The lower bits are zero already, so this only changes bits off the end.
+  APInt Mask = APInt::getBitsSet(LoadSizeInBits, FirstBitInVal,
+                                 FirstBitInVal + LV.BitSize);
+  if (FirstBitInVal + LV.BitSize != LoadSizeInBits)
+    RHS = Builder.CreateAnd(RHS, ConstantInt::get(Context, Mask));
+
+  // Mask out those bits in the original value that are being replaced by the
+  // right-hand side.
+  Val = Builder.CreateAnd(Val, ConstantInt::get(Context, ~Mask));
+
+  // Finally, merge the two together and store it.
+  Val = Builder.CreateOr(Val, RHS);
+  StoreInst *SI = Builder.CreateStore(Val, Ptr, LV.Volatile);
+  SI->setAlignment(LV.getAlignment());
 }
