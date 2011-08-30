@@ -1371,12 +1371,6 @@ static void llvm_start_unit(void * /*gcc_data*/, void * /*user_data*/) {
 }
 
 
-/// gate_emission - Whether to turn gimple into LLVM IR.
-static bool gate_emission(void) {
-  // Don't bother doing anything if the program has errors.
-  return !errorcount && !sorrycount; // Do not process broken code.
-}
-
 /// emit_current_function - Turn the current gimple function into LLVM IR.  This
 /// is called once for each function in the compilation unit.
 static void emit_current_function() {
@@ -1558,7 +1552,7 @@ static struct ipa_opt_pass_d pass_emit_aliases = {
     {
       IPA_PASS,
       "emit_aliases",	/* name */
-      gate_emission,	/* gate */
+      NULL,		/* gate */
       NULL,		/* execute */
       NULL,		/* sub */
       NULL,		/* next */
@@ -1589,10 +1583,11 @@ static struct ipa_opt_pass_d pass_emit_aliases = {
 /// once for each function in the compilation unit if GCC optimizations are
 /// enabled.
 static unsigned int rtl_emit_function (void) {
-  InitializeBackend();
-
-  // Convert the function.
-  emit_current_function();
+  if (!errorcount && !sorrycount) {
+    InitializeBackend();
+    // Convert the function.
+    emit_current_function();
+  }
 
   // Free any data structures.
   execute_free_datastructures();
@@ -1608,7 +1603,7 @@ static struct rtl_opt_pass pass_rtl_emit_function =
     {
       RTL_PASS,
       "rtl_emit_function",	/* name */
-      gate_emission,		/* gate */
+      NULL,			/* gate */
       rtl_emit_function,	/* execute */
       NULL,			/* sub */
       NULL,			/* next */
