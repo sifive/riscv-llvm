@@ -3714,10 +3714,21 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_VA_START:       return EmitBuiltinVAStart(stmt);
   case BUILT_IN_VA_END:         return EmitBuiltinVAEnd(stmt);
   case BUILT_IN_VA_COPY:        return EmitBuiltinVACopy(stmt);
-  case BUILT_IN_CONSTANT_P:     return EmitBuiltinConstantP(stmt, Result);
+
+  case BUILT_IN_ADJUST_TRAMPOLINE:
+    return EmitBuiltinAdjustTrampoline(stmt, Result);
   case BUILT_IN_ALLOCA:         return EmitBuiltinAlloca(stmt, Result);
-  case BUILT_IN_EXTEND_POINTER: return EmitBuiltinExtendPointer(stmt, Result);
+  case BUILT_IN_BZERO:          return EmitBuiltinBZero(stmt, Result);
+  case BUILT_IN_CONSTANT_P:     return EmitBuiltinConstantP(stmt, Result);
   case BUILT_IN_EXPECT:         return EmitBuiltinExpect(stmt, Result);
+  case BUILT_IN_EXTEND_POINTER: return EmitBuiltinExtendPointer(stmt, Result);
+  case BUILT_IN_EXTRACT_RETURN_ADDR:
+   return EmitBuiltinExtractReturnAddr(stmt, Result);
+  case BUILT_IN_FRAME_ADDRESS:  return EmitBuiltinReturnAddr(stmt, Result,true);
+  case BUILT_IN_FROB_RETURN_ADDR:
+   return EmitBuiltinFrobReturnAddr(stmt, Result);
+  case BUILT_IN_INIT_TRAMPOLINE:
+    return EmitBuiltinInitTrampoline(stmt, Result);
   case BUILT_IN_MEMCPY:         return EmitBuiltinMemCopy(stmt, Result,
                                                           false, false);
   case BUILT_IN_MEMCPY_CHK:     return EmitBuiltinMemCopy(stmt, Result,
@@ -3728,21 +3739,12 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
                                                           true, true);
   case BUILT_IN_MEMSET:         return EmitBuiltinMemSet(stmt, Result, false);
   case BUILT_IN_MEMSET_CHK:     return EmitBuiltinMemSet(stmt, Result, true);
-  case BUILT_IN_BZERO:          return EmitBuiltinBZero(stmt, Result);
   case BUILT_IN_PREFETCH:       return EmitBuiltinPrefetch(stmt);
-  case BUILT_IN_FRAME_ADDRESS:  return EmitBuiltinReturnAddr(stmt, Result,true);
   case BUILT_IN_RETURN_ADDRESS:
     return EmitBuiltinReturnAddr(stmt, Result,false);
-  case BUILT_IN_STACK_SAVE:     return EmitBuiltinStackSave(stmt, Result);
   case BUILT_IN_STACK_RESTORE:  return EmitBuiltinStackRestore(stmt);
-  case BUILT_IN_EXTRACT_RETURN_ADDR:
-   return EmitBuiltinExtractReturnAddr(stmt, Result);
-  case BUILT_IN_FROB_RETURN_ADDR:
-   return EmitBuiltinFrobReturnAddr(stmt, Result);
-  case BUILT_IN_ADJUST_TRAMPOLINE:
-    return EmitBuiltinAdjustTrampoline(stmt, Result);
-  case BUILT_IN_INIT_TRAMPOLINE:
-    return EmitBuiltinInitTrampoline(stmt, Result);
+  case BUILT_IN_STACK_SAVE:     return EmitBuiltinStackSave(stmt, Result);
+  case BUILT_IN_UNREACHABLE:    return EmitBuiltinUnreachable();
 
   // Exception handling builtins.
   case BUILT_IN_EH_POINTER:
@@ -5021,6 +5023,10 @@ bool TreeToLLVM::EmitBuiltinStackSave(gimple stmt, Value *&Result) {
   return true;
 }
 
+bool TreeToLLVM::EmitBuiltinUnreachable() {
+  Builder.CreateUnreachable();
+  return true;
+}
 
 // Exception handling builtins.
 

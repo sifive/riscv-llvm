@@ -623,25 +623,29 @@ private:
   Value *EmitBuiltinLFLOOR(gimple_statement_d *stmt);
   Value *EmitBuiltinCEXPI(gimple_statement_d *stmt);
 
-  bool EmitBuiltinConstantP(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinAdjustTrampoline(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinAlloca(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinBZero(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinConstantP(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinExpect(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinExtendPointer(gimple_statement_d *stmt, Value *&Result);
-  bool EmitBuiltinVAStart(gimple_statement_d *stmt);
-  bool EmitBuiltinVAEnd(gimple_statement_d *stmt);
-  bool EmitBuiltinVACopy(gimple_statement_d *stmt);
+  bool EmitBuiltinExtractReturnAddr(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinFrobReturnAddr(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinInitTrampoline(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinMemCopy(gimple_statement_d *stmt, Value *&Result,
                           bool isMemMove, bool SizeCheck);
   bool EmitBuiltinMemSet(gimple_statement_d *stmt, Value *&Result,
                          bool SizeCheck);
-  bool EmitBuiltinBZero(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinPrefetch(gimple_statement_d *stmt);
   bool EmitBuiltinReturnAddr(gimple_statement_d *stmt, Value *&Result,
                              bool isFrame);
-  bool EmitBuiltinExtractReturnAddr(gimple_statement_d *stmt, Value *&Result);
-  bool EmitBuiltinFrobReturnAddr(gimple_statement_d *stmt, Value *&Result);
-  bool EmitBuiltinStackSave(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinStackRestore(gimple_statement_d *stmt);
+  bool EmitBuiltinStackSave(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinUnreachable();
+  bool EmitBuiltinVACopy(gimple_statement_d *stmt);
+  bool EmitBuiltinVAEnd(gimple_statement_d *stmt);
+  bool EmitBuiltinVAStart(gimple_statement_d *stmt);
+
   bool EmitBuiltinEHPointer(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinDwarfCFA(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinDwarfSPColumn(gimple_statement_d *stmt, Value *&Result);
@@ -649,8 +653,6 @@ private:
   bool EmitBuiltinEHReturn(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinInitDwarfRegSizes(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinUnwindInit(gimple_statement_d *stmt, Value *&Result);
-  bool EmitBuiltinAdjustTrampoline(gimple_statement_d *stmt, Value *&Result);
-  bool EmitBuiltinInitTrampoline(gimple_statement_d *stmt, Value *&Result);
 
   // Complex Math Expressions.
   Value *CreateComplex(Value *Real, Value *Imag);
