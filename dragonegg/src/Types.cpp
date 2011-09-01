@@ -979,6 +979,10 @@ class TypedRange {
     // needs to be displaced before being passed to the user.
     if (!R.empty() && R.getFirst() != Starts)
       return false;
+    // Check that the type isn't something like i17.  Avoiding types like this
+    // is not needed for correctness, but makes life easier for the optimizers.
+    if ((Ty->getPrimitiveSizeInBits() % BITS_PER_UNIT) != 0)
+      return false;
     // If the type is wider than the range then it needs to be truncated before
     // being passed to the user.
     uint64_t AllocBits = TD.getTypeAllocSizeInBits(Ty);
@@ -1014,6 +1018,7 @@ public:
   /// one requires that the width of the range be a multiple of an address unit,
   /// which usually means a multiple of 8.
   Type *extractContents(const TargetData &TD) {
+    assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
     /// If the current value for the type can be used to represent the bits in
     /// the range then just return it.
     if (isSafeToReturnContentsDirectly(TD))
@@ -1026,12 +1031,20 @@ public:
       assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
       return Ty;
     }
+    // If the type is something like i17 then round it up to a multiple of a
+    // byte.  This is not needed for correctness, but helps the optimizers.
+    if ((Ty->getPrimitiveSizeInBits() % BITS_PER_UNIT) != 0) {
+      unsigned BitWidth = RoundUpToAlignment(Ty->getPrimitiveSizeInBits(),
+                                             BITS_PER_UNIT);
+      Ty = IntegerType::get(Context, BitWidth);
+      if (isSafeToReturnContentsDirectly(TD))
+        return Ty;
+    }
     // Represent the range using an array of bytes.  Remember the returned type
     // as an optimization in case we are called again.
     // TODO: If the type only needs to be truncated and has struct or array type
     // then we could try to do the truncation by dropping or modifying the last
     // elements of the type, maybe yielding something less horrible.
-    assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
     uint64_t Units = R.getWidth() / BITS_PER_UNIT;
     Ty = GetUnitType(Context, Units);
     Starts = R.getFirst();

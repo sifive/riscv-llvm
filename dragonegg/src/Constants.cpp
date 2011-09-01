@@ -986,9 +986,13 @@ class FieldContents {
     // it needs to be displaced before being passed to the user.
     if (!R.empty() && R.getFirst() != Starts)
       return false;
+    Type *Ty = C->getType();
+    // Check that the type isn't something like i17.  Avoiding types like this
+    // is not needed for correctness, but makes life easier for the optimizers.
+    if ((Ty->getPrimitiveSizeInBits() % BITS_PER_UNIT) != 0)
+      return false;
     // If the constant is wider than the range then it needs to be truncated
     // before being passed to the user.
-    Type *Ty = C->getType();
     unsigned AllocBits = TD.getTypeAllocSizeInBits(Ty);
     return AllocBits <= (unsigned)R.getWidth();
   }
@@ -1023,6 +1027,7 @@ public:
   /// class, this one requires that the width of the range be a multiple of an
   /// address unit, which usually means a multiple of 8.
   Constant *extractContents(const TargetData &TD) {
+    assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
     /// If the current value for the constant can be used to represent the bits
     /// in the range then just return it.
     if (isSafeToReturnContentsDirectly(TD))
@@ -1035,12 +1040,23 @@ public:
       assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
       return C;
     }
+    // If the type is something like i17 then round it up to a multiple of a
+    // byte.  This is not needed for correctness, but helps the optimizers.
+    if ((C->getType()->getPrimitiveSizeInBits() % BITS_PER_UNIT) != 0) {
+      Type *Ty = C->getType();
+      assert(Ty->isIntegerTy() && "Non-integer type with non-byte size!");
+      unsigned BitWidth = RoundUpToAlignment(Ty->getPrimitiveSizeInBits(),
+                                             BITS_PER_UNIT);
+      Ty = IntegerType::get(Context, BitWidth);
+      C = TheFolder->CreateZExtOrBitCast(C, Ty);
+      if (isSafeToReturnContentsDirectly(TD))
+        return C;
+    }
     // Turn the contents into a bunch of bytes.  Remember the returned value as
     // an optimization in case we are called again.
     // TODO: If the contents only need to be truncated and have struct or array
     // type then we could try to do the truncation by dropping or modifying the
     // last elements of the constant, maybe yielding something less horrible.
-    assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
     unsigned Units = R.getWidth() / BITS_PER_UNIT;
     C = InterpretAsType(C, GetUnitType(Context, Units), R.getFirst() - Starts,
                         Folder);
