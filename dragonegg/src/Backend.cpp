@@ -322,6 +322,10 @@ static void ConfigureLLVM(void) {
     Args.push_back("--ffunction-sections");
   if (flag_data_sections)
     Args.push_back("--fdata-sections");
+#if (GCC_MINOR > 5)
+  if (flag_split_stack)
+    Args.push_back("--segmented-stacks");
+#endif
 
   // If there are options that should be passed through to the LLVM backend
   // directly from the command line, do so now.  This is mainly for debugging
