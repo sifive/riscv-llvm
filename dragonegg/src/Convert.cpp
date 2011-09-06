@@ -5309,20 +5309,11 @@ bool TreeToLLVM::EmitBuiltinAdjustTrampoline(gimple stmt, Value *&Result) {
   if (!validate_gimple_arglist(stmt, POINTER_TYPE, VOID_TYPE))
     return false;
 
-  Type *ResultTy = ConvertType(gimple_call_return_type(stmt));
-
-  // The adjusted value is stored as a pointer at the start of the storage GCC
-  // allocated for the trampoline - load it out and return it.
-  assert(TD.getPointerSize() <= TRAMPOLINE_SIZE &&
-         "Trampoline smaller than a pointer!");
-  Value *Tramp = EmitMemory(gimple_call_arg(stmt, 0));
-  Tramp = Builder.CreateBitCast(Tramp, ResultTy->getPointerTo());
-  Result = Builder.CreateLoad(Tramp, "adjusted");
-
-  // The load has the alignment of the trampoline storage.
-  unsigned Align = TYPE_ALIGN(TREE_TYPE(TREE_TYPE(gimple_call_arg(stmt, 0))))/8;
-  cast<LoadInst>(Result)->setAlignment(Align);
-
+  Function *Intr = Intrinsic::getDeclaration(TheModule,
+                                             Intrinsic::adjust_trampoline);
+  Value *Arg = Builder.CreateBitCast(EmitRegister(gimple_call_arg(stmt, 0)),
+                                     Builder.getInt8PtrTy());
+  Result = Builder.CreateCall(Intr, Arg);
   return true;
 }
 
@@ -5331,57 +5322,20 @@ bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt, Value *&/*Result*/) {
                          VOID_TYPE))
     return false;
 
-  // LLVM's trampoline intrinsic, llvm.init.trampoline, combines the effect of
-  // GCC's init_trampoline and adjust_trampoline.  Calls to adjust_trampoline
-  // should return the result of the llvm.init.trampoline call.  This is tricky
-  // because the adjust_trampoline and init_trampoline calls need not occur in
-  // the same function.  To overcome this, we don't store the trampoline machine
-  // code in the storage GCC created for it, we store the result of the call to
-  // llvm.init.trampoline there instead.  Since this storage is the argument to
-  // adjust_trampoline, we turn adjust_trampoline into a load from its argument.
-  // The trampoline machine code itself is stored in a stack temporary that we
-  // create (one for each init_trampoline) in the function where init_trampoline
-  // is called.
-  static Type *VPTy = Type::getInt8PtrTy(Context);
+  Value *Tramp = EmitRegister(gimple_call_arg(stmt, 0));
+  Value *Func = EmitRegister(gimple_call_arg(stmt, 1));
+  Value *Chain = EmitRegister(gimple_call_arg(stmt, 2));
 
-  // Create a stack temporary to hold the trampoline machine code.
-  Type *TrampType = ArrayType::get(Type::getInt8Ty(Context),
-                                         TRAMPOLINE_SIZE);
-  AllocaInst *TrampTmp = CreateTemporary(TrampType);
-  TrampTmp->setAlignment(TRAMPOLINE_ALIGNMENT);
-  TrampTmp->setName("TRAMP");
-
-  Value *Func = EmitMemory(gimple_call_arg(stmt, 1));
-  Value *Chain = EmitMemory(gimple_call_arg(stmt, 2));
-
+  Type *VPTy = Builder.getInt8PtrTy();
   Value *Ops[3] = {
-    Builder.CreateBitCast(TrampTmp, VPTy),
+    Builder.CreateBitCast(Tramp, VPTy),
     Builder.CreateBitCast(Func, VPTy),
     Builder.CreateBitCast(Chain, VPTy)
   };
 
   Function *Intr = Intrinsic::getDeclaration(TheModule,
                                              Intrinsic::init_trampoline);
-  Value *Adjusted = Builder.CreateCall(Intr, Ops, "adjusted");
-
-  // Store the llvm.init.trampoline result to the GCC trampoline storage.
-  assert(TD.getPointerSize() <= TRAMPOLINE_SIZE &&
-         "Trampoline smaller than a pointer!");
-  Value *Tramp = EmitMemory(gimple_call_arg(stmt, 0));
-  Tramp = Builder.CreateBitCast(Tramp, Adjusted->getType()->getPointerTo());
-  StoreInst *Store = Builder.CreateStore(Adjusted, Tramp);
-
-  // The store has the alignment of the trampoline storage.
-  unsigned Align = TYPE_ALIGN(TREE_TYPE(TREE_TYPE(gimple_call_arg(stmt, 0))))/8;
-  Store->setAlignment(Align);
-
-  // The GCC trampoline storage is constant from this point on.   Tell this to
-  // the optimizers.
-  Intr = Intrinsic::getDeclaration(TheModule, Intrinsic::invariant_start);
-  Ops[0] = Builder.getInt64(TRAMPOLINE_SIZE);
-  Ops[1] = Builder.CreateBitCast(Tramp, VPTy);
-  Builder.CreateCall(Intr, ArrayRef<Value *>(Ops, 2));
-
+  Builder.CreateCall(Intr, Ops);
   return true;
 }
 
