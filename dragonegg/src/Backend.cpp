@@ -326,6 +326,8 @@ static void ConfigureLLVM(void) {
   if (flag_split_stack)
     Args.push_back("--segmented-stacks");
 #endif
+  // Enable the experimental vector type legalization by element promotion code.
+  Args.push_back("--promote-elements");
 
   // If there are options that should be passed through to the LLVM backend
   // directly from the command line, do so now.  This is mainly for debugging
