@@ -273,11 +273,6 @@ enum x86_64_reg_class
     else if (target_flags_explicit & OPTION_MASK_ISA_64BIT)	\
       F.AddFeature("64bit", false);				\
 								\
-    if (TARGET_MMX)						\
-      F.AddFeature("mmx");					\
-    else if (target_flags_explicit & OPTION_MASK_ISA_MMX)	\
-      F.AddFeature("mmx", false);				\
-								\
     if (TARGET_3DNOW)						\
       F.AddFeature("3dnow");					\
     else if (target_flags_explicit & OPTION_MASK_ISA_3DNOW)	\
@@ -287,6 +282,41 @@ enum x86_64_reg_class
       F.AddFeature("3dnowa");					\
     else if (target_flags_explicit & OPTION_MASK_ISA_3DNOW_A)	\
       F.AddFeature("3dnowa", false);				\
+								\
+    if (TARGET_AES)						\
+      F.AddFeature("aes");					\
+    else if (target_flags_explicit & OPTION_MASK_ISA_AES)	\
+      F.AddFeature("aes", false);				\
+								\
+    if (TARGET_AVX)						\
+      F.AddFeature("avx");					\
+    else if (target_flags_explicit & OPTION_MASK_ISA_AVX)	\
+      F.AddFeature("avx", false);				\
+								\
+    if (TARGET_CMPXCHG16B)					\
+      F.AddFeature("cmpxchg16b");				\
+    else if (target_flags_explicit & OPTION_MASK_ISA_CX16)	\
+      F.AddFeature("cmpxchg16b", false);			\
+								\
+    if (TARGET_FMA)						\
+      F.AddFeature("fma3");					\
+    else if (target_flags_explicit & OPTION_MASK_ISA_FMA)	\
+      F.AddFeature("fma3", false);				\
+								\
+    if (TARGET_FMA4)						\
+      F.AddFeature("fma4");					\
+    else if (target_flags_explicit & OPTION_MASK_ISA_FMA4)	\
+      F.AddFeature("fma4", false);				\
+								\
+    if (TARGET_MMX)						\
+      F.AddFeature("mmx");					\
+    else if (target_flags_explicit & OPTION_MASK_ISA_MMX)	\
+      F.AddFeature("mmx", false);				\
+								\
+    if (TARGET_POPCNT)						\
+      F.AddFeature("popcnt");					\
+    else if (target_flags_explicit & OPTION_MASK_ISA_POPCNT)	\
+      F.AddFeature("popcnt", false);				\
 								\
     if (TARGET_SSE)						\
       F.AddFeature("sse");					\
@@ -303,11 +333,6 @@ enum x86_64_reg_class
     else if (target_flags_explicit & OPTION_MASK_ISA_SSE3)	\
       F.AddFeature("sse3", false);				\
 								\
-    if (TARGET_SSSE3)						\
-      F.AddFeature("ssse3");					\
-    else if (target_flags_explicit & OPTION_MASK_ISA_SSSE3)	\
-      F.AddFeature("ssse3", false);				\
-								\
     if (TARGET_SSE4_1)						\
       F.AddFeature("sse41");					\
     else if (target_flags_explicit & OPTION_MASK_ISA_SSE4_1)	\
@@ -318,20 +343,15 @@ enum x86_64_reg_class
     else if (target_flags_explicit & OPTION_MASK_ISA_SSE4_2)	\
       F.AddFeature("sse42", false);				\
 								\
-    if (TARGET_AVX)						\
-      F.AddFeature("avx");					\
-    else if (target_flags_explicit & OPTION_MASK_ISA_AVX)	\
-      F.AddFeature("avx", false);				\
-								\
-    if (TARGET_FMA)						\
-      F.AddFeature("fma3");					\
-    else if (target_flags_explicit & OPTION_MASK_ISA_FMA)	\
-      F.AddFeature("fma3", false);				\
-								\
     if (TARGET_SSE4A)						\
       F.AddFeature("sse4a");					\
     else if (target_flags_explicit & OPTION_MASK_ISA_SSE4A)	\
       F.AddFeature("sse4a", false);				\
+								\
+    if (TARGET_SSSE3)						\
+      F.AddFeature("ssse3");					\
+    else if (target_flags_explicit & OPTION_MASK_ISA_SSSE3)	\
+      F.AddFeature("ssse3", false);				\
   }
 
 #define LLVM_SET_IMPLICIT_FLOAT(flag_no_implicit_float)       \
