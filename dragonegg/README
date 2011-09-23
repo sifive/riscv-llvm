@@ -112,9 +112,9 @@ If you renamed dragonegg.so to something else, for example llvm.so, replace
 
 -fplugin-arg-dragonegg-enable-gcc-optzns
   Run the GCC tree optimizers rather than the LLVM IR optimizers (normally all
-  GCC optimizations are disabled).  This disables the LLVM IR optimizers, except
-  for a small set of cleanup passes (to override this and run the usual set of
-  LLVM IR optimizers, use the -fplugin-arg-dragonegg-llvm-ir-optimize option).
+  GCC optimizations are disabled).  By default this severely reduces the amount
+  of LLVM IR optimization.  Use -O4 to -O6 to have LLVM optimize harder, or set
+  an explicit level using the -fplugin-arg-dragonegg-llvm-ir-optimize option.
 
 -fplugin-arg-dragonegg-save-gcc-output
   GCC assembler output is normally redirected to /dev/null so that it doesn't

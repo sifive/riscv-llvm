@@ -207,16 +207,39 @@ static CodeGenOpt::Level CodeGenOptLevel() {
 /// PerFunctionOptLevel - The optimization level to be used by the per-function
 /// IR optimizers.
 static int PerFunctionOptLevel() {
-  return LLVMIROptimizeArg >= 0 ? LLVMIROptimizeArg : optimize;
+  // If the user supplied an LLVM optimization level then use it.
+  if (LLVMIROptimizeArg >= 0)
+    return LLVMIROptimizeArg;
+  // If the GCC optimizers were run then tone down the LLVM optimization level:
+  //   GCC | LLVM
+  //   ----------
+  //     0 |   0
+  //  >= 1 |   1 (per-function maximum)
+  if (EnableGCCOptimizations)
+    return optimize > 0;
+  // Otherwise use the GCC optimization level.
+  return optimize;
 }
 
 /// ModuleOptLevel - The optimization level to be used by the module level IR
 /// optimizers.
 static int ModuleOptLevel() {
+  // If the user supplied an LLVM optimization level then use it.
   if (LLVMIROptimizeArg >= 0)
     return LLVMIROptimizeArg;
+  // If the GCC optimizers were run then tone down the LLVM optimization level:
+  //   GCC | LLVM
+  //   ----------
+  //     0 |   0
+  //     1 |   0
+  //     2 |   1
+  //     3 |   1
+  //     4 |   2
+  //     5 |   2
+  //  >= 6 |   3 (per-module maximum)
   if (EnableGCCOptimizations)
-    return 0;
+    return optimize / 2;
+  // Otherwise use the GCC optimization level.
   return optimize;
 }
 
