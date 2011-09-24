@@ -214,9 +214,9 @@ static int PerFunctionOptLevel() {
   //   GCC | LLVM
   //   ----------
   //     0 |   0
-  //  >= 1 |   1 (per-function maximum)
+  //     1 |   1 (per-function maximum)
   if (EnableGCCOptimizations)
-    return optimize > 0;
+    return (optimize + 1) / 2;
   // Otherwise use the GCC optimization level.
   return optimize;
 }
@@ -236,7 +236,7 @@ static int ModuleOptLevel() {
   //     3 |   1
   //     4 |   2
   //     5 |   2
-  //  >= 6 |   3 (per-module maximum)
+  //     6 |   3 (per-module maximum)
   if (EnableGCCOptimizations)
     return optimize / 2;
   // Otherwise use the GCC optimization level.
