@@ -124,7 +124,8 @@ static void NameValue(Value *V, tree t) {
 }
 
 /// SelectFPName - Helper for choosing a name depending on whether a floating
-/// point type is float, double or long double.
+/// point type is float, double or long double.  Returns an empty string for
+/// other types, such as the x86 128 bit floating point type.
 static StringRef SelectFPName(tree type, StringRef FloatName,
                               StringRef DoubleName, StringRef LongDoubleName) {
   assert(SCALAR_FLOAT_TYPE_P(type) && "Expected a floating point type!");
@@ -132,9 +133,9 @@ static StringRef SelectFPName(tree type, StringRef FloatName,
     return FloatName;
   if (TYPE_MODE(type) == TYPE_MODE(double_type_node))
     return DoubleName;
-  assert(TYPE_MODE(type) == TYPE_MODE(long_double_type_node) &&
-         "Unknown floating point type!");
-  return LongDoubleName;
+  if (TYPE_MODE(type) == TYPE_MODE(long_double_type_node))
+    return LongDoubleName;
+  return StringRef();
 }
 
 
@@ -4607,6 +4608,7 @@ Value *TreeToLLVM::EmitBuiltinLCEIL(gimple stmt) {
   // First call the appropriate version of "ceil".
   tree op = gimple_call_arg(stmt, 0);
   StringRef Name = SelectFPName(TREE_TYPE(op), "ceilf", "ceil", "ceill");
+  assert(!Name.empty() && "Unsupported floating point type!");
   CallInst *Call = EmitSimpleCall(Name, TREE_TYPE(op), op, NULL);
   Call->setDoesNotThrow();
   Call->setDoesNotAccessMemory();
@@ -4626,6 +4628,7 @@ Value *TreeToLLVM::EmitBuiltinLFLOOR(gimple stmt) {
   // First call the appropriate version of "floor".
   tree op = gimple_call_arg(stmt, 0);
   StringRef Name = SelectFPName(TREE_TYPE(op), "floorf", "floor", "floorl");
+  assert(!Name.empty() && "Unsupported floating point type!");
   CallInst *Call = EmitSimpleCall(Name, TREE_TYPE(op), op, NULL);
   Call->setDoesNotThrow();
   Call->setDoesNotAccessMemory();
@@ -4647,6 +4650,7 @@ Value *TreeToLLVM::EmitBuiltinCEXPI(gimple stmt) {
     tree arg = gimple_call_arg(stmt, 0);
     tree arg_type = TREE_TYPE(arg);
     StringRef Name = SelectFPName(arg_type, "sincosf", "sincos", "sincosl");
+    assert(!Name.empty() && "Unsupported floating point type!");
 
     // Create stack slots to store the real (cos) and imaginary (sin) parts in.
     Value *Val = EmitRegister(arg);
@@ -4693,6 +4697,7 @@ Value *TreeToLLVM::EmitBuiltinCEXPI(gimple stmt) {
     tree arg = gimple_call_arg(stmt, 0);
     tree arg_type = TREE_TYPE(arg);
     StringRef Name = SelectFPName(arg_type, "cexpf", "cexp", "cexpl");
+    assert(!Name.empty() && "Unsupported floating point type!");
 
     // Get the GCC and LLVM function types for cexp.
     tree cplx_type = gimple_call_return_type(stmt);
@@ -6275,7 +6280,9 @@ Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
     Value *Cmp = Builder.CreateICmp(pred, Op,
                     Constant::getNullValue(Op->getType()), "abscond");
     return Builder.CreateSelect(Cmp, Op, OpN, Op->getName()+"abs");
-  } else if (TREE_CODE(TREE_TYPE(op)) == VECTOR_TYPE) {
+  }
+
+  if (TREE_CODE(TREE_TYPE(op)) == VECTOR_TYPE) {
     // Clear the sign bits.
     Value *Op = EmitRegister(op);
     VectorType *VecTy = cast<VectorType>(Op->getType());
@@ -6297,10 +6304,29 @@ Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
 
   // Turn FP abs into fabs/fabsf.
   StringRef Name = SelectFPName(TREE_TYPE(op), "fabsf", "fabs", "fabsl");
-  CallInst *Call = EmitSimpleCall(Name, TREE_TYPE(op), op, NULL);
-  Call->setDoesNotThrow();
-  Call->setDoesNotAccessMemory();
-  return Call;
+  if (!Name.empty()) {
+    CallInst *Call = EmitSimpleCall(Name, TREE_TYPE(op), op, NULL);
+    Call->setDoesNotThrow();
+    Call->setDoesNotAccessMemory();
+    return Call;
+  }
+
+  // Otherwise clear the sign bit.
+  Value *Op = EmitRegister(op);
+  Type *Ty = Op->getType();
+
+  // Mask = ~(1 << (Bits-1)).
+  unsigned Bits = Ty->getPrimitiveSizeInBits();
+  Type *IntTy = IntegerType::get(Context, Bits);
+  APInt API = APInt::getAllOnesValue(Bits);
+  API.clearBit(Bits-1);
+  Constant *Mask = ConstantInt::get(IntTy, API);
+
+  // Zap the sign bit.
+  Op = Builder.CreateBitCast(Op, IntTy);
+  Op = Builder.CreateAnd(Op, Mask);
+  Op = Builder.CreateBitCast(Op, Ty);
+  return Op;
 }
 
 Value *TreeToLLVM::EmitReg_BIT_NOT_EXPR(tree op) {
