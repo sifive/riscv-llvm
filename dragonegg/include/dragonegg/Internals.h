@@ -646,6 +646,8 @@ private:
   bool EmitBuiltinVAEnd(gimple_statement_d *stmt);
   bool EmitBuiltinVAStart(gimple_statement_d *stmt);
 
+  bool EmitBuiltinEHCopyValues(gimple_statement_d *stmt);
+  bool EmitBuiltinEHFilter(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinEHPointer(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinDwarfCFA(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinDwarfSPColumn(gimple_statement_d *stmt, Value *&Result);

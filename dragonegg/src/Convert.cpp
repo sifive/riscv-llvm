@@ -3748,6 +3748,10 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_UNREACHABLE:    return EmitBuiltinUnreachable();
 
   // Exception handling builtins.
+  case BUILT_IN_EH_COPY_VALUES:
+    return EmitBuiltinEHCopyValues(stmt);
+  case BUILT_IN_EH_FILTER:
+    return EmitBuiltinEHFilter(stmt, Result);
   case BUILT_IN_EH_POINTER:
     return EmitBuiltinEHPointer(stmt, Result);
 
@@ -5035,6 +5039,31 @@ bool TreeToLLVM::EmitBuiltinUnreachable() {
 
 // Exception handling builtins.
 
+bool TreeToLLVM::EmitBuiltinEHCopyValues(gimple stmt) {
+  unsigned DstRegionNo = tree_low_cst(gimple_call_arg(stmt, 0), 0);
+  unsigned SrcRegionNo = tree_low_cst(gimple_call_arg(stmt, 1), 0);
+  // Copy the exception pointer.
+  Value *ExcPtr = Builder.CreateLoad(getExceptionPtr(SrcRegionNo));
+  Builder.CreateStore(ExcPtr, getExceptionPtr(DstRegionNo));
+  // Copy the selector value.
+  Value *Filter = Builder.CreateLoad(getExceptionFilter(SrcRegionNo));
+  Builder.CreateStore(Filter, getExceptionFilter(DstRegionNo));
+  return true;
+}
+
+bool TreeToLLVM::EmitBuiltinEHFilter(gimple stmt, Value *&Result) {
+  // Lookup the local that holds the selector value for this region.
+  unsigned RegionNo = tree_low_cst(gimple_call_arg(stmt, 0), 0);
+  AllocaInst *Filter = getExceptionFilter(RegionNo);
+  // Load the selector value out.
+  Result = Builder.CreateLoad(Filter);
+  // Ensure the returned value has the right integer type.
+  tree type = gimple_call_return_type(stmt);
+  Result = CastToAnyType(Result, /*isSigned*/true, getRegType(type),
+                         /*isSigned*/!TYPE_UNSIGNED(type));
+  return true;
+}
+
 bool TreeToLLVM::EmitBuiltinEHPointer(gimple stmt, Value *&Result) {
   // Lookup the local that holds the exception pointer for this region.
   unsigned RegionNo = tree_low_cst(gimple_call_arg(stmt, 0), 0);
@@ -5043,7 +5072,7 @@ bool TreeToLLVM::EmitBuiltinEHPointer(gimple stmt, Value *&Result) {
   Result = Builder.CreateLoad(ExcPtr);
   // Ensure the returned value has the right pointer type.
   tree type = gimple_call_return_type(stmt);
-  Result = Builder.CreateBitCast(Result, ConvertType(type));
+  Result = Builder.CreateBitCast(Result, getRegType(type));
   return true;
 }
 
