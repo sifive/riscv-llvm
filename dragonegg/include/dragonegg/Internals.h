@@ -601,13 +601,13 @@ private:
   void EmitModifyOfRegisterVariable(tree_node *vardecl, Value *RHS);
 
   // Helpers for Builtin Function Expansion.
-  void EmitMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device);
   Value *BuildVector(const std::vector<Value*> &Elts);
   Value *BuildVector(Value *Elt, ...);
   Value *BuildVectorShuffle(Value *InVec1, Value *InVec2, ...);
-  Value *BuildBinaryAtomicBuiltin(gimple_statement_d *stmt, Intrinsic::ID id);
-  Value *BuildCmpAndSwapAtomicBuiltin(gimple_statement_d *stmt, unsigned Bits,
-                                      bool isBool);
+  Value *BuildBinaryAtomic(gimple_statement_d *stmt, AtomicRMWInst::BinOp Kind,
+                           unsigned PostOp = 0);
+  Value *BuildCmpAndSwapAtomic(gimple_statement_d *stmt, unsigned Bits,
+                               bool isBool);
 
   // Builtin Function Expansion.
   bool EmitBuiltinCall(gimple_statement_d *stmt, tree_node *fndecl,
