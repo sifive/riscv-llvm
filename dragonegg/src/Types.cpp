@@ -737,6 +737,14 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   int flags = flags_from_decl_or_type(decl ? decl : type);
 
+  // Check for 'readnone' and 'readonly' function attributes.
+  if (flags & ECF_CONST)
+    FnAttributes |= Attribute::ReadNone;
+  else if (flags & ECF_PURE)
+    FnAttributes |= Attribute::ReadOnly;
+
+  // TODO: Handle ECF_LOOPING_CONST_OR_PURE
+
   // Check for 'noreturn' function attribute.
   if (flags & ECF_NORETURN)
     FnAttributes |= Attribute::NoReturn;
@@ -745,20 +753,9 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   if (flags & ECF_NOTHROW)
     FnAttributes |= Attribute::NoUnwind;
 
-  // Check for 'readnone' function attribute.
-  // Both PURE and CONST will be set if the user applied
-  // __attribute__((const)) to a function the compiler
-  // knows to be pure, such as log.  A user or (more
-  // likely) libm implementor might know their local log
-  // is in fact const, so this should be valid (and gcc
-  // accepts it).  But llvm IR does not allow both, so
-  // set only ReadNone.
-  if (flags & ECF_CONST)
-    FnAttributes |= Attribute::ReadNone;
-
-  // Check for 'readonly' function attribute.
-  if (flags & ECF_PURE && !(flags & ECF_CONST))
-    FnAttributes |= Attribute::ReadOnly;
+  // Check for 'returnstwice' function attribute.
+  if (flags & ECF_RETURNS_TWICE)
+    FnAttributes |= Attribute::ReturnsTwice;
 
   // Since they write the return value through a pointer,
   // 'sret' functions cannot be 'readnone' or 'readonly'.
