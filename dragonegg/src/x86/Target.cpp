@@ -829,6 +829,36 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateCall(sqrtps, Ops[0]);
     return true;
   }
+  case vec_perm_v16qi:
+  case vec_perm_v16qi_u:
+  case vec_perm_v2df:
+  case vec_perm_v2di:
+  case vec_perm_v2di_u:
+  case vec_perm_v4df:
+  case vec_perm_v4sf:
+  case vec_perm_v4si:
+  case vec_perm_v4si_u:
+  case vec_perm_v8hi:
+  case vec_perm_v8hi_u:
+  case vec_perm_v8sf: {
+    VectorType *VecTy = dyn_cast<VectorType>(Ops[0]->getType());
+    if (Ops[1]->getType() != VecTy)
+      return false;
+    unsigned NElts = VecTy->getNumElements();
+    Constant *Mask = dyn_cast<Constant>(Ops[2]);
+    if (!Mask)
+      return false;
+    VectorType *MaskTy = dyn_cast<VectorType>(Mask->getType());
+    if (!MaskTy || MaskTy->getNumElements() != NElts ||
+        !MaskTy->getElementType()->isIntegerTy())
+      return false;
+    if (!MaskTy->getElementType()->isIntegerTy(32))
+      Mask = ConstantExpr::getIntegerCast(Mask,
+                                          VectorType::get(Builder.getInt32Ty(),
+                                                          NElts), false);
+    Result = Builder.CreateShuffleVector(Ops[0], Ops[1], Mask);
+    return true;
+  }
   }
   DieAbjectly("Builtin not implemented!", stmt);
   return false;
