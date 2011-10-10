@@ -4188,15 +4188,12 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       EmitMemory(gimple_call_arg(stmt, 0)),
       EmitMemory(gimple_call_arg(stmt, 1))
     };
-    Type* Ty[2];
-    Ty[0] = ResultTy;
-    Ty[1] = ResultTy->getPointerTo();
-    C[0] = Builder.CreateBitCast(C[0], Ty[1]);
-    C[1] = Builder.CreateIntCast(C[1], Ty[0],
+    C[0] = Builder.CreateBitCast(C[0], ResultTy->getPointerTo());
+    C[1] = Builder.CreateIntCast(C[1], ResultTy,
                                  /*isSigned*/!TYPE_UNSIGNED(return_type),
                                  "cast");
-    Value *Result = Builder.CreateAtomicRMW(AtomicRMWInst::Nand, C[0], C[1],
-                                            SequentiallyConsistent);
+    Result = Builder.CreateAtomicRMW(AtomicRMWInst::Nand, C[0], C[1],
+                                     SequentiallyConsistent);
 
     Result = Builder.CreateAnd(Builder.CreateNot(Result), C[1]);
     Result = Builder.CreateIntToPtr(Result, ResultTy);
