@@ -6952,9 +6952,9 @@ Value *TreeToLLVM::EmitReg_VEC_PACK_TRUNC_EXPR(tree type, tree op0, tree op1) {
   // -> <2 x float>.
   unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
   Type *DestTy = VectorType::get(getRegType(TREE_TYPE(type)), Length);
-  LHS = CastToAnyType(LHS, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
+  LHS = CastToAnyType(LHS, !TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(op0))), DestTy,
                       !TYPE_UNSIGNED(TREE_TYPE(type)));
-  RHS = CastToAnyType(RHS, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
+  RHS = CastToAnyType(RHS, !TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(op0))), DestTy,
                       !TYPE_UNSIGNED(TREE_TYPE(type)));
 
   // Concatenate the truncated inputs into one vector of twice the length,
@@ -6976,7 +6976,7 @@ Value *TreeToLLVM::EmitReg_VecUnpackHiExpr(tree type, tree op0) {
   // Extend the input elements to the output element type, eg: <2 x float>
   // -> <2 x double>.
   Type *DestTy = getRegType(type);
-  return CastToAnyType(Op, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
+  return CastToAnyType(Op, !TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(op0))), DestTy,
                        !TYPE_UNSIGNED(TREE_TYPE(type)));
 }
 
@@ -6990,7 +6990,7 @@ Value *TreeToLLVM::EmitReg_VecUnpackLoExpr(tree type, tree op0) {
   // Extend the input elements to the output element type, eg: <2 x float>
   // -> <2 x double>.
   Type *DestTy = getRegType(type);
-  return CastToAnyType(Op, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
+  return CastToAnyType(Op, !TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(op0))), DestTy,
                        !TYPE_UNSIGNED(TREE_TYPE(type)));
 }
 
@@ -7006,6 +7006,17 @@ Value *TreeToLLVM::EmitReg_VEC_WIDEN_MULT_LO_EXPR(tree type, tree op0,
   Value *Lo0 = EmitReg_VecUnpackLoExpr(type, op0);
   Value *Lo1 = EmitReg_VecUnpackLoExpr(type, op1);
   return Builder.CreateMul(Lo0, Lo1);
+}
+
+Value *TreeToLLVM::EmitReg_WIDEN_MULT_EXPR(tree type, tree op0, tree op1) {
+  Value *LHS = EmitRegister(op0);
+  Value *RHS = EmitRegister(op1);
+  Type *DestTy = getRegType(type);
+  LHS = CastToAnyType(LHS, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
+                      !TYPE_UNSIGNED(type));
+  RHS = CastToAnyType(RHS, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
+                      !TYPE_UNSIGNED(type));
+  return Builder.CreateMul(LHS, RHS);
 }
 
 
@@ -8002,6 +8013,8 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_VEC_WIDEN_MULT_HI_EXPR(type, rhs1, rhs2); break;
   case VEC_WIDEN_MULT_LO_EXPR:
     RHS = EmitReg_VEC_WIDEN_MULT_LO_EXPR(type, rhs1, rhs2); break;
+  case WIDEN_MULT_EXPR:
+    RHS = EmitReg_WIDEN_MULT_EXPR(type, rhs1, rhs2); break;
   }
 
   return TriviallyTypeConvert(RHS, getRegType(type));
