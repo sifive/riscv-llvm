@@ -211,6 +211,10 @@ namespace {
 /// if the array has variable or unknown length.
 uint64_t ArrayLengthOf(tree type) {
   assert(TREE_CODE(type) == ARRAY_TYPE && "Only for array types!");
+  // Workaround for missing sanity checks in older versions of GCC.
+  if ((GCC_MINOR == 5 && GCC_MICRO < 3) || (GCC_MINOR == 6 && GCC_MICRO < 2))
+    if (!TYPE_DOMAIN(type) || !TYPE_MAX_VALUE(TYPE_DOMAIN(type)))
+      return NO_LENGTH;
   tree range = array_type_nelts(type); // The number of elements minus one.
   // Bail out if the array has variable or unknown length.
   if (!isInt64(range, false))
