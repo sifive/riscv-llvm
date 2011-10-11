@@ -6994,6 +6994,20 @@ Value *TreeToLLVM::EmitReg_VecUnpackLoExpr(tree type, tree op0) {
                        !TYPE_UNSIGNED(TREE_TYPE(type)));
 }
 
+Value *TreeToLLVM::EmitReg_VEC_WIDEN_MULT_HI_EXPR(tree type, tree op0,
+                                                  tree op1) {
+  Value *Hi0 = EmitReg_VecUnpackHiExpr(type, op0);
+  Value *Hi1 = EmitReg_VecUnpackHiExpr(type, op1);
+  return Builder.CreateMul(Hi0, Hi1);
+}
+
+Value *TreeToLLVM::EmitReg_VEC_WIDEN_MULT_LO_EXPR(tree type, tree op0,
+                                                  tree op1) {
+  Value *Lo0 = EmitReg_VecUnpackLoExpr(type, op0);
+  Value *Lo1 = EmitReg_VecUnpackLoExpr(type, op1);
+  return Builder.CreateMul(Lo0, Lo1);
+}
+
 
 //===----------------------------------------------------------------------===//
 //                        ... Exception Handling ...
@@ -7984,6 +7998,10 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case VEC_UNPACK_FLOAT_LO_EXPR:
   case VEC_UNPACK_LO_EXPR:
     RHS = EmitReg_VecUnpackLoExpr(type, rhs1); break;
+  case VEC_WIDEN_MULT_HI_EXPR:
+    RHS = EmitReg_VEC_WIDEN_MULT_HI_EXPR(type, rhs1, rhs2); break;
+  case VEC_WIDEN_MULT_LO_EXPR:
+    RHS = EmitReg_VEC_WIDEN_MULT_LO_EXPR(type, rhs1, rhs2); break;
   }
 
   return TriviallyTypeConvert(RHS, getRegType(type));
