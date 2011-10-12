@@ -1034,6 +1034,7 @@ BasicBlock *TreeToLLVM::getLabelDeclBlock(tree LabelDecl) {
 }
 
 void TreeToLLVM::EmitBasicBlock(basic_block bb) {
+  location_t saved_loc = input_location;
   ++NumBasicBlocks;
 
   // Avoid outputting a pointless branch at the end of the entry block.
@@ -1070,9 +1071,9 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
   for (gimple_stmt_iterator gsi = gsi_start_bb(bb); !gsi_end_p(gsi);
        gsi_next(&gsi)) {
     gimple stmt = gsi_stmt(gsi);
+    input_location = gimple_location(stmt);
     ++NumStatements;
 
-    input_location = gimple_location(stmt);
     if (EmitDebugInfo()) {
       if (gimple_has_location(stmt)) {
         TheDebugInfo->setLocationFile(gimple_filename(stmt));
@@ -1135,7 +1136,6 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
     }
   }
 
-  input_location = UNKNOWN_LOCATION;
   if (EmitDebugInfo()) {
     TheDebugInfo->setLocationFile("");
     TheDebugInfo->setLocationLine(0);
@@ -1147,9 +1147,13 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
   edge_iterator ei;
   FOR_EACH_EDGE (e, ei, bb->succs)
     if (e->flags & EDGE_FALLTHRU) {
+      input_location = e->goto_locus;
+      // TODO: set the debug info location.
       Builder.CreateBr(getBasicBlock(e->dest));
       break;
     }
+
+  input_location = saved_loc;
 }
 
 Function *TreeToLLVM::EmitFunction() {
