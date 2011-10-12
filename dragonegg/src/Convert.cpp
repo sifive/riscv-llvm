@@ -1072,6 +1072,7 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
     gimple stmt = gsi_stmt(gsi);
     ++NumStatements;
 
+    input_location = gimple_location(stmt);
     if (EmitDebugInfo()) {
       if (gimple_has_location(stmt)) {
         TheDebugInfo->setLocationFile(gimple_filename(stmt));
@@ -1134,6 +1135,7 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
     }
   }
 
+  input_location = UNKNOWN_LOCATION;
   if (EmitDebugInfo()) {
     TheDebugInfo->setLocationFile("");
     TheDebugInfo->setLocationLine(0);
@@ -3123,11 +3125,10 @@ static std::string ConvertInlineAsmStr(gimple stmt, unsigned NumOperands) {
         unsigned long OpNum = strtoul(AsmStr, &EndPtr, 10);
 
         if (AsmStr == EndPtr) {
-          error_at(gimple_location(stmt),
-                   "operand number missing after %%-letter");
+          error("operand number missing after %%-letter");
           return Result;
         } else if (OpNum >= NumOperands) {
-          error_at(gimple_location(stmt), "operand number out of range");
+          error("operand number out of range");
           return Result;
         }
         Result += "${" + utostr(OpNum) + ":" + EscapedChar + "}";
@@ -3642,8 +3643,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       Intrinsic::ID IntrinsicID =
         Intrinsic::getIntrinsicForGCCBuiltin(TargetPrefix, BuiltinName);
       if (IntrinsicID == Intrinsic::not_intrinsic) {
-        error_at(gimple_location(stmt),
-                 "unsupported target builtin %<%s%> used", BuiltinName);
+        error("unsupported target builtin %<%s%> used", BuiltinName);
         Type *ResTy = ConvertType(gimple_call_return_type(stmt));
         if (ResTy->isSingleValueType())
           Result = UndefValue::get(ResTy);
@@ -4565,9 +4565,8 @@ static bool OptimizeIntoPlainBuiltIn(gimple stmt, Value *Len, Value *Size) {
   if (!LenCI)
     return false;
   if (SizeCI->getValue().ult(LenCI->getValue())) {
-    warning_at (gimple_location(stmt), 0,
-                "call to %D will always overflow destination buffer",
-                gimple_call_fndecl(stmt));
+    warning(0, "call to %D will always overflow destination buffer",
+            gimple_call_fndecl(stmt));
     return false;
   }
   return true;
@@ -5016,8 +5015,7 @@ bool TreeToLLVM::EmitBuiltinExpect(gimple stmt, Value *&Result) {
 
 bool TreeToLLVM::EmitBuiltinVAStart(gimple stmt) {
   if (gimple_call_num_args(stmt) < 2) {
-    error_at (gimple_location(stmt),
-              "too few arguments to function %<va_start%>");
+    error("too few arguments to function %<va_start%>");
     return true;
   }
 
@@ -7124,8 +7122,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       if (*p == ',')
         ++NumInputChoices;
     if (NumChoices && (NumInputChoices != NumChoices)) {
-      error_at(gimple_location(stmt), "operand constraints for %<asm%> differ "
-               "in number of alternatives");
+      error("operand constraints for %<asm%> differ in number of alternatives");
       return;
     }
     if (NumChoices == 0)
@@ -7139,8 +7136,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       if (*p == ',')
         ++NumOutputChoices;
     if (NumChoices && (NumOutputChoices != NumChoices)) {
-      error_at(gimple_location(stmt), "operand constraints for %<asm%> differ "
-               "in number of alternatives");
+      error("operand constraints for %<asm%> differ in number of alternatives");
       return;
     }
     if (NumChoices == 0)
@@ -7313,8 +7309,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
         } else {
           // Codegen only supports indirect operands with mem constraints.
           if (!AllowsMem)
-            error_at(gimple_location(stmt),
-                     "aggregate does not match inline asm register constraint");
+            error("aggregate does not match inline asm register constraint");
           // Otherwise, emit our value as a lvalue.
           isIndirect = true;
           Op = LV.Ptr;
@@ -7348,17 +7343,15 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
         }
         if (OTy && OTy != OpTy) {
           if (!OTy->isSingleValueType() || !OpTy->isSingleValueType()) {
-            error_at(gimple_location(stmt),
-                     "unsupported inline asm: input constraint with a matching "
-                     "output constraint of incompatible type!");
+            error("unsupported inline asm: input constraint with a matching "
+                  "output constraint of incompatible type!");
             return;
           }
           unsigned OTyBits = TD.getTypeSizeInBits(OTy);
           unsigned OpTyBits = TD.getTypeSizeInBits(OpTy);
           if (OTyBits == 0 || OpTyBits == 0) {
-            error_at(gimple_location(stmt), "unsupported inline asm: input "
-                     "constraint with a matching output constraint of "
-                     "incompatible type!");
+            error("unsupported inline asm: input constraint with a matching "
+                  "output constraint of incompatible type!");
             return;
           } else if (OTyBits < OpTyBits) {
             // The output is smaller than the input.
@@ -7376,9 +7369,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
               Op = CastToAnyType(Op, IsSigned, OTy,
                                  CallResultTypes[OutputIndex].second);
             } else {
-              error_at(gimple_location(stmt), "unsupported inline asm: input "
-                       "constraint with a matching output constraint of "
-                       "incompatible type!");
+              error("unsupported inline asm: input constraint with a matching "
+                    "output constraint of incompatible type!");
               return;
             }
           } else if (OTyBits > OpTyBits) {
@@ -7386,9 +7378,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
             // mentioned in the asm string then we cannot safely promote it, so
             // bail out.
             if (isOperandMentioned(stmt, NumOutputs + i)) {
-              error_at(gimple_location(stmt), "unsupported inline asm: input "
-                       "constraint with a matching output constraint of "
-                       "incompatible type!");
+              error("unsupported inline asm: input constraint with a matching "
+                    "output constraint of incompatible type!");
               return;
             }
             Op = CastToAnyType(Op, IsSigned, OTy,
@@ -7472,8 +7463,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     switch (RegCode) {
     case -1:     // Nothing specified?
     case -2:     // Invalid.
-      error_at(gimple_location(stmt), "unknown register name %qs in %<asm%>",
-               RegName);
+      error("unknown register name %qs in %<asm%>", RegName);
       return;
     case -3:     // cc
       ConstraintStr += ",~{cc}";
@@ -7522,7 +7512,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
 
   // Make sure we're created a valid inline asm expression.
   if (!InlineAsm::Verify(FTy, ConstraintStr)) {
-    error_at(gimple_location(stmt), "Invalid or unsupported inline assembly!");
+    error("Invalid or unsupported inline assembly!");
     return;
   }
 
