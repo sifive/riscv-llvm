@@ -210,13 +210,6 @@ static int PerFunctionOptLevel() {
   // If the user supplied an LLVM optimization level then use it.
   if (LLVMIROptimizeArg >= 0)
     return LLVMIROptimizeArg;
-  // If the GCC optimizers were run then tone down the LLVM optimization level:
-  //   GCC | LLVM
-  //   ----------
-  //     0 |   0
-  //     1 |   1 (per-function maximum)
-  if (EnableGCCOptimizations)
-    return (optimize + 1) / 2;
   // Otherwise use the GCC optimization level.
   return optimize;
 }
@@ -233,12 +226,10 @@ static int ModuleOptLevel() {
   //     0 |   0
   //     1 |   0
   //     2 |   1
-  //     3 |   1
-  //     4 |   2
-  //     5 |   2
-  //     6 |   3 (per-module maximum)
+  //     3 |   2
+  //     4 |   3 (per-module maximum)
   if (EnableGCCOptimizations)
-    return optimize / 2;
+    return optimize > 0 ? optimize - 1 : 0;
   // Otherwise use the GCC optimization level.
   return optimize;
 }
