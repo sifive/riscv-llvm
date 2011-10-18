@@ -340,6 +340,9 @@ static void ConfigureLLVM(void) {
   if (flag_split_stack)
     Args.push_back("--segmented-stacks");
 #endif
+  // Binutils does not yet support this construct.  FIXME: Once GCC learns to
+  // detect support for this, condition this on what GCC detected.
+  Args.push_back("--disable-dwarf-directory");
 
   // If there are options that should be passed through to the LLVM backend
   // directly from the command line, do so now.  This is mainly for debugging
