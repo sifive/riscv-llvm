@@ -388,6 +388,7 @@ static Type *CheckTypeConversion(tree type, Type *Ty) {
   }
 #endif
 
+  (void)type;
   return Ty;
 }
 
