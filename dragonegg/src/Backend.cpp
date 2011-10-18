@@ -340,9 +340,6 @@ static void ConfigureLLVM(void) {
   if (flag_split_stack)
     Args.push_back("--segmented-stacks");
 #endif
-  // Binutils does not yet support this construct.  FIXME: Once GCC learns to
-  // detect support for this, condition this on what GCC detected.
-  Args.push_back("--disable-dwarf-directory");
 
   // If there are options that should be passed through to the LLVM backend
   // directly from the command line, do so now.  This is mainly for debugging
@@ -438,8 +435,12 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 
   TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr,
                                        RelocModel, CMModel);
-  TheTarget->setMCUseCFI(flag_dwarf2_cfi_asm);
   assert(TheTarget->getTargetData()->isBigEndian() == BYTES_BIG_ENDIAN);
+  TheTarget->setMCUseCFI(flag_dwarf2_cfi_asm);
+  // Binutils does not yet support the use of file directives with an explicit
+  // directory.  FIXME: Once GCC learns to detect support for this, condition
+  // on what GCC detected.
+  TheTarget->setMCUseDwarfDirectory(false);
 }
 
 /// CreateModule - Create and initialize a module to output LLVM IR to.
