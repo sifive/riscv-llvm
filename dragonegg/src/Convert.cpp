@@ -3217,6 +3217,10 @@ static std::string CanonicalizeConstraint(const char *Constraint) {
     }
   }
 
+  // If this constraint is multiple letters add a parsing helper prefix.
+  if (CONSTRAINT_LEN(*Constraint, Constraint) > 1)
+    Result += "^";
+
   while (*Constraint) {
     char ConstraintChar = *Constraint++;
 
