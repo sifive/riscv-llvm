@@ -31,7 +31,7 @@ LOADABLE_MODULE_OPTIONS=-shared -Wl,-O1 -Wl,--version-script=$(TOP_DIR)/exports.
 endif
 
 GCC_PLUGIN_DIR:=$(shell $(GCC) -print-file-name=plugin)
-GCC_VERSION:=$(shell $(GCC) -dumpversion)
+GCC_VERSION:=$(shell $(GCC) -dumpversion).0
 GCC_MAJOR=$(word 1, $(subst ., ,$(GCC_VERSION)))
 GCC_MINOR=$(word 2, $(subst ., ,$(GCC_VERSION)))
 GCC_MICRO=$(word 3, $(subst ., ,$(GCC_VERSION)))
