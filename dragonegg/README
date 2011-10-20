@@ -45,7 +45,7 @@ to build if your system gcc is gcc version 4.5 or 4.6.
 The plugin is compiled using the system compiler, and not with the gcc specified
 in the GCC variable (which wouldn't work if it is a cross compiler).  If you
 want to also compile the plugin with your copy gcc 4.5/4.6, you can do:
-  CC=PATH_TO_INSTALLED_GCC CXX=PATH_TO_INSTALLED_GCC GCC=PATH_TO_INSTALLED_GCC make
+  CXX=PATH_TO_INSTALLED_GCC GCC=PATH_TO_INSTALLED_GCC make
 
 The build system runs the "llvm-config" program (which should be in your path if
 you installed llvm properly in step 0) to find out about the copy of LLVM you
