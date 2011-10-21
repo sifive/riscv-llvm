@@ -1117,8 +1117,9 @@ Value *make_decl_llvm(tree decl) {
       // in the symbol table.  If this happens, the old one must be a forward
       // decl, just replace it with a cast of the new one.
       if (FnEntry->getName() != Name) {
-        GlobalVariable *G = TheModule->getGlobalVariable(Name, true);
-        assert(G && G->isDeclaration() && "A global turned into a function?");
+        GlobalValue *G = TheModule->getNamedValue(Name);
+        assert(G && (G->isDeclaration() || G->isWeakForLinker()) &&
+               "A global turned into a function?");
 
         // Replace any uses of "G" with uses of FnEntry.
         Constant *GInNewType = TheFolder->CreateBitCast(FnEntry, G->getType());
