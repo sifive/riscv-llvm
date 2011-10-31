@@ -2802,6 +2802,20 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     Client.clear();
   }
 
+  // If the caller and callee disagree about a parameter type but the difference
+  // is trivial, correct the type used by the caller.
+  for (unsigned i = 0, e = std::min((unsigned)CallOperands.size(),
+                                    FTy->getNumParams());
+       i != e; ++i) {
+    Type *ExpectedTy = FTy->getParamType(i);
+    Type *ActualTy = CallOperands[i]->getType();
+    if (ActualTy == ExpectedTy)
+      continue;
+    assert(isa<PointerType>(ActualTy) && isa<PointerType>(ExpectedTy) &&
+           "Type difference is not trivial!");
+    CallOperands[i] = Builder.CreateBitCast(CallOperands[i], ExpectedTy);
+  }
+
   // Unlike LLVM, GCC does not require that call statements provide a value for
   // every function argument (it passes rubbish for arguments with no value).
   // To get the same effect we pass 'undef' for any unspecified arguments.
