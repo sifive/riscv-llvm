@@ -213,12 +213,16 @@ for STAGE in $STAGES ; do
   if (( !USE_PER_STAGE_INSTALL_DIRECTORIES )) ; then
 
      if [ "x$PREV_DRAGONEGG_BUILD" != "x" ] ; then
+     # FIXME: LLVM produces different code on i386 depending on whether it was
+     # built by GCC or dragonegg.
+     if [ "x$STAGE" != "x1" ] ; then
        echo "Comparing $DRAGONEGG_BUILD objects to $PREV_DRAGONEGG_BUILD objects"
        cd $DRAGONEGG_BUILD
        for O in *.o ; do
          P=$PREV_DRAGONEGG_BUILD/$O
          $COMPARE $O $P
        done
+     fi
      fi
 
   fi
