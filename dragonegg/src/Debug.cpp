@@ -372,7 +372,7 @@ void DebugInfo::EmitFunctionEnd(bool EndFunction) {
 }
 
 /// EmitDeclare - Constructs the debug code for allocation of a new variable.
-void DebugInfo::EmitDeclare(tree decl, unsigned Tag, const char *Name,
+void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name,
                             tree type, Value *AI, LLVMBuilder &Builder) {
 
   // Ignore compiler generated temporaries.

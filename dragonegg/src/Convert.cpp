@@ -1862,12 +1862,10 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
   if (EmitDebugInfo()) {
     if (DECL_NAME(decl)) {
       TheDebugInfo->EmitDeclare(decl, dwarf::DW_TAG_auto_variable,
-                                AI->getNameStr().c_str(), TREE_TYPE(decl), AI,
-                                Builder);
+                                AI->getName(), TREE_TYPE(decl), AI, Builder);
     } else if (TREE_CODE(decl) == RESULT_DECL) {
       TheDebugInfo->EmitDeclare(decl, dwarf::DW_TAG_return_variable,
-                                AI->getNameStr().c_str(), TREE_TYPE(decl), AI,
-                                Builder);
+                                AI->getName(), TREE_TYPE(decl), AI, Builder);
     }
   }
 }
