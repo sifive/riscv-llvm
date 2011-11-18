@@ -434,7 +434,7 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 #endif
 
   TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr,
-                                       RelocModel, CMModel);
+                                       RelocModel, CMModel, CodeGenOptLevel());
   assert(TheTarget->getTargetData()->isBigEndian() == BYTES_BIG_ENDIAN);
   TheTarget->setMCUseCFI(flag_dwarf2_cfi_asm);
   // Binutils does not yet support the use of file directives with an explicit
@@ -610,7 +610,7 @@ static void createPerFunctionOptimizationPasses() {
     InitializeOutputStreams(false);
     if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
                                        TargetMachine::CGFT_AssemblyFile,
-                                       CodeGenOptLevel(), DisableVerify))
+                                       DisableVerify))
       DieAbjectly("Error interfacing to target machine!");
   }
 
@@ -693,7 +693,7 @@ static void createPerModuleOptimizationPasses() {
       InitializeOutputStreams(false);
       if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
                                          TargetMachine::CGFT_AssemblyFile,
-                                         CodeGenOptLevel(), DisableVerify))
+                                         DisableVerify))
         DieAbjectly("Error interfacing to target machine!");
     }
   }
