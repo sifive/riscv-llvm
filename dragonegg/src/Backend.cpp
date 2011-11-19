@@ -35,6 +35,7 @@
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
@@ -579,7 +580,7 @@ static void createPerFunctionOptimizationPasses() {
   PerFunctionPasses = new FunctionPassManager(TheModule);
   PerFunctionPasses->add(new TargetData(TheModule));
 
-#ifdef ENABLE_CHECKING
+#ifndef NDEBUG
   PerFunctionPasses->add(createVerifierPass());
 #endif
 
@@ -1032,7 +1033,7 @@ Value *make_decl_llvm(tree decl) {
   if (Value *V = get_decl_llvm(decl))
     return V;
 
-#ifdef ENABLE_CHECKING
+#ifndef NDEBUG
   // Check that we are not being given an automatic variable or a type or label.
   // A weak alias has TREE_PUBLIC set but not the other bits.
   if (TREE_CODE(decl) == PARM_DECL || TREE_CODE(decl) == RESULT_DECL ||
