@@ -386,15 +386,14 @@ namespace {
         } else if (ArgVal->getType()->isDoubleTy()) {
           // If this is a K&R float parameter, it got promoted to double. Insert
           // the truncation to float now.
-          ArgVal = Builder.CreateFPTrunc(ArgVal, LLVMTy,
-                                         NameStack.back().c_str());
+          ArgVal = Builder.CreateFPTrunc(ArgVal, LLVMTy, NameStack.back());
         } else {
           // If this is just a mismatch between integer types, this is due
           // to K&R prototypes, where the forward proto defines the arg as int
           // and the actual impls is a short or char.
           assert(ArgVal->getType()->isIntegerTy(32) && LLVMTy->isIntegerTy() &&
                  "Lowerings don't match?");
-          ArgVal = Builder.CreateTrunc(ArgVal, LLVMTy,NameStack.back().c_str());
+          ArgVal = Builder.CreateTrunc(ArgVal, LLVMTy,NameStack.back());
         }
       }
       assert(!LocStack.empty());

@@ -1133,8 +1133,7 @@ DICompileUnit DebugInfo::getOrCreateCompileUnit(const char *FullPath,
   unsigned ObjcRunTimeVer = 0;
 //  if (flag_objc_abi != 0 && flag_objc_abi != -1)
 //    ObjcRunTimeVer = flag_objc_abi;
-  return DebugFactory.CreateCompileUnit(LangTag, FileName.c_str(),
-                                        Directory.c_str(),
+  return DebugFactory.CreateCompileUnit(LangTag, FileName, Directory,
                                         version_string, isMain,
                                         optimize, Flags,
                                         ObjcRunTimeVer);
