@@ -31,7 +31,6 @@
 #include "llvm/Module.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"

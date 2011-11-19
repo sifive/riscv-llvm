@@ -32,7 +32,6 @@
 #include "llvm/GlobalVariable.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Support/TargetFolder.h"
 #include "llvm/Target/TargetData.h"
 
 // System headers

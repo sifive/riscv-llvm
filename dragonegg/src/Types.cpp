@@ -29,13 +29,7 @@
 #include "dragonegg/ADT/Range.h"
 
 // LLVM headers
-#include "llvm/Module.h"
-#include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SCCIterator.h"
-#include "llvm/Assembly/Writer.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
 
 // System headers
 #include <gmp.h>
