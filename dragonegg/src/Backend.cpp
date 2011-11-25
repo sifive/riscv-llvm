@@ -82,7 +82,9 @@ extern "C" {
 #endif
 
 // llvm_shutdown - Declared in llvm/Support/ManagedStatic.h.
-extern void llvm_shutdown();
+namespace llvm {
+  extern void llvm_shutdown();
+}
 
 // Non-zero if libcalls should not be simplified.
 int flag_no_simplify_libcalls;
