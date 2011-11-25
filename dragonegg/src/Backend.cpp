@@ -40,7 +40,6 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/MC/SubtargetFeature.h"
-#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
@@ -81,6 +80,9 @@ extern "C" {
 #if (GCC_MAJOR != 4)
 #error Unsupported GCC major version
 #endif
+
+// llvm_shutdown - Declared in llvm/Support/ManagedStatic.h.
+extern void llvm_shutdown();
 
 // Non-zero if libcalls should not be simplified.
 int flag_no_simplify_libcalls;
