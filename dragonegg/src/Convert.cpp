@@ -5023,11 +5023,18 @@ bool TreeToLLVM::EmitBuiltinAlloca(gimple stmt, Value *&Result) {
 }
 
 bool TreeToLLVM::EmitBuiltinExpect(gimple stmt, Value *&Result) {
-  // Ignore the hint for now, just expand the expr.  This is safe, but not
-  // optimal.
-  Result = gimple_call_num_args(stmt) < 2 ?
-    Constant::getNullValue(ConvertType(gimple_call_return_type(stmt))) :
-    EmitMemory(gimple_call_arg(stmt, 0));
+  tree type = gimple_call_return_type(stmt);
+  if (gimple_call_num_args(stmt) < 2) {
+    Result = Constant::getNullValue(ConvertType(type));
+    return true;
+  }
+  Type *ArgTy = getRegType(type);
+  Value *ExpectIntr = Intrinsic::getDeclaration(TheModule, Intrinsic::expect,
+                                                ArgTy);
+  Value *ArgValue = EmitRegister(gimple_call_arg(stmt, 0));
+  Value *ExpectedValue = EmitRegister(gimple_call_arg(stmt, 1));
+  Result = Builder.CreateCall2(ExpectIntr, ArgValue, ExpectedValue);
+  Result = Reg2Mem(Result, type, Builder);
   return true;
 }
 
