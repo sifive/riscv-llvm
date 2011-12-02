@@ -432,7 +432,8 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   LLVM_SET_CODE_MODEL(CMModel);
 #endif
 
-  TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr,
+  TargetOptions Options;
+  TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr, Options,
                                        RelocModel, CMModel, CodeGenOptLevel());
   assert(TheTarget->getTargetData()->isBigEndian() == BYTES_BIG_ENDIAN);
   TheTarget->setMCUseCFI(flag_dwarf2_cfi_asm);
