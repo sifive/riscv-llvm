@@ -309,20 +309,6 @@ static void ConfigureLLVM(void) {
     Args.push_back("--time-passes");
   if (!quiet_flag  || flag_detailed_statistics)
     Args.push_back("--stats");
-#if (GCC_MINOR > 5)
-  if (fast_math_flags_set_p(&global_options))
-#else
-  if (fast_math_flags_set_p())
-#endif
-    Args.push_back("--enable-unsafe-fp-math");
-  if (flag_finite_math_only) {
-    Args.push_back("--enable-no-nans-fp-math");
-    Args.push_back("--enable-no-infs-fp-math");
-  }
-  if (!flag_omit_frame_pointer)
-    Args.push_back("--disable-fp-elim");
-  if (!flag_zero_initialized_in_bss)
-    Args.push_back("--nozero-initialized-in-bss");
   if (flag_verbose_asm)
     Args.push_back("--asm-verbose");
   if (DebugPassStructure)
@@ -335,10 +321,6 @@ static void ConfigureLLVM(void) {
     Args.push_back("--ffunction-sections");
   if (flag_data_sections)
     Args.push_back("--fdata-sections");
-#if (GCC_MINOR > 5)
-  if (flag_split_stack)
-    Args.push_back("--segmented-stacks");
-#endif
 
   // If there are options that should be passed through to the LLVM backend
   // directly from the command line, do so now.  This is mainly for debugging
@@ -433,6 +415,19 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 #endif
 
   TargetOptions Options;
+  Options.UnsafeFPMath =
+#if (GCC_MINOR > 5)
+      fast_math_flags_set_p(&global_options);
+#else
+      fast_math_flags_set_p();
+#endif
+  Options.NoNaNsFPMath = flag_finite_math_only;
+  Options.NoInfsFPMath = flag_finite_math_only;
+  Options.NoFramePointerElim = !flag_omit_frame_pointer;
+  Options.NoZerosInBSS = !flag_zero_initialized_in_bss;
+#if (GCC_MINOR > 5)
+  Options.EnableSegmentedStacks = flag_split_stack;
+#endif
   TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr, Options,
                                        RelocModel, CMModel, CodeGenOptLevel());
   assert(TheTarget->getTargetData()->isBigEndian() == BYTES_BIG_ENDIAN);
