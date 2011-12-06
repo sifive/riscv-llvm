@@ -14,12 +14,15 @@
   <!--*********************************************************************-->
 
   <p><a href="#gettingrelease">DragonEgg</a> is a
-  <a href="http://gcc.gnu.org/wiki/plugins">gcc plugin</a> <tt>dragonegg.so</tt>
-  that replaces gcc's optimizers and code generators with those from the
-  <a href="http://llvm.org">LLVM project</a>.</p>
-  <p>It is a reimplementation of
-  <a href="http://llvm.org/docs/CommandGuide/">llvm-gcc</a>
-  that works with <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> or later.</p>
+  <a href="http://gcc.gnu.org/wiki/plugins">gcc plugin</a> that replaces GCC's
+  optimizers and code generators with those from the
+  <a href="http://llvm.org">LLVM project</a>. It works with
+  <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> or
+  <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a>,
+  targets the x86-32 and x86-64 processor families, and has been successfully
+  used on the Darwin, FreeBSD, KFreeBSD, Linux and OpenBSD platforms.  It fully
+  supports Ada, C, C++ and Fortran.  It has partial support for Go, Java, Obj-C
+  and Obj-C++.</p>
 
   <br clear="all">
 
@@ -28,8 +31,7 @@
   <!--=====================================================================-->
 
   <ul>
-  <li>Work with unmodified gcc</li>
-  <li>Support all gcc languages</li>
+  <li>Fully support all GCC languages</li>
   </ul>
 
   <!--=====================================================================-->
@@ -37,35 +39,42 @@
   <!--=====================================================================-->
 
   <ul>
-  <li>C works well, for example you can build a working gcc using it.</li>
-  <li>C++ works fairly well, for example you can build LLVM, clang and boost
-  with it (the resulting LLVM and clang work correctly; boost mostly works but
-  there are some mysterious failures).</li>
-  <li>Fortran works fairly well, for example SPEC CPU mostly compiles and works,
-  but there are some failures.  These have all been fixed in the development
-  version.</li>
-  <li>It can compile quite a lot of Ada, and the compiled code mostly seems to
-  work.</li>
-  <li>It can compile a small amount of Obj-C and Obj-C++.</li>
+  <li>Fortran works very well.  Ada, C and C++ also work well.</li>
+  <li>It can compile a reasonable amount of Obj-C, Obj-C++ and Go.</li>
   <li>It can compile simple Java programs, but they don't execute properly
   (this is a consequence of the java front-end not supporting GCC's LTO).</li>
-  <li>Limited debug info.</li>
-  <li>Versions 2.9 and earlier require patching gcc (the development version
-  does not).</li>
-  <li>Only supports x86-32 and x86-64.</li>
-  <li>Only supports linux, darwin and freebsd (additional gcc patches may be
-      needed on darwin, see the <tt>README</tt> file).
+  <li>Debug info is poor.</li>
   </ul>
-
-  <p>DragonEgg is not mature - while it works quite well, it should not be
-  considered production quality.</p>
 
   <!--=====================================================================-->
   <h2>Releases</h2>
   <!--=====================================================================-->
 
   <ul>
-  <li><p><a href="#gettingrelease">DragonEgg-2.9</a> is the most recent
+  <li><p><a href="#gettingrelease">DragonEgg-3.0</a> is the most recent
+      DragonEgg release.  It requires
+      <a href="http://llvm.org/releases/download.html#3.0">LLVM-3.0</a> and
+      <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> or
+      <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a>.
+      <p>The 3.0 release has the following notable changes:</p>
+      <ul>
+      <li>GCC version 4.6 is now fully supported.</li>
+
+      <li>Patching and building GCC is no longer required: the plugin should work
+      with your system GCC (version 4.5 or 4.6; on Debian/Ubuntu systems the
+      gcc-4.5-plugin-dev or gcc-4.6-plugin-dev package is also needed).</li>
+
+      <li>The <tt>-fplugin-arg-dragonegg-enable-gcc-optzns</tt> option, which runs
+      GCC's optimizers as well as LLVM's, now works much better.  This is the
+      option to use if you want ultimate performance! It is still experimental
+      though: it may cause the plugin to crash.  Setting the optimization level
+      to <tt>-O4</tt> when using this option will optimize even harder, though
+      this usually doesn't result in any improvement over <tt>-O3</tt>.</li>
+
+      <li>The type and constant conversion logic has been almost entirely rewritten,
+      fixing a multitude of obscure bugs.</li>
+      </ul>
+  <li><p><a href="#gettingrelease">DragonEgg-2.9</a> was the third
       DragonEgg release.  It requires
       <a href="http://llvm.org/releases/download.html#2.9">LLVM-2.9</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
@@ -237,39 +246,33 @@ declare i32 @puts(i8* nocapture) nounwind
   <!--=====================================================================-->
 
   <p>Get the
-  <a href="http://llvm.org/releases/download.html#2.9">DragonEgg-2.9 source code</a>:
-     <pre>	wget http://llvm.org/releases/2.9/dragonegg-2.9.tgz</pre>
+  <a href="http://llvm.org/releases/download.html#3.0">DragonEgg-3.0 source code</a>:
+     <pre>	wget http://llvm.org/releases/3.0/dragonegg-3.0.tgz</pre>
   <p>Unpack it:</p>
-     <pre>	tar xzf dragonegg-2.9.tgz</pre>
-  <p>Download the
-  <a href="http://llvm.org/releases/download.html#2.9">LLVM-2.9 binaries</a>
-  (mysteriously referred to as clang binaries) for your platform and install
-  them.</p>
-  <p>Get the <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5 source code</a>:</p>
-     <pre>	wget http://mirrors.kernel.org/gnu/gcc/gcc-4.5.2/gcc-4.5.2.tar.gz</pre>
-  <p>Unpack it:</p>
-     <pre>	tar xzf gcc-4.5.2.tar.gz</pre>
-  <p>Apply the patch in <tt>dragonegg-2.9/gcc-patches/</tt> to the gcc-4.5
-  source:</p>
-     <pre>	patch -d gcc-4.5.2 -p1 < dragonegg-2.9/gcc-patches/i386_static.diff</pre>
-  <p><a href="http://gcc.gnu.org/install/">Build and install gcc-4.5</a> in the
-  usual way, except that you should add the configure options <tt>--enable-plugin</tt>
-  and <tt>--enable-lto</tt>.</p>
+     <pre>	tar xzf dragonegg-3.0.tgz</pre>
+  <p>Install version 3.0 of LLVM, for example by downloading and installing the
+  <a href="http://llvm.org/releases/download.html#3.0">LLVM-3.0 binaries</a>
+  (mysteriously referred to as clang binaries) for your platform.</p>
+  <p>Make sure you have <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> or
+  <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a> installed (you do not need
+  to build your own copy).  On Debian and Ubuntu linux systems you also need to
+  install the <tt>gcc-4.5-plugin-dev</tt> or <tt>gcc-4.6-plugin-dev</tt>
+  package, as appropriate.</p>
   <p>Doing</p>
-     <pre>	GCC=directory_where_gcc_installed/bin/gcc make</pre>
-  <p>in the <tt>dragonegg-2.9</tt> directory should then build <tt>dragonegg.so</tt>.
-     If you have arranged for the gcc executable to occur in your path with the
-     name <tt>gcc-4.5</tt> (using a symbolic link for example) then there is no
-     need to set the GCC variable: you can just do "<tt>make</tt>".
-     If the LLVM binaries are not in your path then you can use</p>
-     <pre>	GCC=directory_where_gcc_installed/bin/gcc LLVM_CONFIG=directory_where_llvm_installed/bin/llvm-config make</pre>
+     <pre>	GCC=gcc-4.6 make</pre>
+  <p>(if using gcc-4.6), or</p>
+     <pre>	GCC=gcc-4.5 make</pre>
+  <p>(if using gcc-4.5) in the <tt>dragonegg-3.0</tt> directory should then
+  build <tt>dragonegg.so</tt>.  If the LLVM binaries are not in your path then
+  you can use</p>
+     <pre>	GCC=gcc-4.6 LLVM_CONFIG=directory_where_llvm_installed/bin/llvm-config make</pre>
    <p>If you only built LLVM and did not install it then you can still build
      dragonegg by setting LLVM_CONFIG to point to the copy of llvm-config in the
      build tree.</p>
-  <p>To use <tt>dragonegg.so</tt>, compile something with your just-installed
-     version of <tt>gcc</tt>, adding <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt>
-     to the command line.  See the <tt>README</tt> file for more details and useful
-     command line options.</p>
+  <p>To use <tt>dragonegg.so</tt>, compile something with gcc-4.5/gcc-4.6,
+  adding <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt> to the command line.
+  See the <tt>README</tt> file for more details and useful command line
+  options.</p>
 
   <!--=====================================================================-->
   <h2><a name="gettingdevel">Getting the development version</a></h2>
