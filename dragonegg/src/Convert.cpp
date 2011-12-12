@@ -3792,28 +3792,14 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   // Function* to be incorrectly shared across the different typed functions.
   case BUILT_IN_CLZ:       // These GCC builtins always return int.
   case BUILT_IN_CLZL:
-  case BUILT_IN_CLZLL: {
-    Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
-    EmitBuiltinUnaryOp(Amt, Result, Intrinsic::ctlz);
-    tree return_type = gimple_call_return_type(stmt);
-    Type *DestTy = ConvertType(return_type);
-    Result = Builder.CreateIntCast(Result, DestTy,
-                                   /*isSigned*/!TYPE_UNSIGNED(return_type),
-                                   "cast");
+  case BUILT_IN_CLZLL:
+    Result = EmitBuiltinBitCountIntrinsic(stmt, Intrinsic::ctlz);
     return true;
-  }
   case BUILT_IN_CTZ:       // These GCC builtins always return int.
   case BUILT_IN_CTZL:
-  case BUILT_IN_CTZLL: {
-    Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
-    EmitBuiltinUnaryOp(Amt, Result, Intrinsic::cttz);
-    tree return_type = gimple_call_return_type(stmt);
-    Type *DestTy = ConvertType(return_type);
-    Result = Builder.CreateIntCast(Result, DestTy,
-                                   /*isSigned*/!TYPE_UNSIGNED(return_type),
-                                   "cast");
+  case BUILT_IN_CTZLL:
+    Result = EmitBuiltinBitCountIntrinsic(stmt, Intrinsic::cttz);
     return true;
-  }
   case BUILT_IN_PARITYLL:
   case BUILT_IN_PARITYL:
   case BUILT_IN_PARITY: {
@@ -4313,6 +4299,18 @@ bool TreeToLLVM::EmitBuiltinUnaryOp(Value *InVal, Value *&Result,
   Result = Builder.CreateCall(Intrinsic::getDeclaration(TheModule, Id, Ty),
                               InVal);
   return true;
+}
+
+Value *TreeToLLVM::EmitBuiltinBitCountIntrinsic(gimple stmt, Intrinsic::ID Id) {
+  Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
+  Value *Result = Builder.CreateCall2(Intrinsic::getDeclaration(TheModule, Id,
+                                                                Amt->getType()),
+                                      Amt, Builder.getTrue());
+  tree return_type = gimple_call_return_type(stmt);
+  Type *DestTy = ConvertType(return_type);
+  return Builder.CreateIntCast(Result, DestTy,
+                               /*isSigned*/!TYPE_UNSIGNED(return_type),
+                               "cast");
 }
 
 Value *TreeToLLVM::EmitBuiltinSQRT(gimple stmt) {

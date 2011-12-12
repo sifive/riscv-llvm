@@ -622,6 +622,8 @@ private:
                                        tree_node *fndecl, const MemRef *DestLoc,
                                        Value *&Result);
   bool EmitBuiltinUnaryOp(Value *InVal, Value *&Result, Intrinsic::ID Id);
+  Value *EmitBuiltinBitCountIntrinsic(gimple_statement_d *stmt,
+                                      Intrinsic::ID Id);
   Value *EmitBuiltinSQRT(gimple_statement_d *stmt);
   Value *EmitBuiltinPOWI(gimple_statement_d *stmt);
   Value *EmitBuiltinPOW(gimple_statement_d *stmt);
