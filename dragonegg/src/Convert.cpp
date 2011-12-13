@@ -3920,9 +3920,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     // The argument and return type of cttz should match the argument type of
     // the ffs, but should ignore the return type of ffs.
     Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
-    EmitBuiltinUnaryOp(Amt, Result, Intrinsic::cttz);
-    Result = Builder.CreateAdd(Result,
-      ConstantInt::get(Result->getType(), 1));
+    Result = Builder.CreateCall2(Intrinsic::getDeclaration(TheModule,
+                                                           Intrinsic::cttz,
+                                                           Amt->getType()),
+                                 Amt, Builder.getTrue());
+    Result = Builder.CreateAdd(Result, ConstantInt::get(Result->getType(), 1));
     Result = Builder.CreateIntCast(Result,
                                    ConvertType(gimple_call_return_type(stmt)),
                                    /*isSigned*/false);
