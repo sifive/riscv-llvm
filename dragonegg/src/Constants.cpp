@@ -673,26 +673,90 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
   return Result;
 }
 
+/// OnlyDifferTrivially - Return 'true' if the given types do not differ in any
+/// significant way.  This means for example that reinterpreting a value of one
+/// of the types as having the other type does not lose any information.
+static bool OnlyDifferTrivially(Type *Ty1, Type *Ty2) {
+  if (Ty1 == Ty2)
+    return true;
+  Type::TypeID Id1 = Ty1->getTypeID(), Id2 = Ty2->getTypeID();
+
+  switch (Id1) {
+  default:
+    DieAbjectly("Unsupported type!");
+  case Type::PointerTyID:
+    // Different pointer types do not differ in any significant way.
+    return Id2 == Type::PointerTyID;
+  case Type::DoubleTyID:
+  case Type::FloatTyID:
+  case Type::FP128TyID:
+  case Type::IntegerTyID:
+  case Type::PPC_FP128TyID:
+  case Type::X86_FP80TyID:
+  case Type::X86_MMXTyID:
+    return false; // The types are already known to be different.
+  case Type::ArrayTyID: {
+    if (Id2 != Type::ArrayTyID)
+      return false;
+    ArrayType *ATy1 = cast<ArrayType>(Ty1), *ATy2 = cast<ArrayType>(Ty2);
+    if (ATy1->getNumElements() != ATy2->getNumElements())
+      return false;
+    return OnlyDifferTrivially(ATy1->getElementType(), ATy2->getElementType());
+  }
+  case Type::StructTyID: {
+    if (Id2 != Type::StructTyID)
+      return false;
+    StructType *STy1 = cast<StructType>(Ty1), *STy2 = cast<StructType>(Ty2);
+    if (STy1->isPacked() != STy2->isPacked() ||
+        STy1->getNumElements() != STy2->getNumElements())
+      return false;
+    for (unsigned i = 0, e = STy1->getNumElements(); i != e; ++i)
+      if (!OnlyDifferTrivially(STy1->getElementType(i),
+                               STy2->getElementType(i)))
+        return false;
+    return true;
+  }
+  case Type::VectorTyID: {
+    if (Id2 != Type::VectorTyID)
+      return false;
+    VectorType *VTy1 = cast<VectorType>(Ty1), *VTy2 = cast<VectorType>(Ty2);
+    if (VTy1->getNumElements() != VTy2->getNumElements())
+      return false;
+    return OnlyDifferTrivially(VTy1->getElementType(), VTy2->getElementType());
+  }
+  }
+}
+
 /// ConvertInitializerWithCast - Convert the initial value for a global variable
 /// to an equivalent LLVM constant then cast to the given type if both the type
-/// and the initializer are scalar.  This is convenient for making explicit the
-/// implicit scalar casts that GCC allows in "assignments" such as initializing
-/// a record field.
+/// and the initializer are scalar, or if the initializer's type only differs in
+/// trivial ways from the given type.  This is convenient for avoiding confusing
+/// and pointless type changes in the IR, and for making explicit the implicit
+/// scalar casts that GCC allows in "assignments" such as initializing a record
+/// field.
 static Constant *ConvertInitializerWithCast(tree exp, tree type,
                                             TargetFolder &Folder) {
-  // Convert the initializer.
+  // Convert the initializer.  Note that the type of the returned value may be
+  // pretty much anything.
   Constant *C = ConvertInitializerImpl(exp, Folder);
 
-  // If no cast is needed, or it would not be a scalar cast, then just return
-  // the initializer as is.
-  if (type == TREE_TYPE(exp) || AGGREGATE_TYPE_P(TREE_TYPE(exp)) ||
-      AGGREGATE_TYPE_P(type))
+  // If casting to or from an aggregate and the types only differ in a trivial
+  // way then reinterpret the initializer as having the desired type.  If the
+  // types differ significantly then this is probably something like a struct
+  // ending in a flexible array being initialized with a struct ending in an
+  // array of some definite size, so just return the initializer as is.
+  if (AGGREGATE_TYPE_P(type) || AGGREGATE_TYPE_P(TREE_TYPE(exp))) {
+    Type *DestTy = ConvertType(type);
+    if (OnlyDifferTrivially(C->getType(), DestTy))
+      return InterpretAsType(C, DestTy, 0, Folder);
     return C;
-  // No cast is needed if the LLVM types are the same.  This occurs often since
-  // many different GCC types usually map to the same LLVM type.
-  Type *SrcTy = getRegType(TREE_TYPE(exp));
+  }
+
+  // Scalar to scalar cast.  This is where the implicit scalar casts that GCC
+  // permits are made explicit.
   Type *DestTy = getRegType(type);
-  if (SrcTy == DestTy)
+  if (C->getType() == DestTy)
+    // No cast is needed if the type is already correct.
     return C;
 
   // Ensure that the initializer has a sensible type.  Note that it would be
@@ -1371,7 +1435,8 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
 
   // Make the IR easier to read by converting the bunch of bytes returned by
   // ConvertCST into a less surprising type when it is safe to do so.
-  if (!AGGREGATE_TYPE_P(TREE_TYPE(exp)))
+  if (!AGGREGATE_TYPE_P(TREE_TYPE(exp)) ||
+      OnlyDifferTrivially(Init->getType(), ConvertType(TREE_TYPE(exp))))
     Init = InterpretAsType(Init, ConvertType(TREE_TYPE(exp)), 0, Folder);
 
 #ifndef NDEBUG
