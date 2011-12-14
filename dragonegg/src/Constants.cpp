@@ -334,12 +334,15 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
     BitSlice Bits;
     SignedRange StrideRange(0, Stride);
     for (unsigned i = FirstElt; i < LastElt; ++i) {
+      int EltOffsetInBits = i * Stride;
       // Extract the element.
       Constant *Elt = Folder.CreateExtractValue(C, i);
       // View it as a bunch of bits.
-      BitSlice EltBits = ViewAsBits(Elt, StrideRange, Folder);
+      SignedRange NeededBits = StrideRange.Meet(R.Displace(-EltOffsetInBits));
+      assert(!NeededBits.empty() && "Used element computation wrong!");
+      BitSlice EltBits = ViewAsBits(Elt, NeededBits, Folder);
       // Add to the already known bits.
-      Bits.Merge(EltBits.Displace(i * Stride), Folder);
+      Bits.Merge(EltBits.Displace(EltOffsetInBits), Folder);
     }
     return Bits;
   }
@@ -348,21 +351,26 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
     StructType *STy = cast<StructType>(Ty);
     const StructLayout *SL = getTargetData().getStructLayout(STy);
     // Fields with indices in [FirstIdx, LastIdx) overlap the range.
-    unsigned FirstIdx = SL->getElementContainingOffset((R.getFirst()+7)/8);
-    unsigned LastIdx = 1 + SL->getElementContainingOffset((R.getLast()+6)/8);
+    unsigned FirstIdx = SL->getElementContainingOffset(R.getFirst()/8);
+    unsigned LastIdx = 1 + SL->getElementContainingOffset((R.getLast()-1)/8);
     // Visit all fields that overlap the requested range, accumulating their
     // bits in Bits.
     BitSlice Bits;
     for (unsigned i = FirstIdx; i < LastIdx; ++i) {
+      int FieldOffsetInBits = SL->getElementOffset(i) * 8;
       // Extract the field.
       Constant *Field = Folder.CreateExtractValue(C, i);
-      // View it as a bunch of bits.
+      // Only part of the field may be needed.  Compute which bits they are.
       Type *FieldTy = Field->getType();
       unsigned FieldStoreSize = getTargetData().getTypeStoreSizeInBits(FieldTy);
-      BitSlice FieldBits = ViewAsBits(Field, SignedRange(0, FieldStoreSize),
-                                      Folder);
-      // Add to the already known bits.
-      Bits.Merge(FieldBits.Displace(SL->getElementOffset(i)*8), Folder);
+      SignedRange NeededBits(0, FieldStoreSize);
+      NeededBits = NeededBits.Meet(R.Displace(-FieldOffsetInBits));
+      // View the needed part of the field as a bunch of bits.
+      if (!NeededBits.empty()) { // No field bits needed if only using padding.
+        BitSlice FieldBits = ViewAsBits(Field, NeededBits, Folder);
+        // Add to the already known bits.
+        Bits.Merge(FieldBits.Displace(FieldOffsetInBits), Folder);
+      }
     }
     return Bits;
   }
@@ -381,13 +389,16 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
     BitSlice Bits;
     SignedRange StrideRange(0, Stride);
     for (unsigned i = FirstElt; i < LastElt; ++i) {
+      int EltOffsetInBits = i * Stride;
       // Extract the element.
       ConstantInt *Idx = ConstantInt::get(Type::getInt32Ty(Context), i);
       Constant *Elt = Folder.CreateExtractElement(C, Idx);
       // View it as a bunch of bits.
-      BitSlice EltBits = ViewAsBits(Elt, StrideRange, Folder);
+      SignedRange NeededBits = StrideRange.Meet(R.Displace(-EltOffsetInBits));
+      assert(!NeededBits.empty() && "Used element computation wrong!");
+      BitSlice EltBits = ViewAsBits(Elt, NeededBits, Folder);
       // Add to the already known bits.
-      Bits.Merge(EltBits.Displace(i * Stride), Folder);
+      Bits.Merge(EltBits.Displace(EltOffsetInBits), Folder);
     }
     return Bits;
   }
