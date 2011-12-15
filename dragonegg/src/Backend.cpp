@@ -415,18 +415,34 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 #endif
 
   TargetOptions Options;
+  if (flag_omit_frame_pointer) {
+    // Eliminate frame pointers everywhere.
+    Options.NoFramePointerElim = false;
+    Options.NoFramePointerElimNonLeaf = false;
+  } else {
+    // Keep frame pointers everywhere.
+    Options.NoFramePointerElim = true;
+    Options.NoFramePointerElimNonLeaf = true;
+  }
+  // If a target has an option to eliminate frame pointers in leaf functions
+  // only then it should set
+  //   NoFramePointerElim = false;
+  //   NoFramePointerElimNonLeaf = true;
+  // in its LLVM_SET_TARGET_MACHINE_OPTIONS method when this option is true.
   Options.UnsafeFPMath =
 #if (GCC_MINOR > 5)
       fast_math_flags_set_p(&global_options);
 #else
       fast_math_flags_set_p();
 #endif
-  Options.NoNaNsFPMath = flag_finite_math_only;
   Options.NoInfsFPMath = flag_finite_math_only;
-  Options.NoFramePointerElim = !flag_omit_frame_pointer;
+  Options.NoNaNsFPMath = flag_finite_math_only;
   Options.NoZerosInBSS = !flag_zero_initialized_in_bss;
 #if (GCC_MINOR > 5)
   Options.EnableSegmentedStacks = flag_split_stack;
+#endif
+#ifdef LLVM_SET_TARGET_MACHINE_OPTIONS
+  LLVM_SET_TARGET_MACHINE_OPTIONS(Options);
 #endif
   TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr, Options,
                                        RelocModel, CMModel, CodeGenOptLevel());

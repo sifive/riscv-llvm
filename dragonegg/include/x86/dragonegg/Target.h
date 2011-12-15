@@ -419,11 +419,16 @@ enum x86_64_reg_class
 
 #define LLVM_SET_MACHINE_OPTIONS(argvec)		\
   do {							\
-    if (TARGET_OMIT_LEAF_FRAME_POINTER)			\
-      argvec.push_back("--disable-non-leaf-fp-elim");	\
-							\
     if (ix86_force_align_arg_pointer)			\
       argvec.push_back("-force-align-stack");		\
+  } while (0)
+
+#define LLVM_SET_TARGET_MACHINE_OPTIONS(O)		\
+  do {							\
+    if (TARGET_OMIT_LEAF_FRAME_POINTER)	{		\
+      O.NoFramePointerElim = false;			\
+      O.NoFramePointerElimNonLeaf = true;		\
+    }							\
   } while (0)
 
 #endif /* DRAGONEGG_TARGET_H */
