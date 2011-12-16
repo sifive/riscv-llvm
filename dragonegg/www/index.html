@@ -74,6 +74,19 @@
       <li>The type and constant conversion logic has been almost entirely rewritten,
       fixing a multitude of obscure bugs.</li>
       </ul>
+      <p>Known problems with the DragonEgg-3.0 release:</p>
+      <ul>
+      <li>The Makefile tries to use <tt>svnversion</tt> to get the LLVM
+      revision.  To fix this, replace this line
+      <pre>
+      REVISION:=$(shell svnversion -n $(TOP_DIR))
+      </pre>
+      with
+      <pre>
+      REVISION:=3.0
+      </pre>
+      </li>
+      </ul>
   <li><p><a href="#gettingrelease">DragonEgg-2.9</a> was the third
       DragonEgg release.  It requires
       <a href="http://llvm.org/releases/download.html#2.9">LLVM-2.9</a> and
