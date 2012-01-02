@@ -979,19 +979,14 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // return a struct instead of an array.  This can occur in cases where we have
   // an array of unions, and the various unions had different parts initialized.
   // While there, compute the maximum element alignment.
-  bool UseStruct = false;
+  bool isHomogeneous = true;
   Type *ActualEltTy = Elts[0]->getType();
   unsigned MaxAlign = TD.getABITypeAlignment(ActualEltTy);
   for (unsigned i = 1; i != NumElts; ++i)
     if (Elts[i]->getType() != ActualEltTy) {
       MaxAlign = std::max(TD.getABITypeAlignment(Elts[i]->getType()), MaxAlign);
-      UseStruct = true;
+      isHomogeneous = false;
     }
-
-  // If any elements are more aligned than the GCC type then we need to return a
-  // packed struct.  This can happen if the user forced a small alignment on the
-  // array type.
-  bool Pack = MaxAlign * 8 > TYPE_ALIGN(TREE_TYPE(exp));
 
   // We guarantee that initializers are always at least as big as the LLVM type
   // for the initializer.  If needed, append padding to ensure this.
@@ -1001,12 +996,40 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
     assert(PadBits % BITS_PER_UNIT == 0 && "Non-unit type size?");
     unsigned Units = PadBits / BITS_PER_UNIT;
     Elts.push_back(UndefValue::get(GetUnitType(Context, Units)));
-    UseStruct = true;
+    isHomogeneous = false;
   }
 
+  // If any elements are more aligned than the GCC type then we need to return a
+  // packed struct.  This can happen if the user forced a small alignment on the
+  // array type.
+  if (MaxAlign * 8 > TYPE_ALIGN(TREE_TYPE(exp)))
+    return ConstantStruct::getAnon(Context, Elts, /*Packed*/true);
+
   // Return as a struct if the contents are not homogeneous.
-  if (UseStruct || Pack)
-    return ConstantStruct::getAnon(Context, Elts, Pack);
+  if (!isHomogeneous) {
+    std::vector<Constant*> StructElts;
+    unsigned First = 0, E = Elts.size();
+    while (First < E) {
+      // Find the maximal value of Last s.t. all elements in the range
+      // [First, Last) have the same type.
+      Type *Ty = Elts[First]->getType();
+      unsigned Last = First + 1;
+      for (; Last != E; ++Last)
+        if (Elts[Last]->getType() != Ty)
+          break;
+      unsigned NumSameType = Last - First;
+      Constant *StructElt;
+      if (NumSameType == 1)
+        StructElt = Elts[First];
+      else
+        StructElt = ConstantArray::get(ArrayType::get(Ty, NumSameType),
+                                       ArrayRef<Constant*>(&Elts[First],
+                                                           NumSameType));
+      StructElts.push_back(StructElt);
+      First = Last;
+    }
+    return ConstantStruct::getAnon(Context, StructElts);
+  }
 
   // Make the IR more pleasant by returning as a vector if the GCC type was a
   // vector.  However this is only correct if the initial values had the same
