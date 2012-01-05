@@ -60,6 +60,11 @@ just handing everything off to the dragonegg self-host script.
 Code quality
 ------------
 
+Consider not extending GEP indices to "pointer type" since GEP indices can have
+any integer type now (except for struct GEP's - there the type must be i32).
+Note that GEP indices are implicitly sign extended, so unsigned indices still
+need to be explicitly zero extended to pointer size (is this always done now?).
+
 Clarify and extend the distinction between gimple registers and "the rest",
 the rest being mostly references.
 
