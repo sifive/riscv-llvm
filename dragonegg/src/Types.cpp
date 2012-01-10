@@ -497,7 +497,7 @@ static Type *ConvertArrayTypeRecursive(tree type) {
   Type *Ty = ArrayType::get(ElementTy, NumElements);
 
   // If the array is underaligned, wrap it in a packed struct.
-  if (TYPE_ALIGN(type) < getTargetData().getABITypeAlignment(Ty) * 8)
+  if (TYPE_ALIGN(type) < TYPE_ALIGN(TREE_TYPE(type)))
     Ty = StructType::get(Context, Ty, /*isPacked*/ true);
 
   // If the user increased the alignment of the array element type, then the
