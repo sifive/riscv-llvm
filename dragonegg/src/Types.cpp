@@ -497,11 +497,7 @@ static Type *ConvertArrayTypeRecursive(tree type) {
   Type *Ty = ArrayType::get(ElementTy, NumElements);
 
   // If the array is underaligned, wrap it in a packed struct.
-  if (TYPE_ALIGN(type) < getTargetData().getABITypeAlignment(Ty) * 8)
-// FIXME: Should use the following in case the LLVM type has no size, but this
-// breaks bootstrap due to an array with a 32 bit element type that is only 8
-// bit aligned.
-//  if (TYPE_ALIGN(type) < TYPE_ALIGN(TREE_TYPE(type)))
+  if (TYPE_ALIGN(type) < TYPE_ALIGN(TYPE_MAIN_VARIANT(TREE_TYPE(type))))
     Ty = StructType::get(Context, Ty, /*isPacked*/ true);
 
   // If the user increased the alignment of the array element type, then the
