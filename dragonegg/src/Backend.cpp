@@ -1993,11 +1993,6 @@ static struct plugin_info llvm_plugin_info = {
 #ifndef DISABLE_VERSION_CHECK
 static bool version_check(struct plugin_gcc_version *gcc_version,
                           struct plugin_gcc_version *plugin_version) {
-  // Make it possible to turn off the version check - useful for testing gcc
-  // bootstrap.
-  if (getenv("dragonegg_disable_version_check"))
-    return true;
-
   // Check that the running gcc has exactly the same version as the gcc we were
   // built against.  This strict check seems wise when developing against a fast
   // moving gcc tree.  TODO: Use a milder check if doing a "release build".

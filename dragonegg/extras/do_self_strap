@@ -61,10 +61,6 @@ MAKE="nice -n 20 make -j3 -l2"		# How to run make
 MAKE_INSTALL="nice -n 20 make install"	# How to run make install
 
 
-# Turn off plugin version checking, otherwise the check may fail if all stages
-# are not built on the same day, since the version contains the build date.
-export dragonegg_disable_version_check=yes
-
 # Check out or update the dragonegg source
 if [ ! -e $DRAGONEGG_SOURCE ] ; then
   echo "Checking out dragonegg"
@@ -181,7 +177,8 @@ for STAGE in $STAGES ; do
   mkdir -p $DRAGONEGG_BUILD-pre
   cd $DRAGONEGG_BUILD-pre
   $MAKE -f $DRAGONEGG_SOURCE/Makefile clean
-  TOP_DIR=$DRAGONEGG_SOURCE $MAKE -f $DRAGONEGG_SOURCE/Makefile VERBOSE=1
+  TOP_DIR=$DRAGONEGG_SOURCE $MAKE -f $DRAGONEGG_SOURCE/Makefile VERBOSE=1 \
+    DISABLE_VERSION_CHECK=1
   # <== end: Build dragonegg using the just built GCC and DRAGONEGG.
 
 
