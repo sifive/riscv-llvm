@@ -68,7 +68,9 @@ extern "C" {
 #include "langhooks.h"
 #include "output.h"
 #include "params.h"
+#ifndef DISABLE_VERSION_CHECK
 #include "plugin-version.h"
+#endif
 #include "toplev.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
@@ -1988,6 +1990,7 @@ static struct plugin_info llvm_plugin_info = {
   NULL		// help
 };
 
+#ifndef DISABLE_VERSION_CHECK
 static bool version_check(struct plugin_gcc_version *gcc_version,
                           struct plugin_gcc_version *plugin_version) {
   // Make it possible to turn off the version check - useful for testing gcc
@@ -2000,6 +2003,7 @@ static bool version_check(struct plugin_gcc_version *gcc_version,
   // moving gcc tree.  TODO: Use a milder check if doing a "release build".
   return plugin_default_version_check (gcc_version, plugin_version);
 }
+#endif
 
 
 /// plugin_init - Plugin initialization routine, called by GCC.  This is the
@@ -2007,15 +2011,21 @@ static bool version_check(struct plugin_gcc_version *gcc_version,
 /// the plugin and setup GCC, taking over optimization and code generation.
 int __attribute__ ((visibility("default")))
 plugin_init(struct plugin_name_args *plugin_info,
-            struct plugin_gcc_version *version) {
+            struct plugin_gcc_version *
+#ifndef DISABLE_VERSION_CHECK
+            version
+#endif
+            ) {
   const char *plugin_name = plugin_info->base_name;
   struct register_pass_info pass_info;
 
+#ifndef DISABLE_VERSION_CHECK
   // Check that the plugin is compatible with the running gcc.
   if (!version_check (&gcc_version, version)) {
     errs() << "Incompatible plugin version\n";
     return 1;
   }
+#endif
 
   // Provide GCC with our version and help information.
   register_callback(plugin_name, PLUGIN_INFO, NULL, &llvm_plugin_info);

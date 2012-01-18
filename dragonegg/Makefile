@@ -13,6 +13,11 @@ LLVM_CONFIG?=llvm-config
 # directories.
 TOP_DIR?=$(PWD)
 
+# Normally the plugin will refuse to load into a different gcc to the one it was
+# built against.  Uncomment this (or pass DISABLE_VERSION_CHECK=1 on the 'make'
+# command line) to disable the check.
+#DISABLE_VERSION_CHECK=1
+
 INCLUDE_DIR=$(TOP_DIR)/include
 SRC_DIR=$(TOP_DIR)/src
 
@@ -58,6 +63,9 @@ CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -DGCC_MAJOR=$(GCC_MAJOR) -DGCC_MINOR=$(GCC_MINOR) \
 	     -DGCC_MICRO=$(GCC_MICRO) \
 	     -I$(INCLUDE_DIR) -I$(GCC_PLUGIN_DIR)/include
+ifdef DISABLE_VERSION_CHECK
+CPP_OPTIONS+=-DDISABLE_VERSION_CHECK
+endif
 
 LD_OPTIONS+=$(shell $(LLVM_CONFIG) --ldflags) $(LDFLAGS)
 
