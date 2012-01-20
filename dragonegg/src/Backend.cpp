@@ -1721,8 +1721,10 @@ static void InlineAsmDiagnosticHandler(const SMDiagnostic &D, void * /*Data*/,
     error_at(loc, "%s", Message);
     break;
   case SourceMgr::DK_Warning:
-  case SourceMgr::DK_Note:
     warning_at(loc, 0, "%s", Message);
+    break;
+  case SourceMgr::DK_Note:
+    inform(loc, "%s", Message);
     break;
   }
 }
