@@ -861,7 +861,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 #endif // LLVM_TARGET_ENABLE_REGPARM
 
     if (PAttributes != Attribute::None) {
-      HasByVal |= PAttributes & Attribute::ByVal;
+      HasByVal |= (PAttributes & Attribute::ByVal) != Attribute::None;
 
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
