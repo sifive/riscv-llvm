@@ -7546,6 +7546,11 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   CallInst *CV = Builder.CreateCall(Asm, CallOps,
                                     CallResultTypes.empty() ? "" : "asmtmp");
   CV->setDoesNotThrow();
+  if (gimple_has_location(stmt)) {
+    // Pass the location of the asm using a !srcloc metadata.
+    Constant *LocationCookie = Builder.getInt64(gimple_location(stmt));
+    CV->setMetadata("srcloc", MDNode::get(Context, LocationCookie));
+  }
 
   // If the call produces a value, store it into the destination.
   for (unsigned i = 0, NumResults = CallResultTypes.size(); i != NumResults;

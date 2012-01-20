@@ -41,6 +41,7 @@
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
@@ -1712,6 +1713,20 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
     emit_alias(p->decl, p->target);
 }
 
+static void InlineAsmDiagnosticHandler(const SMDiagnostic &D, void * /*Data*/,
+                                       location_t loc) {
+  const char *Message = D.getMessage().c_str();
+  switch (D.getKind()) {
+  case SourceMgr::DK_Error:
+    error_at(loc, "%s", Message);
+    break;
+  case SourceMgr::DK_Warning:
+  case SourceMgr::DK_Note:
+    warning_at(loc, 0, "%s", Message);
+    break;
+  }
+}
+
 /// llvm_finish_unit - Finish the .s file.  This is called by GCC once the
 /// compilation unit has been completely processed.
 static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
@@ -1806,12 +1821,21 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 
   // Run the code generator, if present.
   if (CodeGenPasses) {
+    // Arrange for inline asm problems to be printed nicely.
+    LLVMContext &Context = TheModule->getContext();
+    LLVMContext::InlineAsmDiagHandlerTy OldHandler =
+      Context.getInlineAsmDiagnosticHandler();
+    void *OldHandlerData = Context.getInlineAsmDiagnosticContext();
+    Context.setInlineAsmDiagnosticHandler(InlineAsmDiagnosticHandler, 0);
+
     CodeGenPasses->doInitialization();
     for (Module::iterator I = TheModule->begin(), E = TheModule->end();
          I != E; ++I)
       if (!I->isDeclaration())
         CodeGenPasses->run(*I);
     CodeGenPasses->doFinalization();
+
+    Context.setInlineAsmDiagnosticHandler(OldHandler, OldHandlerData);
   }
 
   FormattedOutStream.flush();
