@@ -1001,28 +1001,29 @@ static void emit_global(tree decl) {
 /// well-formed.  If not, emit error messages and return true.  If so, return
 /// false.
 bool ValidateRegisterVariable(tree decl) {
-  int RegNumber = decode_reg_name(extractRegisterName(decl));
+  const char *RegName = extractRegisterName(decl);
+  int RegNumber = decode_reg_name(RegName);
 
   if (errorcount || sorrycount)
     return true;  // Do not process broken code.
 
   /* Detect errors in declaring global registers.  */
   if (RegNumber == -1)
-    error("register name not specified for %q+D", decl);
+    error("register name not specified for %<%s%>", RegName);
   else if (RegNumber < 0)
-    error("invalid register name for %q+D", decl);
+    error("invalid register name for %<%s%>", RegName);
   else if (TYPE_MODE(TREE_TYPE(decl)) == BLKmode)
-    error("data type of %q+D isn%'t suitable for a register", decl);
+    error("data type of %<%s%> isn%'t suitable for a register", RegName);
 #if 0 // FIXME: enable this.
   else if (!HARD_REGNO_MODE_OK(RegNumber, TYPE_MODE(TREE_TYPE(decl))))
-    error("register specified for %q+D isn%'t suitable for data type",
-          decl);
+    error("register specified for %<%s%> isn%'t suitable for data type",
+          RegName);
 #endif
   else if (DECL_INITIAL(decl) != 0 && TREE_STATIC(decl))
     error("global register variable has initial value");
   else if (AGGREGATE_TYPE_P(TREE_TYPE(decl)))
-    sorry("LLVM cannot handle register variable %q+D, report a bug",
-          decl);
+    sorry("LLVM cannot handle register variable %<%s%>, report a bug",
+          RegName);
   else {
     if (TREE_THIS_VOLATILE(decl))
       warning(0, "volatile register variables don%'t work as you might wish");
@@ -1285,8 +1286,8 @@ void register_ctor_dtor(Function *Fn, int InitPrio, bool isCtor) {
 /// extractRegisterName - Get a register name given its decl. In 4.2 unlike 4.0
 /// these names have been run through set_user_assembler_name which means they
 /// may have a leading star at this point; compensate.
-const char* extractRegisterName(tree decl) {
-  const char* Name = IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl));
+const char *extractRegisterName(tree decl) {
+  const char *Name = IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl));
   return (*Name == '*') ? Name + 1 : Name;
 }
 
