@@ -85,6 +85,9 @@ extern "C" {
 #error Unsupported GCC major version
 #endif
 
+// TODO: In GCC, add targhooks.h to the list of plugin headers and remove this.
+extern "C" tree default_mangle_decl_assembler_name (tree, tree);
+
 // Non-zero if libcalls should not be simplified.
 int flag_no_simplify_libcalls;
 
@@ -1406,6 +1409,10 @@ static void llvm_start_unit(void * /*gcc_data*/, void * /*user_data*/) {
   // Ensure that thunks are turned into functions rather than output directly
   // as assembler.
   targetm.asm_out.can_output_mi_thunk = no_target_thunks;
+
+  // Ensure that GCC doesn't decorate stdcall and fastcall function names:
+  // LLVM codegen takes care of this, and we don't want them decorated twice.
+  targetm.mangle_decl_assembler_name = default_mangle_decl_assembler_name;
 }
 
 
