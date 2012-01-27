@@ -42,8 +42,7 @@ GCC_MINOR=$(word 2, $(subst ., ,$(GCC_VERSION)))
 GCC_MICRO=$(word 3, $(subst ., ,$(GCC_VERSION)))
 TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
 
-# NOTE: replace with an informative string when doing a release.
-REVISION:=$(shell svnversion -n $(TOP_DIR))
+LLVM_VERSION:=$(shell $(LLVM_CONFIG) --version)
 
 PLUGIN=dragonegg.so
 PLUGIN_OBJECTS=Backend.o Cache.o Constants.o Convert.o Debug.o DefaultABI.o \
@@ -59,7 +58,7 @@ ALL_OBJECTS=$(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL_OBJECTS)
 
 CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP \
-	     -DIN_GCC -DREVISION=\"$(REVISION)\" \
+	     -DIN_GCC -DLLVM_VERSION=\"$(LLVM_VERSION)\" \
 	     -DGCC_MAJOR=$(GCC_MAJOR) -DGCC_MINOR=$(GCC_MINOR) \
 	     -DGCC_MICRO=$(GCC_MICRO) \
 	     -I$(INCLUDE_DIR) -I$(GCC_PLUGIN_DIR)/include

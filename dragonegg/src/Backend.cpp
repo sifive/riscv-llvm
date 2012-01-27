@@ -481,7 +481,7 @@ static void CreateModule(const std::string &TargetTriple) {
     IdentString += pkg_version;
     IdentString += version_string;
     IdentString += " LLVM: ";
-    IdentString += REVISION;
+    IdentString += LLVM_VERSION;
     IdentString += "\"";
     TheModule->setModuleInlineAsm(IdentString);
   }
@@ -2019,7 +2019,7 @@ static FlagDescriptor PluginFlags[] = {
 /// llvm_plugin_info - Information about this plugin.  Users can access this
 /// using "gcc --help -v".
 static struct plugin_info llvm_plugin_info = {
-  REVISION,	// version
+  LLVM_VERSION,	// version
   // TODO provide something useful here
   NULL		// help
 };
