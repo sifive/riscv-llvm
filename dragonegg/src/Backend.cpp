@@ -1080,14 +1080,14 @@ Value *make_decl_llvm(tree decl) {
 
   std::string Name;
   if (TREE_CODE(decl) != CONST_DECL) // CONST_DECLs do not have assembler names.
-    Name = getLLVMAssemblerName(decl).str();
+    Name = getLLVMAssemblerName(decl);
 
   // Now handle ordinary static variables and functions (in memory).
   // Also handle vars declared register invalidly.
   if (!Name.empty() && Name[0] == 1) {
 #ifdef REGISTER_PREFIX
     if (strlen (REGISTER_PREFIX) != 0) {
-      int reg_number = decode_reg_name(Name);
+      int reg_number = decode_reg_name(Name.c_str());
       if (reg_number >= 0 || reg_number == -3)
         error("register name given for non-register variable %q+D", decl);
     }
@@ -1296,16 +1296,16 @@ const char *extractRegisterName(tree decl) {
 
 /// getLLVMAssemblerName - Get the assembler name (DECL_ASSEMBLER_NAME) for the
 /// declaration, with any leading star replaced by '\1'.
-Twine getLLVMAssemblerName(union tree_node *decl) {
+std::string getLLVMAssemblerName(union tree_node *decl) {
   tree Ident = DECL_ASSEMBLER_NAME(decl);
   if (!Ident)
-    return "";
+    return std::string();
 
   const char *Name = IDENTIFIER_POINTER(Ident);
   if (*Name != '*')
-    return Name;
+    return std::string(Name);
 
-  return "\1" + Twine(Name + 1);
+  return "\1" + std::string(Name + 1);
 }
 
 /// FinalizePlugin - Shutdown the plugin.

@@ -483,7 +483,7 @@ static bool isPassedByVal(tree type, Type *Ty,
 }
 
 void TreeToLLVM::StartFunctionBody() {
-  std::string Name = getLLVMAssemblerName(FnDecl).str();
+  std::string Name = getLLVMAssemblerName(FnDecl);
   // TODO: Add support for dropping the leading '\1' in order to support
   //   unsigned bswap(unsigned) __asm__("llvm.bswap");
   // This would also require adjustments in make_decl_llvm.

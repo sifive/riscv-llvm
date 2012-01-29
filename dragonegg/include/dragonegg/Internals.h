@@ -159,7 +159,7 @@ void changeLLVMConstant(Constant *Old, Constant *New);
 void register_ctor_dtor(Function *, int, bool);
 const char *extractRegisterName(tree_node *);
 void handleVisibility(tree_node *decl, GlobalValue *GV);
-Twine getLLVMAssemblerName(tree_node *);
+std::string getLLVMAssemblerName(tree_node *);
 
 /// Return true if and only if field no. N from struct type T is a padding
 /// element added to match llvm struct type size and gcc struct type size.
