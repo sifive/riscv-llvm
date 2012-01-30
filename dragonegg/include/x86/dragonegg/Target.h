@@ -393,10 +393,6 @@ enum x86_64_reg_class
 /* Propagate code model setting to backend */
 #define LLVM_SET_CODE_MODEL(CMModel)			\
   switch (ix86_cmodel) {				\
-  default:						\
-    sorry ("code model %<%s%> not supported yet",	\
-           ix86_cmodel_string);				\
-    break;						\
   case CM_32:						\
     CMModel = CodeModel::Default;			\
     break;						\
