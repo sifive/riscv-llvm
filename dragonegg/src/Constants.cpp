@@ -788,8 +788,8 @@ static Constant *ConvertCST(tree exp, TargetFolder &) {
   assert(CharsWritten == SizeInChars && "Failed to fully encode expression!");
   (void)CharsWritten; // Avoid unused variable warning when assertions disabled.
   // Turn it into an LLVM byte array.
-  return ConstantArray::get(Context, StringRef((char *)&Buffer[0], SizeInChars),
-                            /*AddNull*/false);
+  StringRef Str((char *)&Buffer[0], SizeInChars);
+  return ConstantDataArray::getString(Context, str, /*AddNull*/false);
 }
 
 static Constant *ConvertSTRING_CST(tree exp, TargetFolder &) {

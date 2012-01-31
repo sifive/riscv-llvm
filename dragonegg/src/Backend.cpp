@@ -750,7 +750,7 @@ static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
 /// global if possible.
 Constant* ConvertMetadataStringToGV(const char *str) {
 
-  Constant *Init = ConstantArray::get(getGlobalContext(), std::string(str));
+  Constant *Init = ConstantDataArray::getString(getGlobalContext(), str);
 
   // Use cached string if it exists.
   static std::map<Constant*, GlobalVariable*> StringCSTCache;
