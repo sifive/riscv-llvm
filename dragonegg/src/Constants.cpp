@@ -783,13 +783,12 @@ static Constant *ConvertCST(tree exp, TargetFolder &) {
   unsigned SizeInChars = (TREE_INT_CST_LOW(TYPE_SIZE(type)) + CHAR_BIT - 1) /
     CHAR_BIT;
   // Encode the constant in Buffer in target format.
-  std::vector<unsigned char> Buffer(SizeInChars);
+  SmallVector<uint8_t, 16> Buffer(SizeInChars);
   unsigned CharsWritten = native_encode_expr(exp, &Buffer[0], SizeInChars);
   assert(CharsWritten == SizeInChars && "Failed to fully encode expression!");
   (void)CharsWritten; // Avoid unused variable warning when assertions disabled.
   // Turn it into an LLVM byte array.
-  StringRef Str((char *)&Buffer[0], SizeInChars);
-  return ConstantDataArray::getString(Context, str, /*AddNull*/false);
+  return ConstantDataArray::get(Context, Buffer);
 }
 
 static Constant *ConvertSTRING_CST(tree exp, TargetFolder &) {
