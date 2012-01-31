@@ -412,9 +412,17 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
 /// value of type 'Ty' from the stored to memory location.
 static Constant *InterpretAsType(Constant *C, Type* Ty, int StartingBit,
                                  TargetFolder &Folder) {
+  // Efficient handling for some common cases.
   if (C->getType() == Ty)
     return C;
 
+  if (isa<UndefValue>(C))
+    return UndefValue::get(Ty);
+
+  if (C->isNullValue())
+    return Constant::getNullValue(Ty);
+
+  // The general case.
   switch (Ty->getTypeID()) {
   default:
     DieAbjectly("Unsupported type!");
