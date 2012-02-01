@@ -468,7 +468,9 @@ namespace {
 // passed in memory byval.
 static bool isPassedByVal(tree type, Type *Ty,
                           std::vector<Type*> &ScalarArgs,
-                          bool isShadowRet, CallingConv::ID &/*CC*/) {
+                          bool isShadowRet, CallingConv::ID CC) {
+  (void)type; (void)Ty; (void)ScalarArgs; (void)isShadowRet;
+  (void)CC; // Not used by all ABI macros.
   if (LLVM_SHOULD_PASS_AGGREGATE_USING_BYVAL_ATTR(type, Ty))
     return true;
 
@@ -3572,6 +3574,9 @@ bool TreeToLLVM::EmitFrontendExpandedBuiltinCall(gimple stmt, tree fndecl,
 
   return LLVM_TARGET_INTRINSIC_LOWER(stmt, fndecl, DestLoc, Result, ResultType,
                                      Operands);
+#else
+  // Avoid compiler warnings about unused parameters.
+  (void)stmt; (void)fndecl; (void)DestLoc; (void)Result;
 #endif
   return false;
 }

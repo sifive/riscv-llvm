@@ -39,7 +39,8 @@ extern "C" {
 
 // doNotUseShadowReturn - Return true if the specified GCC type
 // should not be returned using a pointer to struct parameter.
-bool doNotUseShadowReturn(tree type, tree fndecl, CallingConv::ID /*CC*/) {
+bool doNotUseShadowReturn(tree type, tree fndecl, CallingConv::ID CC) {
+  (void)CC; // Not used by all ABI macros.
   if (!TYPE_SIZE(type))
     return false;
   if (TREE_CODE(TYPE_SIZE(type)) != INTEGER_CST)
@@ -128,6 +129,7 @@ bool DefaultABI::isShadowReturn() const { return C.isShadowReturn(); }
 /// on the client that indicate how its pieces should be handled.  This
 /// handles things like returning structures via hidden parameters.
 void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
+  (void)isBuiltin; // Not used by all ABI macros.
   unsigned Offset = 0;
   Type *Ty = ConvertType(type);
   if (Ty->isVectorTy()) {
@@ -252,7 +254,6 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
       if (TREE_CODE(Field) == FIELD_DECL) {
         const tree Ftype = TREE_TYPE(Field);
-        Type *FTy = ConvertType(Ftype);
         unsigned FNo = GetFieldIndex(Field, Ty);
         assert(FNo < INT_MAX && "Case not handled yet!");
 
@@ -262,6 +263,8 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
         // (We know there currently are no other such cases active because
         // they would hit the assert in FunctionPrologArgumentConversion::
         // HandleByValArgument.)
+        Type *FTy = ConvertType(Ftype);
+        (void)FTy; // Not used by all ABI macros.
         if (!LLVM_SHOULD_PASS_AGGREGATE_USING_BYVAL_ATTR(Ftype, FTy)) {
           C.EnterField(FNo, Ty);
           HandleArgument(TREE_TYPE(Field), ScalarElts);

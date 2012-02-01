@@ -799,11 +799,11 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
                                              Attribute::Nest));
   }
 
+#ifdef LLVM_TARGET_ENABLE_REGPARM
   // If the target has regparam parameters, allow it to inspect the function
   // type.
   int local_regparam = 0;
   int local_fp_regparam = 0;
-#ifdef LLVM_TARGET_ENABLE_REGPARM
   LLVM_TARGET_INIT_REGPARM(local_regparam, local_fp_regparam, type);
 #endif // LLVM_TARGET_ENABLE_REGPARM
 
