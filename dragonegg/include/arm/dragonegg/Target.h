@@ -233,14 +233,13 @@ bool llvm_arm_should_pass_or_return_aggregate_in_regs(tree_node *TreeType,
   }
 #endif
 
-#define LLVM_SET_TARGET_MACHINE_OPTIONS(options)       \
-  options.UseSoftFloat = TARGET_SOFT_FLOAT;            \
-  if (TARGET_HARD_FLOAT_ABI)                           \
-    options.FloatABIType = llvm::FloatABI::Hard;
+#define LLVM_SET_TARGET_MACHINE_OPTIONS(options)	\
+  do {							\
+    options.UseSoftFloat = TARGET_SOFT_FLOAT;		\
+    if (TARGET_HARD_FLOAT_ABI)				\
+      options.FloatABIType = llvm::FloatABI::Hard;	\
+  } while (0)
 
-
-/* Doing struct copy by partial-word loads and stores is not a good idea on ARM. */
-#define TARGET_LLVM_MIN_BYTES_COPY_BY_MEMCPY 4
 
 /* These are a couple of extensions to the asm formats
      %@ prints out ASM_COMMENT_START
