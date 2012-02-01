@@ -7868,7 +7868,7 @@ void TreeToLLVM::RenderGIMPLE_SWITCH(gimple stmt) {
 
   if (IfBlock) {
     Builder.CreateBr(SI->getDefaultDest());
-    SI->setSuccessor(0, IfBlock);
+    SI->setDefaultDest(IfBlock);
   }
 }
 
