@@ -681,60 +681,6 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
   return Result;
 }
 
-/// OnlyDifferTrivially - Return 'true' if the given types do not differ in any
-/// significant way.  This means for example that reinterpreting a value of one
-/// of the types as having the other type does not lose any information.
-static bool OnlyDifferTrivially(Type *Ty1, Type *Ty2) {
-  if (Ty1 == Ty2)
-    return true;
-  Type::TypeID Id1 = Ty1->getTypeID(), Id2 = Ty2->getTypeID();
-
-  switch (Id1) {
-  default:
-    DieAbjectly("Unsupported type!");
-  case Type::PointerTyID:
-    // Different pointer types do not differ in any significant way.
-    return Id2 == Type::PointerTyID;
-  case Type::DoubleTyID:
-  case Type::FloatTyID:
-  case Type::FP128TyID:
-  case Type::IntegerTyID:
-  case Type::PPC_FP128TyID:
-  case Type::X86_FP80TyID:
-  case Type::X86_MMXTyID:
-    return false; // The types are already known to be different.
-  case Type::ArrayTyID: {
-    if (Id2 != Type::ArrayTyID)
-      return false;
-    ArrayType *ATy1 = cast<ArrayType>(Ty1), *ATy2 = cast<ArrayType>(Ty2);
-    if (ATy1->getNumElements() != ATy2->getNumElements())
-      return false;
-    return OnlyDifferTrivially(ATy1->getElementType(), ATy2->getElementType());
-  }
-  case Type::StructTyID: {
-    if (Id2 != Type::StructTyID)
-      return false;
-    StructType *STy1 = cast<StructType>(Ty1), *STy2 = cast<StructType>(Ty2);
-    if (STy1->isPacked() != STy2->isPacked() ||
-        STy1->getNumElements() != STy2->getNumElements())
-      return false;
-    for (unsigned i = 0, e = STy1->getNumElements(); i != e; ++i)
-      if (!OnlyDifferTrivially(STy1->getElementType(i),
-                               STy2->getElementType(i)))
-        return false;
-    return true;
-  }
-  case Type::VectorTyID: {
-    if (Id2 != Type::VectorTyID)
-      return false;
-    VectorType *VTy1 = cast<VectorType>(Ty1), *VTy2 = cast<VectorType>(Ty2);
-    if (VTy1->getNumElements() != VTy2->getNumElements())
-      return false;
-    return OnlyDifferTrivially(VTy1->getElementType(), VTy2->getElementType());
-  }
-  }
-}
-
 /// ConvertInitializerWithCast - Convert the initial value for a global variable
 /// to an equivalent LLVM constant then cast to the given type if both the type
 /// and the initializer are scalar, or if the initializer's type only differs in
@@ -748,17 +694,12 @@ static Constant *ConvertInitializerWithCast(tree exp, tree type,
   // pretty much anything.
   Constant *C = ConvertInitializerImpl(exp, Folder);
 
-  // If casting to or from an aggregate and the types only differ in a trivial
-  // way then reinterpret the initializer as having the desired type.  If the
-  // types differ significantly then this is probably something like a struct
-  // ending in a flexible array being initialized with a struct ending in an
-  // array of some definite size, so just return the initializer as is.
-  if (AGGREGATE_TYPE_P(type) || AGGREGATE_TYPE_P(TREE_TYPE(exp))) {
-    Type *DestTy = ConvertType(type);
-    if (OnlyDifferTrivially(C->getType(), DestTy))
-      return InterpretAsType(C, DestTy, 0, Folder);
+  // If casting to or from an aggregate then just return the initializer as is.
+  // If the types differ then this is probably something like a struct ending in
+  // a flexible array being initialized with a struct ending in an array of some
+  // definite size.
+  if (AGGREGATE_TYPE_P(type) || AGGREGATE_TYPE_P(TREE_TYPE(exp)))
     return C;
-  }
 
   // Scalar to scalar cast.  This is where the implicit scalar casts that GCC
   // permits are made explicit.
@@ -1368,11 +1309,23 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   if (StructType *STy = dyn_cast<StructType>(Ty))
     if (STy->isPacked() == Pack && STy->getNumElements() == Elts.size()) {
       bool EltTypesMatch = true;
-      for (unsigned i = 0, e = Elts.size(); i != e; ++i)
-        if (Elts[i]->getType() != STy->getElementType(i)) {
-          EltTypesMatch = false;
-          break;
+      for (unsigned i = 0, e = Elts.size(); i != e; ++i) {
+        Type *EltTy = Elts[i]->getType();
+        Type *FieldTy = STy->getElementType(i);
+        if (EltTy == FieldTy)
+          continue;
+        // When a recursive record type is converted, some of its pointer fields
+        // may be converted to the artifical type {}* to break the recursion. As
+        // type converting the field directly gives the proper pointer type, the
+        // result is a mismatch between the field and element types.  Fix it up.
+        if (EltTy->isPointerTy() && FieldTy->isPointerTy()) {
+          Elts[i] = Folder.CreateBitCast(Elts[i], FieldTy);
+          continue;
         }
+        // Too hard, just give up.
+        EltTypesMatch = false;
+        break;
+      }
       if (EltTypesMatch)
         return ConstantStruct::get(STy, Elts);
     }
@@ -1478,10 +1431,9 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
     break;
   }
 
-  // Make the IR easier to read by converting the bunch of bytes returned by
-  // ConvertCST into a less surprising type when it is safe to do so.
-  if (!AGGREGATE_TYPE_P(TREE_TYPE(exp)) ||
-      OnlyDifferTrivially(Init->getType(), ConvertType(TREE_TYPE(exp))))
+  // Make the IR easier to read by returning a constant of the expected type if
+  // it is safe and efficient to do so.
+  if (!AGGREGATE_TYPE_P(TREE_TYPE(exp)))
     Init = InterpretAsType(Init, ConvertType(TREE_TYPE(exp)), 0, Folder);
 
 #ifndef NDEBUG
