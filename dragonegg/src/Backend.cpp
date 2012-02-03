@@ -97,6 +97,9 @@ int flag_no_simplify_libcalls;
 // Non-zero if implicit floating point instructions are disabled.
 //TODOstatic int flag_no_implicit_float = 0;
 
+// LLVM command line arguments specified by the user.
+std::vector<std::string> ArgStrings;
+
 /// llvm_asm_file_name - Name of file to use for assembly code output.
 static const char *llvm_asm_file_name;
 
@@ -331,7 +334,6 @@ static void ConfigureLLVM(void) {
   // If there are options that should be passed through to the LLVM backend
   // directly from the command line, do so now.  This is mainly for debugging
   // purposes, and shouldn't really be for general use.
-  std::vector<std::string> ArgStrings;
 
 //TODO  if (flag_limited_precision > 0) {
 //TODO    std::string Arg("--limit-float-precision="+utostr(flag_limited_precision));
@@ -360,6 +362,7 @@ static void ConfigureLLVM(void) {
   Args.push_back(0);  // Null terminator.
   int pseudo_argc = Args.size()-1;
   llvm::cl::ParseCommandLineOptions(pseudo_argc, const_cast<char**>(&Args[0]));
+  ArgStrings.clear();
 }
 
 /// ComputeTargetTriple - Determine the target triple to use.
@@ -2065,8 +2068,8 @@ plugin_init(struct plugin_name_args *plugin_info,
     int argc = plugin_info->argc;
 
     for (int i = 0; i < argc; ++i) {
-      if (!strcmp (argv[i].key, "llvm-ir-optimize") ||
-          !strcmp (argv[i].key, "llvm-codegen-optimize")) {
+      if (!strcmp(argv[i].key, "llvm-ir-optimize") ||
+          !strcmp(argv[i].key, "llvm-codegen-optimize")) {
         if (!argv[i].value) {
           error(G_("no value supplied for option '-fplugin-arg-%s-%s'"),
                 plugin_name, argv[i].key);
@@ -2082,6 +2085,16 @@ plugin_init(struct plugin_name_args *plugin_info,
           LLVMIROptimizeArg = OptLevel;
         else
           LLVMCodeGenOptimizeArg = OptLevel;
+        continue;
+      }
+
+      if (!strcmp(argv[i].key, "llvm-option")) {
+        if (!argv[i].value) {
+          error(G_("no value supplied for option '-fplugin-arg-%s-%s'"),
+                plugin_name, argv[i].key);
+          continue;
+        }
+        ArgStrings.push_back(argv[i].value);
         continue;
       }
 
