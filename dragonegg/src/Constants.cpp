@@ -1197,7 +1197,9 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // and probably wrong on big-endian machines.
   IntervalList<FieldContents, int, 8> Layout;
   const TargetData &TD = getTargetData();
-  uint64_t TypeSize = TD.getTypeAllocSizeInBits(ConvertType(TREE_TYPE(exp)));
+  tree type = TREE_TYPE(exp);
+  Type *Ty = ConvertType(type);
+  uint64_t TypeSize = TD.getTypeAllocSizeInBits(Ty);
 
   // Ensure that fields without an initial value are default initialized by
   // explicitly setting the starting value for all fields to be zero.  If an
@@ -1206,15 +1208,14 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   if (flag_default_initialize_globals) {
     // Record all interesting fields so they can easily be visited backwards.
     SmallVector<tree, 16> Fields;
-    for (tree field = TYPE_FIELDS(TREE_TYPE(exp)); field;
-         field = TREE_CHAIN(field)) {
+    for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
       assert(TREE_CODE(field) == FIELD_DECL && "Lang data not freed?");
       // Ignore fields with variable or unknown position since they cannot be
       // default initialized.
       if (!OffsetIsLLVMCompatible(field))
         continue;
       // Skip fields that are known not to be present.
-      if (TREE_CODE(TREE_TYPE(exp)) == QUAL_UNION_TYPE &&
+      if (TREE_CODE(type) == QUAL_UNION_TYPE &&
           integer_zerop(DECL_QUALIFIER(field)))
         continue; 
       Fields.push_back(field);
@@ -1262,7 +1263,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // occupied by the field to that value.
   unsigned HOST_WIDE_INT ix;
   tree field, next_field, value;
-  next_field = TYPE_FIELDS(TREE_TYPE(exp));
+  next_field = TYPE_FIELDS(type);
   FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(exp), ix, field, value) {
     if (!field) {
       // Move on to the next FIELD_DECL, skipping contained methods, types etc.
@@ -1303,7 +1304,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // type then return a packed struct instead.  If a field's alignment would
   // make it start after its desired position then also use a packed struct.
   bool Pack = false;
-  unsigned MaxAlign = TYPE_ALIGN(TREE_TYPE(exp));
+  unsigned MaxAlign = TYPE_ALIGN(type);
   for (unsigned i = 0, e = Layout.getNumIntervals(); i != e; ++i) {
     FieldContents F = Layout.getInterval(i);
     unsigned First = F.getRange().getFirst();
@@ -1362,7 +1363,21 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
     Elts.push_back(UndefValue::get(GetUnitType(Context, Units)));
   }
 
-  // Okay, we're done, return the computed elements.
+  // Okay, we're done.  Return the computed elements as a constant with the type
+  // of exp if possible.
+  if (StructType *STy = dyn_cast<StructType>(Ty))
+    if (STy->isPacked() == Pack && STy->getNumElements() == Elts.size()) {
+      bool EltTypesMatch = true;
+      for (unsigned i = 0, e = Elts.size(); i != e; ++i)
+        if (Elts[i]->getType() != STy->getElementType(i)) {
+          EltTypesMatch = false;
+          break;
+        }
+      if (EltTypesMatch)
+        return ConstantStruct::get(STy, Elts);
+    }
+
+  // Otherwise return the computed elements as an anonymous struct.
   return ConstantStruct::getAnon(Context, Elts, Pack);
 }
 
