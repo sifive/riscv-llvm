@@ -2325,7 +2325,8 @@ Value *TreeToLLVM::EmitCondExpr(tree exp) {
   FalseVal = TriviallyTypeConvert(FalseVal, TrueVal->getType());
 
   // Select the value to use based on the condition.
-  return Builder.CreateSelect(CondVal, TrueVal, FalseVal);
+  Value *Result = Builder.CreateSelect(CondVal, TrueVal, FalseVal);
+  return TriviallyTypeConvert(Result, getRegType(TREE_TYPE(exp)));
 }
 
 Value *TreeToLLVM::EmitOBJ_TYPE_REF(tree exp) {
