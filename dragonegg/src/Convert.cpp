@@ -2626,9 +2626,13 @@ namespace {
       if (CallOperands.size() < FTy->getNumParams()) {
         Type *CalledTy= FTy->getParamType(CallOperands.size());
         if (Loc->getType() != CalledTy) {
-          assert(type && "Inconsistent parameter types?");
-          bool isSigned = !TYPE_UNSIGNED(type);
-          Loc = TheTreeToLLVM->CastToAnyType(Loc, isSigned, CalledTy, false);
+          if (type) {
+            bool isSigned = !TYPE_UNSIGNED(type);
+            Loc = TheTreeToLLVM->CastToAnyType(Loc, isSigned, CalledTy, false);
+          } else {
+            // Only trivial type conversions should get here.
+            Loc = Builder.CreateBitCast(Loc, CalledTy);
+          }
         }
       }
 
