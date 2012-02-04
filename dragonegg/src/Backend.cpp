@@ -1202,7 +1202,7 @@ Value *make_decl_llvm(tree decl) {
         TARGET_ADJUST_LLVM_LINKAGE(GV,decl);
 #endif /* TARGET_ADJUST_LLVM_LINKAGE */
 
-	handleVisibility(decl, GV);
+        handleVisibility(decl, GV);
 
         // If GV got renamed, then there is already an object with this name in
         // the symbol table.  If this happens, the old one must be a forward
