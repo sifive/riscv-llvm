@@ -368,6 +368,13 @@ enum x86_64_reg_class
 #define LLVM_OVERRIDE_TARGET_ARCH() \
   (TARGET_64BIT ? "x86_64" : "i386")
 
+#define LLVM_ASM_EXTENSIONS(ESCAPED_CHAR, ASM, RESULT)			\
+  else if ((ESCAPED_CHAR) == 'v') {					\
+    /* %v means to use the AVX prefix 'v' if TARGET_AVX is true. */	\
+    if (TARGET_AVX)							\
+      Result += 'v';							\
+  }
+
 /* LLVM_TARGET_INTRINSIC_LOWER - To handle builtins, we want to expand the
  * invocation into normal LLVM code.  If the target can handle the builtin, this
  * macro should call the target TreeToLLVM::TargetIntrinsicLower method and
