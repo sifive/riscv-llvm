@@ -859,30 +859,24 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateShuffleVector(Ops[0], Ops[1], Mask);
     return true;
   }
-  case pcmpeqb:
   case pcmpeqb128:
   case pcmpeqb256:
-  case pcmpeqd:
   case pcmpeqd128:
   case pcmpeqd256:
   case pcmpeqq:
   case pcmpeqq256:
-  case pcmpeqw:
   case pcmpeqw128:
   case pcmpeqw256:
     Result = Builder.CreateICmpEQ(Ops[0], Ops[1]);
     // Need to sign extend since icmp returns a vector of i1.
     Result = Builder.CreateSExt(Result, ResultType);
     return true;
-  case pcmpgtb:
   case pcmpgtb128:
   case pcmpgtb256:
-  case pcmpgtd:
   case pcmpgtd128:
   case pcmpgtd256:
   case pcmpgtq:
   case pcmpgtq256:
-  case pcmpgtw:
   case pcmpgtw128:
   case pcmpgtw256:
     Result = Builder.CreateICmpSGT(Ops[0], Ops[1]);
