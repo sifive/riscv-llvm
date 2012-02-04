@@ -403,7 +403,7 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name,
   Call->setDebugLoc(DebugLoc::get(Loc.line, 0, VarScope));
 }
 
-/// EmitStopPoint - Set current source location. 
+/// EmitStopPoint - Set current source location.
 void DebugInfo::EmitStopPoint(BasicBlock *CurBB, LLVMBuilder &Builder) {
   // Don't bother if things are the same as last time.
   if (PrevLineNo == CurLineNo &&
@@ -1167,7 +1167,7 @@ Constant *DIFactory::GetTagConstant(unsigned TAG) {
          "Tag too large for debug encoding!");
   // llvm has moved forward. DIFactory does not emit debug info in updated form.
   // Use LLVMDebugVersion10 directly here.
-  return ConstantInt::get(Type::getInt32Ty(VMContext), 
+  return ConstantInt::get(Type::getInt32Ty(VMContext),
                           TAG | LLVMDebugVersion10);
 }
 
@@ -1751,7 +1751,7 @@ Instruction *DIFactory::InsertDeclare(Value *Storage, DIVariable D,
   if (!DeclareFn)
     DeclareFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_declare);
 
-  Value *Args[] = { MDNode::get(Storage->getContext(), Storage), 
+  Value *Args[] = { MDNode::get(Storage->getContext(), Storage),
                     D };
   return CallInst::Create(DeclareFn, Args, "", InsertBefore);
 }

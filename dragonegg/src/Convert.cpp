@@ -424,7 +424,7 @@ namespace {
           Builder.getFalse()
         };
         Type *ArgTypes[3] = {SBP, SBP, IntPtr };
-        Builder.CreateCall(Intrinsic::getDeclaration(TheModule, 
+        Builder.CreateCall(Intrinsic::getDeclaration(TheModule,
                                                      Intrinsic::memcpy,
                                                      ArgTypes), Ops);
 

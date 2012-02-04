@@ -867,7 +867,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
       Constant *Elts[] = {
         Val, UndefValue::get(GetUnitType(Context, Units))
       };
-      
+
       Val = ConstantStruct::getAnon(Elts);
     }
 
@@ -1158,7 +1158,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
       // Skip fields that are known not to be present.
       if (TREE_CODE(type) == QUAL_UNION_TYPE &&
           integer_zerop(DECL_QUALIFIER(field)))
-        continue; 
+        continue;
       Fields.push_back(field);
     }
 
