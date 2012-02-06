@@ -1513,7 +1513,7 @@ static void emit_alias(tree decl, tree target) {
                                  IDENTIFIER_POINTER(target),
                                  TheModule);
     else
-      assert(0 && "Unsuported global value");
+      llvm_unreachable("Unsuported global value");
   } else {
     Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target));
   }

@@ -302,7 +302,7 @@ static inline
 void llvm_default_extract_multiple_return_value(Value * /*Src*/, Value * /*Dest*/,
                                                 bool /*isVolatile*/,
                                                 LLVMBuilder &/*Builder*/) {
-  assert (0 && "LLVM_EXTRACT_MULTIPLE_RETURN_VALUE is not implemented!");
+  llvm_unreachable("LLVM_EXTRACT_MULTIPLE_RETURN_VALUE is not implemented!");
 }
 
 /// DefaultABI - This class implements the default LLVM ABI where structures are

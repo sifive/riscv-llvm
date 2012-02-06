@@ -1128,7 +1128,7 @@ llvm_x86_64_should_pass_aggregate_in_mixed_regs(tree TreeType, Type *Ty,
           Elts.push_back (Type::getFloatTy(Context));
           Bytes -= 4;
         } else
-          assert(0 && "Not yet handled!");
+          llvm_unreachable("Not yet handled!");
       } else if ((NumClasses-i) == 2) {
         if (Class[i+1] == X86_64_SSEUP_CLASS) {
           Type *Ty = ConvertType(TreeType);
@@ -1181,10 +1181,10 @@ llvm_x86_64_should_pass_aggregate_in_mixed_regs(tree TreeType, Type *Ty,
           Elts.push_back(Type::getVoidTy(Context));
           Bytes -= 16;
         } else
-          assert(0 && "Not yet handled!");
+          llvm_unreachable("Not yet handled!");
         ++i; // Already handled the next one.
       } else
-        assert(0 && "Not yet handled!");
+        llvm_unreachable("Not yet handled!");
       break;
     case X86_64_SSESF_CLASS:
       totallyEmpty = false;
@@ -1206,7 +1206,7 @@ llvm_x86_64_should_pass_aggregate_in_mixed_regs(tree TreeType, Type *Ty,
       Elts.push_back(Type::getVoidTy(Context));
       Bytes -= 8;
       break;
-    default: assert(0 && "Unexpected register class!");
+    default: llvm_unreachable("Unexpected register class!");
     }
   }
 
@@ -1400,7 +1400,7 @@ Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) {
         else
           return Type::getInt8Ty(Context);
       }
-      assert(0 && "Unexpected type!");
+      llvm_unreachable("Unexpected type!");
     }
     if (NumClasses == 2) {
       if (Class[1] == X86_64_NO_CLASS) {
@@ -1412,7 +1412,7 @@ Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) {
           return Type::getDoubleTy(Context);
         else if (Class[0] == X86_64_SSESF_CLASS)
           return Type::getFloatTy(Context);
-        assert(0 && "Unexpected type!");
+        llvm_unreachable("Unexpected type!");
       }
       if (Class[0] == X86_64_NO_CLASS) {
         *Offset = 8;
@@ -1423,11 +1423,11 @@ Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) {
           return Type::getDoubleTy(Context);
         else if (Class[1] == X86_64_SSESF_CLASS)
           return Type::getFloatTy(Context);
-        assert(0 && "Unexpected type!");
+        llvm_unreachable("Unexpected type!");
       }
-      assert(0 && "Unexpected type!");
+      llvm_unreachable("Unexpected type!");
     }
-    assert(0 && "Unexpected type!");
+    llvm_unreachable("Unexpected type!");
   } else {
     if (Size <= 8)
       return Type::getInt64Ty(Context);
@@ -1452,15 +1452,13 @@ llvm_x86_64_get_multiple_return_reg_classes(tree TreeType, Type * /*Ty*/,
   HOST_WIDE_INT Bytes =
     (Mode == BLKmode) ? int_size_in_bytes(TreeType) : (int) GET_MODE_SIZE(Mode);
   int NumClasses = classify_argument(Mode, TreeType, Class, 0);
-  if (!NumClasses)
-     assert(0 && "This type does not need multiple return registers!");
+  assert(NumClasses && "This type does not need multiple return registers!");
 
-  if (NumClasses == 1 && Class[0] == X86_64_INTEGERSI_CLASS)
-    // This will fit in one i32 register.
-     assert(0 && "This type does not need multiple return registers!");
+  assert((NumClasses != 1 || Class[0] != X86_64_INTEGERSI_CLASS) &&
+         "This will fit in one i32 register!");
 
-  if (NumClasses == 1 && Class[0] == X86_64_INTEGER_CLASS)
-     assert(0 && "This type does not need multiple return registers!");
+  assert((NumClasses != 1 || Class[0] != X86_64_INTEGER_CLASS) &&
+         "This type does not need multiple return registers!");
 
   // classify_argument uses a single X86_64_NO_CLASS as a special case for
   // empty structs. Recognize it and don't add any return values in that
@@ -1492,7 +1490,7 @@ llvm_x86_64_get_multiple_return_reg_classes(tree TreeType, Type * /*Ty*/,
           Elts.push_back(Type::getFloatTy(Context));
           Bytes -= 4;
         } else
-          assert(0 && "Not yet handled!");
+          llvm_unreachable("Not yet handled!");
       } else if ((NumClasses-i) == 2) {
         if (Class[i+1] == X86_64_SSEUP_CLASS) {
           Type *Ty = ConvertType(TreeType);
@@ -1541,11 +1539,11 @@ llvm_x86_64_get_multiple_return_reg_classes(tree TreeType, Type * /*Ty*/,
           Elts.push_back(Type::getDoubleTy(Context));
           Bytes -= 16;
         } else {
-          assert(0 && "Not yet handled!");
+          llvm_unreachable("Not yet handled!");
         }
         ++i; // Already handled the next one.
       } else
-        assert(0 && "Not yet handled!");
+        llvm_unreachable("Not yet handled!");
       break;
     case X86_64_SSESF_CLASS:
       Elts.push_back(Type::getFloatTy(Context));
@@ -1564,7 +1562,7 @@ llvm_x86_64_get_multiple_return_reg_classes(tree TreeType, Type * /*Ty*/,
       // padding bytes.
       Elts.push_back(Type::getInt64Ty(Context));
       break;
-    default: assert(0 && "Unexpected register class!");
+    default: llvm_unreachable("Unexpected register class!");
     }
   }
 }

@@ -783,7 +783,7 @@ static Constant *ConvertSTRING_CST(tree exp, TargetFolder &) {
                                         ByteSwap_32(InStr[i])));
     }
   } else {
-    assert(0 && "Unknown character type!");
+    llvm_unreachable("Unknown character type!");
   }
 
   unsigned LenInElts = Len /

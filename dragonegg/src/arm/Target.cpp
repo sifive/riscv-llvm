@@ -186,7 +186,7 @@ vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
       break;
 
       default:
-      assert(0 && "What type is this?");
+      llvm_unreachable("What type is this?");
     }
 
     // Walk through fdt_counts.  This is a homogeneous aggregate if
@@ -262,7 +262,7 @@ vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
     return true;
   }
   else
-    assert(0 && "what type was this?");
+    llvm_unreachable("what type was this?");
 
   return false;
 }

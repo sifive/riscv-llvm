@@ -3218,8 +3218,10 @@ static std::string CanonicalizeConstraint(const char *Constraint) {
   while (!DoneModifiers) {
     switch (*Constraint) {
     default: DoneModifiers = true; break;
-    case '=': assert(0 && "Should be after '='s");
-    case '+': assert(0 && "'+' should already be expanded");
+    case '=':
+      llvm_unreachable("Should be after '='s");
+    case '+':
+      llvm_unreachable("'+' should already be expanded");
     case '*':
     case '?':
     case '!':
