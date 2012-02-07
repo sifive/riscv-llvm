@@ -7509,6 +7509,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       ConstraintStr += ",~{memory}";
       break;
     default:     // Normal register name.
+      assert(RegName && "Null register name successfully decoded!");
       RegName = LLVM_GET_REG_NAME(RegName, RegCode);
       ConstraintStr += ",~{";
       ConstraintStr += RegName;
