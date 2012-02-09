@@ -3584,8 +3584,8 @@ bool TreeToLLVM::EmitFrontendExpandedBuiltinCall(gimple stmt, tree fndecl,
 #else
   // Avoid compiler warnings about unused parameters.
   (void)stmt; (void)fndecl; (void)DestLoc; (void)Result;
-#endif
   return false;
+#endif
 }
 
 /// TargetBuiltinCache - A cache of builtin intrinsics indexed by the GCC
