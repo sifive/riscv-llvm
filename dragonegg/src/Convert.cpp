@@ -1314,7 +1314,7 @@ Value *TreeToLLVM::CastToAnyType(Value *V, bool VisSigned,
       V = CastToAnyType(V, VisSigned, IntTy, DestIsSigned);
       return Builder.CreateBitCast(V, DestTy);
     }
-    assert(false && "Unable to cast between these types!");
+    llvm_unreachable("Unable to cast between these types!");
   }
 
   // The types are different so we must cast. Use getCastOpcode to create an
@@ -6196,7 +6196,7 @@ Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, unsigned code) {
 
   switch (code) {
   default:
-    assert(false && "Unhandled condition code!");
+    llvm_unreachable("Unhandled condition code!");
   case LT_EXPR:
     UIPred = CmpInst::ICMP_ULT;
     SIPred = CmpInst::ICMP_SLT;

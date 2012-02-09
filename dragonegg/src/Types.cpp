@@ -104,7 +104,7 @@ namespace {
 
       switch (TREE_CODE(type_ref)) {
       default:
-        assert(false && "Unexpected tree kind!");
+        llvm_unreachable("Unexpected tree kind!");
       case ARRAY_TYPE:
       case COMPLEX_TYPE:
       case POINTER_TYPE:
@@ -148,7 +148,7 @@ namespace {
     static ContainedTypeIterator begin(tree type) {
       switch (TREE_CODE(type)) {
       default:
-        assert(false && "Unknown type!");
+        llvm_unreachable("Unknown type!");
 
       case BOOLEAN_TYPE:
       case ENUMERAL_TYPE:
@@ -1226,7 +1226,7 @@ static bool mayRecurse(tree type) {
   assert(type == TYPE_MAIN_VARIANT(type) && "Not converting the main variant!");
   switch (TREE_CODE(type)) {
   default:
-    assert(false && "Unknown type!");
+    llvm_unreachable("Unknown type!");
 
   case BOOLEAN_TYPE:
   case ENUMERAL_TYPE:

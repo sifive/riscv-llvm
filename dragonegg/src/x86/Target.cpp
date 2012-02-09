@@ -138,7 +138,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
 
   switch (Handler) {
   case SearchForHandler:
-    assert(false && "Unexpected builtin code!");
+    DieAbjectly("Unexpected builtin code!", stmt);
   case UnsupportedBuiltin: return false;
   case addps:
   case addps256:
@@ -884,8 +884,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateSExt(Result, ResultType);
     return true;
   }
-  DieAbjectly("Builtin not implemented!", stmt);
-  return false;
+  llvm_unreachable("Forgot case for code?");
 }
 
 // One day we will do parameter marshalling right: by using CUMULATIVE_ARGS.
