@@ -109,8 +109,8 @@ extern Constant* ConvertMetadataStringToGV(const char *str);
 /// DieAbjectly - An unrecoverable fatal error occurred - throw in the towel,
 /// give up the ghost, quit miserably.
 inline void LLVM_ATTRIBUTE_NORETURN DieAbjectly(const char *Message) {
-  llvm_unreachable(Message);
   (void)Message; // Avoid unused variable warning when assertions are disabled.
+  llvm_unreachable(Message);
 }
 inline void LLVM_ATTRIBUTE_NORETURN DieAbjectly(const char *Message,
                                                 union gimple_statement_d *stmt){
