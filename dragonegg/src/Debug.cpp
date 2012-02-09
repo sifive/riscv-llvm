@@ -1028,7 +1028,6 @@ DIType DebugInfo::getOrCreateType(tree type) {
       // Do not cache pointer type. The pointer may point to forward declared
       // struct.
       return createPointerType(type);
-      break;
 
     case OFFSET_TYPE: {
       // gen_type_die(TYPE_OFFSET_BASETYPE(type), context_die);
@@ -1056,7 +1055,6 @@ DIType DebugInfo::getOrCreateType(tree type) {
     case QUAL_UNION_TYPE:
     case UNION_TYPE:
       return createStructType(type);
-      break;
 
     case INTEGER_TYPE:
     case REAL_TYPE:
