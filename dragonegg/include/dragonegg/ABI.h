@@ -42,6 +42,7 @@ namespace llvm {
 /// DefaultABIClient - This is a simple implementation of the ABI client
 /// interface that can be subclassed.
 struct DefaultABIClient {
+  virtual void anchor();
   virtual ~DefaultABIClient() {}
   virtual CallingConv::ID getCallingConv(void) = 0;
   virtual bool isShadowReturn() const { return false; }
