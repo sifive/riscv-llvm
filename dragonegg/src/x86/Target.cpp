@@ -1130,12 +1130,12 @@ llvm_x86_64_should_pass_aggregate_in_mixed_regs(tree TreeType, Type *Ty,
           llvm_unreachable("Not yet handled!");
       } else if ((NumClasses-i) == 2) {
         if (Class[i+1] == X86_64_SSEUP_CLASS) {
-          Type *Ty = ConvertType(TreeType);
-          if (StructType *STy = dyn_cast<StructType>(Ty))
+          Type *LLVMTy = ConvertType(TreeType);
+          if (StructType *STy = dyn_cast<StructType>(LLVMTy))
             // Look pass the struct wrapper.
             if (STy->getNumElements() == 1)
-              Ty = STy->getElementType(0);
-          if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
+              LLVMTy = STy->getElementType(0);
+          if (VectorType *VTy = dyn_cast<VectorType>(LLVMTy)) {
             if (VTy->getNumElements() == 2) {
               if (VTy->getElementType()->isIntegerTy()) {
                 Elts.push_back(VectorType::get(Type::getInt64Ty(Context), 2));
@@ -1152,7 +1152,7 @@ llvm_x86_64_should_pass_aggregate_in_mixed_regs(tree TreeType, Type *Ty,
               }
               Bytes -= 4;
             }
-          } else if (llvm_x86_is_all_integer_types(Ty)) {
+          } else if (llvm_x86_is_all_integer_types(LLVMTy)) {
             Elts.push_back(VectorType::get(Type::getInt32Ty(Context), 4));
             Bytes -= 4;
           } else {

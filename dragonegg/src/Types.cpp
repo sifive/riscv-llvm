@@ -542,16 +542,16 @@ namespace {
 
     /// HandleScalarResult - This callback is invoked if the function returns a
     /// simple scalar result value.
-    void HandleScalarResult(Type *RetTy) {
-      this->RetTy = RetTy;
+    void HandleScalarResult(Type *RTy) {
+      this->RetTy = RTy;
     }
 
     /// HandleAggregateResultAsScalar - This callback is invoked if the function
     /// returns an aggregate value by bit converting it to the specified scalar
     /// type and returning that.
-    void HandleAggregateResultAsScalar(Type *ScalarTy, unsigned Offset=0) {
+    void HandleAggregateResultAsScalar(Type *ScalarTy, unsigned Off=0) {
       RetTy = ScalarTy;
-      this->Offset = Offset;
+      this->Offset = Off;
     }
 
     /// HandleAggregateResultAsAggregate - This callback is invoked if the function

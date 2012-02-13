@@ -864,11 +864,11 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
       unsigned PadBits = EltSize - ValSize;
       assert(PadBits % BITS_PER_UNIT == 0 && "Non-unit type size?");
       unsigned Units = PadBits / BITS_PER_UNIT;
-      Constant *Elts[] = {
+      Constant *PaddedElt[] = {
         Val, UndefValue::get(GetUnitType(Context, Units))
       };
 
-      Val = ConstantStruct::getAnon(Elts);
+      Val = ConstantStruct::getAnon(PaddedElt);
     }
 
     // Get the index position of the element within the array.  Note that this

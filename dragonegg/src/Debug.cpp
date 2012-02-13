@@ -740,10 +740,12 @@ DIType DebugInfo::createStructType(tree type) {
 
   // Check if this type is created while creating context information
   // descriptor.
-  std::map<tree_node *, WeakVH >::iterator I = TypeCache.find(type);
-  if (I != TypeCache.end())
-    if (MDNode *TN = dyn_cast_or_null<MDNode>(&*I->second))
-      return DIType(TN);
+  {
+    std::map<tree_node *, WeakVH >::iterator I = TypeCache.find(type);
+    if (I != TypeCache.end())
+      if (MDNode *TN = dyn_cast_or_null<MDNode>(&*I->second))
+        return DIType(TN);
+  }
 
   // forward declaration,
   if (TYPE_SIZE(type) == 0) {
@@ -932,10 +934,10 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
 
   DIType Ty;
   if (tree TyDef = TYPE_NAME(type)) {
-      std::map<tree_node *, WeakVH >::iterator I = TypeCache.find(TyDef);
-      if (I != TypeCache.end())
-        if (Value *M = I->second)
-          return DIType(cast<MDNode>(M));
+    std::map<tree_node *, WeakVH >::iterator I = TypeCache.find(TyDef);
+    if (I != TypeCache.end())
+      if (I->second)
+        return DIType(cast<MDNode>(I->second));
     if (TREE_CODE(TyDef) == TYPE_DECL &&  DECL_ORIGINAL_TYPE(TyDef)) {
       expanded_location TypeDefLoc = GetNodeLocation(TyDef);
       Ty = DebugFactory.CreateDerivedType(DW_TAG_typedef,
@@ -1002,8 +1004,8 @@ DIType DebugInfo::getOrCreateType(tree type) {
   // Check to see if the compile unit already has created this type.
   std::map<tree_node *, WeakVH >::iterator I = TypeCache.find(type);
   if (I != TypeCache.end())
-    if (Value *M = I->second)
-      return DIType(cast<MDNode>(M));
+    if (I->second)
+      return DIType(cast<MDNode>(I->second));
 
   DIType MainTy;
   if (type != TYPE_MAIN_VARIANT(type) && TYPE_MAIN_VARIANT(type))

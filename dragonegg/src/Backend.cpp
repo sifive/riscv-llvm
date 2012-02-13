@@ -1839,7 +1839,6 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
   // Run the code generator, if present.
   if (CodeGenPasses) {
     // Arrange for inline asm problems to be printed nicely.
-    LLVMContext &Context = TheModule->getContext();
     LLVMContext::InlineAsmDiagHandlerTy OldHandler =
       Context.getInlineAsmDiagnosticHandler();
     void *OldHandlerData = Context.getInlineAsmDiagnosticContext();
@@ -2032,12 +2031,11 @@ static struct plugin_info llvm_plugin_info = {
 };
 
 #ifndef DISABLE_VERSION_CHECK
-static bool version_check(struct plugin_gcc_version *gcc_version,
-                          struct plugin_gcc_version *plugin_version) {
+static bool version_check(struct plugin_gcc_version *plugged_in_version) {
   // Check that the running gcc has exactly the same version as the gcc we were
   // built against.  This strict check seems wise when developing against a fast
   // moving gcc tree.  TODO: Use a milder check if doing a "release build".
-  return plugin_default_version_check (gcc_version, plugin_version);
+  return plugin_default_version_check (&gcc_version, plugged_in_version);
 }
 #endif
 
@@ -2057,7 +2055,7 @@ plugin_init(struct plugin_name_args *plugin_info,
 
 #ifndef DISABLE_VERSION_CHECK
   // Check that the plugin is compatible with the running gcc.
-  if (!version_check (&gcc_version, version)) {
+  if (!version_check (version)) {
     errs() << "Incompatible plugin version\n";
     return 1;
   }

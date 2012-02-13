@@ -443,8 +443,8 @@ namespace {
     }
 
     void HandleAggregateResultAsScalar(Type * /*ScalarTy*/,
-                                       unsigned Offset = 0) {
-      this->Offset = Offset;
+                                       unsigned Off = 0) {
+      this->Offset = Off;
     }
 
     void EnterField(unsigned FieldNo, llvm::Type *StructTy) {
@@ -766,9 +766,9 @@ void TreeToLLVM::PopulatePhiNodes() {
   TreeVector IncomingValues;
   ValueVector PhiArguments;
 
-  for (unsigned i = 0, e = PendingPhis.size(); i < e; ++i) {
+  for (unsigned Idx = 0, EIdx = PendingPhis.size(); Idx < EIdx; ++Idx) {
     // The phi node to process.
-    PhiRecord &P = PendingPhis[i];
+    PhiRecord &P = PendingPhis[Idx];
 
     // Extract the incoming value for each predecessor from the GCC phi node.
     for (size_t i = 0, e = gimple_phi_num_args(P.gcc_phi); i != e; ++i) {
@@ -1771,7 +1771,6 @@ void TreeToLLVM::EmitAnnotateIntrinsic(Value *V, tree decl) {
       // Assert its a string, and then get that string.
       assert(TREE_CODE(val) == STRING_CST &&
              "Annotate attribute arg should always be a string");
-      Type *SBP = Type::getInt8PtrTy(Context);
       Constant *strGV = AddressOf(val);
       Value *Ops[4] = {
         Builder.CreateBitCast(V, SBP),
@@ -2522,16 +2521,16 @@ namespace {
 
     // EmitShadowResult - If the return result was redirected to a buffer,
     // emit it now.
-    Value *EmitShadowResult(tree type, const MemRef *DestLoc) {
+    Value *EmitShadowResult(tree type, const MemRef *DstLoc) {
       if (!RetBuf.Ptr)
         return 0;
 
-      if (DestLoc) {
+      if (DstLoc) {
         // Copy out the aggregate return value now.
         assert(ConvertType(type) ==
                cast<PointerType>(RetBuf.Ptr->getType())->getElementType() &&
                "Inconsistent result types!");
-        TheTreeToLLVM->EmitAggregateCopy(*DestLoc, RetBuf, type);
+        TheTreeToLLVM->EmitAggregateCopy(*DstLoc, RetBuf, type);
         return 0;
       } else {
         // Read out the scalar return value now.
@@ -2551,8 +2550,8 @@ namespace {
     /// returns an aggregate value by bit converting it to the specified scalar
     /// type and returning that.
     void HandleAggregateResultAsScalar(Type * /*ScalarTy*/,
-                                       unsigned Offset = 0) {
-      this->Offset = Offset;
+                                       unsigned Off = 0) {
+      this->Offset = Off;
     }
 
     /// HandleAggregateResultAsAggregate - This callback is invoked if the
@@ -2797,8 +2796,8 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     if (Attrs != Attribute::None) {
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
-      for (unsigned i = OldSize + 1; i <= CallOperands.size(); ++i) {
-        PAL = PAL.addAttr(i, Attrs);
+      for (unsigned j = OldSize + 1; j <= CallOperands.size(); ++j) {
+        PAL = PAL.addAttr(j, Attrs);
       }
     }
 
@@ -5171,7 +5170,7 @@ Value *TreeToLLVM::EmitFieldAnnotation(Value *FieldPtr, tree FieldDecl) {
 
   Type *SBP = Type::getInt8PtrTy(Context);
 
-  Function *Fn = Intrinsic::getDeclaration(TheModule,
+  Function *An = Intrinsic::getDeclaration(TheModule,
                                            Intrinsic::ptr_annotation,
                                            SBP);
 
@@ -5216,7 +5215,7 @@ Value *TreeToLLVM::EmitFieldAnnotation(Value *FieldPtr, tree FieldDecl) {
       };
 
       Type* FieldPtrType = FieldPtr->getType();
-      FieldPtr = Builder.CreateCall(Fn, Ops);
+      FieldPtr = Builder.CreateCall(An, Ops);
       FieldPtr = Builder.CreateBitCast(FieldPtr, FieldPtrType);
     }
 
