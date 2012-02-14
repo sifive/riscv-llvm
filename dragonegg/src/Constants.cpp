@@ -128,7 +128,7 @@ public:
 
   /// getBitWidth - Return the number of bits in the range.
   unsigned getBitWidth() const {
-    return R.getWidth();
+    return (unsigned)R.getWidth();
   }
 
   /// getRange - Return the range of bits in this slice.
@@ -165,15 +165,15 @@ BitSlice BitSlice::ExtendRange(SignedRange r, TargetFolder &Folder) const {
   if (R == r)
     return *this;
   assert(!r.empty() && "Empty ranges did not evaluate as equal?");
-  Type *ExtTy = IntegerType::get(Context, r.getWidth());
+  Type *ExtTy = IntegerType::get(Context, (unsigned)r.getWidth());
   // If the slice contains no bits then every bit of the extension is zero.
   if (empty())
     return BitSlice(r, Constant::getNullValue(ExtTy));
   // Extend the contents to the new type.
   Constant *C = Folder.CreateZExtOrBitCast(Contents, ExtTy);
   // Position the old contents correctly inside the new contents.
-  unsigned deltaFirst = R.getFirst() - r.getFirst();
-  unsigned deltaLast = r.getLast() - R.getLast();
+  unsigned deltaFirst = (unsigned)(R.getFirst() - r.getFirst());
+  unsigned deltaLast = (unsigned)(r.getLast() - R.getLast());
   if (BYTES_BIG_ENDIAN && deltaLast) {
     (void)deltaFirst; // Avoid unused variable warning.
     Constant *ShiftAmt = ConstantInt::get(C->getType(), deltaLast);
@@ -198,7 +198,7 @@ Constant *BitSlice::getBits(SignedRange r, TargetFolder &Folder) const {
   // Quick exit if the desired range matches that of the slice.
   if (R == r)
     return Contents;
-  Type *RetTy = IntegerType::get(Context, r.getWidth());
+  Type *RetTy = IntegerType::get(Context, (unsigned)r.getWidth());
   // If the slice contains no bits then every returned bit is undefined.
   if (empty())
     return UndefValue::get(RetTy);
@@ -247,8 +247,8 @@ BitSlice BitSlice::ReduceRange(SignedRange r, TargetFolder &Folder) const {
   assert(!R.empty() && "Empty ranges did not evaluate as equal?");
   // Move the least-significant bit to the correct position.
   Constant *C = Contents;
-  unsigned deltaFirst = r.getFirst() - R.getFirst();
-  unsigned deltaLast = R.getLast() - r.getLast();
+  unsigned deltaFirst = (unsigned)(r.getFirst() - R.getFirst());
+  unsigned deltaLast = (unsigned)(R.getLast() - r.getLast());
   if (BYTES_BIG_ENDIAN && deltaLast) {
     (void)deltaFirst; // Avoid unused variable warning.
     Constant *ShiftAmt = ConstantInt::get(C->getType(), deltaLast);
@@ -259,7 +259,7 @@ BitSlice BitSlice::ReduceRange(SignedRange r, TargetFolder &Folder) const {
     C = Folder.CreateLShr(C, ShiftAmt);
   }
   // Truncate to the new type.
-  Type *RedTy = IntegerType::get(Context, r.getWidth());
+  Type *RedTy = IntegerType::get(Context, (unsigned)r.getWidth());
   C = Folder.CreateTruncOrBitCast(C, RedTy);
   return BitSlice(r, C);
 }
