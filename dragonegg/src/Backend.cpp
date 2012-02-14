@@ -30,7 +30,6 @@
 #include "dragonegg/Types.h"
 
 // LLVM headers
-#define DEBUG_TYPE "plugin"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
