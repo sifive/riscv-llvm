@@ -1443,7 +1443,7 @@ Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) {
 /// This routine uses GCC implementation to find required register classes.
 /// The original implementation of this routine is based on
 /// llvm_x86_64_should_pass_aggregate_in_mixed_regs code.
-void
+static void
 llvm_x86_64_get_multiple_return_reg_classes(tree TreeType, Type * /*Ty*/,
                                             std::vector<Type*> &Elts) {
   enum x86_64_reg_class Class[MAX_CLASSES];
