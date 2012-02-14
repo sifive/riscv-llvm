@@ -208,11 +208,10 @@ DebugInfo::DebugInfo(Module *m)
 : M(m)
 , DebugFactory(*m)
 , CurFullPath("")
-, CurLineNo(0)
 , PrevFullPath("")
+, CurLineNo(0)
 , PrevLineNo(0)
 , PrevBB(NULL)
-, RegionStack()
 {}
 
 /// getFunctionName - Get function name for the given FnDecl. If the

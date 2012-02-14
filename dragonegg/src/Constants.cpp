@@ -1000,13 +1000,13 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
 namespace {
 
 class FieldContents {
+  TargetFolder &Folder;
   SignedRange R; // The range of bits occupied by the constant.
   Constant *C;   // The constant.  May be null if the range is empty.
   int Starts;    // The first bit of the constant is positioned at this offset.
-  TargetFolder &Folder;
 
   FieldContents(SignedRange r, Constant *c, int starts, TargetFolder &folder)
-    : R(r), C(c), Starts(starts), Folder(folder) {
+    : Folder(folder), R(r), C(c), Starts(starts) {
     assert((R.empty() || C) && "Need constant when range not empty!");
   }
 

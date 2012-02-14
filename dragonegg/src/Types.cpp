@@ -523,14 +523,14 @@ namespace {
     Type *&RetTy;
     SmallVectorImpl<Type*> &ArgTypes;
     CallingConv::ID &CallingConv;
+    unsigned Offset;
     bool isShadowRet;
     bool KNRPromotion;
-    unsigned Offset;
   public:
     FunctionTypeConversion(Type *&retty, SmallVectorImpl<Type*> &AT,
                            CallingConv::ID &CC, bool KNR)
-      : RetTy(retty), ArgTypes(AT), CallingConv(CC), KNRPromotion(KNR),
-        Offset(0) {
+      : RetTy(retty), ArgTypes(AT), CallingConv(CC), Offset(0),
+        KNRPromotion(KNR) {
       CallingConv = CallingConv::C;
       isShadowRet = false;
     }

@@ -432,13 +432,13 @@ namespace {
     LLVMBuilder Builder;
     std::vector<Value*> LocStack;
     std::vector<std::string> NameStack;
-    unsigned Offset;
     CallingConv::ID &CallingConv;
+    unsigned Offset;
     bool isShadowRet;
     FunctionPrologArgumentConversion(tree FnDecl,
                                      Function::arg_iterator &ai,
                                      const LLVMBuilder &B, CallingConv::ID &CC)
-      : FunctionDecl(FnDecl), AI(ai), Builder(B), Offset(0), CallingConv(CC),
+      : FunctionDecl(FnDecl), AI(ai), Builder(B), CallingConv(CC), Offset(0),
         isShadowRet(false) {}
 
     /// getCallingConv - This provides the desired CallingConv for the function.
@@ -2581,14 +2581,14 @@ namespace {
     SmallVector<Value*, 2> LocStack;
     FunctionType *FTy;
     const MemRef *DestLoc;
-    bool useReturnSlot;
     LLVMBuilder &Builder;
     Value *TheValue;
     MemRef RetBuf;
     CallingConv::ID &CallingConv;
+    unsigned Offset;
     bool isShadowRet;
     bool isAggrRet;
-    unsigned Offset;
+    bool useReturnSlot;
 
     FunctionCallArgumentConversion(SmallVector<Value*, 16> &ops,
                                    FunctionType *FnTy,
@@ -2596,9 +2596,9 @@ namespace {
                                    bool ReturnSlotOpt,
                                    LLVMBuilder &b,
                                    CallingConv::ID &CC)
-      : CallOperands(ops), FTy(FnTy), DestLoc(destloc),
-        useReturnSlot(ReturnSlotOpt), Builder(b), CallingConv(CC),
-        isShadowRet(false), isAggrRet(false), Offset(0) { }
+      : CallOperands(ops), FTy(FnTy), DestLoc(destloc), Builder(b),
+        CallingConv(CC), Offset(0), isShadowRet(false), isAggrRet(false),
+        useReturnSlot(ReturnSlotOpt) { }
 
     /// getCallingConv - This provides the desired CallingConv for the function.
     CallingConv::ID getCallingConv(void) { return CallingConv; }

@@ -256,11 +256,16 @@ class DIFactory {
 /// is responsible for emitting to llvm globals or pass directly to the backend.
 class DebugInfo {
 private:
+  SmallVector<WeakVH, 4> RegionStack;
+                                        // Stack to track declarative scopes.
+
+  std::map<tree_node *, WeakVH> RegionMap;
+
   Module *M;                            // The current module.
   DIFactory DebugFactory;
   const char *CurFullPath;              // Previous location file encountered.
-  int CurLineNo;                        // Previous location line# encountered.
   const char *PrevFullPath;             // Previous location file encountered.
+  int CurLineNo;                        // Previous location line# encountered.
   int PrevLineNo;                       // Previous location line# encountered.
   BasicBlock *PrevBB;                   // Last basic block encountered.
 
@@ -275,11 +280,6 @@ private:
   std::map<tree_node *, WeakVH> NameSpaceCache;
                                         // Cache of previously constructed name
                                         // spaces.
-
-  SmallVector<WeakVH, 4> RegionStack;
-                                        // Stack to track declarative scopes.
-
-  std::map<tree_node *, WeakVH> RegionMap;
 
   /// FunctionNames - This is a storage for function names that are
   /// constructed on demand. For example, C++ destructors, C++ operators etc..
