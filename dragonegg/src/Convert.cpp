@@ -2026,7 +2026,7 @@ static Constant *ConvertTypeInfo(tree type) {
 AllocaInst *TreeToLLVM::getExceptionPtr(int RegionNo) {
   assert(RegionNo >= 0 && "Invalid exception handling region!");
 
-  if (RegionNo >= ExceptionPtrs.size())
+  if ((unsigned)RegionNo >= ExceptionPtrs.size())
     ExceptionPtrs.resize(RegionNo + 1, 0);
 
   AllocaInst *&ExceptionPtr = ExceptionPtrs[RegionNo];
@@ -2044,7 +2044,7 @@ AllocaInst *TreeToLLVM::getExceptionPtr(int RegionNo) {
 AllocaInst *TreeToLLVM::getExceptionFilter(int RegionNo) {
   assert(RegionNo >= 0 && "Invalid exception handling region!");
 
-  if (RegionNo >= ExceptionFilters.size())
+  if ((unsigned)RegionNo >= ExceptionFilters.size())
     ExceptionFilters.resize(RegionNo + 1, 0);
 
   AllocaInst *&ExceptionFilter = ExceptionFilters[RegionNo];
@@ -2062,7 +2062,7 @@ AllocaInst *TreeToLLVM::getExceptionFilter(int RegionNo) {
 BasicBlock *TreeToLLVM::getFailureBlock(int RegionNo) {
   assert(RegionNo >= 0 && "Invalid exception handling region!");
 
-  if (RegionNo >= FailureBlocks.size())
+  if ((unsigned)RegionNo >= FailureBlocks.size())
     FailureBlocks.resize(RegionNo + 1, 0);
 
   BasicBlock *&FailureBlock = FailureBlocks[RegionNo];
@@ -5856,7 +5856,7 @@ static unsigned EncodeExpr(tree exp, SmallVectorImpl<unsigned char> &Buffer) {
   const tree type = TREE_TYPE(exp);
   unsigned SizeInBytes = (TREE_INT_CST_LOW(TYPE_SIZE(type)) + 7) / 8;
   Buffer.resize(SizeInBytes);
-  int BytesWritten = native_encode_expr(exp, &Buffer[0], SizeInBytes);
+  unsigned BytesWritten = native_encode_expr(exp, &Buffer[0], SizeInBytes);
   assert(BytesWritten == SizeInBytes && "Failed to fully encode expression!");
   return BytesWritten;
 }
