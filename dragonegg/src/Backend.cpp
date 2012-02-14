@@ -242,11 +242,11 @@ static int ModuleOptLevel() {
   return optimize;
 }
 
+#ifndef NDEBUG
 // SizeOfGlobalMatchesDecl - Whether the size of the given global value is the
 // same as that of the given GCC declaration.  Conservatively returns 'true' if
 // the answer is unclear.
-static LLVM_ATTRIBUTE_UNUSED // Only called from asserts.
-bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
+static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
   // If the GCC declaration has no size then nothing useful can be said here.
   if (!DECL_SIZE(decl))
     return true;
@@ -267,6 +267,7 @@ bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
   return TheTarget->getTargetData()->getTypeAllocSizeInBits(Ty) ==
     ((gcc_size + Align - 1) / Align) * Align;
 }
+#endif
 
 #ifndef LLVM_TARGET_NAME
 #error LLVM_TARGET_NAME macro not specified
