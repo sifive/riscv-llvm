@@ -137,6 +137,139 @@ static StringRef SelectFPName(tree type, StringRef FloatName,
   return StringRef();
 }
 
+/// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
+/// to in-register type (that given by getRegType).  TODO: Eliminate these
+/// methods: "memory" values should never be held in registers.  Currently
+/// this is mainly used for marshalling function parameters and return values,
+/// but that should be completely independent of the reg vs mem value logic.
+static Value *Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
+  Type *MemTy = V->getType();
+  Type *RegTy = getRegType(type);
+  assert(MemTy == ConvertType(type) && "Not of memory type!");
+
+  if (MemTy == RegTy)
+    return V;
+
+  if (RegTy->isIntegerTy()) {
+    assert(MemTy->isIntegerTy() && "Type mismatch!");
+    return Builder.CreateIntCast(V, RegTy, /*isSigned*/!TYPE_UNSIGNED(type));
+  }
+
+  if (RegTy->isPointerTy()) {
+    assert(MemTy->isPointerTy() && "Type mismatch!");
+    return Builder.CreateBitCast(V, RegTy);
+  }
+
+  if (RegTy->isStructTy()) {
+    assert(TREE_CODE(type) == COMPLEX_TYPE && "Expected a complex type!");
+    assert(MemTy->isStructTy() && "Type mismatch!");
+    Value *RealPart = Builder.CreateExtractValue(V, 0);
+    Value *ImagPart = Builder.CreateExtractValue(V, 1);
+    RealPart = Mem2Reg(RealPart, TREE_TYPE(type), Builder);
+    ImagPart = Mem2Reg(ImagPart, TREE_TYPE(type), Builder);
+    V = UndefValue::get(RegTy);
+    V = Builder.CreateInsertValue(V, RealPart, 0);
+    V = Builder.CreateInsertValue(V, ImagPart, 1);
+    return V;
+  }
+
+  if (RegTy->isVectorTy()) {
+    assert(TREE_CODE(type) == VECTOR_TYPE && "Expected a vector type!");
+    assert(MemTy->isVectorTy() && "Type mismatch!");
+    Value *Res = UndefValue::get(RegTy);
+    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
+    for (unsigned i = 0; i != NumElts; ++i) {
+      Value *Idx = Builder.getInt32(i);
+      Value *Val = Builder.CreateExtractElement(V, Idx);
+      Val = Mem2Reg(Val, TREE_TYPE(type), Builder);
+      Res = Builder.CreateInsertElement(Res, Val, Idx);
+    }
+    return Res;
+  }
+
+  DieAbjectly("Don't know how to turn this into a register!", type);
+}
+
+/// Reg2Mem - Convert a value of in-register type (that given by getRegType)
+/// to in-memory type (that given by ConvertType).  TODO: Eliminate this
+/// method: "memory" values should never be held in registers.  Currently
+/// this is mainly used for marshalling function parameters and return values,
+/// but that should be completely independent of the reg vs mem value logic.
+static Value *Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
+  Type *RegTy = V->getType();
+  Type *MemTy = ConvertType(type);
+  assert(RegTy == getRegType(type) && "Not of register type!");
+
+  if (RegTy == MemTy)
+    return V;
+
+  if (MemTy->isIntegerTy()) {
+    assert(RegTy->isIntegerTy() && "Type mismatch!");
+    return Builder.CreateIntCast(V, MemTy, /*isSigned*/!TYPE_UNSIGNED(type));
+  }
+
+  if (MemTy->isPointerTy()) {
+    assert(RegTy->isPointerTy() && "Type mismatch!");
+    return Builder.CreateBitCast(V, MemTy);
+  }
+
+  if (MemTy->isStructTy()) {
+    assert(TREE_CODE(type) == COMPLEX_TYPE && "Expected a complex type!");
+    assert(RegTy->isStructTy() && "Type mismatch!");
+    Value *RealPart = Builder.CreateExtractValue(V, 0);
+    Value *ImagPart = Builder.CreateExtractValue(V, 1);
+    RealPart = Reg2Mem(RealPart, TREE_TYPE(type), Builder);
+    ImagPart = Reg2Mem(ImagPart, TREE_TYPE(type), Builder);
+    Value *Z = UndefValue::get(MemTy);
+    Z = Builder.CreateInsertValue(Z, RealPart, 0);
+    Z = Builder.CreateInsertValue(Z, ImagPart, 1);
+    return Z;
+  }
+
+  if (MemTy->isVectorTy()) {
+    assert(TREE_CODE(type) == VECTOR_TYPE && "Expected a vector type!");
+    assert(RegTy->isVectorTy() && "Type mismatch!");
+    Value *Res = UndefValue::get(MemTy);
+    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
+    for (unsigned i = 0; i != NumElts; ++i) {
+      Value *Idx = Builder.getInt32(i);
+      Value *Val = Builder.CreateExtractElement(V, Idx);
+      Val = Reg2Mem(Val, TREE_TYPE(type), Builder);
+      Res = Builder.CreateInsertElement(Res, Val, Idx);
+    }
+    return Res;
+  }
+
+  DieAbjectly("Don't know how to turn this into memory!", type);
+}
+
+/// LoadRegisterFromMemory - Loads a value of the given scalar GCC type from
+/// the memory location pointed to by Loc.  Takes care of adjusting for any
+/// differences between in-memory and in-register types (the returned value
+/// is of in-register type, as returned by getRegType).
+static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
+                                     LLVMBuilder &Builder) {
+  // NOTE: Needs to be kept in sync with getRegType.
+  Type *MemTy = ConvertType(type);
+  Value *Ptr = Builder.CreateBitCast(Loc.Ptr, MemTy->getPointerTo());
+  LoadInst *LI = Builder.CreateLoad(Ptr, Loc.Volatile);
+  LI->setAlignment(Loc.getAlignment());
+  return Mem2Reg(LI, type, Builder);
+}
+
+/// StoreRegisterToMemory - Stores the given value to the memory pointed to by
+/// Loc.  Takes care of adjusting for any differences between the value's type
+/// (which is the in-register type given by getRegType) and the in-memory type.
+static void StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
+                                  LLVMBuilder &Builder) {
+  // NOTE: Needs to be kept in sync with getRegType.
+  Type *MemTy = ConvertType(type);
+  Value *Ptr = Builder.CreateBitCast(Loc.Ptr, MemTy->getPointerTo());
+  StoreInst *SI = Builder.CreateStore(Reg2Mem(V, type, Builder), Ptr,
+                                      Loc.Volatile);
+  SI->setAlignment(Loc.getAlignment());
+}
+
 
 //===----------------------------------------------------------------------===//
 //                         ... High-Level Methods ...
@@ -5829,130 +5962,6 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
   }
 
   return ConstantVector::get(Elts);
-}
-
-/// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
-/// to in-register type (that given by getRegType).
-Value *TreeToLLVM::Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
-  Type *MemTy = V->getType();
-  Type *RegTy = getRegType(type);
-  assert(MemTy == ConvertType(type) && "Not of memory type!");
-
-  if (MemTy == RegTy)
-    return V;
-
-  if (RegTy->isIntegerTy()) {
-    assert(MemTy->isIntegerTy() && "Type mismatch!");
-    return Builder.CreateIntCast(V, RegTy, /*isSigned*/!TYPE_UNSIGNED(type));
-  }
-
-  if (RegTy->isPointerTy()) {
-    assert(MemTy->isPointerTy() && "Type mismatch!");
-    return Builder.CreateBitCast(V, RegTy);
-  }
-
-  if (RegTy->isStructTy()) {
-    assert(TREE_CODE(type) == COMPLEX_TYPE && "Expected a complex type!");
-    assert(MemTy->isStructTy() && "Type mismatch!");
-    Value *RealPart = Builder.CreateExtractValue(V, 0);
-    RealPart = Mem2Reg(RealPart, TREE_TYPE(type), Builder);
-    Value *ImagPart = Builder.CreateExtractValue(V, 1);
-    ImagPart = Mem2Reg(ImagPart, TREE_TYPE(type), Builder);
-    return CreateComplex(RealPart, ImagPart);
-  }
-
-  if (RegTy->isVectorTy()) {
-    assert(TREE_CODE(type) == VECTOR_TYPE && "Expected a vector type!");
-    assert(MemTy->isVectorTy() && "Type mismatch!");
-    Value *V = UndefValue::get(RegTy);
-    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
-    for (unsigned i = 0; i != NumElts; ++i) {
-      Value *Idx = Builder.getInt32(i);
-      Value *Val = Builder.CreateExtractElement(V, Idx);
-      Val = Mem2Reg(Val, TREE_TYPE(type), Builder);
-      V = Builder.CreateInsertElement(V, Val, Idx);
-    }
-    return V;
-  }
-
-  DieAbjectly("Don't know how to turn this into a register!", type);
-}
-
-/// Reg2Mem - Convert a value of in-register type (that given by getRegType)
-/// to in-memory type (that given by ConvertType).
-Value *TreeToLLVM::Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
-  Type *RegTy = V->getType();
-  Type *MemTy = ConvertType(type);
-  assert(RegTy == getRegType(type) && "Not of register type!");
-
-  if (RegTy == MemTy)
-    return V;
-
-  if (MemTy->isIntegerTy()) {
-    assert(RegTy->isIntegerTy() && "Type mismatch!");
-    return Builder.CreateIntCast(V, MemTy, /*isSigned*/!TYPE_UNSIGNED(type));
-  }
-
-  if (MemTy->isPointerTy()) {
-    assert(RegTy->isPointerTy() && "Type mismatch!");
-    return Builder.CreateBitCast(V, MemTy);
-  }
-
-  if (MemTy->isStructTy()) {
-    assert(TREE_CODE(type) == COMPLEX_TYPE && "Expected a complex type!");
-    assert(RegTy->isStructTy() && "Type mismatch!");
-    Value *RealPart, *ImagPart;
-    SplitComplex(V, RealPart, ImagPart);
-    RealPart = Reg2Mem(RealPart, TREE_TYPE(type), Builder);
-    ImagPart = Reg2Mem(ImagPart, TREE_TYPE(type), Builder);
-    Value *Z = UndefValue::get(MemTy);
-    Z = Builder.CreateInsertValue(Z, RealPart, 0);
-    Z = Builder.CreateInsertValue(Z, ImagPart, 1);
-    return Z;
-  }
-
-  if (MemTy->isVectorTy()) {
-    assert(TREE_CODE(type) == VECTOR_TYPE && "Expected a vector type!");
-    assert(RegTy->isVectorTy() && "Type mismatch!");
-    Value *V = UndefValue::get(MemTy);
-    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
-    for (unsigned i = 0; i != NumElts; ++i) {
-      Value *Idx = Builder.getInt32(i);
-      Value *Val = Builder.CreateExtractElement(V, Idx);
-      Val = Reg2Mem(Val, TREE_TYPE(type), Builder);
-      V = Builder.CreateInsertElement(V, Val, Idx);
-    }
-    return V;
-  }
-
-  DieAbjectly("Don't know how to turn this into memory!", type);
-}
-
-/// LoadRegisterFromMemory - Loads a value of the given scalar GCC type from
-/// the memory location pointed to by Loc.  Takes care of adjusting for any
-/// differences between in-memory and in-register types (the returned value
-/// is of in-register type, as returned by getRegType).
-Value *TreeToLLVM::LoadRegisterFromMemory(MemRef Loc, tree type,
-                                          LLVMBuilder &Builder) {
-  // NOTE: Needs to be kept in sync with getRegType.
-  Type *MemTy = ConvertType(type);
-  Value *Ptr = Builder.CreateBitCast(Loc.Ptr, MemTy->getPointerTo());
-  LoadInst *LI = Builder.CreateLoad(Ptr, Loc.Volatile);
-  LI->setAlignment(Loc.getAlignment());
-  return Mem2Reg(LI, type, Builder);
-}
-
-/// StoreRegisterToMemory - Stores the given value to the memory pointed to by
-/// Loc.  Takes care of adjusting for any differences between the value's type
-/// (which is the in-register type given by getRegType) and the in-memory type.
-void TreeToLLVM::StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
-                                       LLVMBuilder &Builder) {
-  // NOTE: Needs to be kept in sync with getRegType.
-  Type *MemTy = ConvertType(type);
-  Value *Ptr = Builder.CreateBitCast(Loc.Ptr, MemTy->getPointerTo());
-  StoreInst *SI = Builder.CreateStore(Reg2Mem(V, type, Builder), Ptr,
-                                      Loc.Volatile);
-  SI->setAlignment(Loc.getAlignment());
 }
 
 /// VectorHighElements - Return a vector of half the length, consisting of the

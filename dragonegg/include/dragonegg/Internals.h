@@ -726,37 +726,10 @@ private:
   /// constant of the corresponding register type.
   Constant *EmitVectorRegisterConstant(tree_node *reg);
 
-  /// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
-  /// to in-register type (that given by getRegType).  TODO: Eliminate these
-  /// methods: "memory" values should never be held in registers.  Currently
-  /// this is mainly used for marshalling function parameters and return values,
-  /// but that should be completely independent of the reg vs mem value logic.
-  Value *Mem2Reg(Value *V, tree_node *type, LLVMBuilder &Builder);
-
-  /// Reg2Mem - Convert a value of in-register type (that given by getRegType)
-  /// to in-memory type (that given by ConvertType).  TODO: Eliminate this
-  /// method: "memory" values should never be held in registers.  Currently
-  /// this is mainly used for marshalling function parameters and return values,
-  /// but that should be completely independent of the reg vs mem value logic.
-  Value *Reg2Mem(Value *V, tree_node *type, LLVMBuilder &Builder);
-
   /// EmitMemory - Convert the specified gimple register or local constant of
   /// register type to an LLVM value with in-memory type (given by ConvertType).
   /// TODO: Eliminate this method, see Mem2Reg and Reg2Mem above.
   Value *EmitMemory(tree_node *reg);
-
-  /// LoadRegisterFromMemory - Loads a value of the given scalar GCC type from
-  /// the memory location pointed to by Loc.  Takes care of adjusting for any
-  /// differences between in-memory and in-register types (the returned value
-  /// is of in-register type, as returned by getRegType).
-  Value *LoadRegisterFromMemory(MemRef Loc, tree_node *type,
-                                LLVMBuilder &Builder);
-
-  /// StoreRegisterToMemory - Stores the given value to the memory pointed to by
-  /// Loc.  Takes care of adjusting for any differences between the value's type
-  /// (which is the in-register type given by getRegType) and the in-memory type.
-  void StoreRegisterToMemory(Value *V, MemRef Loc, tree_node *type,
-                             LLVMBuilder &Builder);
 
   /// VectorHighElements - Return a vector of half the length, consisting of the
   /// elements of the given vector with indices in the top half.
