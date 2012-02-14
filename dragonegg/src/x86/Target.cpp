@@ -1005,7 +1005,7 @@ bool llvm_x86_should_pass_aggregate_in_memory(tree TreeType, Type *Ty) {
    register used so far.  Caller is responsible for initializing outputs. */
 static void count_num_registers_uses(std::vector<Type*> &ScalarElts,
                                      unsigned &NumGPRs, unsigned &NumXMMs) {
-  for (unsigned i = 0, e = ScalarElts.size(); i != e; ++i) {
+  for (size_t i = 0, e = ScalarElts.size(); i != e; ++i) {
     Type *Ty = ScalarElts[i];
     if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
       if (!TARGET_MACHO)
@@ -1360,7 +1360,7 @@ static bool llvm_suitable_multiple_ret_value_type(Type *Ty,
 Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) {
   *Offset = 0;
   Type *Ty = ConvertType(type);
-  unsigned Size = getTargetData().getTypeAllocSize(Ty);
+  uint64_t Size = getTargetData().getTypeAllocSize(Ty);
   if (Size == 0)
     return Type::getVoidTy(Context);
   else if (Size == 1)

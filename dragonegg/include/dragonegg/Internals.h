@@ -457,21 +457,17 @@ private: // Helper functions.
 
 private: // Helpers for exception handling.
 
-  /// getLandingPad - Return the landing pad for the given exception handling
-  /// region, creating it if necessary.
-  BasicBlock *getLandingPad(unsigned RegionNo);
-
   /// getExceptionPtr - Return the local holding the exception pointer for the
   /// given exception handling region, creating it if necessary.
-  AllocaInst *getExceptionPtr(unsigned RegionNo);
+  AllocaInst *getExceptionPtr(int RegionNo);
 
   /// getExceptionFilter - Return the local holding the filter value for the
   /// given exception handling region, creating it if necessary.
-  AllocaInst *getExceptionFilter(unsigned RegionNo);
+  AllocaInst *getExceptionFilter(int RegionNo);
 
   /// getFailureBlock - Return the basic block containing the failure code for
   /// the given exception handling region, creating it if necessary.
-  BasicBlock *getFailureBlock(unsigned RegionNo);
+  BasicBlock *getFailureBlock(int RegionNo);
 
 private:
   void EmitAutomaticVariableDecl(tree_node *decl);

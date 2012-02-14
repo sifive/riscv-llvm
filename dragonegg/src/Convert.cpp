@@ -177,7 +177,7 @@ static Value *Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
     assert(TREE_CODE(type) == VECTOR_TYPE && "Expected a vector type!");
     assert(MemTy->isVectorTy() && "Type mismatch!");
     Value *Res = UndefValue::get(RegTy);
-    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
+    unsigned NumElts = (unsigned)TYPE_VECTOR_SUBPARTS(type);
     for (unsigned i = 0; i != NumElts; ++i) {
       Value *Idx = Builder.getInt32(i);
       Value *Val = Builder.CreateExtractElement(V, Idx);
@@ -230,7 +230,7 @@ static Value *Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
     assert(TREE_CODE(type) == VECTOR_TYPE && "Expected a vector type!");
     assert(RegTy->isVectorTy() && "Type mismatch!");
     Value *Res = UndefValue::get(MemTy);
-    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
+    unsigned NumElts = (unsigned)TYPE_VECTOR_SUBPARTS(type);
     for (unsigned i = 0; i != NumElts; ++i) {
       Value *Idx = Builder.getInt32(i);
       Value *Val = Builder.CreateExtractElement(V, Idx);
@@ -899,12 +899,13 @@ void TreeToLLVM::PopulatePhiNodes() {
   TreeVector IncomingValues;
   ValueVector PhiArguments;
 
-  for (unsigned Idx = 0, EIdx = PendingPhis.size(); Idx < EIdx; ++Idx) {
+  for (unsigned Idx = 0, EIdx = (unsigned)PendingPhis.size(); Idx < EIdx;
+       ++Idx) {
     // The phi node to process.
     PhiRecord &P = PendingPhis[Idx];
 
     // Extract the incoming value for each predecessor from the GCC phi node.
-    for (size_t i = 0, e = gimple_phi_num_args(P.gcc_phi); i != e; ++i) {
+    for (unsigned i = 0, e = gimple_phi_num_args(P.gcc_phi); i != e; ++i) {
       // The incoming GCC basic block.
       basic_block bb = gimple_phi_arg_edge(P.gcc_phi, i)->src;
 
@@ -965,7 +966,7 @@ void TreeToLLVM::PopulatePhiNodes() {
     // Now iterate over the predecessors, setting phi operands as we go.
     TreeVector::iterator VI = IncomingValues.begin(), VE = IncomingValues.end();
     PredVector::iterator PI = Predecessors.begin(), PE = Predecessors.end();
-    PhiArguments.resize(Predecessors.size());
+    PhiArguments.resize((unsigned)Predecessors.size());
     while (PI != PE) {
       // The predecessor basic block.
       BasicBlock *BB = PI->first;
@@ -1059,7 +1060,7 @@ Function *TreeToLLVM::FinishFunctionBody() {
     Builder.CreateRet(RetVals[0]);
   } else {
     assert(Fn->getReturnType()->isAggregateType() && "Return type mismatch!");
-    Builder.CreateAggregateRet(RetVals.data(), RetVals.size());
+    Builder.CreateAggregateRet(RetVals.data(), (unsigned)RetVals.size());
   }
 
   // Populate phi nodes with their operands now that all ssa names have been
@@ -2022,7 +2023,9 @@ static Constant *ConvertTypeInfo(tree type) {
 
 /// getExceptionPtr - Return the local holding the exception pointer for the
 /// given exception handling region, creating it if necessary.
-AllocaInst *TreeToLLVM::getExceptionPtr(unsigned RegionNo) {
+AllocaInst *TreeToLLVM::getExceptionPtr(int RegionNo) {
+  assert(RegionNo >= 0 && "Invalid exception handling region!");
+
   if (RegionNo >= ExceptionPtrs.size())
     ExceptionPtrs.resize(RegionNo + 1, 0);
 
@@ -2038,7 +2041,9 @@ AllocaInst *TreeToLLVM::getExceptionPtr(unsigned RegionNo) {
 
 /// getExceptionFilter - Return the local holding the filter value for the
 /// given exception handling region, creating it if necessary.
-AllocaInst *TreeToLLVM::getExceptionFilter(unsigned RegionNo) {
+AllocaInst *TreeToLLVM::getExceptionFilter(int RegionNo) {
+  assert(RegionNo >= 0 && "Invalid exception handling region!");
+
   if (RegionNo >= ExceptionFilters.size())
     ExceptionFilters.resize(RegionNo + 1, 0);
 
@@ -2054,7 +2059,9 @@ AllocaInst *TreeToLLVM::getExceptionFilter(unsigned RegionNo) {
 
 /// getFailureBlock - Return the basic block containing the failure code for
 /// the given exception handling region, creating it if necessary.
-BasicBlock *TreeToLLVM::getFailureBlock(unsigned RegionNo) {
+BasicBlock *TreeToLLVM::getFailureBlock(int RegionNo) {
+  assert(RegionNo >= 0 && "Invalid exception handling region!");
+
   if (RegionNo >= FailureBlocks.size())
     FailureBlocks.resize(RegionNo + 1, 0);
 
@@ -5849,7 +5856,7 @@ static unsigned EncodeExpr(tree exp, SmallVectorImpl<unsigned char> &Buffer) {
   const tree type = TREE_TYPE(exp);
   unsigned SizeInBytes = (TREE_INT_CST_LOW(TYPE_SIZE(type)) + 7) / 8;
   Buffer.resize(SizeInBytes);
-  unsigned BytesWritten = native_encode_expr(exp, &Buffer[0], SizeInBytes);
+  int BytesWritten = native_encode_expr(exp, &Buffer[0], SizeInBytes);
   assert(BytesWritten == SizeInBytes && "Failed to fully encode expression!");
   return BytesWritten;
 }
@@ -6310,7 +6317,7 @@ Value *TreeToLLVM::EmitReg_ReducMinMaxExpr(tree op, unsigned UIPred,
     CmpInst::Predicate(FLOAT_TYPE_P(TREE_TYPE(op)) ?
                        FPPred : TYPE_UNSIGNED(TREE_TYPE(op)) ? UIPred : SIPred);
 
-  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op));
+  unsigned Length = (unsigned)TYPE_VECTOR_SUBPARTS(TREE_TYPE(op));
   assert(Length > 1 && !(Length & (Length - 1)) && "Length not a power of 2!");
   SmallVector<Constant*, 8> Mask(Length);
   Constant *UndefIndex = UndefValue::get(Type::getInt32Ty(Context));
@@ -6352,7 +6359,7 @@ Value *TreeToLLVM::EmitReg_REDUC_PLUS_EXPR(tree op) {
   Value *Val = EmitRegister(op);
   Type *Ty = Val->getType();
 
-  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op));
+  unsigned Length = (unsigned)TYPE_VECTOR_SUBPARTS(TREE_TYPE(op));
   assert(Length > 1 && !(Length & (Length - 1)) && "Length not a power of 2!");
   SmallVector<Constant*, 8> Mask(Length);
   Constant *UndefIndex = UndefValue::get(Type::getInt32Ty(Context));
@@ -6449,7 +6456,7 @@ Value *TreeToLLVM::EmitReg_VecShiftOp(tree op0, tree op1, bool isLeftShift) {
     // they can be anything.  Since these expressions are currently only used in
     // situations which make no assumptions about the shifted in bits, we choose
     // to consider them to be undefined since this results in better code.
-    unsigned ShiftAmt = CI->getLimitedValue(Bits);
+    unsigned ShiftAmt = (unsigned)CI->getLimitedValue(Bits);
     if (ShiftAmt >= Bits)
       // Shifting by more than the width of the vector is documented as giving
       // an undefined result.
@@ -6939,7 +6946,7 @@ Value *TreeToLLVM::EmitReg_TRUNC_MOD_EXPR(tree op0, tree op1) {
 Value *TreeToLLVM::EmitReg_VEC_EXTRACT_EVEN_EXPR(tree op0, tree op1) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
-  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+  unsigned Length = (unsigned)TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
   SmallVector<Constant*, 16> Mask;
   Mask.reserve(Length);
   for (unsigned i = 0; i != Length; ++i)
@@ -6950,7 +6957,7 @@ Value *TreeToLLVM::EmitReg_VEC_EXTRACT_EVEN_EXPR(tree op0, tree op1) {
 Value *TreeToLLVM::EmitReg_VEC_EXTRACT_ODD_EXPR(tree op0, tree op1) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
-  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+  unsigned Length = (unsigned)TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
   SmallVector<Constant*, 16> Mask;
   Mask.reserve(Length);
   for (unsigned i = 0; i != Length; ++i)
@@ -6961,7 +6968,7 @@ Value *TreeToLLVM::EmitReg_VEC_EXTRACT_ODD_EXPR(tree op0, tree op1) {
 Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_HIGH_EXPR(tree op0, tree op1) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
-  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+  unsigned Length = (unsigned)TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
   assert(!(Length & 1) && "Expected an even number of vector elements!");
   SmallVector<Constant*, 16> Mask;
   Mask.reserve(Length);
@@ -6975,7 +6982,7 @@ Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_HIGH_EXPR(tree op0, tree op1) {
 Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_LOW_EXPR(tree op0, tree op1) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
-  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+  unsigned Length = (unsigned)TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
   assert(!(Length & 1) && "Expected an even number of vector elements!");
   SmallVector<Constant*, 16> Mask;
   Mask.reserve(Length);
@@ -6993,7 +7000,7 @@ Value *TreeToLLVM::EmitReg_VEC_PACK_TRUNC_EXPR(tree type, tree op0, tree op1) {
 
   // Truncate the input elements to the output element type, eg: <2 x double>
   // -> <2 x float>.
-  unsigned Length = TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+  unsigned Length = (unsigned)TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
   Type *DestTy = VectorType::get(getRegType(TREE_TYPE(type)), Length);
   LHS = CastToAnyType(LHS, !TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(op0))), DestTy,
                       !TYPE_UNSIGNED(TREE_TYPE(type)));
@@ -7212,7 +7219,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   SmallVector<std::pair<Value *, bool>, 4> CallResultDests;
 
   // CallOps - The operands pass to the inline asm call.
-  std::vector<Value*> CallOps;
+  SmallVector<Value*, 16> CallOps;
 
   // OutputLocations - For each output holds an index into CallOps (if the flag
   // is false) or into CallResultTypes (if the flag is true).  Outputs returned
@@ -7252,7 +7259,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       int RegNum = decode_reg_name(RegName);
       if (RegNum >= 0) {
         RegName = LLVM_GET_REG_NAME(RegName, RegNum);
-        unsigned RegNameLen = strlen(RegName);
+        size_t RegNameLen = strlen(RegName);
         char *NewConstraint = (char*)alloca(RegNameLen+3);
         NewConstraint[0] = '{';
         memcpy(NewConstraint+1, RegName, RegNameLen);
@@ -7347,7 +7354,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
         uint64_t TySize = TD.getTypeSizeInBits(LLVMTy);
         if (TySize == 1 || TySize == 8 || TySize == 16 ||
             TySize == 32 || TySize == 64 || (TySize == 128 && !AllowsMem)) {
-          LLVMTy = IntegerType::get(Context, TySize);
+          LLVMTy = IntegerType::get(Context, (unsigned)TySize);
           Op =
             Builder.CreateLoad(Builder.CreateBitCast(LV.Ptr,
                                                      LLVMTy->getPointerTo()));
@@ -7370,7 +7377,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       // type, then cast it to the larger type and shift the value if the target
       // is big endian.
       if (ISDIGIT(Constraint[0])) {
-        unsigned Match = atoi(Constraint);
+        unsigned Match = (unsigned)atoi(Constraint); // Unsigned - no minus sign
         // This output might have gotten put in either CallResult or CallArg
         // depending whether it's a register or not.  Find its type.
         Type *OTy = 0;
@@ -7392,8 +7399,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
                   "output constraint of incompatible type!");
             return;
           }
-          unsigned OTyBits = TD.getTypeSizeInBits(OTy);
-          unsigned OpTyBits = TD.getTypeSizeInBits(OpTy);
+          uint64_t OTyBits = TD.getTypeSizeInBits(OTy);
+          uint64_t OpTyBits = TD.getTypeSizeInBits(OpTy);
           if (OTyBits == 0 || OpTyBits == 0) {
             error("unsupported inline asm: input constraint with a matching "
                   "output constraint of incompatible type!");
@@ -7536,16 +7543,16 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   // If the asm returns multiple results then create a struct type with the
   // result types as its fields, and use it for the return type.
   default:
-    std::vector<Type*> Fields(CallResultTypes.size());
-    for (unsigned i = 0, e = CallResultTypes.size(); i != e; ++i)
+    SmallVector<Type*, 4> Fields((unsigned)CallResultTypes.size());
+    for (unsigned i = 0, e = (unsigned)CallResultTypes.size(); i != e; ++i)
       Fields[i] = CallResultTypes[i].first;
     CallResultType = StructType::get(Context, Fields);
     break;
   }
 
   // Compute the types of the arguments to the asm call.
-  std::vector<Type*> CallArgTypes(CallOps.size());
-  for (unsigned i = 0, e = CallOps.size(); i != e; ++i)
+  SmallVector<Type*, 16> CallArgTypes((unsigned)CallOps.size());
+  for (unsigned i = 0, e = (unsigned)CallOps.size(); i != e; ++i)
     CallArgTypes[i] = CallOps[i]->getType();
 
   // Get the type of the called asm "function".
@@ -7574,8 +7581,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   }
 
   // If the call produces a value, store it into the destination.
-  for (unsigned i = 0, NumResults = CallResultTypes.size(); i != NumResults;
-       ++i) {
+  for (unsigned i = 0, NumResults = (unsigned)CallResultTypes.size();
+       i != NumResults; ++i) {
     Value *Val = NumResults == 1 ?
       CV : Builder.CreateExtractValue(CV, i, "asmresult");
     bool ValIsSigned = CallResultTypes[i].second;
@@ -7588,7 +7595,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   }
 
   // If the call defined any ssa names, associate them with their value.
-  for (unsigned i = 0, e = SSADefinitions.size(); i != e; ++i) {
+  for (unsigned i = 0, e = (unsigned)SSADefinitions.size(); i != e; ++i) {
     tree Name = SSADefinitions[i].first;
     MemRef Loc = SSADefinitions[i].second;
     Value *Val = LoadRegisterFromMemory(Loc, TREE_TYPE(Name), Builder);
@@ -7840,7 +7847,7 @@ void TreeToLLVM::RenderGIMPLE_SWITCH(gimple stmt) {
 
   // Add the switch cases.
   BasicBlock *IfBlock = 0; // Set if a range was output as an "if".
-  for (size_t i = 1, e = gimple_switch_num_labels(stmt); i != e; ++i) {
+  for (unsigned i = 1, e = gimple_switch_num_labels(stmt); i != e; ++i) {
     tree label = gimple_switch_label(stmt, i);
     BasicBlock *Dest = getLabelDeclBlock(CASE_LABEL(label));
 
@@ -8207,7 +8214,7 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
 
   // Load and store the minimum number of bytes that covers the field.
   unsigned LoadSizeInBits = LV.BitStart + LV.BitSize;
-  LoadSizeInBits = RoundUpToAlignment(LoadSizeInBits, BITS_PER_UNIT);
+  LoadSizeInBits = (unsigned)RoundUpToAlignment(LoadSizeInBits, BITS_PER_UNIT);
   Type *LoadType = IntegerType::get(Context, LoadSizeInBits);
 
   // Load the bits.
