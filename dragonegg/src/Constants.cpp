@@ -131,16 +131,6 @@ public:
     return R.getWidth();
   }
 
-  /// getFirst - Return the position of the first bit in the range.
-  unsigned getFirst() const {
-    return R.getFirst();
-  }
-
-  /// getLast - Return the position of the last bit defining the range.
-  unsigned getLast() const {
-    return R.getLast();
-  }
-
   /// getRange - Return the range of bits in this slice.
   SignedRange getRange() const {
     return R;

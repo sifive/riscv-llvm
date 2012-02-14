@@ -91,13 +91,6 @@ namespace {
       return !(*this == other);
     }
 
-    /// Postfix increment operator.
-    ContainedTypeIterator operator++(int) {
-      ContainedTypeIterator Result(*this);
-      ++(*this);
-      return Result;
-    }
-
     /// Prefix increment operator.
     ContainedTypeIterator& operator++() {
       assert(type_ref && "Incrementing end iterator!");
