@@ -150,7 +150,7 @@ extern bool isZeroSizedStructOrUnion(tree_node *type);
 static inline
 Type* getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) {
   Type *Ty = ConvertType(type);
-  unsigned Size = getTargetData().getTypeAllocSize(Ty);
+  uint64_t Size = getTargetData().getTypeAllocSize(Ty);
   *Offset = 0;
   if (Size == 0)
     return Type::getVoidTy(getGlobalContext());

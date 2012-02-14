@@ -194,9 +194,7 @@ private:
 public:
   explicit MemRef() : Ptr(0), Volatile(false), LogAlign(0) {}
   explicit MemRef(Value *P, uint32_t A, bool V) : Ptr(P), Volatile(V) {
-    // Forbid alignment 0 along with non-power-of-2 alignment values.
-    assert(isPowerOf2_32(A) && "Alignment not a power of 2!");
-    LogAlign = Log2_32(A);
+    setAlignment(A);
   }
 
   uint32_t getAlignment() const {
@@ -204,7 +202,9 @@ public:
   }
 
   void setAlignment(uint32_t A) {
-    LogAlign = Log2_32(A);
+    // Forbid alignment 0 along with non-power-of-2 alignment values.
+    assert(isPowerOf2_32(A) && "Alignment not a power of 2!");
+    LogAlign = (unsigned char)Log2_32(A);
   }
 };
 
@@ -225,7 +225,8 @@ public:
   LValue(Value *P, uint32_t A, bool V = false) :
       MemRef(P, A, V), BitStart(255), BitSize(255) {}
   LValue(Value *P, uint32_t A, unsigned BSt, unsigned BSi, bool V = false) :
-      MemRef(P, A, V), BitStart(BSt), BitSize(BSi) {
+      MemRef(P, A, V), BitStart((unsigned char)BSt),
+      BitSize((unsigned char)BSi) {
     assert(BitStart == BSt && BitSize == BSi &&
            "Bit values larger than 256?");
   }

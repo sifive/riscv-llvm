@@ -57,7 +57,9 @@ class IntervalList {
   /// isSane - Return true if the intervals are non-empty, disjoint and
   /// sorted.
   bool isSane() const {
-    for (unsigned i = 0, e = Intervals.size(); i < e; ++i) {
+    if (Intervals.size() != (unsigned)Intervals.size())
+      return false; // Too many intervals.
+    for (unsigned i = 0, e = (unsigned)Intervals.size(); i < e; ++i) {
       if (Intervals[i].getRange().empty())
         return false;
       if (i && Intervals[i].getRange().getFirst() <
@@ -77,7 +79,7 @@ public:
 
   /// getNumIntervals - Return the number of intervals in the list.
   unsigned getNumIntervals() const {
-    return Intervals.size();
+    return (unsigned)Intervals.size();
   }
 
   /// getInterval - Return the interval with the given index.

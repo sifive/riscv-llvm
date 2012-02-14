@@ -206,7 +206,7 @@ uint64_t ArrayLengthOf(tree type) {
   // Bail out if the array has variable or unknown length.
   if (!isInt64(range, false))
     return NO_LENGTH;
-  int64_t Range = getInt64(range, false);
+  int64_t Range = (int64_t)getInt64(range, false);
   return Range < 0 ? 0 : 1 + (uint64_t)Range;
 }
 
@@ -1291,7 +1291,7 @@ static Type *ConvertTypeRecursive(tree type) {
   // (SCC) of the type graph.  This should always be the case because SCCs are
   // visited bottom up.
   bool inSCC = false;
-  for (unsigned i = 0, e = SCCInProgress->size(); i != e; ++i)
+  for (size_t i = 0, e = SCCInProgress->size(); i != e; ++i)
     if ((*SCCInProgress)[i] == type) {
       inSCC = true;
       break;
@@ -1545,7 +1545,7 @@ Type *ConvertType(tree type) {
     // in the SCC.  This way, if we have both "struct S" and "struct S*" in the
     // SCC then we can return an LLVM "%struct.s*" for the pointer rather than
     // the nasty {}* type we are obliged to return in general.
-    for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
+    for (size_t i = 0, e = SCC.size(); i != e; ++i) {
       tree some_type = SCC[i];
       if (TREE_CODE(some_type) != QUAL_UNION_TYPE &&
           TREE_CODE(some_type) != RECORD_TYPE &&
@@ -1578,7 +1578,7 @@ Type *ConvertType(tree type) {
     // edges like this destroys all cycles allowing the other types in the SCC
     // to be converted straightforwardly.
     SCCInProgress = &SCC;
-    for (unsigned i = 0, e = SCC.size(); i != e; ++i)
+    for (size_t i = 0, e = SCC.size(); i != e; ++i)
       ConvertType(SCC[i]);
     SCCInProgress = 0;
 
@@ -1588,7 +1588,7 @@ Type *ConvertType(tree type) {
     // uses by types outside the SCC will see a sensible pointer type.  This is
     // not needed for correctness - it just makes the IR nicer.
     if (SCC.size() > 1)
-      for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
+      for (size_t i = 0, e = SCC.size(); i != e; ++i) {
         tree some_type = SCC[i];
         if (POINTER_TYPE_P(some_type)) {
           tree pointee = TYPE_MAIN_VARIANT(TREE_TYPE(some_type));
