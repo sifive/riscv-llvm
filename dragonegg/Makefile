@@ -25,7 +25,7 @@ INCLUDE_DIR=$(TOP_DIR)/include
 SRC_DIR=$(TOP_DIR)/src
 
 ifndef VERBOSE
-	QUIET:=@
+QUIET:=@
 endif
 
 COMMON_FLAGS=-Wall -Wextra -fvisibility=hidden
@@ -76,6 +76,12 @@ TARGET_HEADERS+=-DTARGET_NAME=\"$(shell $(TARGET_UTIL) -t)\" \
 		-I$(INCLUDE_DIR)/$(shell $(TARGET_UTIL) -p) \
 		-I$(INCLUDE_DIR)/$(shell $(TARGET_UTIL) -o)
 
+ifdef VERBOSE
+LIT_ARGS := -v
+else
+LIT_ARGS := -s -v
+endif
+
 LIT_SITE_CONFIG=test/lit.site.cfg
 TEST_SRC_DIR=$(TOP_DIR)/test
 export PYTHONPATH:=$(TEST_SRC_DIR):$(LIT_DIR)/lit:$(PYTHONPATH)
@@ -118,7 +124,8 @@ $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/lit.site.cfg.in
 	$(QUIET)-rm -f lit.tmp
 
 check:: $(PLUGIN) $(LIT_SITE_CONFIG)
-	$(QUIET)$(LIT_DIR)/lit.py -s --param site="$(LIT_SITE_CONFIG)" $(TEST_SRC_DIR)/Compilator
+	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
+	$(TEST_SRC_DIR)/Compilator
 
 clean::
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
