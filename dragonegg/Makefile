@@ -125,7 +125,7 @@ $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/lit.site.cfg.in
 
 check:: $(PLUGIN) $(LIT_SITE_CONFIG)
 	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
-	$(TEST_SRC_DIR)/Compilator
+	$(TEST_SRC_DIR)/compilator
 
 clean::
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
