@@ -18,6 +18,9 @@ TOP_DIR?=$(PWD)
 # command line) to disable the check.
 #DISABLE_VERSION_CHECK=1
 
+# Where to find the lit.py script and modules, used for running tests.
+LIT_DIR?=$(shell $(LLVM_CONFIG) --src-root)/utils/lit
+
 INCLUDE_DIR=$(TOP_DIR)/include
 SRC_DIR=$(TOP_DIR)/src
 
@@ -73,6 +76,9 @@ TARGET_HEADERS+=-DTARGET_NAME=\"$(shell $(TARGET_UTIL) -t)\" \
 		-I$(INCLUDE_DIR)/$(shell $(TARGET_UTIL) -p) \
 		-I$(INCLUDE_DIR)/$(shell $(TARGET_UTIL) -o)
 
+LIT_SITE_CONFIG=test/lit.site.cfg
+TEST_SRC_DIR=$(TOP_DIR)/test
+export PYTHONPATH:=$(TEST_SRC_DIR):$(LIT_DIR)/lit:$(PYTHONPATH)
 
 default: $(PLUGIN)
 
@@ -101,6 +107,18 @@ $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 	$(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(shell $(LLVM_CONFIG) --libs \
 	analysis core ipo scalaropts target $(shell $(TARGET_UTIL) -p)) \
 	$(LD_OPTIONS)
+
+$(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/lit.site.cfg.in
+	@echo "Making DragonEgg '$@' file..."
+	$(QUIET)-mkdir test
+	$(QUIET)echo s=@DRAGONEGG_PLUGIN@=$(PWD)/$(PLUGIN)=g > lit.tmp
+	$(QUIET)echo s=@GCC@=$(GCC)=g >> lit.tmp
+	$(QUIET)echo s=@TEST_OUTPUT_DIR@=$(PWD)/test/Output=g >> lit.tmp
+	$(QUIET)sed -f lit.tmp $< > $@
+	$(QUIET)-rm -f lit.tmp
+
+check:: $(PLUGIN) $(LIT_SITE_CONFIG)
+	$(QUIET)$(LIT_DIR)/lit.py -s --param site="$(LIT_SITE_CONFIG)" $(TEST_SRC_DIR)/Compilator
 
 clean::
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
