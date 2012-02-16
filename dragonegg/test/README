@@ -19,3 +19,6 @@ in the Compilator directory.  Note that LAPACK includes a copy of the BLAS.  A
 few other interesting collections of Fortran source code:
   The NIST Fortran 77 test suite
   The polyhedron benchmarks
+
+For testing Java, consider putting a link to GCC's libjava in the Compilator
+directory.
