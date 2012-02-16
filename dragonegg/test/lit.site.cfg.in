@@ -1,0 +1,3 @@
+config.gcc_executable = "@GCC@"
+config.dragonegg_plugin = "@DRAGONEGG_PLUGIN@"
+config.test_output_dir = "@TEST_OUTPUT_DIR@"
