@@ -1,11 +1,21 @@
-Compilator
-----------
+--------------
+- Compilator -
+--------------
 
 Every file found under the Compilator directory is compiled by GCC both with and
 without the DragonEgg plugin, at a variety of optimization levels.  If GCC can
 compile a file but DragonEgg cannot, or DragonEgg can compile the file but GCC
 cannot, then that test is considered to have failed.
 
+External source
+---------------
+
 You should either checkout the GCC testsuite in the Compilator directory or use
 a symbolic link to ensure that Compilator/gcc-testsuite means the gcc/testsuite/
 directory from the GCC source tree.
+
+For testing Fortran, consider putting a copy of the LAPACK source distribution
+in the Compilator directory.  Note that LAPACK includes a copy of the BLAS.  A
+few other interesting collections of Fortran source code:
+  The NIST Fortran 77 test suite
+  The polyhedron benchmarks
