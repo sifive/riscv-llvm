@@ -1,0 +1,9 @@
+      SUBROUTINE FOO()
+
+      DIMENSION IBUFR(4)
+      CHARACTER*4 VALUE
+
+      VALUE=CHAR(IBUFR(1))//CHAR(IBUFR(2))//
+     1      CHAR(IBUFR(3))//CHAR(IBUFR(4))
+
+      END

@@ -1,0 +1,77 @@
+typedef long unsigned int size_t;
+
+namespace llvm {
+  namespace dont_use {
+    template<typename T> char is_class_helper(void(T::*)());
+  }
+  template <typename T> struct is_class {
+public:
+    enum { value = sizeof(char) == sizeof(dont_use::is_class_helper<T>(0)) };
+  };
+  template <typename T> struct isPodLike {
+    static const bool value = !is_class<T>::value;
+  };
+}
+
+namespace std __attribute__ ((__visibility__ ("default"))) {
+  template<typename _InputIterator, typename _Function>
+    _Function for_each(_InputIterator __first, _InputIterator __last, _Function __f)
+      {
+        for ( ; __first != __last; ++__first) __f(*__first);
+      }
+}
+
+namespace llvm {
+  class SmallVectorBase { };
+  template <typename T>
+    class SmallVectorTemplateCommon : public SmallVectorBase {
+  public:
+      SmallVectorTemplateCommon(size_t Size) : SmallVectorBase(Size) { }
+      typedef T *iterator;
+      iterator begin() { }
+      iterator end() { }                                     
+    };
+
+  template <typename T, bool isPodLike>
+    class SmallVectorTemplateBase : public SmallVectorTemplateCommon<T> { };
+
+  template <typename T>
+    class SmallVectorImpl : public SmallVectorTemplateBase<T, isPodLike<T>::value> { };
+
+  template <typename T, unsigned N>
+    class SmallVector : public SmallVectorImpl<T> { };
+}
+
+namespace std __attribute__ ((__visibility__ ("default"))) {
+  template<typename _Arg, typename _Result>
+    struct unary_function { };
+  template<typename _Ret, typename _Tp>
+    class mem_fun_ref_t : public unary_function<_Tp, _Ret> {
+  public:
+      explicit mem_fun_ref_t(_Ret (_Tp::*__pf)()) : _M_f(__pf) { }
+      _Ret operator()(_Tp& __r) const {
+        return (__r.*_M_f)();
+      }
+  private:
+      _Ret (_Tp::*_M_f)();
+    };
+
+  template<typename _Ret, typename _Tp>
+    inline mem_fun_ref_t<_Ret, _Tp> mem_fun_ref(_Ret (_Tp::*__f)()) { }
+}
+
+namespace clang {
+  class CodeCompletionString {
+    struct Chunk {
+      void Destroy();
+    };
+private:
+    llvm::SmallVector<Chunk, 4> Chunks;
+    ~CodeCompletionString();
+  };
+}
+
+using namespace clang;
+CodeCompletionString::~CodeCompletionString() {
+  std::for_each(Chunks.begin(), Chunks.end(), std::mem_fun_ref(&Chunk::Destroy));
+}
