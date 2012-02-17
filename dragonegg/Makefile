@@ -77,9 +77,9 @@ TARGET_HEADERS+=-DTARGET_NAME=\"$(shell $(TARGET_UTIL) -t)\" \
 		-I$(INCLUDE_DIR)/$(shell $(TARGET_UTIL) -o)
 
 ifdef VERBOSE
-LIT_ARGS := -v
+LIT_ARGS+=-v
 else
-LIT_ARGS := -s -v
+LIT_ARGS+=-s -v
 endif
 
 LIT_SITE_CONFIG=test/dragonegg-lit.site.cfg
