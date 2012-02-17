@@ -82,7 +82,7 @@ else
 LIT_ARGS := -s -v
 endif
 
-LIT_SITE_CONFIG=test/lit.site.cfg
+LIT_SITE_CONFIG=test/dragonegg-lit.site.cfg
 TEST_SRC_DIR=$(TOP_DIR)/test
 export PYTHONPATH:=$(TEST_SRC_DIR):$(LIT_DIR)/lit:$(PYTHONPATH)
 
@@ -114,9 +114,9 @@ $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 	analysis core ipo scalaropts target $(shell $(TARGET_UTIL) -p)) \
 	$(LD_OPTIONS)
 
-$(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/lit.site.cfg.in
+$(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/dragonegg-lit.site.cfg.in
 	@echo "Making DragonEgg '$@' file..."
-	$(QUIET)-mkdir test
+	$(QUIET)mkdir -p test
 	$(QUIET)echo s=@DRAGONEGG_PLUGIN@=$(PWD)/$(PLUGIN)=g > lit.tmp
 	$(QUIET)echo s=@GCC@=$(GCC)=g >> lit.tmp
 	$(QUIET)echo s=@TEST_OUTPUT_DIR@=$(PWD)/test/Output=g >> lit.tmp
@@ -125,7 +125,7 @@ $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/lit.site.cfg.in
 
 check:: $(PLUGIN) $(LIT_SITE_CONFIG)
 	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
-	$(TEST_SRC_DIR)/compilator
+	--config-prefix=dragonegg-lit $(TEST_SRC_DIR)/compilator
 
 clean::
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
