@@ -461,6 +461,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     return true;
   }
   case loadhpd: {
+    PointerType *f64Ptr = Type::getDoublePtrTy(Context);
+    Ops[1] = Builder.CreateBitCast(Ops[1], f64Ptr);
     Value *Load = Builder.CreateLoad(Ops[1]);
     Ops[1] = BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)), NULL);
     Ops[1] = Builder.CreateBitCast(Ops[1], ResultType);
@@ -469,6 +471,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     return true;
   }
   case loadlpd: {
+    PointerType *f64Ptr = Type::getDoublePtrTy(Context);
+    Ops[1] = Builder.CreateBitCast(Ops[1], f64Ptr);
     Value *Load = Builder.CreateLoad(Ops[1]);
     Ops[1] = BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)), NULL);
     Ops[1] = Builder.CreateBitCast(Ops[1], ResultType);
