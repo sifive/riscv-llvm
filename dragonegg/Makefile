@@ -128,7 +128,7 @@ check:: $(PLUGIN) $(LIT_SITE_CONFIG)
 	--config-prefix=dragonegg-lit $(TEST_SRC_DIR)/compilator
 
 clean::
-	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL)
+	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL) $(LIT_SITE_CONFIG)
 
 
 -include $(ALL_OBJECTS:.o=.d)
