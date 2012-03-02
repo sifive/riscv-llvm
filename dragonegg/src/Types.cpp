@@ -415,6 +415,9 @@ bool isPassedByInvisibleReference(tree Type) {
 /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
 /// determine the LLVM type to return.
 Type *getRegType(tree type) {
+  // LLVM doesn't care about variants such as const, volatile, or restrict.
+  type = TYPE_MAIN_VARIANT(type);
+
   // NOTE: Any changes made here need to be reflected in LoadRegisterFromMemory,
   // StoreRegisterToMemory and ExtractRegisterFromConstant.
   assert(!AGGREGATE_TYPE_P(type) && "Registers must have a scalar type!");
@@ -490,7 +493,7 @@ static Type *ConvertArrayTypeRecursive(tree type) {
   Type *Ty = ArrayType::get(ElementTy, NumElements);
 
   // If the array is underaligned, wrap it in a packed struct.
-  if (TYPE_ALIGN(type) < TYPE_ALIGN(TYPE_MAIN_VARIANT(TREE_TYPE(type))))
+  if (TYPE_ALIGN(type) < TYPE_ALIGN(main_type(type)))
     Ty = StructType::get(Context, Ty, /*isPacked*/ true);
 
   // If the user increased the alignment of the array element type, then the
@@ -889,7 +892,7 @@ static Type *ConvertPointerTypeRecursive(tree type) {
   // This is where self-recursion loops are broken, by not converting the type
   // pointed to if this would cause trouble (the pointer type is turned into
   // {}* instead).
-  tree pointee = TYPE_MAIN_VARIANT(TREE_TYPE(type));
+  tree pointee = main_type(type);
 
   // The pointer type is in the strongly connected component (SCC) currently
   // being converted.  Check whether the pointee is as well.  If there is more
@@ -924,7 +927,7 @@ static Type *ConvertPointerTypeRecursive(tree type) {
     // Drill down through nested arrays to the ultimate element type.  Thanks
     // to this we may return S* for a (S[])*, which is better than {}*.
     while (TREE_CODE(pointee) == ARRAY_TYPE)
-      pointee = TYPE_MAIN_VARIANT(TREE_TYPE(pointee));
+      pointee = main_type(pointee);
 
     // If the pointee is a record or union type then return a pointer to its
     // placeholder type.  Otherwise return {}*.
@@ -1363,7 +1366,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
 
   case COMPLEX_TYPE: {
     if (Type *Ty = getCachedType(type)) return Ty;
-    Type *Ty = ConvertTypeNonRecursive(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
+    Type *Ty = ConvertTypeNonRecursive(main_type(type));
     Ty = StructType::get(Ty, Ty, NULL);
     return RememberTypeConversion(type, Ty);
   }
@@ -1413,7 +1416,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
     if (POINTER_TYPE_P(TREE_TYPE(type)))
       Ty = getTargetData().getIntPtrType(Context);
     else
-      Ty = ConvertTypeNonRecursive(TYPE_MAIN_VARIANT(TREE_TYPE(type)));
+      Ty = ConvertTypeNonRecursive(main_type(type));
     Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));
     return RememberTypeConversion(type, Ty);
   }
@@ -1591,7 +1594,7 @@ Type *ConvertType(tree type) {
       for (size_t i = 0, e = SCC.size(); i != e; ++i) {
         tree some_type = SCC[i];
         if (POINTER_TYPE_P(some_type)) {
-          tree pointee = TYPE_MAIN_VARIANT(TREE_TYPE(some_type));
+          tree pointee = main_type(some_type);
           // The pointee cannot have void type since the SCC contains more than
           // one type.
           assert(!VOID_TYPE_P(pointee) && "Self-recursive void*!");

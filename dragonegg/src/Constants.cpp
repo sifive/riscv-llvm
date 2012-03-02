@@ -526,7 +526,7 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
   }
 
   case COMPLEX_TYPE: {
-    tree elt_type = TREE_TYPE(type);
+    tree elt_type = main_type(type);
     unsigned Stride = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
     Constant *Vals[2] = {
       ExtractRegisterFromConstantImpl(C, elt_type, StartingBit, Folder),
@@ -546,7 +546,7 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
     return InterpretAsType(C, getRegType(type), StartingBit, Folder);
 
   case VECTOR_TYPE: {
-    tree elt_type = TREE_TYPE(type);
+    tree elt_type = main_type(type);
     unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
     unsigned Stride = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
     SmallVector<Constant*, 16> Vals(NumElts);
@@ -584,7 +584,7 @@ Constant *ExtractRegisterFromConstant(Constant *C, tree type, int StartingByte) 
 /// register type.
 static Constant *getAsRegister(tree exp, TargetFolder &Folder) {
   Constant *C = ConvertInitializerImpl(exp, Folder);
-  return ExtractRegisterFromConstantImpl(C, TREE_TYPE(exp), 0, Folder);
+  return ExtractRegisterFromConstantImpl(C, main_type(exp), 0, Folder);
 }
 
 /// RepresentAsMemory - Turn a constant of in-register type (corresponding
@@ -619,7 +619,7 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
   }
 
   case COMPLEX_TYPE: {
-    tree elt_type = TREE_TYPE(type);
+    tree elt_type = main_type(type);
     unsigned Idx[2] = {0, 1};
     Constant *Real = Folder.CreateExtractValue(C, Idx[0]);
     Constant *Imag = Folder.CreateExtractValue(C, Idx[1]);
@@ -645,7 +645,7 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
     break;
 
   case VECTOR_TYPE: {
-    tree elt_type = TREE_TYPE(type);
+    tree elt_type = main_type(type);
     unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
     std::vector<Constant*> Vals(NumElts);
     for (unsigned i = 0; i != NumElts; ++i) {
@@ -703,7 +703,7 @@ static Constant *ConvertInitializerWithCast(tree exp, tree type,
   // that would not perform a value extension (adding extra zeros or sign bits
   // when casting to a larger integer type for example): any extra bits would
   // wrongly get an undefined value instead.
-  C = ExtractRegisterFromConstantImpl(C, TREE_TYPE(exp), 0, Folder);
+  C = ExtractRegisterFromConstantImpl(C, main_type(exp), 0, Folder);
 
   // Cast to the desired type.
   bool SrcIsSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
@@ -718,7 +718,7 @@ static Constant *ConvertInitializerWithCast(tree exp, tree type,
 /// ConvertCST - Return the given simple constant as an array of bytes.  For the
 /// moment only INTEGER_CST, REAL_CST, COMPLEX_CST and VECTOR_CST are supported.
 static Constant *ConvertCST(tree exp, TargetFolder &) {
-  const tree type = TREE_TYPE(exp);
+  const tree type = main_type(exp);
   unsigned SizeInChars = (TREE_INT_CST_LOW(TYPE_SIZE(type)) + CHAR_BIT - 1) /
     CHAR_BIT;
   // Encode the constant in Buffer in target format.
@@ -777,13 +777,13 @@ static Constant *ConvertSTRING_CST(tree exp, TargetFolder &) {
   }
 
   unsigned LenInElts = Len /
-          TREE_INT_CST_LOW(TYPE_SIZE_UNIT(TREE_TYPE(TREE_TYPE(exp))));
+          TREE_INT_CST_LOW(TYPE_SIZE_UNIT(main_type(main_type(exp))));
   unsigned ConstantSize = StrTy->getNumElements();
 
   if (LenInElts != ConstantSize) {
     // If this is a variable sized array type, set the length to LenInElts.
     if (ConstantSize == 0) {
-      tree Domain = TYPE_DOMAIN(TREE_TYPE(exp));
+      tree Domain = TYPE_DOMAIN(main_type(exp));
       if (!Domain || !TYPE_MAX_VALUE(Domain)) {
         ConstantSize = LenInElts;
         StrTy = ArrayType::get(ElTy, LenInElts);
@@ -811,10 +811,10 @@ static Constant *ConvertADDR_EXPR(tree exp, TargetFolder &Folder) {
 static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   const TargetData &TD = getTargetData();
 
-  tree init_type = TREE_TYPE(exp);
+  tree init_type = main_type(exp);
   Type *InitTy = ConvertType(init_type);
 
-  tree elt_type = TREE_TYPE(init_type);
+  tree elt_type = main_type(init_type);
   Type *EltTy = ConvertType(elt_type);
 
   // Check that the element type has a known, constant size.
@@ -875,8 +875,8 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
 
       // Subtract off the lower bound if any to ensure indices start from zero.
       if (lower_bnd != NULL_TREE) {
-        first = fold_build2(MINUS_EXPR, TREE_TYPE(first), first, lower_bnd);
-        last = fold_build2(MINUS_EXPR, TREE_TYPE(last), last, lower_bnd);
+        first = fold_build2(MINUS_EXPR, main_type(first), first, lower_bnd);
+        last = fold_build2(MINUS_EXPR, main_type(last), last, lower_bnd);
       }
 
       assert(host_integerp(first, 1) && host_integerp(last, 1) &&
@@ -886,7 +886,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
     } else {
       // Subtract off the lower bound if any to ensure indices start from zero.
       if (lower_bnd != NULL_TREE)
-        index = fold_build2(MINUS_EXPR, TREE_TYPE(index), index, lower_bnd);
+        index = fold_build2(MINUS_EXPR, main_type(index), index, lower_bnd);
       assert(host_integerp(index, 1));
       FirstIndex = tree_low_cst(index, 1);
       LastIndex = FirstIndex;
@@ -940,7 +940,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // If any elements are more aligned than the GCC type then we need to return a
   // packed struct.  This can happen if the user forced a small alignment on the
   // array type.
-  if (MaxAlign * 8 > TYPE_ALIGN(TREE_TYPE(exp)))
+  if (MaxAlign * 8 > TYPE_ALIGN(main_type(exp)))
     return ConstantStruct::getAnon(Context, Elts, /*Packed*/true);
 
   // Return as a struct if the contents are not homogeneous.
@@ -1128,7 +1128,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // and probably wrong on big-endian machines.
   IntervalList<FieldContents, int, 8> Layout;
   const TargetData &TD = getTargetData();
-  tree type = TREE_TYPE(exp);
+  tree type = main_type(exp);
   Type *Ty = ConvertType(type);
   uint64_t TypeSize = TD.getTypeAllocSizeInBits(Ty);
 
@@ -1210,7 +1210,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
     assert(TREE_CODE(field) == FIELD_DECL && "Initial value not for a field!");
     assert(OffsetIsLLVMCompatible(field) && "Field position not known!");
     // Turn the initial value for this field into an LLVM constant.
-    Constant *Init = ConvertInitializerWithCast(value, TREE_TYPE(field),
+    Constant *Init = ConvertInitializerWithCast(value, main_type(field),
                                                 Folder);
     // Work out the range of bits occupied by the field.
     uint64_t FirstBit = getFieldOffsetInBits(field);
@@ -1345,13 +1345,13 @@ static Constant *ConvertCONSTRUCTOR(tree exp, TargetFolder &Folder) {
 static Constant *ConvertMINUS_EXPR(tree exp, TargetFolder &Folder) {
   Constant *LHS = getAsRegister(TREE_OPERAND(exp, 0), Folder);
   Constant *RHS = getAsRegister(TREE_OPERAND(exp, 1), Folder);
-  return RepresentAsMemory(Folder.CreateSub(LHS, RHS), TREE_TYPE(exp), Folder);
+  return RepresentAsMemory(Folder.CreateSub(LHS, RHS), main_type(exp), Folder);
 }
 
 static Constant *ConvertPLUS_EXPR(tree exp, TargetFolder &Folder) {
   Constant *LHS = getAsRegister(TREE_OPERAND(exp, 0), Folder);
   Constant *RHS = getAsRegister(TREE_OPERAND(exp, 1), Folder);
-  return RepresentAsMemory(Folder.CreateAdd(LHS, RHS), TREE_TYPE(exp), Folder);
+  return RepresentAsMemory(Folder.CreateAdd(LHS, RHS), main_type(exp), Folder);
 }
 
 static Constant *ConvertPOINTER_PLUS_EXPR(tree exp, TargetFolder &Folder) {
@@ -1367,7 +1367,7 @@ static Constant *ConvertPOINTER_PLUS_EXPR(tree exp, TargetFolder &Folder) {
   // The result may be of a different pointer type.
   Result = Folder.CreateBitCast(Result, getRegType(TREE_TYPE(exp)));
 
-  return RepresentAsMemory(Result, TREE_TYPE(exp), Folder);
+  return RepresentAsMemory(Result, main_type(exp), Folder);
 }
 
 static Constant *ConvertVIEW_CONVERT_EXPR(tree exp, TargetFolder &Folder) {
@@ -1404,7 +1404,7 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
     break;
   case CONVERT_EXPR:
   case NOP_EXPR:
-    Init = ConvertInitializerWithCast(TREE_OPERAND(exp, 0), TREE_TYPE(exp),
+    Init = ConvertInitializerWithCast(TREE_OPERAND(exp, 0), main_type(exp),
                                       Folder);
     break;
   case MINUS_EXPR:
@@ -1437,11 +1437,11 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
     uint64_t TypeSize = getTargetData().getTypeAllocSizeInBits(Ty);
     if (InitSize < TypeSize)
       DieAbjectly("Constant too small for type!", exp);
-    if (isInt64(TREE_TYPE(exp), true) && InitSize != TypeSize)
+    if (isInt64(main_type(exp), true) && InitSize != TypeSize)
       DieAbjectly("Constant too big for type!", exp);
   }
   if (getTargetData().getABITypeAlignment(Init->getType()) * 8 >
-      TYPE_ALIGN(TREE_TYPE(exp)))
+      TYPE_ALIGN(main_type(exp)))
     DieAbjectly("Constant over aligned!", exp);
 #endif
 
@@ -1485,7 +1485,7 @@ static Constant *AddressOfCST(tree exp, TargetFolder &Folder) {
   // Create a new global variable.
   Slot = new GlobalVariable(*TheModule, Init->getType(), true,
                             GlobalVariable::LinkerPrivateLinkage, Init, ".cst");
-  unsigned align = TYPE_ALIGN(TREE_TYPE(exp));
+  unsigned align = TYPE_ALIGN(main_type(exp));
 #ifdef CONSTANT_ALIGNMENT
   align = CONSTANT_ALIGNMENT(exp, align);
 #endif
@@ -1502,11 +1502,11 @@ static Constant *AddressOfCST(tree exp, TargetFolder &Folder) {
 static Constant *AddressOfARRAY_REF(tree exp, TargetFolder &Folder) {
   tree array = TREE_OPERAND(exp, 0);
   tree index = TREE_OPERAND(exp, 1);
-  tree index_type = TREE_TYPE(index);
+  tree index_type = main_type(index);
   assert(TREE_CODE(TREE_TYPE(array)) == ARRAY_TYPE && "Unknown ARRAY_REF!");
 
   // Check for variable sized reference.
-  assert(isSizeCompatible(TREE_TYPE(TREE_TYPE(array))) &&
+  assert(isSizeCompatible(main_type(main_type(array))) &&
          "Global with variable size?");
 
   // Get the index into the array as an LLVM integer constant.
@@ -1524,7 +1524,7 @@ static Constant *AddressOfARRAY_REF(tree exp, TargetFolder &Folder) {
   // Avoid any assumptions about how the array type is represented in LLVM by
   // doing the GEP on a pointer to the first array element.
   Constant *ArrayAddr = AddressOfImpl(array, Folder);
-  Type *EltTy = ConvertType(TREE_TYPE(TREE_TYPE(array)));
+  Type *EltTy = ConvertType(main_type(main_type(array)));
   ArrayAddr = Folder.CreateBitCast(ArrayAddr, EltTy->getPointerTo());
 
   return POINTER_TYPE_OVERFLOW_UNDEFINED ?

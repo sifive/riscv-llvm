@@ -72,7 +72,8 @@ extern bool isSizeCompatible(tree_node *type);
 
 /// getRegType - Returns the LLVM type to use for registers that hold a value
 /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
-/// determine the LLVM type to return.
+/// determine the LLVM type to return.  Note that this only considers the main
+/// variant of the type.
 extern llvm::Type *getRegType(tree_node *type);
 
 /// getPointerToType - Returns the LLVM register type to use for a pointer to
@@ -81,6 +82,7 @@ extern llvm::Type *getPointerToType(tree_node *type);
 
 /// ConvertType - Returns the LLVM type to use for memory that holds a value
 /// of the given GCC type (getRegType should be used for values in registers).
+/// Note that the conversion only considers the main variant of the type.
 extern llvm::Type *ConvertType(tree_node *type);
 
 /// ConvertFunctionType - Convert the specified FUNCTION_TYPE or METHOD_TYPE

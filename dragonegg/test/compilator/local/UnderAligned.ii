@@ -1,0 +1,26 @@
+typedef long unsigned int size_t;
+extern "C" {
+extern void *memcpy (void *__restrict __dest,
+       __const void *__restrict __src, size_t __n)
+     throw () __attribute__ ((__nonnull__ (1, 2)));
+}
+typedef unsigned long int uint64_t;
+inline uint64_t fetch64(const char *p) {
+  uint64_t result;
+  memcpy(&result, p, sizeof(result));
+  return result;
+}
+const uint64_t bigarr[] = {
+  0xaaaaaaaaababababULL, 0xacacacacbcbcbcbcULL, 0xccddeeffeeddccbbULL,
+  0xdeadbeafdeadbeefULL, 0xfefefefededededeULL, 0xafafafafededededULL,
+  0xffffeeeeddddccccULL, 0xaaaacbcbffffababULL,
+  0xaaaaaaaaababababULL, 0xacacacacbcbcbcbcULL, 0xccddeeffeeddccbbULL,
+  0xdeadbeafdeadbeefULL, 0xfefefefededededeULL, 0xafafafafededededULL,
+  0xffffeeeeddddccccULL, 0xaaaacbcbffffababULL,
+  0xaaaaaaaaababababULL, 0xacacacacbcbcbcbcULL, 0xccddeeffeeddccbbULL,
+  0xdeadbeafdeadbeefULL, 0xfefefefededededeULL, 0xafafafafededededULL,
+  0xffffeeeeddddccccULL, 0xaaaacbcbffffababULL
+};
+const uint64_t *M() {
+  return &bigarr[0];
+}

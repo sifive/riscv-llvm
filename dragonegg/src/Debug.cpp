@@ -503,10 +503,8 @@ static bool isArtificialArgumentType(tree arg_type, tree method_type) {
   if (TREE_CODE (arg_type) != POINTER_TYPE) return false;
   if (TREE_TYPE (arg_type) == TYPE_METHOD_BASETYPE (method_type))
     return true;
-  if (TYPE_MAIN_VARIANT (TREE_TYPE (arg_type))
-      && TYPE_MAIN_VARIANT (TREE_TYPE (arg_type)) != TREE_TYPE (arg_type)
-      && (TYPE_MAIN_VARIANT (TREE_TYPE (arg_type))
-          == TYPE_METHOD_BASETYPE (method_type)))
+  if (main_type (arg_type) && main_type (arg_type) != TREE_TYPE (arg_type)
+      && (main_type (arg_type) == TYPE_METHOD_BASETYPE (method_type)))
     return true;
   return false;
 }

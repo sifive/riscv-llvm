@@ -37,6 +37,11 @@
 /// more readable, and have no official status.
 std::string getDescriptiveName(tree t);
 
+/// main_type - Return the main variant of the given tree's type.
+inline tree main_type(tree exp) {
+  return TYPE_MAIN_VARIANT(TREE_TYPE(exp));
+}
+
 /// hasNUW - Return whether overflowing unsigned operations on this type result
 /// in undefined behaviour.
 inline bool hasNUW(tree type) {
