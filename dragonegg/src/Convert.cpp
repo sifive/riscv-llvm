@@ -187,7 +187,8 @@ static Value *Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
     return Res;
   }
 
-  DieAbjectly("Don't know how to turn this into a register!", type);
+  debug_tree(type);
+  llvm_unreachable("Don't know how to turn this into a register!");
 }
 
 /// Reg2Mem - Convert a value of in-register type (that given by getRegType)
@@ -240,7 +241,8 @@ static Value *Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
     return Res;
   }
 
-  DieAbjectly("Don't know how to turn this into memory!", type);
+  debug_tree(type);
+  llvm_unreachable("Don't know how to turn this into memory!");
 }
 
 /// LoadRegisterFromMemory - Loads a value of the given scalar GCC type from
@@ -366,7 +368,8 @@ Value *TreeToLLVM::make_decl_local(tree decl) {
 
   switch (TREE_CODE(decl)) {
   default:
-    DieAbjectly("Unhandled local declaration!", decl);
+    debug_tree(decl);
+    llvm_unreachable("Unhandled local declaration!");
 
   case RESULT_DECL:
   case VAR_DECL:
@@ -1104,7 +1107,8 @@ Function *TreeToLLVM::FinishFunctionBody() {
         NameDef->replaceAllUsesWith(UndefValue::get(NameDef->getType()));
         delete NameDef;
       } else {
-        DieAbjectly("SSA name never defined!", I->first);
+        debug_tree(I->first);
+        llvm_unreachable("SSA name never defined!");
       }
     }
 
@@ -1221,7 +1225,8 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
 
     switch (gimple_code(stmt)) {
     default:
-      DieAbjectly("Unhandled GIMPLE statement during LLVM emission!", stmt);
+      debug_gimple_stmt(stmt);
+      llvm_unreachable("Unhandled GIMPLE statement during LLVM emission!");
 
     case GIMPLE_ASM:
       RenderGIMPLE_ASM(stmt);
@@ -1336,7 +1341,8 @@ LValue TreeToLLVM::EmitLV(tree exp) {
 
   switch (TREE_CODE(exp)) {
   default:
-    DieAbjectly("Unhandled lvalue expression!", exp);
+    debug_tree(exp);
+    llvm_unreachable("Unhandled lvalue expression!");
 
   case PARM_DECL:
   case VAR_DECL:
@@ -1942,8 +1948,8 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
   if (DECL_SIZE(decl) == 0) {    // Variable with incomplete type.
     if (DECL_INITIAL(decl) == 0)
       return; // Error message was already done; now avoid a crash.
-    else
-      DieAbjectly("Initializer will decide the size of this array?", decl);
+    debug_tree(decl);
+    llvm_unreachable("Initializer will decide the size of this array?");
   } else if (TREE_CODE(DECL_SIZE_UNIT(decl)) == INTEGER_CST) {
     // Variable of fixed size that goes on the stack.
     Ty = ConvertType(type);
@@ -2526,9 +2532,10 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
   case ARRAY_TYPE:
   case RECORD_TYPE:
   default:
-    if (elt && VEC_length(constructor_elt, elt))
-      DieAbjectly("We don't handle elements yet!", exp);
-    return 0;
+    if (!elt || !VEC_length(constructor_elt, elt))
+      return 0;
+    debug_tree(exp);
+    llvm_unreachable("We don't handle elements yet!");
   case QUAL_UNION_TYPE:
   case UNION_TYPE:
     // Store each element of the constructor into the corresponding field of
@@ -4373,7 +4380,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     switch(DECL_FUNCTION_CODE(fndecl)) {
       case BUILT_IN_LOCK_RELEASE_16:    // not handled; should use SSE on x86
       default:
-        DieAbjectly("Not handled; should use SSE on x86!");
+        llvm_unreachable("Not handled; should use SSE on x86!");
       case BUILT_IN_LOCK_RELEASE_1:
         Ty = Type::getInt8Ty(Context); break;
       case BUILT_IN_LOCK_RELEASE_2:
@@ -5593,7 +5600,8 @@ LValue TreeToLLVM::EmitLV_DECL(tree exp) {
       LValue LV(ConstantPointerNull::get(PTy), 1);
       return LV;
     }
-    DieAbjectly("Referencing decl that hasn't been laid out!", exp);
+    debug_tree(exp);
+    llvm_unreachable("Referencing decl that hasn't been laid out!");
   }
 
   Type *Ty = ConvertType(TREE_TYPE(exp));
@@ -5820,14 +5828,17 @@ Value *TreeToLLVM::EmitInvariantAddress(tree addr) {
 /// an LLVM constant.  Creates no code, only constants.
 Constant *TreeToLLVM::EmitRegisterConstant(tree reg) {
 #ifndef NDEBUG
-  if (!is_gimple_constant(reg))
-    DieAbjectly("Unsupported gimple!", reg);
+  if (!is_gimple_constant(reg)) {
+    debug_tree(reg);
+    llvm_unreachable("Unsupported gimple!");
+  }
 #endif
   assert(is_gimple_reg_type(TREE_TYPE(reg)) && "Not of register type!");
 
   switch (TREE_CODE(reg)) {
   default:
-    DieAbjectly("Unhandled GIMPLE constant!", reg);
+    debug_tree(reg);
+    llvm_unreachable("Unhandled GIMPLE constant!");
 
   case INTEGER_CST:
     return EmitIntegerRegisterConstant(reg);
@@ -7668,7 +7679,7 @@ void TreeToLLVM::RenderGIMPLE_EH_DISPATCH(gimple stmt) {
 
   switch (region->type) {
   default:
-    DieAbjectly("Unexpected region type!");
+    llvm_unreachable("Unexpected region type!");
   case ERT_ALLOWED_EXCEPTIONS: {
     // Filter.
     BasicBlock *Dest = getLabelDeclBlock(region->u.allowed.label);
@@ -7925,7 +7936,8 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   Value *RHS = 0;
   switch (code) {
   default:
-    DieAbjectly("Unsupported GIMPLE assignment!", stmt);
+    debug_gimple_stmt(stmt);
+    llvm_unreachable("Unsupported GIMPLE assignment!");
 
   // Unary expressions.
   case ABS_EXPR:

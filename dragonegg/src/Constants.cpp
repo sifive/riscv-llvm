@@ -284,7 +284,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
 
   switch (Ty->getTypeID()) {
   default:
-    DieAbjectly("Unsupported type!");
+    llvm_unreachable("Unsupported type!");
   case Type::PointerTyID: {
     // Cast to an integer with the same number of bits and return that.
     IntegerType *IntTy = getTargetData().getIntPtrType(Context);
@@ -415,7 +415,7 @@ static Constant *InterpretAsType(Constant *C, Type* Ty, int StartingBit,
   // The general case.
   switch (Ty->getTypeID()) {
   default:
-    DieAbjectly("Unsupported type!");
+    llvm_unreachable("Unsupported type!");
   case Type::IntegerTyID: {
     unsigned BitWidth = Ty->getPrimitiveSizeInBits();
     unsigned StoreSize = getTargetData().getTypeStoreSizeInBits(Ty);
@@ -509,7 +509,8 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
   switch (TREE_CODE(type)) {
 
   default:
-    DieAbjectly("Unknown register type!", type);
+    debug_tree(type);
+    llvm_unreachable("Unknown register type!");
 
   case BOOLEAN_TYPE:
   case ENUMERAL_TYPE:
@@ -600,7 +601,8 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
   switch (TREE_CODE(type)) {
 
   default:
-    DieAbjectly("Unknown register type!", type);
+    debug_tree(type);
+    llvm_unreachable("Unknown register type!");
 
   case BOOLEAN_TYPE:
   case ENUMERAL_TYPE:
@@ -1333,7 +1335,8 @@ static Constant *ConvertCONSTRUCTOR(tree exp, TargetFolder &Folder) {
 
   switch (TREE_CODE(TREE_TYPE(exp))) {
   default:
-    DieAbjectly("Unknown constructor!", exp);
+    debug_tree(exp);
+    llvm_unreachable("Unknown constructor!");
   case VECTOR_TYPE:
   case ARRAY_TYPE:  return ConvertArrayCONSTRUCTOR(exp, Folder);
   case QUAL_UNION_TYPE:
@@ -1386,7 +1389,8 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
   Constant *Init;
   switch (TREE_CODE(exp)) {
   default:
-    DieAbjectly("Unknown constant to convert!", exp);
+    debug_tree(exp);
+    llvm_unreachable("Unknown constant to convert!");
   case COMPLEX_CST:
   case INTEGER_CST:
   case REAL_CST:
@@ -1435,12 +1439,16 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
   if (Ty->isSized()) {
     uint64_t InitSize = getTargetData().getTypeAllocSizeInBits(Init->getType());
     uint64_t TypeSize = getTargetData().getTypeAllocSizeInBits(Ty);
-    if (InitSize < TypeSize)
-      DieAbjectly("Constant too small for type!", exp);
+    if (InitSize < TypeSize) {
+      debug_tree(exp);
+      llvm_unreachable("Constant too small for type!");
+    }
   }
   if (getTargetData().getABITypeAlignment(Init->getType()) * 8 >
-      TYPE_ALIGN(main_type(exp)))
-    DieAbjectly("Constant over aligned!", exp);
+      TYPE_ALIGN(main_type(exp))) {
+    debug_tree(exp);
+    llvm_unreachable("Constant over aligned!");
+  }
 #endif
 
   // Cache the result of converting the initializer since the same tree is often
@@ -1605,7 +1613,8 @@ static Constant *AddressOfImpl(tree exp, TargetFolder &Folder) {
 
   switch (TREE_CODE(exp)) {
   default:
-    DieAbjectly("Unknown constant to take the address of!", exp);
+    debug_tree(exp);
+    llvm_unreachable("Unknown constant to take the address of!");
   case COMPLEX_CST:
   case FIXED_CST:
   case INTEGER_CST:

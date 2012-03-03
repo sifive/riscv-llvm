@@ -138,7 +138,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
 
   switch (Handler) {
   case SearchForHandler:
-    DieAbjectly("Unexpected builtin code!", stmt);
+    debug_gimple_stmt(stmt);
+    llvm_unreachable("Unexpected builtin code!");
   case UnsupportedBuiltin: return false;
   case addps:
   case addps256:

@@ -371,7 +371,7 @@ static Type *CheckTypeConversion(tree type, Type *Ty) {
     debug_tree(type);
     errs() << "LLVM: ";
     Ty->print(errs());
-    DieAbjectly("\nLLVM type doesn't represent GCC type!");
+    llvm_unreachable("\nLLVM type doesn't represent GCC type!");
   }
 #endif
 
@@ -426,7 +426,8 @@ Type *getRegType(tree type) {
   switch (TREE_CODE(type)) {
 
   default:
-    DieAbjectly("Unknown register type!", type);
+    debug_tree(type);
+    llvm_unreachable("Unknown register type!");
 
   case BOOLEAN_TYPE:
   case ENUMERAL_TYPE:
@@ -464,7 +465,8 @@ Type *getRegType(tree type) {
       // IEEE quad precision.
       return Type::getFP128Ty(Context);
 #endif
-      DieAbjectly("Unknown FP type!", type);
+    debug_tree(type);
+    llvm_unreachable("Unknown FP type!");
 
   case VECTOR_TYPE: {
     // LLVM does not support vectors of pointers, so turn any pointers into
@@ -1299,13 +1301,16 @@ static Type *ConvertTypeRecursive(tree type) {
       inSCC = true;
       break;
     }
-  if (!inSCC)
-    DieAbjectly("Type not in SCC!", type);
+  if (!inSCC) {
+    debug_tree(type);
+    llvm_unreachable("Type not in SCC!");
+  }
 #endif
 
   switch (TREE_CODE(type)) {
   default:
-    DieAbjectly("Unexpected type!", type);
+    debug_tree(type);
+    llvm_unreachable("Unexpected type!");
 
   case ARRAY_TYPE:
     return RememberTypeConversion(type, ConvertArrayTypeRecursive(type));
@@ -1338,7 +1343,8 @@ static Type *ConvertTypeNonRecursive(tree type) {
 
   switch (TREE_CODE(type)) {
   default:
-    DieAbjectly("Unknown or recursive type!", type);
+    debug_tree(type);
+    llvm_unreachable("Unknown or recursive type!");
 
   case ARRAY_TYPE:
   case FUNCTION_TYPE:
@@ -1382,7 +1388,8 @@ static Type *ConvertTypeNonRecursive(tree type) {
     // Caching the type conversion is not worth it.
     switch (TYPE_PRECISION(type)) {
     default:
-      DieAbjectly("Unknown FP type!", type);
+      debug_tree(type);
+      llvm_unreachable("Unknown FP type!");
     case 32: return CheckTypeConversion(type, Type::getFloatTy(Context));
     case 64: return CheckTypeConversion(type, Type::getDoubleTy(Context));
     case 80: return CheckTypeConversion(type, Type::getX86_FP80Ty(Context));

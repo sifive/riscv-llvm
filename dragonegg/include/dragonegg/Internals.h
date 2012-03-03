@@ -106,23 +106,6 @@ extern SmallSetVector<Constant *,32> AttributeUsedGlobals;
 
 extern Constant* ConvertMetadataStringToGV(const char *str);
 
-/// DieAbjectly - An unrecoverable fatal error occurred - throw in the towel,
-/// give up the ghost, quit miserably.
-inline void LLVM_ATTRIBUTE_NORETURN DieAbjectly(const char *Message) {
-  (void)Message; // Avoid unused variable warning when assertions are disabled.
-  llvm_unreachable(Message);
-}
-inline void LLVM_ATTRIBUTE_NORETURN DieAbjectly(const char *Message,
-                                                union gimple_statement_d *stmt){
-  if (stmt) debug_gimple_stmt(stmt);
-  DieAbjectly(Message);
-}
-inline void LLVM_ATTRIBUTE_NORETURN DieAbjectly(const char *Message,
-                                                union tree_node *exp) {
-  if (exp) debug_tree(exp);
-  DieAbjectly(Message);
-}
-
 /// AddAnnotateAttrsToGlobal - Adds decls that have a
 /// annotate attribute to a vector to be emitted later.
 extern void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree_node *decl);

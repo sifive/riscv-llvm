@@ -635,7 +635,7 @@ static void createPerFunctionOptimizationPasses() {
     if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
                                        TargetMachine::CGFT_AssemblyFile,
                                        DisableVerify))
-      DieAbjectly("Error interfacing to target machine!");
+      llvm_unreachable("Error interfacing to target machine!");
   }
 
   PerFunctionPasses->doInitialization();
@@ -718,7 +718,7 @@ static void createPerModuleOptimizationPasses() {
       if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
                                          TargetMachine::CGFT_AssemblyFile,
                                          DisableVerify))
-        DieAbjectly("Error interfacing to target machine!");
+        llvm_unreachable("Error interfacing to target machine!");
     }
   }
 }
@@ -1065,8 +1065,10 @@ Value *make_decl_llvm(tree decl) {
   if (TREE_CODE(decl) == PARM_DECL || TREE_CODE(decl) == RESULT_DECL ||
       TREE_CODE(decl) == TYPE_DECL || TREE_CODE(decl) == LABEL_DECL ||
       (TREE_CODE(decl) == VAR_DECL && !TREE_STATIC(decl) &&
-       !TREE_PUBLIC(decl) && !DECL_EXTERNAL(decl) && !DECL_REGISTER(decl)))
-    DieAbjectly("Cannot make a global for this kind of declaration!", decl);
+       !TREE_PUBLIC(decl) && !DECL_EXTERNAL(decl) && !DECL_REGISTER(decl))) {
+    debug_tree(decl);
+    llvm_unreachable("Cannot make a global for this kind of declaration!");
+  }
 #endif
 
   if (errorcount || sorrycount)
