@@ -48,7 +48,8 @@ def compareCommands(cmds, args, cwd=None):
     return (Test.FAIL, output.getvalue())
 
 
-def executeCompilatorTest(test, litConfig, compilers, flags, skip, xfails):
+def executeCompilatorTest(test, litConfig, compilers, flags, suffix_flags,
+                          skip, xfails):
     test_path = '/'.join(test.path_in_suite)
 
     # Skip this test if requested to do so.
@@ -65,8 +66,15 @@ def executeCompilatorTest(test, litConfig, compilers, flags, skip, xfails):
     # Is this test expected to fail?
     isXFail = test_path in xfails
 
-    # Compile the test.
+    # The file should be compiled to assembler.
     common_args = ['-S', test.getSourcePath()]
+
+    # Add any file specific flags.
+    srcbase,srcext = os.path.splitext(test.getSourcePath())
+    if srcext in suffix_flags:
+      common_args += suffix_flags[srcext]
+
+    # Compile the test.
     for args in flags:
         result,output = compareCommands(compilers, common_args + args, tmpDir)
         if result != Test.PASS:
