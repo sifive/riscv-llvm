@@ -124,6 +124,7 @@ $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/dragonegg-lit.site.cfg.in
 	$(QUIET)-rm -f lit.tmp
 
 check:: $(PLUGIN) $(LIT_SITE_CONFIG)
+	@echo "Running test suite"
 	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
 	--config-prefix=dragonegg-lit $(TEST_SRC_DIR)/compilator
 
