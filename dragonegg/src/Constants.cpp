@@ -1437,8 +1437,6 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
     uint64_t TypeSize = getTargetData().getTypeAllocSizeInBits(Ty);
     if (InitSize < TypeSize)
       DieAbjectly("Constant too small for type!", exp);
-    if (isInt64(main_type(exp), true) && InitSize != TypeSize)
-      DieAbjectly("Constant too big for type!", exp);
   }
   if (getTargetData().getABITypeAlignment(Init->getType()) * 8 >
       TYPE_ALIGN(main_type(exp)))
