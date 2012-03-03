@@ -57,22 +57,27 @@ def executeCompilatorTest(test, litConfig, compilers, flags, suffix_flags,
         return (Test.UNSUPPORTED, None)
 
     # Create the output directory if it does not already exist.
-    execpath = test.getExecPath()
-    execdir,execbase = os.path.split(execpath)
-    tmpDir = os.path.join(execdir, 'Output')
-    tmpDir = os.path.join(tmpDir, execbase)
+    execPath = test.getExecPath()
+    execDir,execBase = os.path.split(execPath)
+    tmpDir = os.path.join(execDir, 'Output')
+    tmpDir = os.path.join(tmpDir, execBase)
     Util.mkdir_p(tmpDir)
 
     # Is this test expected to fail?
     isXFail = test_path in xfails
 
     # The file should be compiled to assembler.
-    common_args = ['-S', test.getSourcePath()]
+    srcPath = test.getSourcePath();
+    common_args = ['-S', srcPath]
+
+    # Look for headers and such-like in the directory containing the source.
+    srcDir,srcBase = os.path.split(srcPath)
+    common_args += ['-I', srcDir]
 
     # Add any file specific flags.
-    srcbase,srcext = os.path.splitext(test.getSourcePath())
-    if srcext in suffix_flags:
-      common_args += suffix_flags[srcext]
+    srcBase,srcExt = os.path.splitext(srcPath)
+    if srcExt in suffix_flags:
+      common_args += suffix_flags[srcExt]
 
     # Compile the test.
     for args in flags:
