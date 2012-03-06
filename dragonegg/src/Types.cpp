@@ -415,6 +415,11 @@ bool isPassedByInvisibleReference(tree Type) {
 /// of the scalar GCC type 'type'.  All of the EmitReg* routines use this to
 /// determine the LLVM type to return.
 Type *getRegType(tree type) {
+  // Check that the type mode doesn't depend on the type variant (various bits
+  // of the plugin rely on this).
+  assert(TYPE_MODE(type) == TYPE_MODE(TYPE_MAIN_VARIANT(type))
+         && "Type mode differs between variants!");
+
   // LLVM doesn't care about variants such as const, volatile, or restrict.
   type = TYPE_MAIN_VARIANT(type);
 
@@ -1524,6 +1529,11 @@ namespace llvm {
 
 Type *ConvertType(tree type) {
   if (type == error_mark_node) return Type::getInt32Ty(Context);
+
+  // Check that the type mode doesn't depend on the type variant (various bits
+  // of the plugin rely on this).
+  assert(TYPE_MODE(type) == TYPE_MODE(TYPE_MAIN_VARIANT(type))
+         && "Type mode differs between variants!");
 
   // LLVM doesn't care about variants such as const, volatile, or restrict.
   type = TYPE_MAIN_VARIANT(type);
