@@ -11,7 +11,7 @@ LLVM_CONFIG?=llvm-config
 
 # Location of this Makefile, useful if you want separate source and object
 # directories.
-TOP_DIR?=$(PWD)
+TOP_DIR?=$(CURDIR)
 
 # Normally the plugin will refuse to load into a different gcc to the one it was
 # built against.  Uncomment this (or pass DISABLE_VERSION_CHECK=1 on the 'make'
@@ -117,9 +117,9 @@ $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/dragonegg-lit.site.cfg.in
 	@echo "Making DragonEgg '$@' file..."
 	$(QUIET)mkdir -p test
-	$(QUIET)echo s=@DRAGONEGG_PLUGIN@=$(PWD)/$(PLUGIN)=g > lit.tmp
+	$(QUIET)echo s=@DRAGONEGG_PLUGIN@=$(CURDIR)/$(PLUGIN)=g > lit.tmp
 	$(QUIET)echo s=@GCC@=$(GCC)=g >> lit.tmp
-	$(QUIET)echo s=@TEST_OUTPUT_DIR@=$(PWD)/test/Output=g >> lit.tmp
+	$(QUIET)echo s=@TEST_OUTPUT_DIR@=$(CURDIR)/test/Output=g >> lit.tmp
 	$(QUIET)sed -f lit.tmp $< > $@
 	$(QUIET)-rm -f lit.tmp
 
