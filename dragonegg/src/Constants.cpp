@@ -515,12 +515,12 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
   case BOOLEAN_TYPE:
   case ENUMERAL_TYPE:
   case INTEGER_TYPE: {
-    // For integral types, extract an integer with size equal to the type size,
+    // For integral types, extract an integer with size equal to the mode size,
     // then truncate down to the precision.  For example, when extracting a bool
     // this probably first loads out an i8 or i32 which is then truncated to i1.
     // This roundabout approach means we get the right result on both little and
     // big endian machines.
-    uint64_t Size = getInt64(TYPE_SIZE(type), true);
+    unsigned Size = GET_MODE_BITSIZE(TYPE_MODE(type));
     Type *MemTy = IntegerType::get(Context, Size);
     C = InterpretAsType(C, MemTy, StartingBit, Folder);
     return Folder.CreateTruncOrBitCast(C, getRegType(type));
@@ -607,13 +607,12 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
   case BOOLEAN_TYPE:
   case ENUMERAL_TYPE:
   case INTEGER_TYPE: {
-    // For integral types extend to an integer with size equal to the type size.
+    // For integral types extend to an integer with size equal to the mode size.
     // For example, when inserting a bool this probably extends it to an i8 or
     // to an i32.  This approach means we get the right result on both little
     // and big endian machines.
-    uint64_t Size = getInt64(TYPE_SIZE(type), true);
+    unsigned Size = GET_MODE_BITSIZE(TYPE_MODE(type));
     Type *MemTy = IntegerType::get(Context, Size);
-    // We can extend in any way, but get nicer IR by respecting signedness.
     bool isSigned = !TYPE_UNSIGNED(type);
     Result = isSigned ? Folder.CreateSExtOrBitCast(C, MemTy) :
       Folder.CreateZExtOrBitCast(C, MemTy);
@@ -622,9 +621,8 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
 
   case COMPLEX_TYPE: {
     tree elt_type = main_type(type);
-    unsigned Idx[2] = {0, 1};
-    Constant *Real = Folder.CreateExtractValue(C, Idx[0]);
-    Constant *Imag = Folder.CreateExtractValue(C, Idx[1]);
+    Constant *Real = Folder.CreateExtractValue(C, 0);
+    Constant *Imag = Folder.CreateExtractValue(C, 1);
     Real = RepresentAsMemory(Real, elt_type, Folder);
     Imag = RepresentAsMemory(Imag, elt_type, Folder);
     Constant *Vals[2] = { Real, Imag };
