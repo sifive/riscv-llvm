@@ -888,6 +888,16 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     // Need to sign extend since icmp returns a vector of i1.
     Result = Builder.CreateSExt(Result, ResultType);
     return true;
+  case pswapdsf:
+  case pswapdsi: {
+    Type *MMXTy = Type::getX86_MMXTy(Context);
+    Ops[0] = Builder.CreateBitCast(Ops[0], MMXTy);
+    Function *pswapd = Intrinsic::getDeclaration(TheModule,
+                                                 Intrinsic::x86_3dnowa_pswapd);
+    Result = Builder.CreateCall(pswapd, Ops[0]);
+    Result = Builder.CreateBitCast(Result, ResultType);
+    return true;
+  }
   }
   llvm_unreachable("Forgot case for code?");
 }
