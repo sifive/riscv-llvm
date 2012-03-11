@@ -61,6 +61,8 @@ static Value *BitCastToIntVector(Value *Op, LLVMBuilder &Builder) {
 /// BuiltinCode - A enumerated type with one value for each supported builtin.
 enum BuiltinCode {
   SearchForHandler, // Builtin not seen before - search for a handler.
+  clzs, // Builtin with exceptional name.
+  ctzs, // Builtin with exceptional name.
 #define DEFINE_BUILTIN(x) x
 #include "x86_builtins"
 #undef DEFINE_BUILTIN
@@ -104,9 +106,11 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     // No associated BuiltinCode.  Work out what value to use based on the
     // builtin's name.
 
-    // List of builtin names (w/o '__builtin_ia32_') and associated BuiltinCode.
+    // List of builtin names and associated BuiltinCode.
     static const HandlerEntry Handlers[] = {
-#define DEFINE_BUILTIN(x) {#x, x}
+      {"__builtin_clzs", clzs}, // Builtin with exceptional name.
+      {"__builtin_ctzs", ctzs}, // Builtin with exceptional name.
+#define DEFINE_BUILTIN(x) {"__builtin_ia32_" #x, x}
 #include "x86_builtins"
 #undef DEFINE_BUILTIN
     };
@@ -123,14 +127,11 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
 
     Handler = UnsupportedBuiltin;
     const char *Identifier = IDENTIFIER_POINTER(DECL_NAME(fndecl));
-    // All builtins handled here have a name starting with __builtin_ia32_.
-    if (!strncmp(Identifier, "__builtin_ia32_", 15)) {
-      HandlerEntry ToFind = { Identifier + 15, SearchForHandler };
-      const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind,
-                                               HandlerLT);
-      if ((E < Handlers + N) && !strcmp(E->Name, ToFind.Name))
-        Handler = E->Handler;
-    }
+    HandlerEntry ToFind = { Identifier, SearchForHandler };
+    const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind,
+                                             HandlerLT);
+    if ((E < Handlers + N) && !strcmp(E->Name, ToFind.Name))
+      Handler = E->Handler;
   }
 
   bool flip = false;
@@ -896,6 +897,18 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
                                                  Intrinsic::x86_3dnowa_pswapd);
     Result = Builder.CreateCall(pswapd, Ops[0]);
     Result = Builder.CreateBitCast(Result, ResultType);
+    return true;
+  }
+  case clzs: {
+    Function *ctlz = Intrinsic::getDeclaration(TheModule, Intrinsic::ctlz,
+                                               Ops[0]->getType());
+    Result = Builder.CreateCall2(ctlz, Ops[0], Builder.getTrue());
+    return true;
+  }
+  case ctzs: {
+    Function *cttz = Intrinsic::getDeclaration(TheModule, Intrinsic::cttz,
+                                               Ops[0]->getType());
+    Result = Builder.CreateCall2(cttz, Ops[0], Builder.getTrue());
     return true;
   }
   }
