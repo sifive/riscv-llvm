@@ -137,6 +137,40 @@ static StringRef SelectFPName(tree type, StringRef FloatName,
   return StringRef();
 }
 
+/// DisplaceLocationByUnits - Move a memory location by a fixed number of units.
+/// This uses an "inbounds" getelementptr, so the displacement should remain
+/// inside the original object.
+MemRef DisplaceLocationByUnits(MemRef Loc, int32_t Offset,
+                               LLVMBuilder &Builder) {
+  // Convert to a byte pointer and displace by the offset.
+  unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
+  Type *UnitPtrTy = GetUnitPointerType(Context, AddrSpace);
+  Value *Ptr = Builder.CreateBitCast(Loc.Ptr, UnitPtrTy);
+  Ptr = Builder.CreateConstInBoundsGEP1_32(Ptr, Offset);
+  Ptr = Builder.CreateBitCast(Ptr, Loc.Ptr->getType());
+  uint32_t Align = MinAlign(Loc.getAlignment(), Offset);
+  return MemRef(Ptr, Align, Loc.Volatile);
+}
+
+/// LoadFromLocation - Load a value of the given type from a memory location.
+static LoadInst *LoadFromLocation(MemRef Loc, Type *Ty, LLVMBuilder &Builder) {
+  unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
+  Value *Ptr = Builder.CreateBitCast(Loc.Ptr, Ty->getPointerTo(AddrSpace));
+  LoadInst *LI = Builder.CreateLoad(Ptr, Loc.Volatile);
+  LI->setAlignment(Loc.getAlignment());
+  return LI;
+}
+
+/// StoreToLocation - Store a value to the given memory location.
+static StoreInst *StoreToLocation(Value *V, MemRef Loc, LLVMBuilder &Builder) {
+  Type *Ty = V->getType();
+  unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
+  Value *Ptr = Builder.CreateBitCast(Loc.Ptr, Ty->getPointerTo(AddrSpace));
+  StoreInst *SI = Builder.CreateStore(V, Ptr, Loc.Volatile);
+  SI->setAlignment(Loc.getAlignment());
+  return SI;
+}
+
 /// Mem2Reg - Convert a value of in-memory type (that given by ConvertType)
 /// to in-register type (that given by getRegType).  TODO: Eliminate these
 /// methods: "memory" values should never be held in registers.  Currently
@@ -245,6 +279,59 @@ static Value *Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
   llvm_unreachable("Don't know how to turn this into memory!");
 }
 
+/// isDirectMemoryAccessSafe - Whether directly storing/loading a value of the
+/// given register type generates the correct in-memory representation for the
+/// type.  Eg, if a 32 bit wide integer type has only one bit of precision then
+/// the register type is i1 and the in-memory type i32.  Storing an i1 directly
+/// to memory would not properly set up all 32 in-memory bits, thus this method
+/// would return false.
+static bool isDirectMemoryAccessSafe(Type *RegTy, tree type) {
+  assert(RegTy == getRegType(type) && "Wrong register type!");
+
+  switch (TREE_CODE(type)) {
+  default:
+    debug_tree(type);
+    llvm_unreachable("Unknown register type!");
+
+  case BOOLEAN_TYPE:
+  case ENUMERAL_TYPE:
+  case INTEGER_TYPE:
+    assert(RegTy->isIntegerTy() && "Expected an integer type!");
+    return RegTy->getIntegerBitWidth() == GET_MODE_BITSIZE(TYPE_MODE(type));
+
+  case COMPLEX_TYPE:
+  case VECTOR_TYPE: {
+    assert((TREE_CODE(type) != COMPLEX_TYPE || RegTy->isStructTy()) &&
+           "Expected a struct type!");
+    assert((TREE_CODE(type) != VECTOR_TYPE || RegTy->isVectorTy()) &&
+           "Expected a vector type!");
+    tree elt_type = main_type(type);
+    Type *EltRegTy = getRegType(elt_type);
+    // Check that fields are safe to access directly.
+    if (!isDirectMemoryAccessSafe(EltRegTy, elt_type))
+      return false;
+    // Check that the field positions agree with GCC.
+    unsigned StrideBits = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
+    return getTargetData().getTypeAllocSizeInBits(EltRegTy) == StrideBits;
+  }
+
+  case OFFSET_TYPE:
+    assert(RegTy->isIntegerTy() && "Expected an integer type!");
+    return true;
+
+  case POINTER_TYPE:
+  case REFERENCE_TYPE:
+    assert(RegTy->isPointerTy() && "Expected a pointer type!");
+    return true;
+
+  case REAL_TYPE:
+    assert(RegTy->isFloatingPointTy() && "Expected a floating point type!");
+    // NOTE: This might be wrong for floats with precision less than their alloc
+    // size on big-endian machines.
+    return true;
+  }
+}
+
 /// LoadRegisterFromMemory - Loads a value of the given scalar GCC type from
 /// the memory location pointed to by Loc.  Takes care of adjusting for any
 /// differences between in-memory and in-register types (the returned value
@@ -252,11 +339,84 @@ static Value *Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
 static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
                                      LLVMBuilder &Builder) {
   // NOTE: Needs to be kept in sync with getRegType.
-  Type *MemTy = ConvertType(type);
-  Value *Ptr = Builder.CreateBitCast(Loc.Ptr, MemTy->getPointerTo());
-  LoadInst *LI = Builder.CreateLoad(Ptr, Loc.Volatile);
-  LI->setAlignment(Loc.getAlignment());
-  return Mem2Reg(LI, type, Builder);
+  Type *RegTy = getRegType(type);
+
+  // If loading the register type directly out of memory gives the right result,
+  // then just do that.
+  if (isDirectMemoryAccessSafe(RegTy, type))
+    return LoadFromLocation(Loc, RegTy, Builder);
+
+  // There is a discrepancy between the in-register type and the in-memory type.
+  switch (TREE_CODE(type)) {
+  default:
+    debug_tree(type);
+    llvm_unreachable("Unexpected type mismatch!");
+
+  case BOOLEAN_TYPE:
+  case ENUMERAL_TYPE:
+  case INTEGER_TYPE: {
+    // For integral types, load an integer with size equal to the mode size,
+    // then truncate down to the precision.  For example, when extracting a bool
+    // this probably first loads out an i8 or i32 which is then truncated to i1.
+    // This roundabout approach means we get the right result on both little and
+    // big endian machines.
+    unsigned Size = GET_MODE_BITSIZE(TYPE_MODE(type));
+    Type *MemTy = IntegerType::get(Context, Size);
+    LoadInst *LI = LoadFromLocation(Loc, MemTy, Builder);
+    return Builder.CreateTruncOrBitCast(LI, RegTy);
+  }
+
+  case COMPLEX_TYPE: {
+    // Load the complex number component by component.
+    tree elt_type = main_type(type);
+    unsigned Stride = GET_MODE_SIZE(TYPE_MODE(elt_type));
+    Value *RealPart = LoadRegisterFromMemory(Loc, elt_type, Builder);
+    Loc = DisplaceLocationByUnits(Loc, Stride, Builder);
+    Value *ImagPart = LoadRegisterFromMemory(Loc, elt_type, Builder);
+    Value *Res = UndefValue::get(RegTy);
+    Res = Builder.CreateInsertValue(Res, RealPart, 0);
+    Res = Builder.CreateInsertValue(Res, ImagPart, 1);
+    return Res;
+  }
+
+  case VECTOR_TYPE: {
+    tree elt_type = main_type(type);
+    Type *EltRegTy = getRegType(elt_type);
+    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
+    unsigned Size = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
+    // If, say, the register type is a vector of i1 but memory is laid out as a
+    // vector of i32 then load an i32 vector out and truncate to a vector of i1.
+    if (EltRegTy->isIntegerTy() && EltRegTy->getIntegerBitWidth() != Size) {
+      // See if changing the element type to an integer with size equal to the
+      // mode size gives a vector type that corresponds to the in-memory layout.
+      Type *MemTy = IntegerType::get(Context, Size);
+      if (getTargetData().getTypeAllocSizeInBits(MemTy) == Size) {
+        // It does!  Load out the memory as a vector of that type then truncate
+        // to the register size.
+        Type *MemVecTy = VectorType::get(MemTy, NumElts);
+        LoadInst *LI = LoadFromLocation(Loc, MemVecTy, Builder);
+        return Builder.CreateTruncOrBitCast(LI, RegTy);
+      }
+    }
+    // Otherwise, load the vector component by component.
+    Value *Res = UndefValue::get(RegTy);
+    bool isVectorOfPointers = isa<PointerType>(EltRegTy);
+    unsigned Stride = GET_MODE_SIZE(TYPE_MODE(elt_type));
+    IntegerType *IntPtrTy = getTargetData().getIntPtrType(Context);
+    for (unsigned i = 0; i != NumElts; ++i) {
+      Value *Idx = Builder.getInt32(i);
+      Value *Elt = LoadRegisterFromMemory(Loc, elt_type, Builder);
+      // LLVM does not support vectors of pointers, so turn any pointers into
+      // integers.
+      if (isVectorOfPointers)
+        Elt = Builder.CreatePtrToInt(Elt, IntPtrTy);
+      Res = Builder.CreateInsertElement(Res, Elt, Idx);
+      if (i + 1 != NumElts)
+        Loc = DisplaceLocationByUnits(Loc, Stride, Builder);
+    }
+    return Res;
+  }
+  }
 }
 
 /// StoreRegisterToMemory - Stores the given value to the memory pointed to by
@@ -265,11 +425,80 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
 static void StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
                                   LLVMBuilder &Builder) {
   // NOTE: Needs to be kept in sync with getRegType.
-  Type *MemTy = ConvertType(type);
-  Value *Ptr = Builder.CreateBitCast(Loc.Ptr, MemTy->getPointerTo());
-  StoreInst *SI = Builder.CreateStore(Reg2Mem(V, type, Builder), Ptr,
-                                      Loc.Volatile);
-  SI->setAlignment(Loc.getAlignment());
+  assert(V->getType() == getRegType(type) && "Not of register type!");
+
+  // If storing the register directly to memory gives the right result, then
+  // just do that.
+  if (isDirectMemoryAccessSafe(V->getType(), type)) {
+    StoreToLocation(V, Loc, Builder);
+    return;
+  }
+
+  // There is a discrepancy between the in-register type and the in-memory type.
+  switch (TREE_CODE(type)) {
+  default:
+    debug_tree(type);
+    llvm_unreachable("Unexpected type mismatch!");
+
+  case BOOLEAN_TYPE:
+  case ENUMERAL_TYPE:
+  case INTEGER_TYPE: {
+    // For integral types extend to an integer with size equal to the mode size.
+    // For example, when inserting a bool this probably extends it to an i8 or
+    // to an i32.  This approach means we get the right result on both little
+    // and big endian machines.
+    unsigned Size = GET_MODE_BITSIZE(TYPE_MODE(type));
+    Type *MemTy = IntegerType::get(Context, Size);
+    V = Builder.CreateIntCast(V, MemTy, /*isSigned*/!TYPE_UNSIGNED(type));
+    StoreToLocation(V, Loc, Builder);
+    break;
+  }
+
+  case COMPLEX_TYPE: {
+    // Store the complex number component by component.
+    tree elt_type = main_type(type);
+    unsigned Stride = GET_MODE_SIZE(TYPE_MODE(elt_type));
+    Value *RealPart = Builder.CreateExtractValue(V, 0);
+    Value *ImagPart = Builder.CreateExtractValue(V, 1);
+    StoreRegisterToMemory(RealPart, Loc, elt_type, Builder);
+    Loc = DisplaceLocationByUnits(Loc, Stride, Builder);
+    StoreRegisterToMemory(ImagPart, Loc, elt_type, Builder);
+    break;
+  }
+
+  case VECTOR_TYPE: {
+    tree elt_type = main_type(type);
+    Type *EltRegTy = getRegType(elt_type);
+    unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
+    unsigned Size = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
+    // If, say, the register type is a vector of i1 but memory is laid out as a
+    // vector of i32 then extend the i1 vector to an i32 vector and store that.
+    if (EltRegTy->isIntegerTy() && EltRegTy->getIntegerBitWidth() != Size) {
+      // See if changing the element type to an integer with size equal to the
+      // mode size gives a vector type that corresponds to the in-memory layout.
+      Type *MemTy = IntegerType::get(Context, Size);
+      if (getTargetData().getTypeAllocSizeInBits(MemTy) == Size) {
+        // It does!  Extend the register value to a vector of that type then
+        // store it to memory.
+        Type *MemVecTy = VectorType::get(MemTy, NumElts);
+        V = Builder.CreateIntCast(V, MemVecTy,
+                                  /*isSigned*/!TYPE_UNSIGNED(elt_type));
+        StoreToLocation(V, Loc, Builder);
+        break;
+      }
+    }
+    // Otherwise, store the vector component by component.
+    unsigned Stride = GET_MODE_SIZE(TYPE_MODE(elt_type));
+    for (unsigned i = 0; i != NumElts; ++i) {
+      Value *Idx = Builder.getInt32(i);
+      Value *Elt = Builder.CreateExtractElement(V, Idx);
+      StoreRegisterToMemory(Elt, Loc, elt_type, Builder);
+      if (i + 1 != NumElts)
+        Loc = DisplaceLocationByUnits(Loc, Stride, Builder);
+    }
+    break;
+  }
+  }
 }
 
 
@@ -5609,6 +5838,7 @@ LValue TreeToLLVM::EmitLV_DECL(tree exp) {
   // type void.
   if (Ty->isVoidTy()) Ty = StructType::get(Context);
   PointerType *PTy = Ty->getPointerTo();
+  // FIXME: If gcc wants less alignment, we should probably use that.
   unsigned Alignment = Ty->isSized() ? TD.getABITypeAlignment(Ty) : 1;
   if (DECL_ALIGN(exp)) {
     if (DECL_USER_ALIGN(exp) || 8 * Alignment < (unsigned)DECL_ALIGN(exp))
