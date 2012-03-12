@@ -2130,7 +2130,7 @@ plugin_init(struct plugin_name_args *plugin_info,
 
   // Register our garbage collector roots.
   register_callback(plugin_name, PLUGIN_REGISTER_GGC_CACHES, NULL,
-                    (void *)gt_ggc_rc__gt_cache_h);
+                    const_cast<ggc_cache_tab*>(gt_ggc_rc__gt_cache_h));
 
   // Perform late initialization just before processing the compilation unit.
   register_callback(plugin_name, PLUGIN_START_UNIT, llvm_start_unit, NULL);
