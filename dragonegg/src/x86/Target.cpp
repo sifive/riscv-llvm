@@ -680,6 +680,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
 
         Value* SV = ConstantVector::get(Indices);
         Result = Builder.CreateShuffleVector(Ops[1], Ops[0], SV, "palignr");
+        Result = Builder.CreateBitCast(Result, ResultType);
         return true;
       }
 
@@ -689,15 +690,18 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
         // MMX has these as 1 x i64 vectors for some odd optimization reasons.
         Type *EltTy = Type::getInt64Ty(Context);
         Type *VecTy = VectorType::get(EltTy, 1);
+        Type *MMXTy = Type::getX86_MMXTy(Context);
 
-        Ops[0] = Builder.CreateBitCast(Ops[0], VecTy, "cast");
+        Ops[0] = Builder.CreateBitCast(Ops[0], MMXTy);
         Ops[1] = ConstantInt::get(VecTy, (shiftVal-8) * 8);
+        Ops[1] = Builder.CreateBitCast(Ops[1], MMXTy);
 
         // create i32 constant
         Function *F = Intrinsic::getDeclaration(TheModule,
                                                 Intrinsic::x86_mmx_psrl_q);
         Result = Builder.CreateCall(F, ArrayRef<Value *>(&Ops[0], 2),
                                     "palignr");
+        Result = Builder.CreateBitCast(Result, ResultType);
         return true;
       }
 
@@ -733,6 +737,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
 
         Value* SV = ConstantVector::get(Indices);
         Result = Builder.CreateShuffleVector(Ops[1], Ops[0], SV, "palignr");
+        Result = Builder.CreateBitCast(Result, ResultType);
         return true;
       }
 
@@ -751,6 +756,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
                                                 Intrinsic::x86_sse2_psrl_dq);
         Result = Builder.CreateCall(F, ArrayRef<Value *>(&Ops[0], 2),
                                     "palignr");
+        Result = Builder.CreateBitCast(Result, ResultType);
         return true;
       }
 
