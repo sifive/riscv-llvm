@@ -900,15 +900,21 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     return true;
   }
   case clzs: {
+    // The value is usually passed in as an int rather than as a short.
+    Type *Int16Ty = Builder.getInt16Ty();
+    Result = Builder.CreateTruncOrBitCast(Ops[0], Int16Ty);
     Function *ctlz = Intrinsic::getDeclaration(TheModule, Intrinsic::ctlz,
-                                               Ops[0]->getType());
-    Result = Builder.CreateCall2(ctlz, Ops[0], Builder.getTrue());
+                                               Int16Ty);
+    Result = Builder.CreateCall2(ctlz, Result, Builder.getTrue());
     return true;
   }
   case ctzs: {
+    // The value is usually passed in as an int rather than as a short.
+    Type *Int16Ty = Builder.getInt16Ty();
+    Result = Builder.CreateTruncOrBitCast(Ops[0], Int16Ty);
     Function *cttz = Intrinsic::getDeclaration(TheModule, Intrinsic::cttz,
-                                               Ops[0]->getType());
-    Result = Builder.CreateCall2(cttz, Ops[0], Builder.getTrue());
+                                               Int16Ty);
+    Result = Builder.CreateCall2(cttz, Result, Builder.getTrue());
     return true;
   }
   }
