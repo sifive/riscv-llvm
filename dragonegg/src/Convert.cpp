@@ -1755,7 +1755,7 @@ AllocaInst *TreeToLLVM::CreateTemporary(Type *Ty, unsigned align) {
     Fn->begin()->getInstList().insert(Fn->begin()->begin(),
                                       AllocaInsertionPoint);
   }
-  return new AllocaInst(Ty, 0, align, "memtmp", AllocaInsertionPoint);
+  return new AllocaInst(Ty, 0, align, "", AllocaInsertionPoint);
 }
 
 /// CreateTempLoc - Like CreateTemporary, but returns a MemRef.
