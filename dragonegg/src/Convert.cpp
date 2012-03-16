@@ -1113,7 +1113,7 @@ void TreeToLLVM::StartFunctionBody() {
 /// EmitVariablesInScope - Output a declaration for every variable in the
 /// given scope.
 void TreeToLLVM::EmitVariablesInScope(tree scope) {
-  for (tree t = BLOCK_VARS(scope); t; t = DECL_CHAIN (t))
+  for (tree t = BLOCK_VARS(scope); t; t = TREE_CHAIN (t))
     if (TREE_CODE(t) == VAR_DECL)
       // If this is just the rotten husk of a variable that the gimplifier
       // eliminated all uses of, but is preserving for debug info, ignore it.
