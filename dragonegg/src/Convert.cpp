@@ -561,6 +561,7 @@ static bool isLocalDecl(tree decl) {
     (!DECL_CONTEXT(decl) && TREE_CODE(decl) == RESULT_DECL) ||
     // Usual case.
     (DECL_CONTEXT(decl) == current_function_decl &&
+     !DECL_EXTERNAL(decl) && // External variables are not local.
      !TREE_STATIC(decl) && // Static variables not considered local.
      TREE_CODE(decl) != FUNCTION_DECL); // Nested functions not considered local.
 }
@@ -1100,8 +1101,27 @@ void TreeToLLVM::StartFunctionBody() {
   if (EmitDebugInfo())
     TheDebugInfo->EmitStopPoint(Builder.GetInsertBlock(), Builder);
 
+  // Ensure that local variables are output in the order that they were declared
+  // rather than in the order we come across them. This is only done to make the
+  // IR more readable and is not needed for correctness.
+  EmitVariablesInScope(DECL_INITIAL(FnDecl));
+
   // Create a new block for the return node, but don't insert it yet.
   ReturnBB = BasicBlock::Create(Context, "return");
+}
+
+/// EmitVariablesInScope - Output a declaration for every variable in the
+/// given scope.
+void TreeToLLVM::EmitVariablesInScope(tree scope) {
+  for (tree t = BLOCK_VARS(scope); t; t = DECL_CHAIN (t))
+    if (TREE_CODE(t) == VAR_DECL)
+      // If this is just the rotten husk of a variable that the gimplifier
+      // eliminated all uses of, but is preserving for debug info, ignore it.
+      if (!DECL_HAS_VALUE_EXPR_P(t))
+        make_decl_local(t);
+  // Declare variables in contained scopes.
+  for (tree t = BLOCK_SUBBLOCKS (scope); t ; t = BLOCK_CHAIN (t))
+    EmitVariablesInScope(t);
 }
 
 /// DefineSSAName - Use the given value as the definition of the given SSA name.
@@ -2167,7 +2187,7 @@ void TreeToLLVM::EmitAnnotateIntrinsic(Value *V, tree decl) {
 void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
   // If this is just the rotten husk of a variable that the gimplifier
   // eliminated all uses of, but is preserving for debug info, ignore it.
-  if (TREE_CODE(decl) == VAR_DECL && DECL_VALUE_EXPR(decl))
+  if (TREE_CODE(decl) == VAR_DECL && DECL_HAS_VALUE_EXPR_P(decl))
     return;
 
   tree type = TREE_TYPE(decl);

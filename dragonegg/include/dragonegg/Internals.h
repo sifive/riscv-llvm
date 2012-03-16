@@ -391,6 +391,10 @@ private: // Helper functions.
   /// cleans up and returns the result function.
   Function *FinishFunctionBody();
 
+  /// EmitVariablesInScope - Output a declaration for every variable in the
+  /// given scope.
+  void EmitVariablesInScope(tree_node *scope);
+
   /// PopulatePhiNodes - Populate generated phi nodes with their operands.
   void PopulatePhiNodes();
 
