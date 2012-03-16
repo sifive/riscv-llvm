@@ -5,7 +5,8 @@
 Every file found under the compilator directory is compiled by GCC both with and
 without the DragonEgg plugin, at a variety of optimization levels.  If GCC can
 compile a file but DragonEgg cannot, or DragonEgg can compile the file but GCC
-cannot, then that test is considered to have failed.
+cannot, then that test is considered to have failed.  Note that the generated
+code is *not* checked for correctness.
 
 External source
 ---------------
@@ -26,3 +27,11 @@ few other interesting collections of Fortran source code:
 
 For testing Java, consider having compilator/gcc-libjava be a symbolic link to
 GCC's libjava.
+
+
+-----------------
+-- Correctness --
+-----------------
+
+The correctness directory contains tests that check the correctness of generated
+code.

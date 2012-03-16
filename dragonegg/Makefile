@@ -20,6 +20,8 @@ TOP_DIR?=$(CURDIR)
 
 # Where to find the lit.py script and modules, used for running tests.
 LIT_DIR?=$(shell $(LLVM_CONFIG) --src-root)/utils/lit
+# Where to find LLVM utils, used for running tests.
+LLVM_TOOLS_DIR?=$(shell $(LLVM_CONFIG) --obj-root)/$(shell $(LLVM_CONFIG) --build-mode)/bin/
 
 INCLUDE_DIR=$(TOP_DIR)/include
 SRC_DIR=$(TOP_DIR)/src
@@ -43,6 +45,7 @@ GCC_VERSION:=$(shell $(GCC) -dumpversion).0
 GCC_MAJOR=$(word 1, $(subst ., ,$(GCC_VERSION)))
 GCC_MINOR=$(word 2, $(subst ., ,$(GCC_VERSION)))
 GCC_MICRO=$(word 3, $(subst ., ,$(GCC_VERSION)))
+GCC_LANGUAGES=$(shell $(GCC) -v 2>&1 | grep '^Configured with:' | sed 's/^.*--enable-languages=\([^ ]*\).*/\1/')
 TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
 
 LLVM_VERSION:=$(shell $(LLVM_CONFIG) --version)
@@ -119,14 +122,24 @@ $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/dragonegg-lit.site.cfg.in
 	$(QUIET)mkdir -p test
 	$(QUIET)echo s=@DRAGONEGG_PLUGIN@=$(CURDIR)/$(PLUGIN)=g > lit.tmp
 	$(QUIET)echo s=@GCC@=$(GCC)=g >> lit.tmp
+	$(QUIET)echo s=@GCC_LANGUAGES@=$(GCC_LANGUAGES)=g >> lit.tmp
+	$(QUIET)echo s=@LLVM_TOOLS_DIR@=$(LLVM_TOOLS_DIR)=g >> lit.tmp
+	$(QUIET)echo s=@TARGET_TRIPLE@=$(TARGET_TRIPLE)=g >> lit.tmp
 	$(QUIET)echo s=@TEST_OUTPUT_DIR@=$(CURDIR)/test/Output=g >> lit.tmp
 	$(QUIET)sed -f lit.tmp $< > $@
 	$(QUIET)-rm -f lit.tmp
 
-check:: $(PLUGIN) $(LIT_SITE_CONFIG)
-	@echo "Running test suite"
+check-compilator:: $(PLUGIN) $(LIT_SITE_CONFIG)
+	@echo "Running test suite 'compilator'"
 	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
 	--config-prefix=dragonegg-lit $(TEST_SRC_DIR)/compilator
+
+check-correctness:: $(PLUGIN) $(LIT_SITE_CONFIG)
+	@echo "Running test suite 'correctness'"
+	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
+	--config-prefix=dragonegg-lit $(TEST_SRC_DIR)/correctness
+
+check:: check-correctness check-compilator
 
 clean::
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL) $(LIT_SITE_CONFIG)

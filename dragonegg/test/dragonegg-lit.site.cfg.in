@@ -1,3 +1,6 @@
-config.gcc_executable = "@GCC@"
 config.dragonegg_plugin = "@DRAGONEGG_PLUGIN@"
-config.test_output_dir = "@TEST_OUTPUT_DIR@"
+config.gcc_executable   = "@GCC@"
+config.gcc_languages    = "@GCC_LANGUAGES@"
+config.llvm_tools_dir   = "@LLVM_TOOLS_DIR@"
+config.target_triple    = "@TARGET_TRIPLE@"
+config.test_output_dir  = "@TEST_OUTPUT_DIR@"
