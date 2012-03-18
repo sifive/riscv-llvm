@@ -29,9 +29,9 @@ For testing Java, consider having compilator/gcc-libjava be a symbolic link to
 GCC's libjava.
 
 
------------------
--- Correctness --
------------------
+---------------
+-- Validator --
+---------------
 
-The correctness directory contains tests that check the correctness of generated
+The validator directory contains tests that check the correctness of generated
 code.

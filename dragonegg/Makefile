@@ -134,12 +134,12 @@ check-compilator:: $(PLUGIN) $(LIT_SITE_CONFIG)
 	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
 	--config-prefix=dragonegg-lit $(TEST_SRC_DIR)/compilator
 
-check-correctness:: $(PLUGIN) $(LIT_SITE_CONFIG)
-	@echo "Running test suite 'correctness'"
+check-validator:: $(PLUGIN) $(LIT_SITE_CONFIG)
+	@echo "Running test suite 'validator'"
 	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
-	--config-prefix=dragonegg-lit $(TEST_SRC_DIR)/correctness
+	--config-prefix=dragonegg-lit $(TEST_SRC_DIR)/validator
 
-check:: check-correctness check-compilator
+check:: check-validator check-compilator
 
 clean::
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL) $(LIT_SITE_CONFIG)
