@@ -3,6 +3,7 @@ import StringIO
 import Test
 import TestRunner
 import Util
+import DEUtils
 
 def describeFailure(output, cmd, out, err, exitCode):
     print >>output, "Command:",
@@ -48,7 +49,7 @@ def compareCommands(cmds, args, cwd=None):
     return (Test.FAIL, output.getvalue())
 
 
-def executeCompilatorTest(test, litConfig, compilers, flags, suffix_flags,
+def executeCompilatorTest(test, litConfig, compilers, flags, language_flags,
                           skip, xfails):
     test_path = '/'.join(test.path_in_suite)
 
@@ -76,8 +77,9 @@ def executeCompilatorTest(test, litConfig, compilers, flags, suffix_flags,
 
     # Add any file specific flags.
     srcBase,srcExt = os.path.splitext(srcPath)
-    if srcExt in suffix_flags:
-      common_args += suffix_flags[srcExt]
+    language = DEUtils.getLanguageForSuffix(srcExt)
+    if language in language_flags:
+      common_args += language_flags[language]
 
     # Compile the test.
     for args in flags:

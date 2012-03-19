@@ -24,6 +24,9 @@ suffixMap = {
   '.mm'    : 'objc++',
 }
 
+def getLanguageForSuffix(suffix):
+    return suffixMap[suffix]
+
 def getSuffixesForLanguage(language):
     suffixes = []
     for suffix in suffixMap:
