@@ -1,4 +1,4 @@
-// RUN: %dragonegg %s -S -o - | not grep llvm.global_ctors
+// RUN: %dragonegg %s -S -o - | FileCheck %s
 // This testcase corresponds to PR509
 struct Data {
   unsigned *data;
@@ -7,3 +7,4 @@ struct Data {
 
 Data shared_null = { shared_null.array };
 
+// CHECK-NOT: llvm.global_ctors

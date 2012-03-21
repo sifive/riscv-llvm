@@ -1,5 +1,3 @@
-// RUN: %dragonegg -S %s -o - | llvm-as -o /dev/null
-
 struct Pass {} ;
 template<typename PassName>
 Pass *callDefaultCtor() { return new PassName(); }

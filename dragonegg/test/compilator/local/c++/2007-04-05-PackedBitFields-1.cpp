@@ -1,6 +1,3 @@
-// RUN: %dragonegg -S %s -o - | llvm-as -o /dev/null
-
-
 #ifdef PACKED
 #define P __attribute__((packed))
 #else
@@ -10,8 +7,8 @@
 struct P M_Packed { 
   unsigned int l_Packed; 
   unsigned short k_Packed : 6, 
-    i_Packed : 15;
-  char c;
+    i_Packed : 15,
+    j_Packed : 11;
   
 }; 
 

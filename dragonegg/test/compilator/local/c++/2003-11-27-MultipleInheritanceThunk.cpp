@@ -1,6 +1,3 @@
-// RUN: %dragonegg -S %s -o - | llvm-as -o /dev/null
-
-
 struct CallSite {
   int X;
 

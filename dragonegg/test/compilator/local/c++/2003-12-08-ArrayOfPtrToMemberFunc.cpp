@@ -1,5 +1,3 @@
-// RUN: %dragonegg -S %s -o - | llvm-as -o /dev/null
-
 struct Evil {
  void fun ();
 };

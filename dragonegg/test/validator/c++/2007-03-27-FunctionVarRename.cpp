@@ -1,7 +1,6 @@
-// RUN: %dragonegg %s -S -o - | not grep eprintf1
-// RUN: %dragonegg %s -S -o - | grep eprintf
-
+// RUN: %dragonegg %s -S -o - | FileCheck %s
 // Only one eprintf should exist in the output
+// CHECK-NOT: eprintf1
 
 extern "C" 
 void __eprintf();

@@ -1,5 +1,3 @@
-// RUN: %dragonegg -S %s -o - | llvm-as -o /dev/null
-
 #ifdef PACKED
 #define P __attribute__((packed))
 #else

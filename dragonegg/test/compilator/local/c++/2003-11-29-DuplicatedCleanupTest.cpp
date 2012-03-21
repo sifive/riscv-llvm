@@ -1,6 +1,3 @@
-// RUN: %dragonegg -S %s -o - | llvm-as -o /dev/null
-
-
 void doesntThrow() throw();
 struct F {
   ~F() { doesntThrow(); }

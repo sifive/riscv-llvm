@@ -1,5 +1,3 @@
-// RUN: %dragonegg -S %s -o - | llvm-as -o /dev/null
-
 // Testcase from Bug 291
 
 struct X {

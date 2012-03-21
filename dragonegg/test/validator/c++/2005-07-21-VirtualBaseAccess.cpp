@@ -1,4 +1,4 @@
-// RUN: %dragonegg -xc++ %s -S -o - | opt -die -S | not grep cast
+// RUN: %dragonegg -xc++ %s -S -o - | FileCheck %s
 
 void foo(int*);
 
@@ -9,6 +9,9 @@ struct FOO {
 struct BAR : virtual FOO { BAR(); };
 
 int testfn() {
+  // CHECK: "alloca point" = bitcast i32 0 to i32
+  // CHECK: "ssa point" = bitcast i32 0 to i32
+  // CHECK-NOT: cast
   BAR B;
   foo(&B.X);
 }

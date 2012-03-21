@@ -1,4 +1,4 @@
-// RUN: %dragonegg %s -S -O2 -o - | not grep {_ZNSs12_S_constructIPKcEEPcT_S3_RKSaIcESt20forward_iterator_tag}
+// RUN: %dragonegg %s -S -O2 -o - | FileCheck %s
 // PR4262
 
 // The "basic_string" extern template instantiation declaration is supposed to
@@ -15,3 +15,4 @@
 void dummysymbol() {
   throw(std::runtime_error("string"));
 }
+// CHECK-NOT: _ZNSs12_S_constructIPKcEEPcT_S3_RKSaIcESt20forward_iterator_tag

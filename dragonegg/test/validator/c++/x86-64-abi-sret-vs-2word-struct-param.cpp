@@ -1,4 +1,4 @@
-// RUN: %dragonegg -S %s -o - | grep byval | count 2
+// RUN: %dragonegg -S %s -o - | FileCheck %s
 // XTARGET: x86
 // PR4242
 // (PR 4242 bug is on 64-bit only, test passes on x86-32 as well)
@@ -12,6 +12,7 @@ struct T {
 };
 
 extern "C" S fail(int, int, int, int, T t, void* p) {
+// CHECK: %struct.T* byval
     S s;
     s.data[0] = t.data[0];
     s.data[1] = t.data[1];
@@ -20,6 +21,7 @@ extern "C" S fail(int, int, int, int, T t, void* p) {
 }
 
 extern "C" S* succeed(S* sret, int, int, int, int, T t, void* p) {
+// CHECK: %struct.T* byval
     sret->data[0] = t.data[0];
     sret->data[1] = t.data[1];
     sret->data[2] = p;

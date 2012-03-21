@@ -1,5 +1,12 @@
-// RUN: %dragonegg %s -S -o - | not grep gnu.linkonce.
+// RUN: %dragonegg %s -S -o - | FileCheck %s
 // PR1085
+
+// CHECK: define weak void @_ZThn8_N
+// CHECK: define weak void @_ZThn8_N
+// CHECK: define weak void @_ZThn8_N
+// CHECK: define weak void @_ZThn8_N
+// CHECK: define weak void @_ZThn8_N
+// CHECK: define weak void @_ZThn8_N
 
 class 
 __attribute__((visibility("default"))) QGenericArgument

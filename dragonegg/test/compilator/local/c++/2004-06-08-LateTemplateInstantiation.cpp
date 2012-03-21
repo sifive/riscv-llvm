@@ -1,7 +1,3 @@
-// RUN: %dragonegg -S %s -o - | llvm-as -o /dev/null
-
-
-
 template<typename Ty>
 struct normal_iterator {
   int FIELD;

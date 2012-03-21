@@ -1,4 +1,4 @@
-// RUN: %dragonegg %s -S -o - | not grep {i32 6}
+// RUN: %dragonegg %s -S -o - | FileCheck %s
 
 struct QVectorTypedData {
     int size;
@@ -9,3 +9,4 @@ struct QVectorTypedData {
 void foo(QVectorTypedData *X) {
   X->array[0] = 123;
 }
+// CHECK-NOT: i32 6
