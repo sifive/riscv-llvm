@@ -110,6 +110,7 @@ def executeCompilatorTest(test, litConfig, compilers, flags, language_flags,
     execPath = test.getExecPath()
     execDir,execBase = os.path.split(execPath)
     tmpDir = os.path.join(execDir, 'Output')
+    tmpDir = os.path.join(tmpDir, execBase)
     Util.mkdir_p(tmpDir)
 
     # Is this test expected to fail?
