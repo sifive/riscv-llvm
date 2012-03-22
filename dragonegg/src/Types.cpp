@@ -709,6 +709,10 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
     // Compute zext/sext attributes.
     PAttributes |= HandleArgumentExtension(ArgTy);
 
+    // Compute noalias attributes.
+    if (POINTER_TYPE_P(ArgTy) && TYPE_RESTRICT(ArgTy))
+      PAttributes |= Attribute::NoAlias;
+
     if (PAttributes != Attribute::None)
       Attrs.push_back(AttributeWithIndex::get(ArgTys.size(), PAttributes));
   }
@@ -848,11 +852,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     // inspect it for restrict qualifiers, otherwise try the argument
     // types.
     tree RestrictArgTy = (DeclArgs) ? TREE_TYPE(DeclArgs) : ArgTy;
-    if (TREE_CODE(RestrictArgTy) == POINTER_TYPE ||
-        TREE_CODE(RestrictArgTy) == REFERENCE_TYPE) {
-      if (TYPE_RESTRICT(RestrictArgTy))
-        PAttributes |= Attribute::NoAlias;
-    }
+    if (POINTER_TYPE_P(RestrictArgTy) && TYPE_RESTRICT(RestrictArgTy))
+      PAttributes |= Attribute::NoAlias;
 
 #ifdef LLVM_TARGET_ENABLE_REGPARM
     // Allow the target to mark this as inreg.
