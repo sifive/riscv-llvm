@@ -45,7 +45,7 @@ extern "C" {
 #undef HAVE_DECL_GETOPT
 #include "system.h"
 #include "coretypes.h"
-#include "target.h"
+#include "tm.h"
 #include "tree.h"
 
 #include "diagnostic.h"
@@ -54,6 +54,7 @@ extern "C" {
 #include "langhooks.h"
 #include "output.h"
 #include "rtl.h"
+#include "target.h" // For targetm.
 #include "tm_p.h"
 #include "toplev.h"
 #include "tree-flow.h"

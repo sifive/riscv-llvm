@@ -37,7 +37,7 @@ extern "C" {
 #undef HAVE_DECL_GETOPT
 #include "system.h"
 #include "coretypes.h"
-#include "target.h"
+#include "tm.h"
 #include "tree.h"
 
 #include "flags.h"
