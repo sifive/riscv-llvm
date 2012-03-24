@@ -44,11 +44,12 @@ extern "C" {
 #undef HAVE_DECL_GETOPT
 #include "system.h"
 #include "coretypes.h"
-#include "target.h"
+#include "tm.h"
 #include "tree.h"
-
-#include "flags.h"
-#include "tm_p.h"
+#if (GCC_MINOR < 7)
+#include "flags.h" // For TYPE_OVERFLOW_UNDEFINED etc.
+#endif
+#include "tm_p.h"  // For CONSTANT_ALIGNMENT.
 }
 
 // Trees header.
