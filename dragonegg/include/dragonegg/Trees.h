@@ -35,50 +35,53 @@
 /// getDescriptiveName - Return a helpful name for the given tree, or an empty
 /// string if no sensible name was found.  These names are used to make the IR
 /// more readable, and have no official status.
-std::string getDescriptiveName(tree t);
+std::string getDescriptiveName(const_tree t);
 
 /// main_type - Return the main variant of the given tree's type.
 inline tree main_type(tree exp) {
   return TYPE_MAIN_VARIANT(TREE_TYPE(exp));
 }
+inline const_tree main_type(const_tree exp) {
+  return TYPE_MAIN_VARIANT(TREE_TYPE(exp));
+}
 
 /// hasNUW - Return whether overflowing unsigned operations on this type result
 /// in undefined behaviour.
-inline bool hasNUW(tree type) {
+inline bool hasNUW(const_tree type) {
   return TYPE_UNSIGNED(type) && TYPE_OVERFLOW_UNDEFINED(type);
 }
 
 /// hasNSW - Return whether overflowing signed operations on this type result
 /// in undefined behaviour.
-inline bool hasNSW(tree type) {
+inline bool hasNSW(const_tree type) {
   return !TYPE_UNSIGNED(type) && TYPE_OVERFLOW_UNDEFINED(type);
 }
 
 /// getIntegerValue - Return the specified INTEGER_CST as an APInt.
-llvm::APInt getIntegerValue(tree exp);
+llvm::APInt getIntegerValue(const_tree exp);
 
 /// isInt64 - Return true if t is an INTEGER_CST that fits in a 64 bit integer.
 /// If Unsigned is false, returns whether it fits in a int64_t.  If Unsigned is
 /// true, returns whether the value is non-negative and fits in a uint64_t.
 /// Always returns false for overflowed constants or if t is NULL.
-bool isInt64(tree t, bool Unsigned);
+bool isInt64(const_tree t, bool Unsigned);
 
 /// getInt64 - Extract the value of an INTEGER_CST as a 64 bit integer.  If
 /// Unsigned is false, the value must fit in a int64_t.  If Unsigned is true,
 /// the value must be non-negative and fit in a uint64_t.  Must not be used on
 /// overflowed constants.  These conditions can be checked by calling isInt64.
-uint64_t getInt64(tree t, bool Unsigned);
+uint64_t getInt64(const_tree t, bool Unsigned);
 
 /// OffsetIsLLVMCompatible - Return true if the given field is offset from the
 /// start of the record by a constant amount which is not humongously big.
-inline bool OffsetIsLLVMCompatible(tree field_decl) {
+inline bool OffsetIsLLVMCompatible(const_tree field_decl) {
   return isInt64(DECL_FIELD_OFFSET(field_decl), true);
 }
 
 /// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
-uint64_t getFieldOffsetInBits(tree field);
+uint64_t getFieldOffsetInBits(const_tree field);
 
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
-bool isBitfield(tree field_decl);
+bool isBitfield(const_tree field_decl);
 
 #endif /* DRAGONEGG_TREES_H */

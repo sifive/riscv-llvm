@@ -57,7 +57,7 @@ static std::string concatIfNotEmpty(const std::string &Left,
 /// getDescriptiveName - Return a helpful name for the given tree, or an empty
 /// string if no sensible name was found.  These names are used to make the IR
 /// more readable, and have no official status.
-std::string getDescriptiveName(tree t) {
+std::string getDescriptiveName(const_tree t) {
   if (!t) return std::string(); // Occurs when recursing.
 
   // Name identifier nodes after their contents.  This gives the desired effect
@@ -132,7 +132,7 @@ std::string getDescriptiveName(tree t) {
 }
 
 /// getIntegerValue - Return the specified INTEGER_CST as an APInt.
-APInt getIntegerValue(tree exp) {
+APInt getIntegerValue(const_tree exp) {
   double_int val = tree_to_double_int(exp);
   unsigned NumBits = TYPE_PRECISION(TREE_TYPE(exp));
 
@@ -150,7 +150,7 @@ APInt getIntegerValue(tree exp) {
 /// If Unsigned is false, returns whether it fits in a int64_t.  If Unsigned is
 /// true, returns whether the value is non-negative and fits in a uint64_t.
 /// Always returns false for overflowed constants.
-bool isInt64(tree t, bool Unsigned) {
+bool isInt64(const_tree t, bool Unsigned) {
   if (!t)
     return false;
   if (HOST_BITS_PER_WIDE_INT == 64)
@@ -170,7 +170,7 @@ bool isInt64(tree t, bool Unsigned) {
 /// Unsigned is false, the value must fit in a int64_t.  If Unsigned is true,
 /// the value must be non-negative and fit in a uint64_t.  Must not be used on
 /// overflowed constants.  These conditions can be checked by calling isInt64.
-uint64_t getInt64(tree t, bool Unsigned) {
+uint64_t getInt64(const_tree t, bool Unsigned) {
   assert(isInt64(t, Unsigned) && "invalid constant!");
   (void)Unsigned; // Otherwise unused if asserts off - avoid compiler warning.
   unsigned HOST_WIDE_INT LO = (unsigned HOST_WIDE_INT)TREE_INT_CST_LOW(t);
@@ -185,7 +185,7 @@ uint64_t getInt64(tree t, bool Unsigned) {
 }
 
 /// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
-uint64_t getFieldOffsetInBits(tree field) {
+uint64_t getFieldOffsetInBits(const_tree field) {
   assert(OffsetIsLLVMCompatible(field) && "Offset is not constant!");
   uint64_t Result = getInt64(DECL_FIELD_BIT_OFFSET(field), true);
   Result += getInt64(DECL_FIELD_OFFSET(field), true) * BITS_PER_UNIT;
@@ -193,7 +193,7 @@ uint64_t getFieldOffsetInBits(tree field) {
 }
 
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
-bool isBitfield(tree_node *field_decl) {
+bool isBitfield(const_tree field_decl) {
   if (!DECL_BIT_FIELD(field_decl))
     return false;
 
