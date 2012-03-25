@@ -285,6 +285,30 @@ static Value *Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
   llvm_unreachable("Don't know how to turn this into memory!");
 }
 
+/// describeTypeRange - Given two integer types, return metadata describing the
+/// set obtained by extending all values of the smaller type to the larger.
+static MDNode *describeTypeRange(Type *SmallTy, Type *LargeTy, bool isSigned) {
+  assert(isa<IntegerType>(SmallTy) && isa<IntegerType>(LargeTy) &&
+         "Expected integer types!");
+  unsigned ActiveBits = SmallTy->getIntegerBitWidth();
+  unsigned TotalBits = LargeTy->getIntegerBitWidth();
+  assert(ActiveBits < TotalBits && "Full range not allowed!");
+  assert(ActiveBits > 0 && "Empty range not allowed!");
+  APInt First, Last;
+  if (isSigned) {
+    Last = APInt::getOneBitSet(TotalBits, ActiveBits - 1);
+    First = -Last;
+  } else {
+    First = APInt::getNullValue(TotalBits);
+    Last = APInt::getOneBitSet(TotalBits, ActiveBits);
+  }
+
+  Value *Range[2] = {
+    ConstantInt::get(LargeTy, First), ConstantInt::get(LargeTy, Last)
+  };
+  return MDNode::get(Context, Range);
+}
+
 /// isDirectMemoryAccessSafe - Whether directly storing/loading a value of the
 /// given register type generates the correct in-memory representation for the
 /// type.  Eg, if a 32 bit wide integer type has only one bit of precision then
@@ -369,6 +393,8 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
     unsigned Size = GET_MODE_BITSIZE(TYPE_MODE(type));
     Type *MemTy = IntegerType::get(Context, Size);
     LoadInst *LI = LoadFromLocation(Loc, MemTy, Builder);
+    MDNode *Range = describeTypeRange(RegTy, MemTy, !TYPE_UNSIGNED(type));
+    LI->setMetadata(LLVMContext::MD_range, Range);
     return Builder.CreateTruncOrBitCast(LI, RegTy);
   }
 
