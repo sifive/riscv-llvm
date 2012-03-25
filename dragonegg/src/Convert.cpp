@@ -87,8 +87,13 @@ STATISTIC(NumStatements,  "Number of gimple statements converted");
 /// expression, or 1 if the alignment is not known.
 static unsigned int getPointerAlignment(tree exp) {
   assert(POINTER_TYPE_P (TREE_TYPE (exp)) && "Expected a pointer type!");
-  unsigned int align = get_pointer_alignment(exp, BIGGEST_ALIGNMENT) / 8;
-  return align ? align : 1;
+  unsigned int align =
+#if (GCC_MINOR < 7)
+    get_pointer_alignment(exp, BIGGEST_ALIGNMENT);
+#else
+    get_pointer_alignment(exp);
+#endif
+  return align ? (align + 7) / 8 : 1;
 }
 
 /// getSSAPlaceholder - A fake value associated with an SSA name when the name
