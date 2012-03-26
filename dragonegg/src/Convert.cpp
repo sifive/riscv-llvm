@@ -293,7 +293,7 @@ static MDNode *describeTypeRange(Type *SmallTy, Type *LargeTy, bool isSigned) {
   unsigned ActiveBits = SmallTy->getIntegerBitWidth();
   unsigned TotalBits = LargeTy->getIntegerBitWidth();
   assert(ActiveBits < TotalBits && "Full range not allowed!");
-  assert(ActiveBits > 0 && "Empty range not allowed!");
+  assert(ActiveBits > 0 && "Need at least one bit!");
   APInt First, Last;
   if (isSigned) {
     Last = APInt::getOneBitSet(TotalBits, ActiveBits - 1);
