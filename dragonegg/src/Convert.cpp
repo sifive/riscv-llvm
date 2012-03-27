@@ -4859,7 +4859,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 #endif
         Ty = Type::getInt32Ty(Context); break;
 #if (GCC_MINOR < 7)
-      case BUILT_IN_SYNC_LOCK_RELEASE_8:
+      case BUILT_IN_LOCK_RELEASE_8:
 #else
       case BUILT_IN_SYNC_LOCK_RELEASE_8:
 #endif
