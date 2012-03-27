@@ -1485,16 +1485,6 @@ struct ix86_frame
   bool save_regs_using_mov;
 };
 
-/* Code model option.  */
-enum cmodel ix86_cmodel;
-/* Asm dialect.  */
-enum asm_dialect ix86_asm_dialect = ASM_ATT;
-/* TLS dialects.  */
-enum tls_dialect ix86_tls_dialect = TLS_DIALECT_GNU;
-
-/* Which unit we are generating floating point math for.  */
-enum fpmath_unit ix86_fpmath;
-
 /* Which cpu are we optimizing for.  */
 enum processor_type ix86_tune;
 
@@ -1506,17 +1496,6 @@ int x86_prefetch_sse;
 
 /* Preferred alignment for stack boundary in bits.  */
 unsigned int ix86_preferred_stack_boundary;
-
-/* The abi used by target.  */
-enum calling_abi ix86_abi;
-
-/* Values 1-5: see jump.c */
-int ix86_branch_cost;
-
-/* Variables which are this size or smaller are put in the data/bss
-   or ldata/lbss sections.  */
-
-int ix86_section_threshold = 65536;
 
 /* Prefix built by ASM_GENERATE_INTERNAL_LABEL.  */
 char internal_label_prefix[16];
