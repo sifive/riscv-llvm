@@ -4441,7 +4441,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 //TODO    return true;
 //TODO  }
 
+#if (GCC_MINOR < 7)
   case BUILT_IN_SYNCHRONIZE:
+#else
+  case BUILT_IN_SYNC_SYNCHRONIZE:
+#endif
     // We assume like gcc appears to, that this only applies to cached memory.
     Builder.CreateFence(llvm::SequentiallyConsistent);
     return true;
@@ -4456,16 +4460,32 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     // enough, we have to key off the opcode.
     // Note that Intrinsic::getDeclaration expects the type list in reversed
     // order, while CreateCall expects the parameter list in normal order.
+#if (GCC_MINOR < 7)
   case BUILT_IN_BOOL_COMPARE_AND_SWAP_1:
+#else
+  case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_1:
+#endif
     Result = BuildCmpAndSwapAtomic(stmt, BITS_PER_UNIT, true);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_BOOL_COMPARE_AND_SWAP_2:
+#else
+  case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_2:
+#endif
     Result = BuildCmpAndSwapAtomic(stmt, 2*BITS_PER_UNIT, true);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_BOOL_COMPARE_AND_SWAP_4:
+#else
+  case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4:
+#endif
     Result = BuildCmpAndSwapAtomic(stmt, 4*BITS_PER_UNIT, true);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_BOOL_COMPARE_AND_SWAP_8:
+#else
+  case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
@@ -4474,16 +4494,32 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     return true;
 
     // Fall through.
+#if (GCC_MINOR < 7)
   case BUILT_IN_VAL_COMPARE_AND_SWAP_1:
+#else
+  case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_1:
+#endif
     Result = BuildCmpAndSwapAtomic(stmt, BITS_PER_UNIT, false);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_VAL_COMPARE_AND_SWAP_2:
+#else
+  case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_2:
+#endif
     Result = BuildCmpAndSwapAtomic(stmt, 2*BITS_PER_UNIT, false);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_VAL_COMPARE_AND_SWAP_4:
+#else
+  case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_4:
+#endif
     Result = BuildCmpAndSwapAtomic(stmt, 4*BITS_PER_UNIT, false);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_VAL_COMPARE_AND_SWAP_8:
+#else
+  case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
@@ -4491,142 +4527,272 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     Result = BuildCmpAndSwapAtomic(stmt, 8*BITS_PER_UNIT, false);
     return true;
 
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_ADD_8:
+#else
+  case BUILT_IN_SYNC_FETCH_AND_ADD_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_ADD_1:
   case BUILT_IN_FETCH_AND_ADD_2:
   case BUILT_IN_FETCH_AND_ADD_4: {
+#else
+  case BUILT_IN_SYNC_FETCH_AND_ADD_1:
+  case BUILT_IN_SYNC_FETCH_AND_ADD_2:
+  case BUILT_IN_SYNC_FETCH_AND_ADD_4: {
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::Add);
     return true;
   }
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_SUB_8:
+#else
+  case BUILT_IN_SYNC_FETCH_AND_SUB_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_SUB_1:
   case BUILT_IN_FETCH_AND_SUB_2:
   case BUILT_IN_FETCH_AND_SUB_4: {
+#else
+  case BUILT_IN_SYNC_FETCH_AND_SUB_1:
+  case BUILT_IN_SYNC_FETCH_AND_SUB_2:
+  case BUILT_IN_SYNC_FETCH_AND_SUB_4: {
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::Sub);
     return true;
   }
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_OR_8:
+#else
+  case BUILT_IN_SYNC_FETCH_AND_OR_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_OR_1:
   case BUILT_IN_FETCH_AND_OR_2:
   case BUILT_IN_FETCH_AND_OR_4: {
+#else
+  case BUILT_IN_SYNC_FETCH_AND_OR_1:
+  case BUILT_IN_SYNC_FETCH_AND_OR_2:
+  case BUILT_IN_SYNC_FETCH_AND_OR_4: {
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::Or);
     return true;
   }
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_AND_8:
+#else
+  case BUILT_IN_SYNC_FETCH_AND_AND_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_AND_1:
   case BUILT_IN_FETCH_AND_AND_2:
   case BUILT_IN_FETCH_AND_AND_4: {
+#else
+  case BUILT_IN_SYNC_FETCH_AND_AND_1:
+  case BUILT_IN_SYNC_FETCH_AND_AND_2:
+  case BUILT_IN_SYNC_FETCH_AND_AND_4: {
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::And);
     return true;
   }
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_XOR_8:
+#else
+  case BUILT_IN_SYNC_FETCH_AND_XOR_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_XOR_1:
   case BUILT_IN_FETCH_AND_XOR_2:
   case BUILT_IN_FETCH_AND_XOR_4: {
+#else
+  case BUILT_IN_SYNC_FETCH_AND_XOR_1:
+  case BUILT_IN_SYNC_FETCH_AND_XOR_2:
+  case BUILT_IN_SYNC_FETCH_AND_XOR_4: {
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::Xor);
     return true;
   }
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_NAND_8:
+#else
+  case BUILT_IN_SYNC_FETCH_AND_NAND_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_FETCH_AND_NAND_1:
   case BUILT_IN_FETCH_AND_NAND_2:
   case BUILT_IN_FETCH_AND_NAND_4: {
+#else
+  case BUILT_IN_SYNC_FETCH_AND_NAND_1:
+  case BUILT_IN_SYNC_FETCH_AND_NAND_2:
+  case BUILT_IN_SYNC_FETCH_AND_NAND_4: {
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::Nand);
     return true;
   }
+#if (GCC_MINOR < 7)
   case BUILT_IN_LOCK_TEST_AND_SET_8:
+#else
+  case BUILT_IN_SYNC_LOCK_TEST_AND_SET_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_LOCK_TEST_AND_SET_1:
   case BUILT_IN_LOCK_TEST_AND_SET_2:
   case BUILT_IN_LOCK_TEST_AND_SET_4: {
+#else
+  case BUILT_IN_SYNC_LOCK_TEST_AND_SET_1:
+  case BUILT_IN_SYNC_LOCK_TEST_AND_SET_2:
+  case BUILT_IN_SYNC_LOCK_TEST_AND_SET_4: {
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::Xchg);
     return true;
   }
 
+#if (GCC_MINOR < 7)
   case BUILT_IN_ADD_AND_FETCH_8:
+#else
+  case BUILT_IN_SYNC_ADD_AND_FETCH_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_ADD_AND_FETCH_1:
   case BUILT_IN_ADD_AND_FETCH_2:
   case BUILT_IN_ADD_AND_FETCH_4:
+#else
+  case BUILT_IN_SYNC_ADD_AND_FETCH_1:
+  case BUILT_IN_SYNC_ADD_AND_FETCH_2:
+  case BUILT_IN_SYNC_ADD_AND_FETCH_4:
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::Add, Instruction::Add);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_SUB_AND_FETCH_8:
+#else
+  case BUILT_IN_SYNC_SUB_AND_FETCH_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_SUB_AND_FETCH_1:
   case BUILT_IN_SUB_AND_FETCH_2:
   case BUILT_IN_SUB_AND_FETCH_4:
+#else
+  case BUILT_IN_SYNC_SUB_AND_FETCH_1:
+  case BUILT_IN_SYNC_SUB_AND_FETCH_2:
+  case BUILT_IN_SYNC_SUB_AND_FETCH_4:
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::Sub, Instruction::Sub);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_OR_AND_FETCH_8:
+#else
+  case BUILT_IN_SYNC_OR_AND_FETCH_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_OR_AND_FETCH_1:
   case BUILT_IN_OR_AND_FETCH_2:
   case BUILT_IN_OR_AND_FETCH_4:
+#else
+  case BUILT_IN_SYNC_OR_AND_FETCH_1:
+  case BUILT_IN_SYNC_OR_AND_FETCH_2:
+  case BUILT_IN_SYNC_OR_AND_FETCH_4:
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::Or, Instruction::Or);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_AND_AND_FETCH_8:
+#else
+  case BUILT_IN_SYNC_AND_AND_FETCH_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_AND_AND_FETCH_1:
   case BUILT_IN_AND_AND_FETCH_2:
   case BUILT_IN_AND_AND_FETCH_4:
+#else
+  case BUILT_IN_SYNC_AND_AND_FETCH_1:
+  case BUILT_IN_SYNC_AND_AND_FETCH_2:
+  case BUILT_IN_SYNC_AND_AND_FETCH_4:
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::And, Instruction::And);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_XOR_AND_FETCH_8:
+#else
+  case BUILT_IN_SYNC_XOR_AND_FETCH_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_XOR_AND_FETCH_1:
   case BUILT_IN_XOR_AND_FETCH_2:
   case BUILT_IN_XOR_AND_FETCH_4:
+#else
+  case BUILT_IN_SYNC_XOR_AND_FETCH_1:
+  case BUILT_IN_SYNC_XOR_AND_FETCH_2:
+  case BUILT_IN_SYNC_XOR_AND_FETCH_4:
+#endif
     Result = BuildBinaryAtomic(stmt, AtomicRMWInst::Xor, Instruction::Xor);
     return true;
+#if (GCC_MINOR < 7)
   case BUILT_IN_NAND_AND_FETCH_8:
+#else
+  case BUILT_IN_SYNC_NAND_AND_FETCH_8:
+#endif
 #if defined(TARGET_POWERPC)
     if (!TARGET_64BIT)
       return false;
 #endif
+#if (GCC_MINOR < 7)
   case BUILT_IN_NAND_AND_FETCH_1:
   case BUILT_IN_NAND_AND_FETCH_2:
   case BUILT_IN_NAND_AND_FETCH_4: {
+#else
+  case BUILT_IN_SYNC_NAND_AND_FETCH_1:
+  case BUILT_IN_SYNC_NAND_AND_FETCH_2:
+  case BUILT_IN_SYNC_NAND_AND_FETCH_4: {
+#endif
     tree return_type = gimple_call_return_type(stmt);
     Type *ResultTy = ConvertType(return_type);
     Value* C[2] = {
@@ -4645,11 +4811,19 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     return true;
   }
 
+#if (GCC_MINOR < 7)
   case BUILT_IN_LOCK_RELEASE_1:
   case BUILT_IN_LOCK_RELEASE_2:
   case BUILT_IN_LOCK_RELEASE_4:
   case BUILT_IN_LOCK_RELEASE_8:
   case BUILT_IN_LOCK_RELEASE_16: {
+#else
+  case BUILT_IN_SYNC_LOCK_RELEASE_1:
+  case BUILT_IN_SYNC_LOCK_RELEASE_2:
+  case BUILT_IN_SYNC_LOCK_RELEASE_4:
+  case BUILT_IN_SYNC_LOCK_RELEASE_8:
+  case BUILT_IN_SYNC_LOCK_RELEASE_16: {
+#endif
     // This is effectively a volatile store of 0, and has no return value.
     // The argument has typically been coerced to "volatile void*"; the
     // only way to find the size of the operation is from the builtin
@@ -4659,16 +4833,36 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     // to use "store atomic [...] release".
     Type *Ty;
     switch(DECL_FUNCTION_CODE(fndecl)) {
+#if (GCC_MINOR < 7)
       case BUILT_IN_LOCK_RELEASE_16:    // not handled; should use SSE on x86
+#else
+      case BUILT_IN_SYNC_LOCK_RELEASE_16:    // not handled; should use SSE on x86
+#endif
       default:
         llvm_unreachable("Not handled; should use SSE on x86!");
+#if (GCC_MINOR < 7)
       case BUILT_IN_LOCK_RELEASE_1:
+#else
+      case BUILT_IN_SYNC_LOCK_RELEASE_1:
+#endif
         Ty = Type::getInt8Ty(Context); break;
+#if (GCC_MINOR < 7)
       case BUILT_IN_LOCK_RELEASE_2:
+#else
+      case BUILT_IN_SYNC_LOCK_RELEASE_2:
+#endif
         Ty = Type::getInt16Ty(Context); break;
+#if (GCC_MINOR < 7)
       case BUILT_IN_LOCK_RELEASE_4:
+#else
+      case BUILT_IN_SYNC_LOCK_RELEASE_4:
+#endif
         Ty = Type::getInt32Ty(Context); break;
-      case BUILT_IN_LOCK_RELEASE_8:
+#if (GCC_MINOR < 7)
+      case BUILT_IN_SYNC_LOCK_RELEASE_8:
+#else
+      case BUILT_IN_SYNC_LOCK_RELEASE_8:
+#endif
         Ty = Type::getInt64Ty(Context); break;
     }
     Value *Ptr = EmitMemory(gimple_call_arg(stmt, 0));
@@ -5924,8 +6118,13 @@ LValue TreeToLLVM::EmitLV_MEM_REF(tree exp) {
 
   // Ensure the pointer has the right type.
   Addr = Builder.CreateBitCast(Addr, getPointerToType(TREE_TYPE(exp)));
-  unsigned Alignment = std::max(TYPE_ALIGN(TREE_TYPE (exp)),
-                                get_object_alignment(exp, BIGGEST_ALIGNMENT));
+  unsigned Alignment =
+#if (GCC_MINOR < 7)
+    get_object_alignment(exp, BIGGEST_ALIGNMENT);
+#else
+    get_object_alignment(exp);
+#endif
+  Alignment = std::max(TYPE_ALIGN(TREE_TYPE (exp)), Alignment);
   bool Volatile = TREE_THIS_VOLATILE(exp);
 
   return LValue(Addr, Alignment / 8, Volatile);
@@ -6036,8 +6235,10 @@ LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
   unsigned Alignment = TYPE_ALIGN(TREE_TYPE (exp));
 #if (GCC_MINOR < 6)
   Alignment = get_object_alignment(exp, Alignment, BIGGEST_ALIGNMENT);
-#else
+#elif (GCC_MINOR < 7)
   Alignment = std::max(Alignment, get_object_alignment(exp, BIGGEST_ALIGNMENT));
+#else
+  Alignment = std::max(Alignment, get_object_alignment(exp));
 #endif
   bool Volatile = TREE_THIS_VOLATILE(exp);
 
