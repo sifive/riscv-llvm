@@ -563,10 +563,12 @@ private:
   Value *EmitReg_ROUND_DIV_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_TRUNC_DIV_EXPR(tree_node *op0, tree_node *op1, bool isExact);
   Value *EmitReg_TRUNC_MOD_EXPR(tree_node *op0, tree_node *op1);
+#if (GCC_MINOR < 7)
   Value *EmitReg_VEC_EXTRACT_EVEN_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_VEC_EXTRACT_ODD_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_VEC_INTERLEAVE_HIGH_EXPR(tree_node *op0, tree_node *op1);
   Value *EmitReg_VEC_INTERLEAVE_LOW_EXPR(tree_node *op0, tree_node *op1);
+#endif
   Value *EmitReg_VEC_PACK_TRUNC_EXPR(tree_node *type, tree_node *op0,
                                      tree_node *op1);
   Value *EmitReg_VEC_WIDEN_MULT_HI_EXPR(tree_node *type, tree_node *op0,

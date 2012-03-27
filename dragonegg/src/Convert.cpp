@@ -7437,6 +7437,7 @@ Value *TreeToLLVM::EmitReg_TRUNC_MOD_EXPR(tree op0, tree op1) {
     Builder.CreateURem(LHS, RHS) : Builder.CreateSRem(LHS, RHS);
 }
 
+#if (GCC_MINOR < 7)
 Value *TreeToLLVM::EmitReg_VEC_EXTRACT_EVEN_EXPR(tree op0, tree op1) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
@@ -7447,7 +7448,9 @@ Value *TreeToLLVM::EmitReg_VEC_EXTRACT_EVEN_EXPR(tree op0, tree op1) {
     Mask.push_back(Builder.getInt32(2*i));
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
+#endif
 
+#if (GCC_MINOR < 7)
 Value *TreeToLLVM::EmitReg_VEC_EXTRACT_ODD_EXPR(tree op0, tree op1) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
@@ -7458,7 +7461,9 @@ Value *TreeToLLVM::EmitReg_VEC_EXTRACT_ODD_EXPR(tree op0, tree op1) {
     Mask.push_back(Builder.getInt32(2*i+1));
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
+#endif
 
+#if (GCC_MINOR < 7)
 Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_HIGH_EXPR(tree op0, tree op1) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
@@ -7472,7 +7477,9 @@ Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_HIGH_EXPR(tree op0, tree op1) {
   }
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
+#endif
 
+#if (GCC_MINOR < 7)
 Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_LOW_EXPR(tree op0, tree op1) {
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
@@ -7486,6 +7493,7 @@ Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_LOW_EXPR(tree op0, tree op1) {
   }
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
+#endif
 
 Value *TreeToLLVM::EmitReg_VEC_PACK_TRUNC_EXPR(tree type, tree op0, tree op1) {
   // Eg: <4 x float> = VEC_PACK_TRUNC_EXPR(<2 x double>, <2 x double>).
@@ -8532,6 +8540,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_TruthOp(type, rhs1, rhs2, Instruction::Or); break;
   case TRUTH_XOR_EXPR:
     RHS = EmitReg_TruthOp(type, rhs1, rhs2, Instruction::Xor); break;
+#if (GCC_MINOR < 7)
   case VEC_EXTRACT_EVEN_EXPR:
     RHS = EmitReg_VEC_EXTRACT_EVEN_EXPR(rhs1, rhs2); break;
   case VEC_EXTRACT_ODD_EXPR:
@@ -8540,6 +8549,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_VEC_INTERLEAVE_HIGH_EXPR(rhs1, rhs2); break;
   case VEC_INTERLEAVE_LOW_EXPR:
     RHS = EmitReg_VEC_INTERLEAVE_LOW_EXPR(rhs1, rhs2); break;
+#endif
   case VEC_LSHIFT_EXPR:
     RHS = EmitReg_VecShiftOp(rhs1, rhs2, /*isLeftShift*/true); break;
   case VEC_PACK_TRUNC_EXPR:
