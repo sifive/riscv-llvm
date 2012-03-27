@@ -57,7 +57,7 @@ extern "C" {
 #undef HAVE_DECL_GETOPT
 #include "system.h"
 #include "coretypes.h"
-#include "target.h"
+#include "tm.h"
 #include "tree.h"
 
 #include "debug.h"
@@ -71,6 +71,7 @@ extern "C" {
 #ifndef DISABLE_VERSION_CHECK
 #include "plugin-version.h"
 #endif
+#include "target.h" // For targetm.
 #include "toplev.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
@@ -1582,6 +1583,8 @@ static void emit_aliases(cgraph_node_set set
 
   InitializeBackend();
 
+// FIXME: Work out what needs to be done here for gcc-4.7.
+#if (GCC_MINOR < 7)
   // Emit any same-body aliases in the order they were created.
   SmallPtrSet<tree, 32> Visited;
   for (cgraph_node_set_iterator csi = csi_start(set); !csi_end_p(csi);
@@ -1598,6 +1601,7 @@ static void emit_aliases(cgraph_node_set set
         emit_same_body_alias(alias, node);
     }
   }
+#endif
 }
 
 /// pass_emit_aliases - IPA pass that converts same-body aliases and file-scope
