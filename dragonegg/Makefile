@@ -51,8 +51,8 @@ TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
 LLVM_VERSION:=$(shell $(LLVM_CONFIG) --version)
 
 PLUGIN=dragonegg.so
-PLUGIN_OBJECTS=Backend.o Cache.o Constants.o Convert.o Debug.o DefaultABI.o \
-	       Trees.o Types.o bits_and_bobs.o
+PLUGIN_OBJECTS=Aliasing.o Backend.o Cache.o Constants.o Convert.o Debug.o \
+	       DefaultABI.o Trees.o Types.o bits_and_bobs.o
 
 TARGET_OBJECT=Target.o
 TARGET_SOURCE=$(SRC_DIR)/$(shell $(TARGET_UTIL) -p)/Target.cpp
