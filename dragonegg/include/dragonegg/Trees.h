@@ -23,7 +23,6 @@
 #ifndef DRAGONEGG_TREES_H
 #define DRAGONEGG_TREES_H
 
-#include "tree.h"
 #if (GCC_MINOR < 7)
 #include "flags.h" // For TYPE_OVERFLOW_UNDEFINED.
 #endif
