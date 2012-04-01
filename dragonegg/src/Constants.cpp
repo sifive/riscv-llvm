@@ -46,8 +46,9 @@ extern "C" {
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+
 #if (GCC_MINOR < 7)
-#include "flags.h" // For TYPE_OVERFLOW_UNDEFINED etc.
+#include "flags.h" // For POINTER_TYPE_OVERFLOW_UNDEFINED.
 #endif
 #include "tm_p.h"  // For CONSTANT_ALIGNMENT.
 }
