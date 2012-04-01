@@ -23,6 +23,7 @@
 
 // Plugin headers
 #include "dragonegg/ABI.h"
+#include "dragonegg/Aliasing.h"
 #include "dragonegg/Constants.h"
 #include "dragonegg/Debug.h"
 #include "dragonegg/Types.h"
@@ -159,21 +160,27 @@ MemRef DisplaceLocationByUnits(MemRef Loc, int32_t Offset,
 }
 
 /// LoadFromLocation - Load a value of the given type from a memory location.
-static LoadInst *LoadFromLocation(MemRef Loc, Type *Ty, LLVMBuilder &Builder) {
+static LoadInst *LoadFromLocation(MemRef Loc, Type *Ty, MDNode *AliasTag,
+                                  LLVMBuilder &Builder) {
   unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, Ty->getPointerTo(AddrSpace));
   LoadInst *LI = Builder.CreateLoad(Ptr, Loc.Volatile);
   LI->setAlignment(Loc.getAlignment());
+  if (AliasTag)
+    LI->setMetadata(LLVMContext::MD_tbaa, AliasTag);
   return LI;
 }
 
 /// StoreToLocation - Store a value to the given memory location.
-static StoreInst *StoreToLocation(Value *V, MemRef Loc, LLVMBuilder &Builder) {
+static StoreInst *StoreToLocation(Value *V, MemRef Loc, MDNode *AliasTag,
+                                  LLVMBuilder &Builder) {
   Type *Ty = V->getType();
   unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, Ty->getPointerTo(AddrSpace));
   StoreInst *SI = Builder.CreateStore(V, Ptr, Loc.Volatile);
   SI->setAlignment(Loc.getAlignment());
+  if (AliasTag)
+    SI->setMetadata(LLVMContext::MD_tbaa, AliasTag);
   return SI;
 }
 
@@ -366,7 +373,7 @@ static bool isDirectMemoryAccessSafe(Type *RegTy, tree type) {
 /// the memory location pointed to by Loc.  Takes care of adjusting for any
 /// differences between in-memory and in-register types (the returned value
 /// is of in-register type, as returned by getRegType).
-static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
+static Value *LoadRegisterFromMemory(MemRef Loc, tree type, MDNode *AliasTag,
                                      LLVMBuilder &Builder) {
   // NOTE: Needs to be kept in sync with getRegType.
   Type *RegTy = getRegType(type);
@@ -374,7 +381,7 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
   // If loading the register type directly out of memory gives the right result,
   // then just do that.
   if (isDirectMemoryAccessSafe(RegTy, type))
-    return LoadFromLocation(Loc, RegTy, Builder);
+    return LoadFromLocation(Loc, RegTy, AliasTag, Builder);
 
   // There is a discrepancy between the in-register type and the in-memory type.
   switch (TREE_CODE(type)) {
@@ -392,7 +399,7 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
     // big endian machines.
     unsigned Size = GET_MODE_BITSIZE(TYPE_MODE(type));
     Type *MemTy = IntegerType::get(Context, Size);
-    LoadInst *LI = LoadFromLocation(Loc, MemTy, Builder);
+    LoadInst *LI = LoadFromLocation(Loc, MemTy, AliasTag, Builder);
     MDNode *Range = describeTypeRange(RegTy, MemTy, !TYPE_UNSIGNED(type));
     LI->setMetadata(LLVMContext::MD_range, Range);
     return Builder.CreateTruncOrBitCast(LI, RegTy);
@@ -402,9 +409,9 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
     // Load the complex number component by component.
     tree elt_type = main_type(type);
     unsigned Stride = GET_MODE_SIZE(TYPE_MODE(elt_type));
-    Value *RealPart = LoadRegisterFromMemory(Loc, elt_type, Builder);
+    Value *RealPart = LoadRegisterFromMemory(Loc, elt_type, AliasTag, Builder);
     Loc = DisplaceLocationByUnits(Loc, Stride, Builder);
-    Value *ImagPart = LoadRegisterFromMemory(Loc, elt_type, Builder);
+    Value *ImagPart = LoadRegisterFromMemory(Loc, elt_type, AliasTag, Builder);
     Value *Res = UndefValue::get(RegTy);
     Res = Builder.CreateInsertValue(Res, RealPart, 0);
     Res = Builder.CreateInsertValue(Res, ImagPart, 1);
@@ -426,7 +433,7 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
         // It does!  Load out the memory as a vector of that type then truncate
         // to the register size.
         Type *MemVecTy = VectorType::get(MemTy, NumElts);
-        LoadInst *LI = LoadFromLocation(Loc, MemVecTy, Builder);
+        LoadInst *LI = LoadFromLocation(Loc, MemVecTy, AliasTag, Builder);
         return Builder.CreateTruncOrBitCast(LI, RegTy);
       }
     }
@@ -437,7 +444,7 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
     IntegerType *IntPtrTy = getTargetData().getIntPtrType(Context);
     for (unsigned i = 0; i != NumElts; ++i) {
       Value *Idx = Builder.getInt32(i);
-      Value *Elt = LoadRegisterFromMemory(Loc, elt_type, Builder);
+      Value *Elt = LoadRegisterFromMemory(Loc, elt_type, AliasTag, Builder);
       // LLVM does not support vectors of pointers, so turn any pointers into
       // integers.
       if (isVectorOfPointers)
@@ -455,14 +462,14 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type,
 /// Loc.  Takes care of adjusting for any differences between the value's type
 /// (which is the in-register type given by getRegType) and the in-memory type.
 static void StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
-                                  LLVMBuilder &Builder) {
+                                  MDNode *AliasTag, LLVMBuilder &Builder) {
   // NOTE: Needs to be kept in sync with getRegType.
   assert(V->getType() == getRegType(type) && "Not of register type!");
 
   // If storing the register directly to memory gives the right result, then
   // just do that.
   if (isDirectMemoryAccessSafe(V->getType(), type)) {
-    StoreToLocation(V, Loc, Builder);
+    StoreToLocation(V, Loc, AliasTag, Builder);
     return;
   }
 
@@ -482,7 +489,7 @@ static void StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
     unsigned Size = GET_MODE_BITSIZE(TYPE_MODE(type));
     Type *MemTy = IntegerType::get(Context, Size);
     V = Builder.CreateIntCast(V, MemTy, /*isSigned*/!TYPE_UNSIGNED(type));
-    StoreToLocation(V, Loc, Builder);
+    StoreToLocation(V, Loc, AliasTag, Builder);
     break;
   }
 
@@ -492,9 +499,9 @@ static void StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
     unsigned Stride = GET_MODE_SIZE(TYPE_MODE(elt_type));
     Value *RealPart = Builder.CreateExtractValue(V, 0);
     Value *ImagPart = Builder.CreateExtractValue(V, 1);
-    StoreRegisterToMemory(RealPart, Loc, elt_type, Builder);
+    StoreRegisterToMemory(RealPart, Loc, elt_type, AliasTag, Builder);
     Loc = DisplaceLocationByUnits(Loc, Stride, Builder);
-    StoreRegisterToMemory(ImagPart, Loc, elt_type, Builder);
+    StoreRegisterToMemory(ImagPart, Loc, elt_type, AliasTag, Builder);
     break;
   }
 
@@ -515,7 +522,7 @@ static void StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
         Type *MemVecTy = VectorType::get(MemTy, NumElts);
         V = Builder.CreateIntCast(V, MemVecTy,
                                   /*isSigned*/!TYPE_UNSIGNED(elt_type));
-        StoreToLocation(V, Loc, Builder);
+        StoreToLocation(V, Loc, AliasTag, Builder);
         break;
       }
     }
@@ -524,7 +531,7 @@ static void StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
     for (unsigned i = 0; i != NumElts; ++i) {
       Value *Idx = Builder.getInt32(i);
       Value *Elt = Builder.CreateExtractElement(V, Idx);
-      StoreRegisterToMemory(Elt, Loc, elt_type, Builder);
+      StoreRegisterToMemory(Elt, Loc, elt_type, AliasTag, Builder);
       if (i + 1 != NumElts)
         Loc = DisplaceLocationByUnits(Loc, Stride, Builder);
     }
@@ -1907,8 +1914,8 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
                                       tree type) {
   if (!AGGREGATE_TYPE_P(type)) {
     // Copy scalar.
-    StoreRegisterToMemory(LoadRegisterFromMemory(SrcLoc, type, Builder),
-                          DestLoc, type, Builder);
+    StoreRegisterToMemory(LoadRegisterFromMemory(SrcLoc, type, 0, Builder),
+                          DestLoc, type, 0, Builder);
     return;
   }
 
@@ -2006,7 +2013,7 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
   if (!AGGREGATE_TYPE_P(type)) {
     // Zero scalar.
     StoreRegisterToMemory(Constant::getNullValue(getRegType(type)), DestLoc,
-                          type, Builder);
+                          type, 0, Builder);
     return;
   }
 
@@ -2677,7 +2684,8 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
 
   if (!LV.isBitfield()) {
     // Scalar value: emit a load.
-    return LoadRegisterFromMemory(LV, TREE_TYPE(exp), Builder);
+    return LoadRegisterFromMemory(LV, TREE_TYPE(exp), describeAliasSet(exp),
+                                  Builder);
   } else {
     // This is a bitfield reference.
     Type *Ty = getRegType(TREE_TYPE(exp));
@@ -2834,7 +2842,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
     } else {
       // Scalar value.  Evaluate to a register, then do the store.
       Value *V = EmitRegister(tree_value);
-      StoreRegisterToMemory(V, *DestLoc, TREE_TYPE(tree_purpose), Builder);
+      StoreRegisterToMemory(V, *DestLoc, TREE_TYPE(tree_purpose), 0, Builder);
     }
     break;
   }
@@ -3210,7 +3218,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
         // A first class value (eg: a complex number).  Push the address of a
         // temporary copy.
         MemRef Copy = CreateTempLoc(ArgTy);
-        StoreRegisterToMemory(EmitRegister(arg), Copy, type, Builder);
+        StoreRegisterToMemory(EmitRegister(arg), Copy, type, 0, Builder);
         Client.pushAddress(Copy.Ptr);
       }
     }
@@ -5133,7 +5141,7 @@ Value *TreeToLLVM::EmitBuiltinCEXPI(gimple stmt) {
     } else {
       // Push the address of a temporary copy.
       MemRef Copy = CreateTempLoc(CplxTy);
-      StoreRegisterToMemory(CplxArg, Copy, cplx_type, Builder);
+      StoreRegisterToMemory(CplxArg, Copy, cplx_type, 0, Builder);
       Client.pushAddress(Copy.Ptr);
       PassedInMemory = true;
     }
@@ -6571,7 +6579,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
 
   // Use it to load the parameter value.
   MemRef ParamLoc(DECL_LOCAL_IF_SET(var), Alignment, false);
-  Value *Def = LoadRegisterFromMemory(ParamLoc, TREE_TYPE(reg), SSABuilder);
+  Value *Def = LoadRegisterFromMemory(ParamLoc, TREE_TYPE(reg), 0, SSABuilder);
 
   if (flag_verbose_asm)
     NameValue(Def, reg);
@@ -8100,7 +8108,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
   for (unsigned i = 0, e = (unsigned)SSADefinitions.size(); i != e; ++i) {
     tree Name = SSADefinitions[i].first;
     MemRef Loc = SSADefinitions[i].second;
-    Value *Val = LoadRegisterFromMemory(Loc, TREE_TYPE(Name), Builder);
+    Value *Val = LoadRegisterFromMemory(Loc, TREE_TYPE(Name), 0, Builder);
     DefineSSAName(Name, Val);
   }
 
@@ -8329,7 +8337,7 @@ void TreeToLLVM::RenderGIMPLE_RETURN(gimple stmt) {
     } else {
       Value *Val = Builder.CreateBitCast(EmitRegister(retval),
                                          getRegType(TREE_TYPE(result)));
-      StoreRegisterToMemory(Val, DestLoc, TREE_TYPE(result), Builder);
+      StoreRegisterToMemory(Val, DestLoc, TREE_TYPE(result), 0, Builder);
     }
   }
 
@@ -8708,7 +8716,8 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
   // TODO: Arrange for Volatile to already be set in the LValue.
   if (!LV.isBitfield()) {
     // Non-bitfield, scalar value.  Just emit a store.
-    StoreRegisterToMemory(RHS, LV, TREE_TYPE(lhs), Builder);
+    StoreRegisterToMemory(RHS, LV, TREE_TYPE(lhs), describeAliasSet(lhs),
+                          Builder);
     return;
   }
 
