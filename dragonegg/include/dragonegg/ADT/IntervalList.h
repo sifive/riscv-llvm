@@ -1,6 +1,6 @@
 //=--------- IntervalList.h - List of disjoint intervals ----------*- C++ -*-=//
 //
-// Copyright (C) 2011  Duncan Sands.
+// Copyright (C) 2011 to 2012  Duncan Sands.
 //
 // This file is part of DragonEgg.
 //

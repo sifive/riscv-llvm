@@ -1,6 +1,6 @@
 //===------------ OS.h - Darwin specific definitions ------------*- C++ -*-===//
 //
-// Copyright (C) 2009, 2010, 2011  Duncan Sands et al.
+// Copyright (C) 2009 to 2012  Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //
