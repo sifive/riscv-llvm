@@ -2101,7 +2101,14 @@ plugin_init(struct plugin_name_args *plugin_info,
                 plugin_name, argv[i].key);
           continue;
         }
-        ArgStrings.push_back(argv[i].value);
+        std::string value(argv[i].value);
+        // Turn ':' into '=' everywhere.  This is because '=' is useful for
+        // passing settings to LLVM but GCC doesn't allow it.
+        for (std::string::iterator I = value.begin(), E = value.end(); I != E;
+             ++I)
+          if (*I == ':')
+            *I = '=';
+        ArgStrings.push_back(value);
         continue;
       }
 
