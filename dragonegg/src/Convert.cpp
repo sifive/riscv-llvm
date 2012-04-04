@@ -1913,8 +1913,10 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
                                       tree type) {
   if (!AGGREGATE_TYPE_P(type)) {
     // Copy scalar.
-    StoreRegisterToMemory(LoadRegisterFromMemory(SrcLoc, type, 0, Builder),
-                          DestLoc, type, 0, Builder);
+    MDNode *AliasTag = describeAliasSet(type);
+    StoreRegisterToMemory(LoadRegisterFromMemory(SrcLoc, type, AliasTag,
+                                                 Builder),
+                          DestLoc, type, AliasTag, Builder);
     return;
   }
 
@@ -2012,7 +2014,7 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
   if (!AGGREGATE_TYPE_P(type)) {
     // Zero scalar.
     StoreRegisterToMemory(Constant::getNullValue(getRegType(type)), DestLoc,
-                          type, 0, Builder);
+                          type, describeAliasSet(type), Builder);
     return;
   }
 
