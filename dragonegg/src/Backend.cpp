@@ -2102,13 +2102,31 @@ plugin_init(struct plugin_name_args *plugin_info,
           continue;
         }
         std::string value(argv[i].value);
-        // Turn ':' into '=' everywhere.  This is because '=' is useful for
-        // passing settings to LLVM but GCC doesn't allow it.
+        // Split the value at spaces, making it possible to pass several options
+        // in one 'llvm-option' value.  Turn ':' into '=' everywhere because '='
+        // is useful for passing settings to LLVM but GCC doesn't allow it.
+        std::string::iterator first = value.begin(); // Start of next sub-option
         for (std::string::iterator I = value.begin(), E = value.end(); I != E;
-             ++I)
-          if (*I == ':')
+             ++I) {
+          char C = *I;
+          if (C == ':') {
+            // Turn colons into equals signs, otherwise there is no way to use
+            // an option that needs an equals sign.
             *I = '=';
-        ArgStrings.push_back(value);
+          } else if (C == ' ') {
+            // A space - split the string.
+            std::string option(first, I);
+            // Don't bother with empty options (multiple spaces cause these).
+            if (option != "")
+              ArgStrings.push_back(option);
+            first = I;
+            ++first;
+          }
+        }
+        // Add the last option. If there were no spaces then this is everything.
+        std::string option(first, value.end());
+        if (option != "")
+          ArgStrings.push_back(option);
         continue;
       }
 

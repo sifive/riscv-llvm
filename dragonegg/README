@@ -121,6 +121,6 @@ If you renamed dragonegg.so to something else, for example llvm.so, replace
   clash with the LLVM output.  This option causes GCC output to be written to
   a file instead.  Good for seeing which GCC output we've failed to turn off.
 
--fplugin-arg-dragonegg-llvm-option=option
-  Pass a command line option through to LLVM.  If you want to pass an option
-  that contains equals signs then you need to use colons (':') instead of '='.
+-fplugin-arg-dragonegg-llvm-option=options
+  Pass command line options through to LLVM.  If you want to pass an option that
+  contains equals signs then you need to use colons (':') instead of '='.
