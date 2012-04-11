@@ -103,4 +103,6 @@ Add support for address spaces.
 
 Add support for non-temporal stores.
 
-Generate LLVM type based alias analysis information from gcc's.
+Add type based alias analysis tags in more cases.  Extend LLVM's tbaa
+representation so it can represent a DAG and generate tags for struct
+types too.
