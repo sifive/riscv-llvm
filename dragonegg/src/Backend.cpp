@@ -447,6 +447,7 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   Options.NoInfsFPMath = flag_finite_math_only;
   Options.NoNaNsFPMath = flag_finite_math_only;
   Options.NoZerosInBSS = !flag_zero_initialized_in_bss;
+  Options.PositionIndependentExecutable = flag_pie;
 #if (GCC_MINOR > 5)
   Options.EnableSegmentedStacks = flag_split_stack;
 #endif
