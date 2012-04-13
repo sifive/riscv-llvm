@@ -291,27 +291,41 @@ static Value *Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
   llvm_unreachable("Don't know how to turn this into memory!");
 }
 
-/// describeTypeRange - Given two integer types, return metadata describing the
-/// set obtained by extending all values of the smaller type to the larger.
-static MDNode *describeTypeRange(Type *SmallTy, Type *LargeTy, bool isSigned) {
-  assert(isa<IntegerType>(SmallTy) && isa<IntegerType>(LargeTy) &&
-         "Expected integer types!");
-  unsigned ActiveBits = SmallTy->getIntegerBitWidth();
-  unsigned TotalBits = LargeTy->getIntegerBitWidth();
-  assert(ActiveBits < TotalBits && "Full range not allowed!");
-  assert(ActiveBits > 0 && "Need at least one bit!");
-  APInt First, Last;
-  if (isSigned) {
-    Last = APInt::getOneBitSet(TotalBits, ActiveBits - 1);
-    First = -Last;
-  } else {
-    First = APInt::getNullValue(TotalBits);
-    Last = APInt::getOneBitSet(TotalBits, ActiveBits);
-  }
+/// describeTypeRange - Return metadata describing the set of possible values
+/// that an in-memory variable of the given GCC type can take on.
+static MDNode *describeTypeRange(tree type) {
+  if (!INTEGRAL_TYPE_P(type)) return 0; // Only discrete types have ranges.
 
-  Value *Range[2] = {
-    ConstantInt::get(LargeTy, First), ConstantInt::get(LargeTy, Last)
-  };
+  // The range of possible values is TYPE_MIN_VALUE .. TYPE_MAX_VALUE.
+  tree min = TYPE_MIN_VALUE(type);
+  assert(min && TREE_CODE(min) == INTEGER_CST && "Min not a constant!");
+  tree max = TYPE_MAX_VALUE(type);
+  assert(max && TREE_CODE(max) == INTEGER_CST && "Max not a constant!");
+
+  unsigned BitWidth = GET_MODE_BITSIZE(TYPE_MODE(type));
+
+  APInt Lo = getIntegerValue(min);
+  assert(Lo.getBitWidth() <= BitWidth && "Min value doesn't fit in type!");
+  if (Lo.getBitWidth() != BitWidth)
+    Lo = TYPE_UNSIGNED(TREE_TYPE(min)) ?
+      Lo.zext(BitWidth) : Lo.sext(BitWidth);
+
+  APInt Hi = getIntegerValue(max);
+  assert(Hi.getBitWidth() <= BitWidth && "Max value doesn't fit in type!");
+  if (Hi.getBitWidth() != BitWidth)
+    Hi = TYPE_UNSIGNED(TREE_TYPE(max)) ?
+      Hi.zext(BitWidth) : Hi.sext(BitWidth);
+
+  // Unlike GCC's, LLVM ranges do not include the upper end point.
+  ++Hi;
+
+  // If the range is everything then it is useless.
+  if (Hi == Lo)
+    return 0;
+
+  // Return the range [Lo, Hi).
+  Type *Ty = IntegerType::get(Context, BitWidth);
+  Value *Range[2] = { ConstantInt::get(Ty, Lo), ConstantInt::get(Ty, Hi) };
   return MDNode::get(Context, Range);
 }
 
@@ -379,8 +393,13 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type, MDNode *AliasTag,
 
   // If loading the register type directly out of memory gives the right result,
   // then just do that.
-  if (isDirectMemoryAccessSafe(RegTy, type))
-    return LoadFromLocation(Loc, RegTy, AliasTag, Builder);
+  if (isDirectMemoryAccessSafe(RegTy, type)) {
+    LoadInst *LI = LoadFromLocation(Loc, RegTy, AliasTag, Builder);
+    MDNode *Range = describeTypeRange(type);
+    if (Range)
+      LI->setMetadata(LLVMContext::MD_range, Range);
+    return LI;
+  }
 
   // There is a discrepancy between the in-register type and the in-memory type.
   switch (TREE_CODE(type)) {
@@ -399,8 +418,9 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type, MDNode *AliasTag,
     unsigned Size = GET_MODE_BITSIZE(TYPE_MODE(type));
     Type *MemTy = IntegerType::get(Context, Size);
     LoadInst *LI = LoadFromLocation(Loc, MemTy, AliasTag, Builder);
-    MDNode *Range = describeTypeRange(RegTy, MemTy, !TYPE_UNSIGNED(type));
-    LI->setMetadata(LLVMContext::MD_range, Range);
+    MDNode *Range = describeTypeRange(type);
+    if (Range)
+      LI->setMetadata(LLVMContext::MD_range, Range);
     return Builder.CreateTruncOrBitCast(LI, RegTy);
   }
 
