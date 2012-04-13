@@ -133,6 +133,7 @@ std::string getDescriptiveName(const_tree t) {
 
 /// getIntegerValue - Return the specified INTEGER_CST as an APInt.
 APInt getIntegerValue(const_tree exp) {
+  assert(TREE_CODE(exp) == INTEGER_CST && "Expected an integer constant!");
   double_int val = tree_to_double_int(exp);
   unsigned NumBits = TYPE_PRECISION(TREE_TYPE(exp));
 

@@ -61,7 +61,8 @@ inline bool hasNSW(const_tree type) {
   return !TYPE_UNSIGNED(type) && TYPE_OVERFLOW_UNDEFINED(type);
 }
 
-/// getIntegerValue - Return the specified INTEGER_CST as an APInt.
+/// getIntegerValue - Return the specified INTEGER_CST as an APInt (the bitwidth
+/// is the precision of the constant's type, aka TYPE_PRECISION).
 llvm::APInt getIntegerValue(const_tree exp);
 
 /// isInt64 - Return true if t is an INTEGER_CST that fits in a 64 bit integer.
