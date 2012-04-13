@@ -807,7 +807,7 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
       tree val = TREE_VALUE(a);
 
       // Assert its a string, and then get that string.
-      assert(TREE_CODE(val) == STRING_CST &&
+      assert(isa<STRING_CST>(val) &&
              "Annotate attribute arg should always be a string");
       Constant *strGV = AddressOf(val);
       Constant *Element[4] = {
@@ -834,7 +834,7 @@ static void emit_global(tree decl) {
   // FIXME: DECL_PRESERVE_P indicates the var is marked with attribute 'used'.
 
   // Global register variables don't turn into LLVM GlobalVariables.
-  if (TREE_CODE(decl) == VAR_DECL && DECL_REGISTER(decl))
+  if (isa<VAR_DECL>(decl) && DECL_REGISTER(decl))
     return;
 
   // If we encounter a forward declaration then do not emit the global yet.
@@ -884,7 +884,7 @@ static void emit_global(tree decl) {
   GV->setInitializer(Init);
 
   // Set thread local (TLS)
-  if (TREE_CODE(decl) == VAR_DECL && DECL_THREAD_LOCAL_P(decl))
+  if (isa<VAR_DECL>(decl) && DECL_THREAD_LOCAL_P(decl))
     GV->setThreadLocal(true);
 
   // Set the linkage.
@@ -939,7 +939,7 @@ static void emit_global(tree decl) {
   handleVisibility(decl, GV);
 
   // Set the section for the global.
-  if (TREE_CODE(decl) == VAR_DECL) {
+  if (isa<VAR_DECL>(decl)) {
     if (DECL_SECTION_NAME(decl)) {
       GV->setSection(TREE_STRING_POINTER(DECL_SECTION_NAME(decl)));
 #ifdef LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION
@@ -961,8 +961,7 @@ static void emit_global(tree decl) {
       }
 #ifdef TARGET_ADJUST_CSTRING_ALIGN
       else if (DECL_INITIAL(decl) != error_mark_node && // uninitialized?
-               DECL_INITIAL(decl) &&
-               TREE_CODE(DECL_INITIAL(decl)) == STRING_CST) {
+               DECL_INITIAL(decl) && isa<STRING_CST>(DECL_INITIAL(decl))) {
         TARGET_ADJUST_CSTRING_ALIGN(GV);
       }
 #endif
@@ -981,7 +980,7 @@ static void emit_global(tree decl) {
       AddAnnotateAttrsToGlobal(GV, decl);
 
 #ifdef LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION
-  } else if (TREE_CODE(decl) == CONST_DECL) {
+  } else if (isa<CONST_DECL>(decl)) {
     if (const char *Section =
         LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION(decl)) {
       GV->setSection(Section);
@@ -1063,9 +1062,9 @@ Value *make_decl_llvm(tree decl) {
 #ifndef NDEBUG
   // Check that we are not being given an automatic variable or a type or label.
   // A weak alias has TREE_PUBLIC set but not the other bits.
-  if (TREE_CODE(decl) == PARM_DECL || TREE_CODE(decl) == RESULT_DECL ||
-      TREE_CODE(decl) == TYPE_DECL || TREE_CODE(decl) == LABEL_DECL ||
-      (TREE_CODE(decl) == VAR_DECL && !TREE_STATIC(decl) &&
+  if (isa<PARM_DECL>(decl) || isa<RESULT_DECL>(decl) ||
+      isa<TYPE_DECL>(decl) || isa<LABEL_DECL>(decl) ||
+      (isa<VAR_DECL>(decl) && !TREE_STATIC(decl) &&
        !TREE_PUBLIC(decl) && !DECL_EXTERNAL(decl) && !DECL_REGISTER(decl))) {
     debug_tree(decl);
     llvm_unreachable("Cannot make a global for this kind of declaration!");
@@ -1079,7 +1078,7 @@ Value *make_decl_llvm(tree decl) {
 
   // Global register variable with asm name, e.g.:
   // register unsigned long esp __asm__("ebp");
-  if (TREE_CODE(decl) != FUNCTION_DECL && DECL_REGISTER(decl)) {
+  if (!isa<FUNCTION_DECL>(decl) && DECL_REGISTER(decl)) {
     // This  just verifies that the variable is ok.  The actual "load/store"
     // code paths handle accesses to the variable.
     ValidateRegisterVariable(decl);
@@ -1089,7 +1088,7 @@ Value *make_decl_llvm(tree decl) {
 //TODO  timevar_push(TV_LLVM_GLOBALS);
 
   std::string Name;
-  if (TREE_CODE(decl) != CONST_DECL) // CONST_DECLs do not have assembler names.
+  if (!isa<CONST_DECL>(decl)) // CONST_DECLs do not have assembler names.
     Name = getLLVMAssemblerName(decl);
 
   // Now handle ordinary static variables and functions (in memory).
@@ -1106,18 +1105,18 @@ Value *make_decl_llvm(tree decl) {
 
   // Specifying a section attribute on a variable forces it into a
   // non-.bss section, and thus it cannot be common.
-  if (TREE_CODE(decl) == VAR_DECL && DECL_SECTION_NAME(decl) != NULL_TREE &&
+  if (isa<VAR_DECL>(decl) && DECL_SECTION_NAME(decl) != NULL_TREE &&
       DECL_INITIAL(decl) == NULL_TREE && DECL_COMMON(decl))
     DECL_COMMON(decl) = 0;
 
   // Variables can't be both common and weak.
-  if (TREE_CODE(decl) == VAR_DECL && DECL_WEAK(decl))
+  if (isa<VAR_DECL>(decl) && DECL_WEAK(decl))
     DECL_COMMON(decl) = 0;
 
   // Okay, now we need to create an LLVM global variable or function for this
   // object.  Note that this is quite possibly a forward reference to the
   // object, so its type may change later.
-  if (TREE_CODE(decl) == FUNCTION_DECL) {
+  if (isa<FUNCTION_DECL>(decl)) {
     assert(!Name.empty() && "Function with empty name!");
     // If this function has already been created, reuse the decl.  This happens
     // when we have something like __builtin_memset and memset in the same file.
@@ -1165,8 +1164,8 @@ Value *make_decl_llvm(tree decl) {
     }
     return SET_DECL_LLVM(decl, FnEntry);
   } else {
-    assert((TREE_CODE(decl) == VAR_DECL ||
-            TREE_CODE(decl) == CONST_DECL) && "Not a function or var decl?");
+    assert((isa<VAR_DECL>(decl) ||
+            isa<CONST_DECL>(decl)) && "Not a function or var decl?");
     Type *Ty = ConvertType(TREE_TYPE(decl));
     GlobalVariable *GV ;
 
@@ -1234,7 +1233,7 @@ Value *make_decl_llvm(tree decl) {
     }
 
     if ((TREE_READONLY(decl) && !TREE_SIDE_EFFECTS(decl)) ||
-        TREE_CODE(decl) == CONST_DECL) {
+        isa<CONST_DECL>(decl)) {
       if (DECL_EXTERNAL(decl)) {
         // Mark external globals constant even though they could be marked
         // non-constant in the defining translation unit.  The definition of the
@@ -1250,13 +1249,13 @@ Value *make_decl_llvm(tree decl) {
         if (DECL_INITIAL(decl) != error_mark_node && // uninitialized?
             DECL_INITIAL(decl) &&
             (TREE_CONSTANT(DECL_INITIAL(decl)) ||
-             TREE_CODE(DECL_INITIAL(decl)) == STRING_CST))
+             isa<STRING_CST>(DECL_INITIAL(decl))))
           GV->setConstant(true);
       }
     }
 
     // Set thread local (TLS)
-    if (TREE_CODE(decl) == VAR_DECL && DECL_THREAD_LOCAL_P(decl))
+    if (isa<VAR_DECL>(decl) && DECL_THREAD_LOCAL_P(decl))
       GV->setThreadLocal(true);
 
     assert((GV->isDeclaration() || SizeOfGlobalMatchesDecl(GV, decl)) &&
@@ -1271,7 +1270,7 @@ Value *make_decl_llvm(tree decl) {
 /// GCC global will be output, and returns a declaration for it.
 Value *make_definition_llvm(tree decl) {
   // Only need to do something special for global variables.
-  if (TREE_CODE(decl) != CONST_DECL && TREE_CODE(decl) != VAR_DECL)
+  if (!isa<CONST_DECL>(decl) && !isa<VAR_DECL>(decl))
     return DECL_LLVM(decl);
   // Do not allocate storage for external references (eg: a "weakref" alias).
   if (DECL_EXTERNAL(decl))
@@ -1489,7 +1488,7 @@ static void emit_alias(tree decl, tree target) {
     while (IDENTIFIER_TRANSPARENT_ALIAS(target))
       target = TREE_CHAIN(target);
 
-  if (TREE_CODE(target) == IDENTIFIER_NODE) {
+  if (isa<IDENTIFIER_NODE>(target)) {
     if (struct cgraph_node *fnode = cgraph_node_for_asm(target))
       target = fnode->decl;
     else if (struct varpool_node *vnode = varpool_node_for_asm(target))
@@ -1497,7 +1496,7 @@ static void emit_alias(tree decl, tree target) {
   }
 
   GlobalValue *Aliasee = 0;
-  if (TREE_CODE(target) == IDENTIFIER_NODE) {
+  if (isa<IDENTIFIER_NODE>(target)) {
     if (!weakref) {
       error("%q+D aliased to undefined symbol %qs", decl,
             IDENTIFIER_POINTER(target));
@@ -1689,7 +1688,7 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
   // Emit any file-scope asms.
   for (struct cgraph_asm_node *can = cgraph_asm_nodes; can; can = can->next) {
     tree string = can->asm_str;
-    if (TREE_CODE(string) == ADDR_EXPR)
+    if (isa<ADDR_EXPR>(string))
       string = TREE_OPERAND(string, 0);
     TheModule->appendModuleInlineAsm(TREE_STRING_POINTER (string));
   }
@@ -1722,7 +1721,7 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
       // outputting block addresses when not compiling the function containing
       // the block.  We need to support outputting block addresses at odd times
       // anyway since the GCC optimizers can generate these.
-      if (TREE_CODE(decl) == VAR_DECL && !DECL_EXTERNAL(decl) &&
+      if (isa<VAR_DECL>(decl) && !DECL_EXTERNAL(decl) &&
           (TREE_PUBLIC(decl) || DECL_PRESERVE_P(decl) ||
            TREE_THIS_VOLATILE(decl)))
       emit_global(decl);

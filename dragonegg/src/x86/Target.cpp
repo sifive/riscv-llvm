@@ -45,6 +45,9 @@ extern "C" {
 #include "toplev.h"
 }
 
+// Trees header.
+#include "dragonegg/Trees.h"
+
 static LLVMContext &Context = getGlobalContext();
 
 /// BitCastToIntVector - Bitcast the vector operand to a vector of integers of
@@ -1004,7 +1007,7 @@ llvm_x86_32_should_pass_aggregate_in_mixed_regs(tree TreeType, Type *Ty,
 /* It returns true if an aggregate of the specified type should be passed as a
    first class aggregate. */
 bool llvm_x86_should_pass_aggregate_as_fca(tree type, Type *Ty) {
-  if (TREE_CODE(type) != COMPLEX_TYPE)
+  if (!isa<COMPLEX_TYPE>(type))
     return false;
   StructType *STy = dyn_cast<StructType>(Ty);
   if (!STy || STy->isPacked()) return false;
@@ -1257,9 +1260,9 @@ llvm_x86_64_should_pass_aggregate_in_mixed_regs(tree TreeType, Type *Ty,
 bool llvm_x86_should_pass_vector_in_integer_regs(tree type) {
   if (!TARGET_MACHO)
     return false;
-  if (TREE_CODE(type) == VECTOR_TYPE &&
+  if (isa<VECTOR_TYPE>(type) &&
       TYPE_SIZE(type) &&
-      TREE_CODE(TYPE_SIZE(type))==INTEGER_CST) {
+      isa<INTEGER_CST>(TYPE_SIZE(type))) {
     if (TREE_INT_CST_LOW(TYPE_SIZE(type))==64 && TARGET_MMX)
       return false;
     if (TREE_INT_CST_LOW(TYPE_SIZE(type))==128 && TARGET_SSE)
@@ -1277,9 +1280,9 @@ bool llvm_x86_should_pass_vector_using_byval_attr(tree type) {
     return false;
   if (!TARGET_64BIT)
     return false;
-  if (TREE_CODE(type) == VECTOR_TYPE &&
+  if (isa<VECTOR_TYPE>(type) &&
       TYPE_SIZE(type) &&
-      TREE_CODE(TYPE_SIZE(type))==INTEGER_CST) {
+      isa<INTEGER_CST>(TYPE_SIZE(type))) {
     if (TREE_INT_CST_LOW(TYPE_SIZE(type))<=128)
       return false;
   }
@@ -1295,9 +1298,9 @@ bool llvm_x86_should_pass_vector_using_byval_attr(tree type) {
 tree llvm_x86_should_return_vector_as_scalar(tree type, bool isBuiltin) {
   if (TARGET_MACHO &&
       !isBuiltin &&
-      TREE_CODE(type) == VECTOR_TYPE &&
+      isa<VECTOR_TYPE>(type) &&
       TYPE_SIZE(type) &&
-      TREE_CODE(TYPE_SIZE(type))==INTEGER_CST) {
+      isa<INTEGER_CST>(TYPE_SIZE(type))) {
     if (TREE_INT_CST_LOW(TYPE_SIZE(type))==64 &&
         TYPE_VECTOR_SUBPARTS(type)==1)
       return uint64_type_node;
@@ -1317,9 +1320,9 @@ tree llvm_x86_should_return_selt_struct_as_scalar(tree type) {
   tree retType = isSingleElementStructOrArray(type, true, false);
   if (!retType || !TARGET_64BIT || !TARGET_MACHO)
     return retType;
-  if (TREE_CODE(retType) == VECTOR_TYPE &&
+  if (isa<VECTOR_TYPE>(retType) &&
       TYPE_SIZE(retType) &&
-      TREE_CODE(TYPE_SIZE(retType))==INTEGER_CST &&
+      isa<INTEGER_CST>(TYPE_SIZE(retType)) &&
       TREE_INT_CST_LOW(TYPE_SIZE(retType))==64)
     return double_type_node;
   return retType;
@@ -1331,9 +1334,9 @@ bool llvm_x86_should_return_vector_as_shadow(tree type, bool isBuiltin) {
   if (TARGET_MACHO &&
     !isBuiltin &&
     !TARGET_64BIT &&
-    TREE_CODE(type) == VECTOR_TYPE &&
+    isa<VECTOR_TYPE>(type) &&
     TYPE_SIZE(type) &&
-    TREE_CODE(TYPE_SIZE(type))==INTEGER_CST) {
+    isa<INTEGER_CST>(TYPE_SIZE(type))) {
     if (TREE_INT_CST_LOW(TYPE_SIZE(type))==64 &&
        TYPE_VECTOR_SUBPARTS(type)>1)
       return true;
@@ -1350,7 +1353,7 @@ bool llvm_x86_should_not_return_complex_in_memory(tree type) {
   if (!TARGET_64BIT)
     return false;
 
-  if (TREE_CODE(type) == COMPLEX_TYPE &&
+  if (isa<COMPLEX_TYPE>(type) &&
       TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type)) == 32)
     return true;
 

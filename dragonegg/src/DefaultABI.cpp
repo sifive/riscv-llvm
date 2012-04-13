@@ -37,6 +37,9 @@ extern "C" {
 #include "tree.h"
 }
 
+// Trees header.
+#include "dragonegg/Trees.h"
+
 void DefaultABIClient::anchor() {}
 
 // doNotUseShadowReturn - Return true if the specified GCC type
@@ -45,7 +48,7 @@ bool doNotUseShadowReturn(tree type, tree fndecl, CallingConv::ID CC) {
   (void)CC; // Not used by all ABI macros.
   if (!TYPE_SIZE(type))
     return false;
-  if (TREE_CODE(TYPE_SIZE(type)) != INTEGER_CST)
+  if (!isa<INTEGER_CST>(TYPE_SIZE(type)))
     return false;
   // LLVM says do not use shadow argument.
   if (LLVM_SHOULD_NOT_RETURN_COMPLEX_IN_MEMORY(type) ||
@@ -66,7 +69,7 @@ bool doNotUseShadowReturn(tree type, tree fndecl, CallingConv::ID CC) {
 tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
                                   bool rejectFatBitfield) {
   // Complex numbers have two fields.
-  if (TREE_CODE(type) == COMPLEX_TYPE) return 0;
+  if (isa<COMPLEX_TYPE>(type)) return 0;
   // All other scalars are good.
   if (!AGGREGATE_TYPE_P(type)) return type;
 
@@ -79,20 +82,19 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
     return 0;
   case RECORD_TYPE:
     // If this record has variable length, reject it.
-    if (TREE_CODE(TYPE_SIZE(type)) != INTEGER_CST)
+    if (!isa<INTEGER_CST>(TYPE_SIZE(type)))
       return 0;
 
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
-      if (TREE_CODE(Field) == FIELD_DECL) {
+      if (isa<FIELD_DECL>(Field)) {
         if (ignoreZeroLength) {
-          if (DECL_SIZE(Field) &&
-              TREE_CODE(DECL_SIZE(Field)) == INTEGER_CST &&
+          if (DECL_SIZE(Field) && isa<INTEGER_CST>(DECL_SIZE(Field)) &&
               TREE_INT_CST_LOW(DECL_SIZE(Field)) == 0)
             continue;
         }
         if (!FoundField) {
           if (rejectFatBitfield &&
-              TREE_CODE(TYPE_SIZE(type)) == INTEGER_CST &&
+              isa<INTEGER_CST>(TYPE_SIZE(type)) &&
               TREE_INT_CST_LOW(TYPE_SIZE(TREE_TYPE(Field))) >
               TREE_INT_CST_LOW(TYPE_SIZE(type)))
             return 0;
@@ -115,9 +117,9 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
 /// isZeroSizedStructOrUnion - Returns true if this is a struct or union
 /// which is zero bits wide.
 bool isZeroSizedStructOrUnion(tree type) {
-  if (TREE_CODE(type) != RECORD_TYPE &&
-      TREE_CODE(type) != UNION_TYPE &&
-      TREE_CODE(type) != QUAL_UNION_TYPE)
+  if (!isa<RECORD_TYPE>(type) &&
+      !isa<UNION_TYPE>(type) &&
+      !isa<QUAL_UNION_TYPE>(type))
     return false;
   return int_size_in_bytes(type) == 0;
 }
@@ -151,7 +153,7 @@ void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
   } else if (doNotUseShadowReturn(type, fn, C.getCallingConv())) {
     tree SingleElt = LLVM_SHOULD_RETURN_SELT_STRUCT_AS_SCALAR(type);
     if (SingleElt && TYPE_SIZE(SingleElt) &&
-        TREE_CODE(TYPE_SIZE(SingleElt)) == INTEGER_CST &&
+        isa<INTEGER_CST>(TYPE_SIZE(SingleElt)) &&
         TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type)) ==
         TREE_INT_CST_LOW(TYPE_SIZE_UNIT(SingleElt))) {
       C.HandleAggregateResultAsScalar(ConvertType(SingleElt));
@@ -252,9 +254,9 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
   } else if (isZeroSizedStructOrUnion(type)) {
     // Zero sized struct or union, just drop it!
     ;
-  } else if (TREE_CODE(type) == RECORD_TYPE) {
+  } else if (isa<RECORD_TYPE>(type)) {
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field))
-      if (TREE_CODE(Field) == FIELD_DECL) {
+      if (isa<FIELD_DECL>(Field)) {
         const tree Ftype = TREE_TYPE(Field);
         unsigned FNo = GetFieldIndex(Field, Ty);
         assert(FNo < INT_MAX && "Case not handled yet!");
@@ -273,17 +275,17 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
           C.ExitField();
         }
       }
-  } else if (TREE_CODE(type) == COMPLEX_TYPE) {
+  } else if (isa<COMPLEX_TYPE>(type)) {
     C.EnterField(0, Ty);
     HandleArgument(TREE_TYPE(type), ScalarElts);
     C.ExitField();
     C.EnterField(1, Ty);
     HandleArgument(TREE_TYPE(type), ScalarElts);
     C.ExitField();
-  } else if ((TREE_CODE(type) == UNION_TYPE) ||
-             (TREE_CODE(type) == QUAL_UNION_TYPE)) {
+  } else if ((isa<UNION_TYPE>(type)) ||
+             (isa<QUAL_UNION_TYPE>(type))) {
     HandleUnion(type, ScalarElts);
-  } else if (TREE_CODE(type) == ARRAY_TYPE) {
+  } else if (isa<ARRAY_TYPE>(type)) {
     // Array with padding?
     if (Ty->isStructTy())
       Ty = cast<StructType>(Ty)->getTypeAtIndex(0U);
@@ -303,7 +305,7 @@ void DefaultABI::HandleUnion(tree type, std::vector<Type*> &ScalarElts) {
   if (TYPE_TRANSPARENT_AGGR(type)) {
     tree Field = TYPE_FIELDS(type);
     assert(Field && "Transparent union must have some elements!");
-    while (TREE_CODE(Field) != FIELD_DECL) {
+    while (!isa<FIELD_DECL>(Field)) {
       Field = TREE_CHAIN(Field);
       assert(Field && "Transparent union must have some elements!");
     }
@@ -314,9 +316,9 @@ void DefaultABI::HandleUnion(tree type, std::vector<Type*> &ScalarElts) {
     unsigned MaxSize = 0;
     tree MaxElt = 0;
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-      if (TREE_CODE(Field) == FIELD_DECL) {
+      if (isa<FIELD_DECL>(Field)) {
         // Skip fields that are known not to be present.
-        if (TREE_CODE(type) == QUAL_UNION_TYPE &&
+        if (isa<QUAL_UNION_TYPE>(type) &&
             integer_zerop(DECL_QUALIFIER(Field)))
           continue;
 
@@ -328,7 +330,7 @@ void DefaultABI::HandleUnion(tree type, std::vector<Type*> &ScalarElts) {
         }
 
         // Skip remaining fields if this one is known to be present.
-        if (TREE_CODE(type) == QUAL_UNION_TYPE &&
+        if (isa<QUAL_UNION_TYPE>(type) &&
             integer_onep(DECL_QUALIFIER(Field)))
           break;
       }

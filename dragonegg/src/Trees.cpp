@@ -62,7 +62,7 @@ std::string getDescriptiveName(const_tree t) {
 
   // Name identifier nodes after their contents.  This gives the desired effect
   // when called recursively.
-  if (TREE_CODE(t) == IDENTIFIER_NODE)
+  if (isa<IDENTIFIER_NODE>(t))
     return std::string(IDENTIFIER_POINTER(t), IDENTIFIER_LENGTH(t));
 
   // Handle declarations of all kinds.
@@ -72,15 +72,15 @@ std::string getDescriptiveName(const_tree t) {
       return std::string(IDENTIFIER_POINTER(DECL_NAME(t)),
                          IDENTIFIER_LENGTH(DECL_NAME(t)));
     // Use a generic name for function results.
-    if (TREE_CODE(t) == RESULT_DECL)
+    if (isa<RESULT_DECL>(t))
       return "<retval>";
     // Labels have their own numeric unique identifiers.
-    if (TREE_CODE(t) == LABEL_DECL && LABEL_DECL_UID(t) != -1) {
+    if (isa<LABEL_DECL>(t) && LABEL_DECL_UID(t) != -1) {
       Twine LUID(LABEL_DECL_UID(t));
       return ("L" + LUID).str();
     }
     // Otherwise use the generic UID.
-    const char *Annotation = TREE_CODE(t) == CONST_DECL ? "C." : "D.";
+    const char *Annotation = isa<CONST_DECL>(t) ? "C." : "D.";
     Twine UID(DECL_UID(t));
     return (Annotation + UID).str();
   }
@@ -91,29 +91,29 @@ std::string getDescriptiveName(const_tree t) {
     const std::string &TypeName = getDescriptiveName(TYPE_NAME(t));
     if (!TypeName.empty()) {
       // Annotate the name with a description of the type's class.
-      if (TREE_CODE(t) == ENUMERAL_TYPE)
+      if (isa<ENUMERAL_TYPE>(t))
         return "enum." + TypeName;
-      if (TREE_CODE(t) == RECORD_TYPE)
+      if (isa<RECORD_TYPE>(t))
         return "struct." + TypeName;
-      if (TREE_CODE(t) == QUAL_UNION_TYPE)
+      if (isa<QUAL_UNION_TYPE>(t))
         return "qualunion." + TypeName;
-      if (TREE_CODE(t) == UNION_TYPE)
+      if (isa<UNION_TYPE>(t))
         return "union." + TypeName;
       return TypeName;
     }
 
     // Try to deduce a useful name.
-    if (TREE_CODE(t) == ARRAY_TYPE)
+    if (isa<ARRAY_TYPE>(t))
       // If the element type is E, name the array E[] (regardless of the number
       // of dimensions).
       return concatIfNotEmpty(getDescriptiveName(TREE_TYPE(t)), "[]");
-    if (TREE_CODE(t) == COMPLEX_TYPE)
+    if (isa<COMPLEX_TYPE>(t))
       // If the element type is E, name the complex number complex.E.
       return concatIfNotEmpty("complex.", getDescriptiveName(TREE_TYPE(t)));
-    if (TREE_CODE(t) == POINTER_TYPE)
+    if (isa<POINTER_TYPE>(t))
       // If the element type is E, name the pointer E*.
       return concatIfNotEmpty(getDescriptiveName(TREE_TYPE(t)), "*");
-    if (TREE_CODE(t) == REFERENCE_TYPE)
+    if (isa<REFERENCE_TYPE>(t))
       // If the element type is E, name the reference E&.
       return concatIfNotEmpty(getDescriptiveName(TREE_TYPE(t)), "&");
 
@@ -121,7 +121,7 @@ std::string getDescriptiveName(const_tree t) {
   }
 
   // Handle SSA names.
-  if (TREE_CODE(t) == SSA_NAME) {
+  if (isa<SSA_NAME>(t)) {
     Twine NameVersion(SSA_NAME_VERSION(t));
     return concatIfNotEmpty(getDescriptiveName(SSA_NAME_VAR(t)),
                             ("_" + NameVersion).str());
@@ -133,7 +133,7 @@ std::string getDescriptiveName(const_tree t) {
 
 /// getIntegerValue - Return the specified INTEGER_CST as an APInt.
 APInt getIntegerValue(const_tree exp) {
-  assert(TREE_CODE(exp) == INTEGER_CST && "Expected an integer constant!");
+  assert(isa<INTEGER_CST>(exp) && "Expected an integer constant!");
   double_int val = tree_to_double_int(exp);
   unsigned NumBits = TYPE_PRECISION(TREE_TYPE(exp));
 
@@ -159,7 +159,7 @@ bool isInt64(const_tree t, bool Unsigned) {
   assert(HOST_BITS_PER_WIDE_INT == 32 &&
          "Only 32- and 64-bit hosts supported!");
   return
-    (TREE_CODE (t) == INTEGER_CST && !TREE_OVERFLOW (t))
+    (isa<INTEGER_CST>(t) && !TREE_OVERFLOW (t))
     && ((TYPE_UNSIGNED(TREE_TYPE(t)) == Unsigned) ||
         // If the constant is signed and we want an unsigned result, check
         // that the value is non-negative.  If the constant is unsigned and

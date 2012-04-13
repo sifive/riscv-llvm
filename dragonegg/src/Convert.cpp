@@ -207,7 +207,7 @@ static Value *Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
   }
 
   if (RegTy->isStructTy()) {
-    assert(TREE_CODE(type) == COMPLEX_TYPE && "Expected a complex type!");
+    assert(isa<COMPLEX_TYPE>(type) && "Expected a complex type!");
     assert(MemTy->isStructTy() && "Type mismatch!");
     Value *RealPart = Builder.CreateExtractValue(V, 0);
     Value *ImagPart = Builder.CreateExtractValue(V, 1);
@@ -220,7 +220,7 @@ static Value *Mem2Reg(Value *V, tree type, LLVMBuilder &Builder) {
   }
 
   if (RegTy->isVectorTy()) {
-    assert(TREE_CODE(type) == VECTOR_TYPE && "Expected a vector type!");
+    assert(isa<VECTOR_TYPE>(type) && "Expected a vector type!");
     assert(MemTy->isVectorTy() && "Type mismatch!");
     Value *Res = UndefValue::get(RegTy);
     unsigned NumElts = (unsigned)TYPE_VECTOR_SUBPARTS(type);
@@ -261,7 +261,7 @@ static Value *Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
   }
 
   if (MemTy->isStructTy()) {
-    assert(TREE_CODE(type) == COMPLEX_TYPE && "Expected a complex type!");
+    assert(isa<COMPLEX_TYPE>(type) && "Expected a complex type!");
     assert(RegTy->isStructTy() && "Type mismatch!");
     Value *RealPart = Builder.CreateExtractValue(V, 0);
     Value *ImagPart = Builder.CreateExtractValue(V, 1);
@@ -274,7 +274,7 @@ static Value *Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
   }
 
   if (MemTy->isVectorTy()) {
-    assert(TREE_CODE(type) == VECTOR_TYPE && "Expected a vector type!");
+    assert(isa<VECTOR_TYPE>(type) && "Expected a vector type!");
     assert(RegTy->isVectorTy() && "Type mismatch!");
     Value *Res = UndefValue::get(MemTy);
     unsigned NumElts = (unsigned)TYPE_VECTOR_SUBPARTS(type);
@@ -298,9 +298,9 @@ static MDNode *describeTypeRange(tree type) {
 
   // The range of possible values is TYPE_MIN_VALUE .. TYPE_MAX_VALUE.
   tree min = TYPE_MIN_VALUE(type);
-  assert(min && TREE_CODE(min) == INTEGER_CST && "Min not a constant!");
+  assert(min && isa<INTEGER_CST>(min) && "Min not a constant!");
   tree max = TYPE_MAX_VALUE(type);
-  assert(max && TREE_CODE(max) == INTEGER_CST && "Max not a constant!");
+  assert(max && isa<INTEGER_CST>(max) && "Max not a constant!");
 
   unsigned BitWidth = GET_MODE_BITSIZE(TYPE_MODE(type));
 
@@ -351,9 +351,9 @@ static bool isDirectMemoryAccessSafe(Type *RegTy, tree type) {
 
   case COMPLEX_TYPE:
   case VECTOR_TYPE: {
-    assert((TREE_CODE(type) != COMPLEX_TYPE || RegTy->isStructTy()) &&
+    assert((!isa<COMPLEX_TYPE>(type) || RegTy->isStructTy()) &&
            "Expected a struct type!");
-    assert((TREE_CODE(type) != VECTOR_TYPE || RegTy->isVectorTy()) &&
+    assert((!isa<VECTOR_TYPE>(type) || RegTy->isVectorTy()) &&
            "Expected a vector type!");
     tree elt_type = main_type(type);
     Type *EltRegTy = getRegType(elt_type);
@@ -616,12 +616,12 @@ static bool isLocalDecl(tree decl) {
   assert(HAS_RTL_P(decl) && "Expected a declaration with RTL!");
   return
     // GCC bug workaround: RESULT_DECL may not have DECL_CONTEXT set in thunks.
-    (!DECL_CONTEXT(decl) && TREE_CODE(decl) == RESULT_DECL) ||
+    (!DECL_CONTEXT(decl) && isa<RESULT_DECL>(decl)) ||
     // Usual case.
     (DECL_CONTEXT(decl) == current_function_decl &&
      !DECL_EXTERNAL(decl) && // External variables are not local.
      !TREE_STATIC(decl) && // Static variables not considered local.
-     TREE_CODE(decl) != FUNCTION_DECL); // Nested functions not considered local.
+     !isa<FUNCTION_DECL>(decl)); // Nested functions not considered local.
 }
 
 /// set_decl_local - Remember the LLVM value for a GCC declaration.
@@ -773,7 +773,7 @@ namespace {
       }
 
       // Otherwise, this must be something returned with NRVO.
-      assert(TREE_CODE(TREE_TYPE(ResultDecl)) == REFERENCE_TYPE &&
+      assert(isa<REFERENCE_TYPE>(TREE_TYPE(ResultDecl)) &&
              "Not type match and not passing by reference?");
       // Create an alloca for the ResultDecl.
       Value *Tmp = TheTreeToLLVM->CreateTemporary(AI->getType());
@@ -1172,7 +1172,7 @@ void TreeToLLVM::StartFunctionBody() {
 /// given scope.
 void TreeToLLVM::EmitVariablesInScope(tree scope) {
   for (tree t = BLOCK_VARS(scope); t; t = TREE_CHAIN (t))
-    if (TREE_CODE(t) == VAR_DECL)
+    if (isa<VAR_DECL>(t))
       // If this is just the rotten husk of a variable that the gimplifier
       // eliminated all uses of, but is preserving for debug info, ignore it.
       if (!DECL_HAS_VALUE_EXPR_P(t))
@@ -1185,7 +1185,7 @@ void TreeToLLVM::EmitVariablesInScope(tree scope) {
 /// DefineSSAName - Use the given value as the definition of the given SSA name.
 /// Returns the provided value as a convenience.
 Value *TreeToLLVM::DefineSSAName(tree reg, Value *Val) {
-  assert(TREE_CODE(reg) == SSA_NAME && "Not an SSA name!");
+  assert(isa<SSA_NAME>(reg) && "Not an SSA name!");
   if (Value *ExistingValue = SSANames[reg]) {
     if (Val != ExistingValue) {
       assert(isSSAPlaceholder(ExistingValue) && "Multiply defined SSA name!");
@@ -1324,7 +1324,7 @@ Function *TreeToLLVM::FinishFunctionBody() {
   if (!Fn->getReturnType()->isVoidTy()) {
     tree TreeRetVal = DECL_RESULT(FnDecl);
     if (!AGGREGATE_TYPE_P(TREE_TYPE(TreeRetVal)) &&
-        TREE_CODE(TREE_TYPE(TreeRetVal)) != COMPLEX_TYPE) {
+        !isa<COMPLEX_TYPE>(TREE_TYPE(TreeRetVal))) {
       // If the DECL_RESULT is a scalar type, just load out the return value
       // and return it.
       Value *RetVal = Builder.CreateLoad(DECL_LOCAL(TreeRetVal), "retval");
@@ -1463,7 +1463,7 @@ BasicBlock *TreeToLLVM::getBasicBlock(basic_block bb) {
 /// getLabelDeclBlock - Lazily get and create a basic block for the specified
 /// label.
 BasicBlock *TreeToLLVM::getLabelDeclBlock(tree LabelDecl) {
-  assert(TREE_CODE(LabelDecl) == LABEL_DECL && "Isn't a label!?");
+  assert(isa<LABEL_DECL>(LabelDecl) && "Isn't a label!?");
   if (DECL_LOCAL_SET_P(LabelDecl))
     return cast<BasicBlock>(DECL_LOCAL(LabelDecl));
 
@@ -1502,7 +1502,7 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
 
     // The phi defines the associated ssa name.
     tree name = gimple_phi_result(gcc_phi);
-    assert(TREE_CODE(name) == SSA_NAME && "PHI result not an SSA name!");
+    assert(isa<SSA_NAME>(name) && "PHI result not an SSA name!");
     if (flag_verbose_asm)
       NameValue(PHI, name);
     DefineSSAName(name, PHI);
@@ -1619,7 +1619,7 @@ Function *TreeToLLVM::EmitFunction() {
 /// DestLoc.
 void TreeToLLVM::EmitAggregate(tree exp, const MemRef &DestLoc) {
   assert(AGGREGATE_TYPE_P(TREE_TYPE(exp)) && "Expected an aggregate type!");
-  if (TREE_CODE(exp) == CONSTRUCTOR) {
+  if (isa<CONSTRUCTOR>(exp)) {
     EmitCONSTRUCTOR(exp, &DestLoc);
     return;
   }
@@ -1882,11 +1882,11 @@ static unsigned CostOfAccessingAllElements(tree type) {
     return 1;
 
   // The cost of a record type is the sum of the costs of its fields.
-  if (TREE_CODE(type) == RECORD_TYPE) {
+  if (isa<RECORD_TYPE>(type)) {
     Type *Ty = ConvertType(type);
     unsigned TotalCost = 0;
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-      assert(TREE_CODE(Field) == FIELD_DECL && "Lang data not freed?");
+      assert(isa<FIELD_DECL>(Field) && "Lang data not freed?");
       // If the field has no size, for example because it is a C-style variable
       // length array, then just give up.
       if (!DECL_SIZE(Field))
@@ -1910,7 +1910,7 @@ static unsigned CostOfAccessingAllElements(tree type) {
   }
 
   // For array types, multiply the array length by the component cost.
-  if (TREE_CODE(type) == ARRAY_TYPE) {
+  if (isa<ARRAY_TYPE>(type)) {
     // If this is an array with a funky component type then just give up.
     if (!isSizeCompatible(TREE_TYPE(type)))
       return TooCostly;
@@ -1940,7 +1940,7 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
     return;
   }
 
-  if (TREE_CODE(type) == RECORD_TYPE) {
+  if (isa<RECORD_TYPE>(type)) {
     // Ensure the source and destination are pointers to the record type.
     Type *Ty = ConvertType(type);
     DestLoc.Ptr = Builder.CreateBitCast(DestLoc.Ptr, Ty->getPointerTo());
@@ -1973,7 +1973,7 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
     return;
   }
 
-  assert(TREE_CODE(type) == ARRAY_TYPE && "Expected an array!");
+  assert(isa<ARRAY_TYPE>(type) && "Expected an array!");
 
   // Turn the source and destination into pointers to the component type.
   Type *CompType = ConvertType(TREE_TYPE(type));
@@ -2038,7 +2038,7 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
     return;
   }
 
-  if (TREE_CODE(type) == RECORD_TYPE) {
+  if (isa<RECORD_TYPE>(type)) {
     // Ensure the pointer is to the record type.
     Type *Ty = ConvertType(type);
     DestLoc.Ptr = Builder.CreateBitCast(DestLoc.Ptr, Ty->getPointerTo());
@@ -2065,7 +2065,7 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
     return;
   }
 
-  assert(TREE_CODE(type) == ARRAY_TYPE && "Expected an array!");
+  assert(isa<ARRAY_TYPE>(type) && "Expected an array!");
 
   // Turn the pointer into a pointer to the component type.
   Type *CompType = ConvertType(TREE_TYPE(type));
@@ -2218,7 +2218,7 @@ void TreeToLLVM::EmitAnnotateIntrinsic(Value *V, tree decl) {
       tree val = TREE_VALUE(a);
 
       // Assert its a string, and then get that string.
-      assert(TREE_CODE(val) == STRING_CST &&
+      assert(isa<STRING_CST>(val) &&
              "Annotate attribute arg should always be a string");
       Constant *strGV = AddressOf(val);
       Value *Ops[4] = {
@@ -2247,7 +2247,7 @@ void TreeToLLVM::EmitAnnotateIntrinsic(Value *V, tree decl) {
 void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
   // If this is just the rotten husk of a variable that the gimplifier
   // eliminated all uses of, but is preserving for debug info, ignore it.
-  if (TREE_CODE(decl) == VAR_DECL && DECL_HAS_VALUE_EXPR_P(decl))
+  if (isa<VAR_DECL>(decl) && DECL_HAS_VALUE_EXPR_P(decl))
     return;
 
   tree type = TREE_TYPE(decl);
@@ -2259,7 +2259,7 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
       return; // Error message was already done; now avoid a crash.
     debug_tree(decl);
     llvm_unreachable("Initializer will decide the size of this array?");
-  } else if (TREE_CODE(DECL_SIZE_UNIT(decl)) == INTEGER_CST) {
+  } else if (isa<INTEGER_CST>(DECL_SIZE_UNIT(decl))) {
     // Variable of fixed size that goes on the stack.
     Ty = ConvertType(type);
   } else {
@@ -2311,7 +2311,7 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
     if (DECL_NAME(decl)) {
       TheDebugInfo->EmitDeclare(decl, dwarf::DW_TAG_auto_variable,
                                 AI->getName(), TREE_TYPE(decl), AI, Builder);
-    } else if (TREE_CODE(decl) == RESULT_DECL) {
+    } else if (isa<RESULT_DECL>(decl)) {
       TheDebugInfo->EmitDeclare(decl, dwarf::DW_TAG_return_variable,
                                 AI->getName(), TREE_TYPE(decl), AI, Builder);
     }
@@ -2331,7 +2331,7 @@ static Constant *ConvertTypeInfo(tree type) {
   if (TYPE_P (type))
     type = lookup_type_for_runtime (type);
   STRIP_NOPS(type);
-  if (TREE_CODE(type) == ADDR_EXPR)
+  if (isa<ADDR_EXPR>(type))
     type = TREE_OPERAND(type, 0);
   return AddressOf(type);
 }
@@ -2673,7 +2673,7 @@ void TreeToLLVM::EmitFailureBlocks() {
 
 static bool canEmitRegisterVariable(tree exp) {
   // Only variables can be marked as 'register'.
-  if (TREE_CODE(exp) != VAR_DECL || !DECL_REGISTER(exp))
+  if (!isa<VAR_DECL>(exp) || !DECL_REGISTER(exp))
     return false;
 
   // We can emit inline assembler for access to global register variables.
@@ -3436,7 +3436,7 @@ CallInst *TreeToLLVM::EmitSimpleCall(StringRef CalleeName, tree ret_type,
 #endif
   va_end(ops);
 
-  Type *RetTy = TREE_CODE(ret_type) == VOID_TYPE ?
+  Type *RetTy = isa<VOID_TYPE>(ret_type) ?
     Type::getVoidTy(Context) : getRegType(ret_type);
 
   // The LLVM argument types.
@@ -3776,7 +3776,7 @@ static int MatchWeight(const char *Constraint, tree Operand) {
   // Look for hard register operand.  This matches only a constraint of a
   // register class that includes that hard register, and it matches that
   // perfectly, so we never return 0 in this case.
-  if (TREE_CODE(Operand) == VAR_DECL && DECL_HARD_REGISTER(Operand)) {
+  if (isa<VAR_DECL>(Operand) && DECL_HARD_REGISTER(Operand)) {
     int RegNum = decode_reg_name(extractRegisterName(Operand));
     RetVal = -1;
     if (RegNum >= 0) {
@@ -3798,7 +3798,7 @@ static int MatchWeight(const char *Constraint, tree Operand) {
   // Look for integer constant operand.  This cannot match "m", and "i" is
   // better than "r".  FIXME target-dependent immediate letters are not handled
   // yet; in general they require looking at the value.
-  if (TREE_CODE(Operand) == INTEGER_CST) {
+  if (isa<INTEGER_CST>(Operand)) {
     do {
       RetVal = -1;
       if (*p == 'i' || *p == 'n') {     // integer constant
@@ -4218,7 +4218,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     }
     tree ObjSizeTree = gimple_call_arg(stmt, 1);
     STRIP_NOPS (ObjSizeTree);
-    if (TREE_CODE (ObjSizeTree) != INTEGER_CST
+    if (!isa<INTEGER_CST>(ObjSizeTree)
         || tree_int_cst_sgn (ObjSizeTree) < 0
         || compare_tree_int (ObjSizeTree, 3) > 0) {
       error("Invalid second builtin_object_size argument");
@@ -4909,7 +4909,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     if (validate_gimple_arglist(stmt, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE)) {
       tree value = gimple_call_arg(stmt, 1);
 
-      if (TREE_CODE(value) != INTEGER_CST ||
+      if (!isa<INTEGER_CST>(value) ||
           cast<ConstantInt>(EmitMemory(value))->getValue() != 1) {
         error ("%<__builtin_longjmp%> second argument must be 1");
         return false;
@@ -5551,7 +5551,7 @@ bool TreeToLLVM::EmitBuiltinEHReturnDataRegno(gimple stmt, Value *&Result) {
   tree which = gimple_call_arg(stmt, 0);
   unsigned HOST_WIDE_INT iwhich;
 
-  if (TREE_CODE (which) != INTEGER_CST) {
+  if (!isa<INTEGER_CST>(which)) {
     error ("argument of %<__builtin_eh_return_regno%> must be constant");
     return false;
   }
@@ -5847,7 +5847,7 @@ Value *TreeToLLVM::EmitFieldAnnotation(Value *FieldPtr, tree FieldDecl) {
       tree val = TREE_VALUE(a);
 
       // Assert its a string, and then get that string.
-      assert(TREE_CODE(val) == STRING_CST &&
+      assert(isa<STRING_CST>(val) &&
              "Annotate attribute arg should always be a string");
 
       Constant *strGV = AddressOf(val);
@@ -5888,7 +5888,7 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
   tree IndexType = TREE_TYPE(Index);
   tree ElementType = TREE_TYPE(ArrayTreeType);
 
-  assert(TREE_CODE (ArrayTreeType) == ARRAY_TYPE && "Unknown ARRAY_REF!");
+  assert(isa<ARRAY_TYPE>(ArrayTreeType) && "Unknown ARRAY_REF!");
 
   Value *ArrayAddr;
   unsigned ArrayAlign;
@@ -6003,9 +6003,9 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   tree FieldDecl = TREE_OPERAND(exp, 1);
   unsigned LVAlign = StructAddrLV.getAlignment();
 
-  assert((TREE_CODE(DECL_CONTEXT(FieldDecl)) == RECORD_TYPE ||
-          TREE_CODE(DECL_CONTEXT(FieldDecl)) == UNION_TYPE  ||
-          TREE_CODE(DECL_CONTEXT(FieldDecl)) == QUAL_UNION_TYPE));
+  assert((isa<RECORD_TYPE>(DECL_CONTEXT(FieldDecl)) ||
+          isa<UNION_TYPE>(DECL_CONTEXT(FieldDecl)) ||
+          isa<QUAL_UNION_TYPE>(DECL_CONTEXT(FieldDecl))));
 
   Type *StructTy = ConvertType(DECL_CONTEXT(FieldDecl));
 
@@ -6088,8 +6088,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   }
 
   assert(BitStart < 8 && "Bit offset not properly incorporated in the pointer");
-  assert(DECL_SIZE(FieldDecl) &&
-         TREE_CODE(DECL_SIZE(FieldDecl)) == INTEGER_CST &&
+  assert(DECL_SIZE(FieldDecl) && isa<INTEGER_CST>(DECL_SIZE(FieldDecl)) &&
          "Variable sized bitfield?");
   unsigned BitfieldSize = TREE_INT_CST_LOW(DECL_SIZE(FieldDecl));
   return LValue(FieldPtr, LVAlign, BitStart, BitfieldSize);
@@ -6286,7 +6285,7 @@ Constant *TreeToLLVM::AddressOfLABEL_DECL(tree exp) {
 /// EmitMinInvariant - The given value is constant in this function.  Return the
 /// corresponding LLVM value.  Only creates code in the entry block.
 Value *TreeToLLVM::EmitMinInvariant(tree reg) {
-  Value *V = (TREE_CODE(reg) == ADDR_EXPR) ?
+  Value *V = isa<ADDR_EXPR>(reg) ?
     EmitInvariantAddress(reg) : EmitRegisterConstant(reg);
   assert(V->getType() == getRegType(TREE_TYPE(reg)) &&
          "Gimple min invariant has wrong type!");
@@ -6320,7 +6319,7 @@ Value *TreeToLLVM::EmitInvariantAddress(tree addr) {
   Builder.SetInsertPoint(EntryBlock);
 
   // Calculate the address.
-  assert(TREE_CODE(addr) == ADDR_EXPR && "Invariant address not ADDR_EXPR!");
+  assert(isa<ADDR_EXPR>(addr) && "Invariant address not ADDR_EXPR!");
   Value *Address = EmitADDR_EXPR(addr);
 
   // Restore the entry block terminator.
@@ -6536,9 +6535,8 @@ Value *TreeToLLVM::EmitMemory(tree reg) {
 /// EmitRegister - Convert the specified gimple register or local constant of
 /// register type to an LLVM value.  Only creates code in the entry block.
 Value *TreeToLLVM::EmitRegister(tree reg) {
-  while (TREE_CODE(reg) == OBJ_TYPE_REF) reg = OBJ_TYPE_REF_EXPR(reg);
-  return (TREE_CODE(reg) == SSA_NAME) ?
-    EmitReg_SSA_NAME(reg) : EmitMinInvariant(reg);
+  while (isa<OBJ_TYPE_REF>(reg)) reg = OBJ_TYPE_REF_EXPR(reg);
+  return isa<SSA_NAME>(reg) ? EmitReg_SSA_NAME(reg) : EmitMinInvariant(reg);
 }
 
 /// EmitReg_SSA_NAME - Return the defining value of the given SSA_NAME.
@@ -6568,7 +6566,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
   assert(SSA_VAR_P(var) && "Not an SSA variable!");
 
   // If the variable is itself an ssa name, use its LLVM value.
-  if (TREE_CODE (var) == SSA_NAME) {
+  if (isa<SSA_NAME>(var)) {
     Value *Val = EmitReg_SSA_NAME(var);
     assert(Val->getType() == getRegType(TREE_TYPE(reg)) &&
            "SSA name has wrong type!");
@@ -6580,9 +6578,9 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
   // variable in the function is a read operation, and refers to the value
   // read, it has an undefined value for VAR_DECLs (a RESULT_DECL can have
   // an initial value if the function returns a class by value).
-  assert((TREE_CODE(var) == PARM_DECL || TREE_CODE(var) == RESULT_DECL ||
-          TREE_CODE(var) == VAR_DECL) && "Unsupported SSA name definition!");
-  if (TREE_CODE(var) == VAR_DECL)
+  assert((isa<PARM_DECL>(var) || isa<RESULT_DECL>(var) ||
+          isa<VAR_DECL>(var)) && "Unsupported SSA name definition!");
+  if (isa<VAR_DECL>(var))
     return DefineSSAName(reg, UndefValue::get(getRegType(TREE_TYPE(reg))));
 
   // Read the initial value of the parameter and associate it with the ssa name.
@@ -6619,7 +6617,7 @@ Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
     return Builder.CreateSelect(Cmp, Op, OpN, Op->getName()+"abs");
   }
 
-  if (TREE_CODE(TREE_TYPE(op)) == VECTOR_TYPE) {
+  if (isa<VECTOR_TYPE>(TREE_TYPE(op))) {
     // Clear the sign bits.
     Value *Op = EmitRegister(op);
     VectorType *VecTy = cast<VectorType>(Op->getType());
@@ -6691,7 +6689,7 @@ Value *TreeToLLVM::EmitReg_NEGATE_EXPR(tree op) {
   Value *V = EmitRegister(op);
   tree type = TREE_TYPE(op);
 
-  if (TREE_CODE(type) == COMPLEX_TYPE) {
+  if (isa<COMPLEX_TYPE>(type)) {
     tree elt_type = TREE_TYPE(type);
     Value *R, *I; SplitComplex(V, R, I);
 
@@ -6773,7 +6771,7 @@ Value *TreeToLLVM::EmitCompare(tree lhs, tree rhs, unsigned code) {
   case LTGT_EXPR:      FPPred = CmpInst::FCMP_ONE; break;
   }
 
-  if (TREE_CODE(TREE_TYPE(lhs)) == COMPLEX_TYPE) {
+  if (isa<COMPLEX_TYPE>(TREE_TYPE(lhs))) {
     Value *LHSr, *LHSi;
     SplitComplex(LHS, LHSr, LHSi);
     Value *RHSr, *RHSi;
@@ -7212,7 +7210,7 @@ Value *TreeToLLVM::EmitReg_MINUS_EXPR(tree op0, tree op1) {
   Value *RHS = EmitRegister(op1);
   tree type = TREE_TYPE(op0);
 
-  if (TREE_CODE(type) == COMPLEX_TYPE) {
+  if (isa<COMPLEX_TYPE>(type)) {
     tree elt_type = TREE_TYPE(type);
     Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
     Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
@@ -7232,7 +7230,7 @@ Value *TreeToLLVM::EmitReg_MULT_EXPR(tree op0, tree op1) {
   Value *RHS = EmitRegister(op1);
   tree type = TREE_TYPE(op0);
 
-  if (TREE_CODE(type) == COMPLEX_TYPE) {
+  if (isa<COMPLEX_TYPE>(type)) {
     tree elt_type = TREE_TYPE(type);
     Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
     Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
@@ -7272,7 +7270,7 @@ Value *TreeToLLVM::EmitReg_PLUS_EXPR(tree op0, tree op1) {
   Value *RHS = EmitRegister(op1);
   tree type = TREE_TYPE(op0);
 
-  if (TREE_CODE(type) == COMPLEX_TYPE) {
+  if (isa<COMPLEX_TYPE>(type)) {
     tree elt_type = TREE_TYPE(type);
     Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
     Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
@@ -7302,7 +7300,7 @@ Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
   Value *RHS = EmitRegister(op1);
   tree type = TREE_TYPE(op0);
 
-  if (TREE_CODE(type) == COMPLEX_TYPE) {
+  if (isa<COMPLEX_TYPE>(type)) {
     Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
     Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
     Value *DSTr, *DSTi;
@@ -7421,7 +7419,7 @@ Value *TreeToLLVM::EmitReg_TRUNC_DIV_EXPR(tree op0, tree op1, bool isExact) {
   Value *RHS = EmitRegister(op1);
   tree type = TREE_TYPE(op0);
 
-  if (TREE_CODE(type) == COMPLEX_TYPE) {
+  if (isa<COMPLEX_TYPE>(type)) {
     tree elt_type = TREE_TYPE(type);
     Value *LHSr, *LHSi; SplitComplex(LHS, LHSr, LHSi);
     Value *RHSr, *RHSi; SplitComplex(RHS, RHSr, RHSi);
@@ -7785,7 +7783,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
     std::string SimplifiedConstraint;
     // If this output register is pinned to a machine register, use that machine
     // register instead of the specified constraint.
-    if (TREE_CODE(Operand) == VAR_DECL && DECL_HARD_REGISTER(Operand)) {
+    if (isa<VAR_DECL>(Operand) && DECL_HARD_REGISTER(Operand)) {
       const char* RegName = extractRegisterName(Operand);
       int RegNum = decode_reg_name(RegName);
       if (RegNum >= 0) {
@@ -7813,7 +7811,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
 
     LValue Dest;
     Type *DestValTy = ConvertType(TREE_TYPE(Operand));
-    if (TREE_CODE(Operand) == SSA_NAME) {
+    if (isa<SSA_NAME>(Operand)) {
       // The ASM is defining an ssa name.  Store the output to a temporary, then
       // load it out again later as the ssa name.
       MemRef TmpLoc = CreateTempLoc(DestValTy);
@@ -7862,13 +7860,12 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
       Value *Op = 0;
       Type *OpTy = LLVMTy;
       if (LLVMTy->isSingleValueType()) {
-        if (TREE_CODE(Val)==ADDR_EXPR &&
-            TREE_CODE(TREE_OPERAND(Val,0))==LABEL_DECL) {
+        if (isa<ADDR_EXPR>(Val) && isa<LABEL_DECL>(TREE_OPERAND(Val,0))) {
           // Emit the label, but do not assume it is going to be the target
           // of an indirect branch.  Having this logic here is a hack; there
           // should be a bit in the label identifying it as in an asm.
           Op = getLabelDeclBlock(TREE_OPERAND(Val, 0));
-        } else if (TREE_CODE(Val) == VAR_DECL && DECL_HARD_REGISTER(Val)) {
+        } else if (isa<VAR_DECL>(Val) && DECL_HARD_REGISTER(Val)) {
           // GCC special cases hard registers used as inputs to asm statements.
           // Emit an inline asm node that copies the value out of the specified
           // register.
@@ -7986,7 +7983,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
 
     // If this input register is pinned to a machine register, use that machine
     // register instead of the specified constraint.
-    if (TREE_CODE(Val) == VAR_DECL && DECL_HARD_REGISTER(Val)) {
+    if (isa<VAR_DECL>(Val) && DECL_HARD_REGISTER(Val)) {
       const char *RegName = extractRegisterName(Val);
       int RegNum = decode_reg_name(RegName);
       if (RegNum >= 0) {
@@ -8277,7 +8274,7 @@ void TreeToLLVM::RenderGIMPLE_EH_DISPATCH(gimple stmt) {
 void TreeToLLVM::RenderGIMPLE_GOTO(gimple stmt) {
   tree dest = gimple_goto_dest(stmt);
 
-  if (TREE_CODE(dest) == LABEL_DECL) {
+  if (isa<LABEL_DECL>(dest)) {
     // Direct branch.
     Builder.CreateBr(getLabelDeclBlock(dest));
     return;
@@ -8667,8 +8664,8 @@ Value *TreeToLLVM::OutputCallRHS(gimple stmt, const MemRef *DestLoc) {
 
   tree call_expr = gimple_call_fn(stmt);
   assert(TREE_TYPE (call_expr) &&
-         (TREE_CODE(TREE_TYPE (call_expr)) == POINTER_TYPE ||
-          TREE_CODE(TREE_TYPE (call_expr)) == REFERENCE_TYPE)
+         (isa<POINTER_TYPE>(TREE_TYPE (call_expr)) ||
+          isa<REFERENCE_TYPE>(TREE_TYPE (call_expr)))
          && "Not calling a function pointer?");
 
   tree function_type = TREE_TYPE(TREE_TYPE (call_expr));
@@ -8717,7 +8714,7 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
   RHS = TriviallyTypeConvert(RHS, getRegType(TREE_TYPE(lhs)));
 
   // If this is the definition of an ssa name, record it in the SSANames map.
-  if (TREE_CODE(lhs) == SSA_NAME) {
+  if (isa<SSA_NAME>(lhs)) {
     if (flag_verbose_asm)
       NameValue(RHS, lhs);
     DefineSSAName(lhs, RHS);

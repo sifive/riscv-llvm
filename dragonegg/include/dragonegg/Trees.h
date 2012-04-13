@@ -36,6 +36,11 @@
 // headers (and this one, as it may include GCC headers) are always included
 // last.
 
+/// isa - Return true if the given tree has the specified code.
+template<enum tree_code code> bool isa(const_tree t) {
+  return TREE_CODE(t) == code;
+}
+
 /// getDescriptiveName - Return a helpful name for the given tree, or an empty
 /// string if no sensible name was found.  These names are used to make the IR
 /// more readable, and have no official status.

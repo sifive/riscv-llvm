@@ -79,7 +79,7 @@ namespace {
   public:
     /// Dereference operator.
     tree operator*() {
-      return TREE_CODE(type_ref) == TREE_LIST ?
+      return isa<TREE_LIST>(type_ref) ?
         TREE_VALUE(type_ref) : TREE_TYPE(type_ref);
     };
 
@@ -197,7 +197,7 @@ namespace {
 /// ArrayLengthOf - Returns the length of the given gcc array type, or NO_LENGTH
 /// if the array has variable or unknown length.
 uint64_t ArrayLengthOf(tree type) {
-  assert(TREE_CODE(type) == ARRAY_TYPE && "Only for array types!");
+  assert(isa<ARRAY_TYPE>(type) && "Only for array types!");
   // Workaround for missing sanity checks in older versions of GCC.
   if ((GCC_MINOR == 5 && GCC_MICRO < 3) || (GCC_MINOR == 6 && GCC_MICRO < 2))
     if (!TYPE_DOMAIN(type) || !TYPE_MAX_VALUE(TYPE_DOMAIN(type)))
@@ -233,7 +233,7 @@ static int get_decl_index(tree t) {
 /// that its first bit is within the byte the LLVM field starts at).  Returns
 /// INT_MAX if there is no such LLVM field.
 int GetFieldIndex(tree decl, Type *Ty) {
-  assert(TREE_CODE(decl) == FIELD_DECL && "Expected a FIELD_DECL!");
+  assert(isa<FIELD_DECL>(decl) && "Expected a FIELD_DECL!");
   // FIXME: The following test sometimes fails when compiling Fortran90 because
   // DECL_CONTEXT does not point to the containing type, but some other type!
 //  assert(Ty == ConvertType(DECL_CONTEXT(decl)) && "Field not for this type!");
@@ -316,7 +316,7 @@ Type *GetUnitPointerType(LLVMContext &C, unsigned AddrSpace) {
 /// that this returns false for function types, for which the GCC type size
 /// doesn't represent anything useful for us.
 static bool isSized(tree type) {
-  if (TREE_CODE(type) == FUNCTION_TYPE || TREE_CODE(type) == METHOD_TYPE)
+  if (isa<FUNCTION_TYPE>(type) || isa<METHOD_TYPE>(type))
     return false;
   return TYPE_SIZE(type);
 }
@@ -403,7 +403,7 @@ bool isPassedByInvisibleReference(tree Type) {
   // FIXME: Search for TREE_ADDRESSABLE in calls.c, and see if there are other
   // cases that make arguments automatically passed in by reference.
   return TREE_ADDRESSABLE(Type) || TYPE_SIZE(Type) == 0 ||
-         TREE_CODE(TYPE_SIZE(Type)) != INTEGER_CST;
+         !isa<INTEGER_CST>(TYPE_SIZE(Type));
 }
 
 
@@ -426,7 +426,7 @@ Type *getRegType(tree type) {
   // NOTE: Any changes made here need to be reflected in LoadRegisterFromMemory,
   // StoreRegisterToMemory and ExtractRegisterFromConstant.
   assert(!AGGREGATE_TYPE_P(type) && "Registers must have a scalar type!");
-  assert(TREE_CODE(type) != VOID_TYPE && "Registers cannot have void type!");
+  assert(!isa<VOID_TYPE>(type) && "Registers cannot have void type!");
 
   switch (TREE_CODE(type)) {
 
@@ -632,10 +632,10 @@ namespace {
 }
 
 static Attributes HandleArgumentExtension(tree ArgTy) {
-  if (TREE_CODE(ArgTy) == BOOLEAN_TYPE) {
+  if (isa<BOOLEAN_TYPE>(ArgTy)) {
     if (TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE)
       return Attribute::ZExt;
-  } else if (TREE_CODE(ArgTy) == INTEGER_TYPE &&
+  } else if (isa<INTEGER_TYPE>(ArgTy) &&
              TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE) {
     if (TYPE_UNSIGNED(ArgTy))
       return Attribute::ZExt;
@@ -934,14 +934,13 @@ static Type *ConvertPointerTypeRecursive(tree type) {
 
     // Drill down through nested arrays to the ultimate element type.  Thanks
     // to this we may return S* for a (S[])*, which is better than {}*.
-    while (TREE_CODE(pointee) == ARRAY_TYPE)
+    while (isa<ARRAY_TYPE>(pointee))
       pointee = main_type(pointee);
 
     // If the pointee is a record or union type then return a pointer to its
     // placeholder type.  Otherwise return {}*.
-    if (TREE_CODE(pointee) == QUAL_UNION_TYPE ||
-        TREE_CODE(pointee) == RECORD_TYPE ||
-        TREE_CODE(pointee) == UNION_TYPE)
+    if (isa<QUAL_UNION_TYPE>(pointee) || isa<RECORD_TYPE>(pointee) ||
+        isa<UNION_TYPE>(pointee))
       PointeeTy = getCachedType(pointee);
     else
       PointeeTy = StructType::get(Context);
@@ -1089,14 +1088,13 @@ static Type *ConvertRecordTypeRecursive(tree type) {
   // Record all interesting fields so they can easily be visited backwards.
   SmallVector<tree, 16> Fields;
   for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
-    assert(TREE_CODE(field) == FIELD_DECL && "Lang data not freed?");
+    assert(isa<FIELD_DECL>(field) && "Lang data not freed?");
     // Ignore fields with variable or unknown position since they cannot be
     // represented by the LLVM type system.
     if (!OffsetIsLLVMCompatible(field))
       continue;
     // Skip fields that are known not to be present.
-    if (TREE_CODE(type) == QUAL_UNION_TYPE &&
-        integer_zerop(DECL_QUALIFIER(field)))
+    if (isa<QUAL_UNION_TYPE>(type) && integer_zerop(DECL_QUALIFIER(field)))
       continue;
     Fields.push_back(field);
   }
@@ -1568,9 +1566,9 @@ Type *ConvertType(tree type) {
     // the nasty {}* type we are obliged to return in general.
     for (size_t i = 0, e = SCC.size(); i != e; ++i) {
       tree some_type = SCC[i];
-      if (TREE_CODE(some_type) != QUAL_UNION_TYPE &&
-          TREE_CODE(some_type) != RECORD_TYPE &&
-          TREE_CODE(some_type) != UNION_TYPE) {
+      if (!isa<QUAL_UNION_TYPE>(some_type) &&
+          !isa<RECORD_TYPE>(some_type) &&
+          !isa<UNION_TYPE>(some_type)) {
         assert(!getCachedType(some_type) && "Type already converted!");
         continue;
       }

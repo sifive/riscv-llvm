@@ -46,6 +46,9 @@ extern "C" {
 #include "toplev.h"
 }
 
+// Trees header.
+#include "dragonegg/Trees.h"
+
 static LLVMContext &Context = getGlobalContext();
 
 // "Fundamental Data Types" according to the AAPCS spec.  These are used
@@ -105,7 +108,7 @@ vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
       }
       // And now merge the fields of structure.
       for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field)) {
-        if (TREE_CODE (field) == FIELD_DECL) {
+        if (isa<FIELD_DECL>(field)) {
           if (TREE_TYPE (field) == error_mark_node)
             continue;
 
@@ -148,7 +151,7 @@ vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
           for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field)) {
             int union_field_fdt_counts[ARM_FDT_MAX] = { 0 };
 
-            if (TREE_CODE (field) == FIELD_DECL) {
+            if (isa<FIELD_DECL>(field)) {
               if (TREE_TYPE (field) == error_mark_node)
                 continue;
 

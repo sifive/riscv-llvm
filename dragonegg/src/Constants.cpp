@@ -830,7 +830,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // Resize to the number of array elements if known.  This ensures that every
   // element will be at least default initialized even if no initial value is
   // given for it.
-  uint64_t TypeElts = TREE_CODE(init_type) == ARRAY_TYPE ?
+  uint64_t TypeElts = isa<ARRAY_TYPE>(init_type) ?
     ArrayLengthOf(init_type) : TYPE_VECTOR_SUBPARTS(init_type);
   if (TypeElts != NO_LENGTH)
     Elts.resize(TypeElts);
@@ -838,7 +838,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // If GCC indices into the array need adjusting to make them zero indexed then
   // record here the value to subtract off.
   tree lower_bnd = NULL_TREE;
-  if (TREE_CODE(init_type) == ARRAY_TYPE && TYPE_DOMAIN(init_type) &&
+  if (isa<ARRAY_TYPE>(init_type) && TYPE_DOMAIN(init_type) &&
       !integer_zerop(TYPE_MIN_VALUE(TYPE_DOMAIN(init_type))))
     lower_bnd = TYPE_MIN_VALUE(TYPE_DOMAIN(init_type));
 
@@ -871,7 +871,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
     unsigned FirstIndex, LastIndex;
     if (!index) {
       LastIndex = FirstIndex = NextIndex;
-    } else if (TREE_CODE(index) == RANGE_EXPR) {
+    } else if (isa<RANGE_EXPR>(index)) {
       tree first = TREE_OPERAND(index, 0);
       tree last  = TREE_OPERAND(index, 1);
 
@@ -974,7 +974,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // Make the IR more pleasant by returning as a vector if the GCC type was a
   // vector.  However this is only correct if the initial values had the same
   // type as the vector element type, rather than some random other type.
-  if (TREE_CODE(init_type) == VECTOR_TYPE && ActualEltTy == EltTy) {
+  if (isa<VECTOR_TYPE>(init_type) && ActualEltTy == EltTy) {
     // If this is a vector of pointers, convert it to a vector of integers.
     if (isa<PointerType>(EltTy)) {
       IntegerType *IntPtrTy = getTargetData().getIntPtrType(Context);
@@ -1142,14 +1142,13 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
     // Record all interesting fields so they can easily be visited backwards.
     SmallVector<tree, 16> Fields;
     for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
-      assert(TREE_CODE(field) == FIELD_DECL && "Lang data not freed?");
+      assert(isa<FIELD_DECL>(field) && "Lang data not freed?");
       // Ignore fields with variable or unknown position since they cannot be
       // default initialized.
       if (!OffsetIsLLVMCompatible(field))
         continue;
       // Skip fields that are known not to be present.
-      if (TREE_CODE(type) == QUAL_UNION_TYPE &&
-          integer_zerop(DECL_QUALIFIER(field)))
+      if (isa<QUAL_UNION_TYPE>(type) && integer_zerop(DECL_QUALIFIER(field)))
         continue;
       Fields.push_back(field);
     }
@@ -1203,13 +1202,13 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
       field = next_field;
       while (1) {
         assert(field && "Fell off end of record!");
-        if (TREE_CODE(field) == FIELD_DECL) break;
+        if (isa<FIELD_DECL>(field)) break;
         field = TREE_CHAIN(field);
       }
     }
     next_field = TREE_CHAIN(field);
 
-    assert(TREE_CODE(field) == FIELD_DECL && "Initial value not for a field!");
+    assert(isa<FIELD_DECL>(field) && "Initial value not for a field!");
     assert(OffsetIsLLVMCompatible(field) && "Field position not known!");
     // Turn the initial value for this field into an LLVM constant.
     Constant *Init = ConvertInitializerWithCast(value, main_type(field),
@@ -1509,7 +1508,7 @@ static Constant *AddressOfARRAY_REF(tree exp, TargetFolder &Folder) {
   tree array = TREE_OPERAND(exp, 0);
   tree index = TREE_OPERAND(exp, 1);
   tree index_type = main_type(index);
-  assert(TREE_CODE(TREE_TYPE(array)) == ARRAY_TYPE && "Unknown ARRAY_REF!");
+  assert(isa<ARRAY_TYPE>(TREE_TYPE(array)) && "Unknown ARRAY_REF!");
 
   // Check for variable sized reference.
   assert(isSizeCompatible(main_type(main_type(array))) &&
@@ -1598,7 +1597,7 @@ static Constant *AddressOfLABEL_DECL(tree exp, TargetFolder &) {
 
   // Figure out which function this is for, verify it's the one we're compiling.
   if (DECL_CONTEXT(exp)) {
-    assert(TREE_CODE(DECL_CONTEXT(exp)) == FUNCTION_DECL &&
+    assert(isa<FUNCTION_DECL>(DECL_CONTEXT(exp)) &&
            "Address of label in nested function?");
     assert(TheTreeToLLVM->getFUNCTION_DECL() == DECL_CONTEXT(exp) &&
            "Taking the address of a label that isn't in the current fn!?");

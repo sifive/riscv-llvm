@@ -85,7 +85,7 @@ static void DirectoryAndFile(const std::string &FullPath,
 /// NodeSizeInBits - Returns the size in bits stored in a tree node regardless
 /// of whether the node is a TYPE or DECL.
 static uint64_t NodeSizeInBits(tree Node) {
-  if (TREE_CODE(Node) == ERROR_MARK) {
+  if (isa<ERROR_MARK>(Node)) {
     return BITS_PER_WORD;
   } else if (TYPE_P(Node)) {
     if (TYPE_SIZE(Node) == NULL_TREE)
@@ -109,7 +109,7 @@ static uint64_t NodeSizeInBits(tree Node) {
 /// NodeAlignInBits - Returns the alignment in bits stored in a tree node
 /// regardless of whether the node is a TYPE or DECL.
 static uint64_t NodeAlignInBits(tree Node) {
-  if (TREE_CODE(Node) == ERROR_MARK) return BITS_PER_WORD;
+  if (isa<ERROR_MARK>(Node)) return BITS_PER_WORD;
   if (TYPE_P(Node)) return TYPE_ALIGN(Node);
   if (DECL_P(Node)) return DECL_ALIGN(Node);
   return BITS_PER_WORD;
@@ -118,7 +118,7 @@ static uint64_t NodeAlignInBits(tree Node) {
 /// FieldType - Returns the type node of a structure member field.
 ///
 static tree FieldType(tree Field) {
-  if (TREE_CODE (Field) == ERROR_MARK) return integer_type_node;
+  if (isa<ERROR_MARK>(Field)) return integer_type_node;
   return DECL_BIT_FIELD_TYPE(Field) ?
     DECL_BIT_FIELD_TYPE(Field) : TREE_TYPE (Field);
 }
@@ -135,9 +135,9 @@ static StringRef GetNodeName(tree Node) {
   }
 
   if (Name) {
-    if (TREE_CODE(Name) == IDENTIFIER_NODE) {
+    if (isa<IDENTIFIER_NODE>(Name)) {
       return IDENTIFIER_POINTER(Name);
-    } else if (TREE_CODE(Name) == TYPE_DECL && DECL_NAME(Name) &&
+    } else if (isa<TYPE_DECL>(Name) && DECL_NAME(Name) &&
                !DECL_IGNORED_P(Name)) {
       return StringRef(IDENTIFIER_POINTER(DECL_NAME(Name)));
     }
@@ -343,7 +343,7 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
     DIType Ty = getOrCreateType(Node);
     return DIDescriptor(Ty);
   } else if (DECL_P (Node)) {
-    if (TREE_CODE (Node) == NAMESPACE_DECL) {
+    if (isa<NAMESPACE_DECL>(Node)) {
       DIDescriptor NSContext = findRegion(DECL_CONTEXT(Node));
       DINameSpace NS = getOrCreateNameSpace(Node, NSContext);
       return DIDescriptor(NS);
@@ -383,7 +383,7 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name,
   // Construct variable.
   DIScope VarScope = DIScope(cast<MDNode>(RegionStack.back()));
   DIType Ty = getOrCreateType(type);
-  if (!Ty && TREE_CODE(type) == OFFSET_TYPE)
+  if (!Ty && isa<OFFSET_TYPE>(type))
     Ty = createPointerType(TREE_TYPE(type));
   if (Ty && DECL_ARTIFICIAL (decl))
       Ty = DebugFactory.CreateArtificialType(Ty);
@@ -437,7 +437,7 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
   StringRef LinkageName;
   // The gdb does not expect linkage names for function local statics.
   if (DECL_CONTEXT (decl))
-    if (TREE_CODE (DECL_CONTEXT (decl)) != FUNCTION_DECL)
+    if (!isa<FUNCTION_DECL>(DECL_CONTEXT (decl)))
       LinkageName = GV->getName();
   DebugFactory.CreateGlobalVariable(findRegion(DECL_CONTEXT(decl)),
                                     DispName, DispName, LinkageName,
@@ -472,7 +472,7 @@ DIType DebugInfo::createBasicType(tree type) {
     Encoding = DW_ATE_float;
     break;
   case COMPLEX_TYPE:
-    Encoding = TREE_CODE(TREE_TYPE(type)) == REAL_TYPE ?
+    Encoding = isa<REAL_TYPE>(TREE_TYPE(type)) ?
       DW_ATE_complex_float : DW_ATE_lo_user;
     break;
   case BOOLEAN_TYPE:
@@ -498,8 +498,8 @@ DIType DebugInfo::createBasicType(tree type) {
 /// isArtificialArgumentType - Return true if arg_type represents artificial,
 /// i.e. "this" in c++, argument.
 static bool isArtificialArgumentType(tree arg_type, tree method_type) {
-  if (TREE_CODE (method_type) != METHOD_TYPE) return false;
-  if (TREE_CODE (arg_type) != POINTER_TYPE) return false;
+  if (!isa<METHOD_TYPE>(method_type)) return false;
+  if (!isa<POINTER_TYPE>(arg_type)) return false;
   if (TREE_TYPE (arg_type) == TYPE_METHOD_BASETYPE (method_type))
     return true;
   if (main_type (arg_type) && main_type (arg_type) != TREE_TYPE (arg_type)
@@ -570,13 +570,13 @@ DIType DebugInfo::createPointerType(tree type) {
   DIType FromTy = getOrCreateType(TREE_TYPE(type));
   // type* and type&
   // FIXME: Should BLOCK_POINTER_TYP have its own DW_TAG?
-  unsigned Tag = TREE_CODE(type) == REFERENCE_TYPE ?
+  unsigned Tag = isa<REFERENCE_TYPE>(type) ?
     DW_TAG_reference_type: DW_TAG_pointer_type;
   unsigned Flags = 0;
 
   // Check if this pointer type has a name.
   if (tree TyName = TYPE_NAME(type))
-    if (TREE_CODE(TyName) == TYPE_DECL && !DECL_ORIGINAL_TYPE(TyName)) {
+    if (isa<TYPE_DECL>(TyName) && !DECL_ORIGINAL_TYPE(TyName)) {
       expanded_location TypeNameLoc = GetNodeLocation(TyName);
       DIType Ty =
         DebugFactory.CreateDerivedType(Tag, findRegion(DECL_CONTEXT(TyName)),
@@ -611,8 +611,8 @@ DIType DebugInfo::createPointerType(tree type) {
 DIType DebugInfo::createArrayType(tree type) {
 
   // type[n][m]...[p]
-  if (TREE_CODE (type) == ARRAY_TYPE
-      && TYPE_STRING_FLAG(type) && TREE_CODE(TREE_TYPE(type)) == INTEGER_TYPE){
+  if (isa<ARRAY_TYPE>(type)
+      && TYPE_STRING_FLAG(type) && isa<INTEGER_TYPE>(TREE_TYPE(type))) {
     DEBUGASSERT(0 && "Don't support pascal strings");
     return DIType();
   }
@@ -625,9 +625,9 @@ DIType DebugInfo::createArrayType(tree type) {
   // There will be ARRAY_TYPE nodes for each rank.  Followed by the derived
   // type.
   tree EltTy = TREE_TYPE(type);
-  if (TREE_CODE(type) == ARRAY_TYPE) {
+  if (isa<ARRAY_TYPE>(type)) {
     tree atype = type;
-    for (; TREE_CODE(atype) == ARRAY_TYPE; atype = TREE_TYPE(atype)) {
+    for (; isa<ARRAY_TYPE>(atype); atype = TREE_TYPE(atype)) {
       tree Domain = TYPE_DOMAIN(atype);
       if (Domain) {
         // FIXME - handle dynamic ranges
@@ -644,7 +644,7 @@ DIType DebugInfo::createArrayType(tree type) {
       EltTy = TREE_TYPE(atype);
     }
   } else {
-    assert(TREE_CODE(type) == VECTOR_TYPE && "Not an array or vector type!");
+    assert(isa<VECTOR_TYPE>(type) && "Not an array or vector type!");
     unsigned Length = TYPE_VECTOR_SUBPARTS(type);
     Subscripts.push_back(DebugFactory.GetOrCreateSubrange(0, Length));
   }
@@ -670,7 +670,7 @@ DIType DebugInfo::createEnumType(tree type) {
   if (TYPE_SIZE(type)) {
     for (tree Link = TYPE_VALUES(type); Link; Link = TREE_CHAIN(Link)) {
       tree EnumValue = TREE_VALUE(Link);
-      if (TREE_CODE(EnumValue) == CONST_DECL)
+      if (isa<CONST_DECL>(EnumValue))
         EnumValue = DECL_INITIAL(EnumValue);
       int64_t Value = getInt64(EnumValue, false);
       const char *EnumName = IDENTIFIER_POINTER(TREE_PURPOSE(Link));
@@ -700,7 +700,7 @@ DIType DebugInfo::createEnumType(tree type) {
 DIType DebugInfo::createStructType(tree type) {
 
   // struct { a; b; ... z; }; | union { a; b; ... z; };
-  unsigned Tag = TREE_CODE(type) == RECORD_TYPE ? DW_TAG_structure_type :
+  unsigned Tag = isa<RECORD_TYPE>(type) ? DW_TAG_structure_type :
     DW_TAG_union_type;
 
   unsigned RunTimeLang = 0;
@@ -817,7 +817,7 @@ DIType DebugInfo::createStructType(tree type) {
     // Get the location of the member.
     expanded_location MemLoc = GetNodeLocation(Member, false);
 
-    if (TREE_CODE(Member) != FIELD_DECL)
+    if (!isa<FIELD_DECL>(Member))
       // otherwise is a static variable, whose debug info is emitted
       // when through EmitGlobalVariable().
       continue;
@@ -829,8 +829,8 @@ DIType DebugInfo::createStructType(tree type) {
 
     /* Ignore nameless fields.  */
     if (DECL_NAME (Member) == NULL_TREE
-        && !(TREE_CODE (TREE_TYPE (Member)) == UNION_TYPE
-             || TREE_CODE (TREE_TYPE (Member)) == RECORD_TYPE))
+        && !(isa<UNION_TYPE>(TREE_TYPE(Member)) ||
+             isa<RECORD_TYPE>(TREE_TYPE(Member))))
       continue;
 
     // Field type is the declared type of the field.
@@ -934,7 +934,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
     if (I != TypeCache.end())
       if (I->second)
         return DIType(cast<MDNode>(I->second));
-    if (TREE_CODE(TyDef) == TYPE_DECL &&  DECL_ORIGINAL_TYPE(TyDef)) {
+    if (isa<TYPE_DECL>(TyDef) &&  DECL_ORIGINAL_TYPE(TyDef)) {
       expanded_location TypeDefLoc = GetNodeLocation(TyDef);
       Ty = DebugFactory.CreateDerivedType(DW_TAG_typedef,
                                           findRegion(DECL_CONTEXT(TyDef)),
@@ -995,7 +995,7 @@ DIType DebugInfo::getOrCreateType(tree type) {
 
   // Should only be void if a pointer/reference/return type.  Returning NULL
   // allows the caller to produce a non-derived type.
-  if (TREE_CODE(type) == VOID_TYPE) return DIType();
+  if (isa<VOID_TYPE>(type)) return DIType();
 
   // Check to see if the compile unit already has created this type.
   std::map<tree_node *, WeakVH >::iterator I = TypeCache.find(type);
