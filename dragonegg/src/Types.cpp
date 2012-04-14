@@ -939,8 +939,7 @@ static Type *ConvertPointerTypeRecursive(tree type) {
 
     // If the pointee is a record or union type then return a pointer to its
     // placeholder type.  Otherwise return {}*.
-    if (isa<QUAL_UNION_TYPE>(pointee) || isa<RECORD_TYPE>(pointee) ||
-        isa<UNION_TYPE>(pointee))
+    if (isa<STRUCT_TYPE>(pointee))
       PointeeTy = getCachedType(pointee);
     else
       PointeeTy = StructType::get(Context);
@@ -1566,9 +1565,7 @@ Type *ConvertType(tree type) {
     // the nasty {}* type we are obliged to return in general.
     for (size_t i = 0, e = SCC.size(); i != e; ++i) {
       tree some_type = SCC[i];
-      if (!isa<QUAL_UNION_TYPE>(some_type) &&
-          !isa<RECORD_TYPE>(some_type) &&
-          !isa<UNION_TYPE>(some_type)) {
+      if (!isa<STRUCT_TYPE>(some_type)) {
         assert(!getCachedType(some_type) && "Type already converted!");
         continue;
       }

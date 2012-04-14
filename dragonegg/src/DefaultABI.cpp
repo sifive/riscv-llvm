@@ -117,9 +117,7 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
 /// isZeroSizedStructOrUnion - Returns true if this is a struct or union
 /// which is zero bits wide.
 bool isZeroSizedStructOrUnion(tree type) {
-  if (!isa<RECORD_TYPE>(type) &&
-      !isa<UNION_TYPE>(type) &&
-      !isa<QUAL_UNION_TYPE>(type))
+  if (!isa<STRUCT_TYPE>(type))
     return false;
   return int_size_in_bytes(type) == 0;
 }

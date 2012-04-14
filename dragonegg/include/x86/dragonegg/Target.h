@@ -70,7 +70,7 @@ extern "C" int ix86_regparm;
                                       local_fp_regparm)         \
   {                                                             \
     if (!TARGET_64BIT) {                                        \
-      if (TREE_CODE(Type) == REAL_TYPE &&                       \
+      if (isa<REAL_TYPE>(Type) &&                               \
           (TYPE_PRECISION(Type)==32 ||                          \
            TYPE_PRECISION(Type)==64)) {                         \
           local_fp_regparm -= 1;                                \

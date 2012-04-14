@@ -36,9 +36,20 @@
 // headers (and this one, as it may include GCC headers) are always included
 // last.
 
+/// dragonegg_tree_code - Fake helper tree codes.
+enum dragonegg_tree_code {
+  STRUCT_TYPE, // A record, union or qualified union type.
+};
+
 /// isa - Return true if the given tree has the specified code.
 template<enum tree_code code> bool isa(const_tree t) {
   return TREE_CODE(t) == code;
+}
+template<enum dragonegg_tree_code code> bool isa(const_tree t) {
+  switch (code) {
+  case STRUCT_TYPE:
+    return isa<RECORD_TYPE>(t) || isa<UNION_TYPE>(t) || isa<QUAL_UNION_TYPE>(t);
+  }
 }
 
 /// getDescriptiveName - Return a helpful name for the given tree, or an empty

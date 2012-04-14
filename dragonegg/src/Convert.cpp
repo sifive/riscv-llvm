@@ -6003,9 +6003,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   tree FieldDecl = TREE_OPERAND(exp, 1);
   unsigned LVAlign = StructAddrLV.getAlignment();
 
-  assert((isa<RECORD_TYPE>(DECL_CONTEXT(FieldDecl)) ||
-          isa<UNION_TYPE>(DECL_CONTEXT(FieldDecl)) ||
-          isa<QUAL_UNION_TYPE>(DECL_CONTEXT(FieldDecl))));
+  assert(isa<STRUCT_TYPE>(DECL_CONTEXT(FieldDecl)));
 
   Type *StructTy = ConvertType(DECL_CONTEXT(FieldDecl));
 
