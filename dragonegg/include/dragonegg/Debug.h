@@ -34,14 +34,14 @@
 // System headers
 #include <map>
 
-namespace llvm {
-
 // Forward declarations
-class AllocaInst;
-class BasicBlock;
-class CallInst;
-class Function;
-class Module;
+namespace llvm {
+  class AllocaInst;
+  class BasicBlock;
+  class CallInst;
+  class Function;
+  class Module;
+}
 
 /// DIFactory - This object assists with the construction of the various
 /// descriptors.
@@ -360,7 +360,5 @@ public:
   /// is stored on the side.
   StringRef getFunctionName(tree_node *FnDecl);
 };
-
-} // end namespace llvm
 
 #endif /* DRAGONEGG_DEBUG_H */

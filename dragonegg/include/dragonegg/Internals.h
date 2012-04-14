@@ -57,10 +57,10 @@ namespace llvm {
   class Type;
   class TargetMachine;
   class TargetData;
-  class DebugInfo;
   template<typename> class AssertingVH;
   template<typename> class TrackingVH;
 }
+class DebugInfo;
 using namespace llvm;
 
 typedef IRBuilder<true, TargetFolder> LLVMBuilder;
@@ -73,7 +73,7 @@ extern llvm::Module *TheModule;
 
 /// TheDebugInfo - This object is responsible for gather all debug information.
 /// If it's value is NULL then no debug information should be gathered.
-extern llvm::DebugInfo *TheDebugInfo;
+extern DebugInfo *TheDebugInfo;
 
 /// TheTarget - The current target being compiled for.
 ///
