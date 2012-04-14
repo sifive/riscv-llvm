@@ -284,7 +284,7 @@ int GetFieldIndex(tree decl, Type *Ty) {
 /// getPointerToType - Returns the LLVM register type to use for a pointer to
 /// the given GCC type.
 Type *getPointerToType(tree type) {
-  if (VOID_TYPE_P(type))
+  if (isa<VOID_TYPE>(type))
     // void* -> byte*
     return GetUnitPointerType(Context);
   // FIXME: Handle address spaces.
@@ -425,7 +425,7 @@ Type *getRegType(tree type) {
 
   // NOTE: Any changes made here need to be reflected in LoadRegisterFromMemory,
   // StoreRegisterToMemory and ExtractRegisterFromConstant.
-  assert(!AGGREGATE_TYPE_P(type) && "Registers must have a scalar type!");
+  assert(!isa<AGGREGATE_TYPE>(type) && "Registers must have a scalar type!");
   assert(!isa<VOID_TYPE>(type) && "Registers cannot have void type!");
 
   switch (TREE_CODE(type)) {
@@ -453,7 +453,7 @@ Type *getRegType(tree type) {
   case POINTER_TYPE:
   case REFERENCE_TYPE:
     // void* -> byte*
-    return VOID_TYPE_P(TREE_TYPE(type)) ?  GetUnitPointerType(Context) :
+    return isa<VOID_TYPE>(TREE_TYPE(type)) ?  GetUnitPointerType(Context) :
       ConvertType(TREE_TYPE(type))->getPointerTo();
 
   case REAL_TYPE:
@@ -476,7 +476,7 @@ Type *getRegType(tree type) {
   case VECTOR_TYPE: {
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers.
-    Type *EltTy = POINTER_TYPE_P(TREE_TYPE(type)) ?
+    Type *EltTy = isa<ACCESS_TYPE>(TREE_TYPE(type)) ?
       getTargetData().getIntPtrType(Context) : getRegType(TREE_TYPE(type));
     return VectorType::get(EltTy, TYPE_VECTOR_SUBPARTS(type));
   }
@@ -710,7 +710,7 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
     PAttributes |= HandleArgumentExtension(ArgTy);
 
     // Compute noalias attributes.
-    if (POINTER_TYPE_P(ArgTy) && TYPE_RESTRICT(ArgTy))
+    if (isa<ACCESS_TYPE>(ArgTy) && TYPE_RESTRICT(ArgTy))
       PAttributes |= Attribute::NoAlias;
 
     if (PAttributes != Attribute::None)
@@ -852,13 +852,13 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     // inspect it for restrict qualifiers, otherwise try the argument
     // types.
     tree RestrictArgTy = (DeclArgs) ? TREE_TYPE(DeclArgs) : ArgTy;
-    if (POINTER_TYPE_P(RestrictArgTy) && TYPE_RESTRICT(RestrictArgTy))
+    if (isa<ACCESS_TYPE>(RestrictArgTy) && TYPE_RESTRICT(RestrictArgTy))
       PAttributes |= Attribute::NoAlias;
 
 #ifdef LLVM_TARGET_ENABLE_REGPARM
     // Allow the target to mark this as inreg.
-    if (INTEGRAL_TYPE_P(ArgTy) || POINTER_TYPE_P(ArgTy) ||
-        SCALAR_FLOAT_TYPE_P(ArgTy))
+    if (isa<INTEGRAL_TYPE>(ArgTy) || isa<ACCESS_TYPE>(ArgTy) ||
+        isa<REAL_TYPE>(ArgTy))
       LLVM_ADJUST_REGPARM_ATTRIBUTE(PAttributes, ArgTy,
                                     TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)),
                                     local_regparam, local_fp_regparam);
@@ -939,7 +939,7 @@ static Type *ConvertPointerTypeRecursive(tree type) {
 
     // If the pointee is a record or union type then return a pointer to its
     // placeholder type.  Otherwise return {}*.
-    if (isa<STRUCT_TYPE>(pointee))
+    if (isa<RECORD_OR_UNION_TYPE>(pointee))
       PointeeTy = getCachedType(pointee);
     else
       PointeeTy = StructType::get(Context);
@@ -1423,7 +1423,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
     Type *Ty;
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers.
-    if (POINTER_TYPE_P(TREE_TYPE(type)))
+    if (isa<ACCESS_TYPE>(TREE_TYPE(type)))
       Ty = getTargetData().getIntPtrType(Context);
     else
       Ty = ConvertTypeNonRecursive(main_type(type));
@@ -1565,7 +1565,7 @@ Type *ConvertType(tree type) {
     // the nasty {}* type we are obliged to return in general.
     for (size_t i = 0, e = SCC.size(); i != e; ++i) {
       tree some_type = SCC[i];
-      if (!isa<STRUCT_TYPE>(some_type)) {
+      if (!isa<RECORD_OR_UNION_TYPE>(some_type)) {
         assert(!getCachedType(some_type) && "Type already converted!");
         continue;
       }
@@ -1606,11 +1606,11 @@ Type *ConvertType(tree type) {
     if (SCC.size() > 1)
       for (size_t i = 0, e = SCC.size(); i != e; ++i) {
         tree some_type = SCC[i];
-        if (POINTER_TYPE_P(some_type)) {
+        if (isa<ACCESS_TYPE>(some_type)) {
           tree pointee = main_type(some_type);
           // The pointee cannot have void type since the SCC contains more than
           // one type.
-          assert(!VOID_TYPE_P(pointee) && "Self-recursive void*!");
+          assert(!isa<VOID_TYPE>(pointee) && "Self-recursive void*!");
           // The pointee must have been converted since it has to be in the same
           // SCC as the pointer (since the SCC contains more than one type).
           Type *PointeeTy = getCachedType(pointee);

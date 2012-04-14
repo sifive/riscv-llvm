@@ -71,7 +71,7 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
   // Complex numbers have two fields.
   if (isa<COMPLEX_TYPE>(type)) return 0;
   // All other scalars are good.
-  if (!AGGREGATE_TYPE_P(type)) return type;
+  if (!isa<AGGREGATE_TYPE>(type)) return type;
 
   tree FoundField = 0;
   switch (TREE_CODE(type)) {
@@ -117,7 +117,7 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
 /// isZeroSizedStructOrUnion - Returns true if this is a struct or union
 /// which is zero bits wide.
 bool isZeroSizedStructOrUnion(tree type) {
-  if (!isa<STRUCT_TYPE>(type))
+  if (!isa<RECORD_OR_UNION_TYPE>(type))
     return false;
   return int_size_in_bytes(type) == 0;
 }
@@ -173,7 +173,7 @@ void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
 
     // FIXME: should return the hidden first argument for some targets
     // (e.g. ELF i386).
-    if (AGGREGATE_TYPE_P(type))
+    if (isa<AGGREGATE_TYPE>(type))
       C.HandleAggregateShadowResult(Ty->getPointerTo(), false);
     else
       C.HandleScalarShadowResult(Ty->getPointerTo(), false);

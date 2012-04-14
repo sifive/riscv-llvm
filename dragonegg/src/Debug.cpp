@@ -828,7 +828,8 @@ DIType DebugInfo::createStructType(tree type) {
       continue;
 
     /* Ignore nameless fields.  */
-    if (DECL_NAME (Member) == NULL_TREE && !isa<STRUCT_TYPE>(TREE_TYPE(Member)))
+    if (DECL_NAME (Member) == NULL_TREE &&
+        !isa<RECORD_OR_UNION_TYPE>(TREE_TYPE(Member)))
       continue;
 
     // Field type is the declared type of the field.

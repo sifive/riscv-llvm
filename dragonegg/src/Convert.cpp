@@ -86,7 +86,7 @@ STATISTIC(NumStatements,  "Number of gimple statements converted");
 /// getPointerAlignment - Return the alignment in bytes of exp, a pointer valued
 /// expression, or 1 if the alignment is not known.
 static unsigned int getPointerAlignment(tree exp) {
-  assert(POINTER_TYPE_P (TREE_TYPE (exp)) && "Expected a pointer type!");
+  assert(isa<ACCESS_TYPE>(TREE_TYPE (exp)) && "Expected a pointer type!");
   unsigned int align =
 #if (GCC_MINOR < 7)
     get_pointer_alignment(exp, BIGGEST_ALIGNMENT);
@@ -133,7 +133,7 @@ static void NameValue(Value *V, tree t) {
 /// other types, such as the x86 128 bit floating point type.
 static StringRef SelectFPName(tree type, StringRef FloatName,
                               StringRef DoubleName, StringRef LongDoubleName) {
-  assert(SCALAR_FLOAT_TYPE_P(type) && "Expected a floating point type!");
+  assert(isa<REAL_TYPE>(type) && "Expected a floating point type!");
   if (TYPE_MODE(type) == TYPE_MODE(float_type_node))
     return FloatName;
   if (TYPE_MODE(type) == TYPE_MODE(double_type_node))
@@ -294,7 +294,7 @@ static Value *Reg2Mem(Value *V, tree type, LLVMBuilder &Builder) {
 /// describeTypeRange - Return metadata describing the set of possible values
 /// that an in-memory variable of the given GCC type can take on.
 static MDNode *describeTypeRange(tree type) {
-  if (!INTEGRAL_TYPE_P(type)) return 0; // Only discrete types have ranges.
+  if (!isa<INTEGRAL_TYPE>(type)) return 0; // Only discrete types have ranges.
 
   // The range of possible values is TYPE_MIN_VALUE .. TYPE_MAX_VALUE.
   tree min = TYPE_MIN_VALUE(type);
@@ -1130,7 +1130,7 @@ void TreeToLLVM::StartFunctionBody() {
         EmitAnnotateIntrinsic(Tmp, Args);
 
       // Emit gcroot intrinsic if arg has attribute
-      if (POINTER_TYPE_P(TREE_TYPE(Args))
+      if (isa<ACCESS_TYPE>(TREE_TYPE(Args))
           && lookup_attribute ("gcroot", TYPE_ATTRIBUTES(TREE_TYPE(Args))))
         EmitTypeGcroot(Tmp);
 
@@ -1323,7 +1323,7 @@ Function *TreeToLLVM::FinishFunctionBody() {
   // If the function returns a value, get it into a register and return it now.
   if (!Fn->getReturnType()->isVoidTy()) {
     tree TreeRetVal = DECL_RESULT(FnDecl);
-    if (!AGGREGATE_TYPE_P(TREE_TYPE(TreeRetVal)) &&
+    if (!isa<AGGREGATE_TYPE>(TREE_TYPE(TreeRetVal)) &&
         !isa<COMPLEX_TYPE>(TREE_TYPE(TreeRetVal))) {
       // If the DECL_RESULT is a scalar type, just load out the return value
       // and return it.
@@ -1618,7 +1618,7 @@ Function *TreeToLLVM::EmitFunction() {
 /// EmitAggregate - Store the specified tree node into the location given by
 /// DestLoc.
 void TreeToLLVM::EmitAggregate(tree exp, const MemRef &DestLoc) {
-  assert(AGGREGATE_TYPE_P(TREE_TYPE(exp)) && "Expected an aggregate type!");
+  assert(isa<AGGREGATE_TYPE>(TREE_TYPE(exp)) && "Expected an aggregate type!");
   if (isa<CONSTRUCTOR>(exp)) {
     EmitCONSTRUCTOR(exp, &DestLoc);
     return;
@@ -1724,7 +1724,7 @@ LValue TreeToLLVM::EmitLV(tree exp) {
   // node.  This may not hold for bitfields because the type of a bitfield need
   // not match the type of the value being loaded out of it.  Since LLVM has no
   // void* type, don't insist that void* be converted to a specific LLVM type.
-  assert((LV.isBitfield() || VOID_TYPE_P(TREE_TYPE(exp)) ||
+  assert((LV.isBitfield() || isa<VOID_TYPE>(TREE_TYPE(exp)) ||
           LV.Ptr->getType() == ConvertType(TREE_TYPE(exp))->getPointerTo()) &&
          "LValue has wrong type!");
 
@@ -1788,7 +1788,7 @@ Value *TreeToLLVM::CastToFPType(Value *V, Type* Ty) {
 /// CreateAnyAdd - Add two LLVM scalar values with the given GCC type.  Does not
 /// support complex numbers.  The type is used to set overflow flags.
 Value *TreeToLLVM::CreateAnyAdd(Value *LHS, Value *RHS, tree type) {
-  if (FLOAT_TYPE_P(type))
+  if (isa<FLOAT_TYPE>(type))
     return Builder.CreateFAdd(LHS, RHS);
   return Builder.CreateAdd(LHS, RHS, "", hasNUW(type), hasNSW(type));
 }
@@ -1796,7 +1796,7 @@ Value *TreeToLLVM::CreateAnyAdd(Value *LHS, Value *RHS, tree type) {
 /// CreateAnyMul - Multiply two LLVM scalar values with the given GCC type.
 /// Does not support complex numbers.  The type is used to set overflow flags.
 Value *TreeToLLVM::CreateAnyMul(Value *LHS, Value *RHS, tree type) {
-  if (FLOAT_TYPE_P(type))
+  if (isa<FLOAT_TYPE>(type))
     return Builder.CreateFMul(LHS, RHS);
   return Builder.CreateMul(LHS, RHS, "", hasNUW(type), hasNSW(type));
 }
@@ -1804,7 +1804,7 @@ Value *TreeToLLVM::CreateAnyMul(Value *LHS, Value *RHS, tree type) {
 /// CreateAnyNeg - Negate an LLVM scalar value with the given GCC type.  Does
 /// not support complex numbers.  The type is used to set overflow flags.
 Value *TreeToLLVM::CreateAnyNeg(Value *V, tree type) {
-  if (FLOAT_TYPE_P(type))
+  if (isa<FLOAT_TYPE>(type))
     return Builder.CreateFNeg(V);
   return Builder.CreateNeg(V, "", hasNUW(type), hasNSW(type));
 }
@@ -1812,7 +1812,7 @@ Value *TreeToLLVM::CreateAnyNeg(Value *V, tree type) {
 /// CreateAnySub - Subtract two LLVM scalar values with the given GCC type.
 /// Does not support complex numbers.  The type is used to set overflow flags.
 Value *TreeToLLVM::CreateAnySub(Value *LHS, Value *RHS, tree type) {
-  if (FLOAT_TYPE_P(type))
+  if (isa<FLOAT_TYPE>(type))
     return Builder.CreateFSub(LHS, RHS);
   return Builder.CreateSub(LHS, RHS, "", hasNUW(type), hasNSW(type));
 }
@@ -1878,7 +1878,7 @@ static unsigned CostOfAccessingAllElements(tree type) {
     return TooCostly;
 
   // A scalar copy has a cost of 1.
-  if (!AGGREGATE_TYPE_P(type))
+  if (!isa<AGGREGATE_TYPE>(type))
     return 1;
 
   // The cost of a record type is the sum of the costs of its fields.
@@ -1931,7 +1931,7 @@ static unsigned CostOfAccessingAllElements(tree type) {
 /// src/dest ptrs, copying all of the elements.  Helper for EmitAggregateCopy.
 void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
                                       tree type) {
-  if (!AGGREGATE_TYPE_P(type)) {
+  if (!isa<AGGREGATE_TYPE>(type)) {
     // Copy scalar.
     MDNode *AliasTag = describeAliasSet(type);
     StoreRegisterToMemory(LoadRegisterFromMemory(SrcLoc, type, AliasTag,
@@ -2031,7 +2031,7 @@ void TreeToLLVM::EmitAggregateCopy(MemRef DestLoc, MemRef SrcLoc, tree type) {
 /// ZeroElementByElement - Recursively traverse the potentially aggregate
 /// DestLoc, zero'ing all of the elements.  Helper for EmitAggregateZero.
 void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
-  if (!AGGREGATE_TYPE_P(type)) {
+  if (!isa<AGGREGATE_TYPE>(type)) {
     // Zero scalar.
     StoreRegisterToMemory(Constant::getNullValue(getRegType(type)), DestLoc,
                           type, describeAliasSet(type), Builder);
@@ -2297,7 +2297,7 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
     EmitAnnotateIntrinsic(AI, decl);
 
   // Handle gcroot attribute
-  if (POINTER_TYPE_P(TREE_TYPE (decl))
+  if (isa<ACCESS_TYPE>(TREE_TYPE (decl))
       && lookup_attribute("gcroot", TYPE_ATTRIBUTES(TREE_TYPE (decl))))
     {
       // We should null out local variables so that a stack crawl
@@ -2832,7 +2832,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
     return BuildVector(BuildVecOps);
   }
 
-  assert(AGGREGATE_TYPE_P(type) && "Constructor for scalar type??");
+  assert(isa<AGGREGATE_TYPE>(type) && "Constructor for scalar type??");
 
   // Start out with the value zero'd out.
   EmitAggregateZero(*DestLoc, type);
@@ -2858,7 +2858,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
     if (!tree_purpose)
       return 0;  // Not actually initialized?
 
-    if (AGGREGATE_TYPE_P(TREE_TYPE(tree_purpose))) {
+    if (isa<AGGREGATE_TYPE>(TREE_TYPE(tree_purpose))) {
       EmitAggregate(tree_value, *DestLoc);
     } else {
       // Scalar value.  Evaluate to a register, then do the store.
@@ -3221,7 +3221,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
       // A scalar - push the value.
       Client.pushValue(EmitMemory(arg));
     } else if (LLVM_SHOULD_PASS_AGGREGATE_AS_FCA(type, ArgTy)) {
-      if (AGGREGATE_TYPE_P(type)) {
+      if (isa<AGGREGATE_TYPE>(type)) {
         // Pass the aggregate as a first class value.
         LValue ArgVal = EmitLV(arg);
         Client.pushValue(Builder.CreateLoad(ArgVal.Ptr));
@@ -3230,7 +3230,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
         Client.pushValue(EmitMemory(arg));
       }
     } else {
-      if (AGGREGATE_TYPE_P(type)) {
+      if (isa<AGGREGATE_TYPE>(type)) {
         // An aggregate - push the address.
         LValue ArgVal = EmitLV(arg);
         assert(!ArgVal.isBitfield() && "Bitfields are first-class types!");
@@ -4026,7 +4026,7 @@ bool TreeToLLVM::EmitFrontendExpandedBuiltinCall(gimple stmt, tree fndecl,
   std::vector<Value*> Operands;
   for (unsigned i = 0, e = gimple_call_num_args(stmt); i != e; ++i) {
     tree OpVal = gimple_call_arg(stmt, i);
-    if (AGGREGATE_TYPE_P(TREE_TYPE(OpVal))) {
+    if (isa<AGGREGATE_TYPE>(TREE_TYPE(OpVal))) {
       MemRef OpLoc = CreateTempLoc(ConvertType(TREE_TYPE(OpVal)));
       EmitAggregate(OpVal, OpLoc);
       Operands.push_back(Builder.CreateLoad(OpLoc.Ptr));
@@ -5735,7 +5735,7 @@ bool TreeToLLVM::EmitBuiltinVACopy(gimple stmt) {
   Value *Arg1 = EmitMemory(Arg1T);   // Emit the address of the destination.
   // The second arg of llvm.va_copy is a pointer to a valist.
   Value *Arg2;
-  if (!AGGREGATE_TYPE_P(va_list_type_node)) {
+  if (!isa<AGGREGATE_TYPE>(va_list_type_node)) {
     // Emit it as a value, then store it to a temporary slot.
     Value *V2 = EmitMemory(Arg2T);
     Arg2 = CreateTemporary(V2->getType());
@@ -5929,7 +5929,7 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
   // much nicer in cases like:
   //   float foo(int w, float A[][w], int g) { return A[g][0]; }
 
-  if (VOID_TYPE_P(TREE_TYPE(ArrayTreeType))) {
+  if (isa<VOID_TYPE>(TREE_TYPE(ArrayTreeType))) {
     ArrayAddr = Builder.CreateBitCast(ArrayAddr, Type::getInt8PtrTy(Context));
     ArrayAddr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
       Builder.CreateInBoundsGEP(ArrayAddr, IndexVal) :
@@ -6003,7 +6003,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   tree FieldDecl = TREE_OPERAND(exp, 1);
   unsigned LVAlign = StructAddrLV.getAlignment();
 
-  assert(isa<STRUCT_TYPE>(DECL_CONTEXT(FieldDecl)));
+  assert(isa<RECORD_OR_UNION_TYPE>(DECL_CONTEXT(FieldDecl)));
 
   Type *StructTy = ConvertType(DECL_CONTEXT(FieldDecl));
 
@@ -6605,7 +6605,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
 
 // Unary expressions.
 Value *TreeToLLVM::EmitReg_ABS_EXPR(tree op) {
-  if (!FLOAT_TYPE_P(TREE_TYPE(op))) {
+  if (!isa<FLOAT_TYPE>(TREE_TYPE(op))) {
     Value *Op = EmitRegister(op);
     Value *OpN = Builder.CreateNeg(Op, Op->getName()+"neg");
     ICmpInst::Predicate pred = TYPE_UNSIGNED(TREE_TYPE(op)) ?
@@ -6808,7 +6808,7 @@ Value *TreeToLLVM::EmitReg_MinMaxExpr(tree op0, tree op1, unsigned UIPred,
   Value *RHS = EmitRegister(op1);
 
   Value *Compare;
-  if (FLOAT_TYPE_P(TREE_TYPE(op0)))
+  if (isa<FLOAT_TYPE>(TREE_TYPE(op0)))
     Compare = Builder.CreateFCmp(FCmpInst::Predicate(FPPred), LHS, RHS);
   else if (TYPE_UNSIGNED(TREE_TYPE(op0)))
     Compare = Builder.CreateICmp(ICmpInst::Predicate(UIPred), LHS, RHS);
@@ -6833,7 +6833,7 @@ Value *TreeToLLVM::EmitReg_ReducMinMaxExpr(tree op, unsigned UIPred,
   Type *Ty = Val->getType();
 
   CmpInst::Predicate Pred =
-    CmpInst::Predicate(FLOAT_TYPE_P(TREE_TYPE(op)) ?
+    CmpInst::Predicate(isa<FLOAT_TYPE>(TREE_TYPE(op)) ?
                        FPPred : TYPE_UNSIGNED(TREE_TYPE(op)) ? UIPred : SIPred);
 
   unsigned Length = (unsigned)TYPE_VECTOR_SUBPARTS(TREE_TYPE(op));
@@ -6856,7 +6856,7 @@ Value *TreeToLLVM::EmitReg_ReducMinMaxExpr(tree op, unsigned UIPred,
                                              ConstantVector::get(Mask));
 
     // Replace Val with the max/min of the extracted elements.
-    Value *Compare = FLOAT_TYPE_P(TREE_TYPE(op)) ?
+    Value *Compare = isa<FLOAT_TYPE>(TREE_TYPE(op)) ?
       Builder.CreateFCmp(Pred, LHS, RHS) : Builder.CreateICmp(Pred, LHS, RHS);
     Val = Builder.CreateSelect(Compare, LHS, RHS);
 
@@ -7235,7 +7235,7 @@ Value *TreeToLLVM::EmitReg_MULT_EXPR(tree op0, tree op1) {
     Value *DSTr, *DSTi;
 
     // (a+ib) * (c+id) = (ac-bd) + i(ad+cb)
-    if (SCALAR_FLOAT_TYPE_P(elt_type)) {
+    if (isa<REAL_TYPE>(elt_type)) {
       Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
       Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
       DSTr = Builder.CreateFSub(Tmp1, Tmp2);        // ac-bd
@@ -7304,7 +7304,7 @@ Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
     Value *DSTr, *DSTi;
 
     // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
-    assert (SCALAR_FLOAT_TYPE_P(TREE_TYPE(type)) &&
+    assert (isa<REAL_TYPE>(TREE_TYPE(type)) &&
             "RDIV_EXPR not floating point!");
     Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
     Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
@@ -7323,7 +7323,7 @@ Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
     return CreateComplex(DSTr, DSTi);
   }
 
-  assert(FLOAT_TYPE_P(type) && "RDIV_EXPR not floating point!");
+  assert(isa<FLOAT_TYPE>(type) && "RDIV_EXPR not floating point!");
   return Builder.CreateFDiv(LHS, RHS);
 }
 
@@ -8137,7 +8137,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
 
 void TreeToLLVM::RenderGIMPLE_ASSIGN(gimple stmt) {
   tree lhs = gimple_assign_lhs(stmt);
-  if (AGGREGATE_TYPE_P(TREE_TYPE(lhs))) {
+  if (isa<AGGREGATE_TYPE>(TREE_TYPE(lhs))) {
     assert(get_gimple_rhs_class(gimple_expr_code(stmt)) == GIMPLE_SINGLE_RHS &&
            "Aggregate type but rhs not simple!");
     LValue LV = EmitLV(lhs);
@@ -8152,7 +8152,7 @@ void TreeToLLVM::RenderGIMPLE_CALL(gimple stmt) {
   tree lhs = gimple_call_lhs(stmt);
   if (!lhs) {
     // The returned value is not used.
-    if (!AGGREGATE_TYPE_P(gimple_call_return_type(stmt))) {
+    if (!isa<AGGREGATE_TYPE>(gimple_call_return_type(stmt))) {
       OutputCallRHS(stmt, 0);
       return;
     }
@@ -8164,7 +8164,7 @@ void TreeToLLVM::RenderGIMPLE_CALL(gimple stmt) {
     return;
   }
 
-  if (AGGREGATE_TYPE_P(TREE_TYPE(lhs))) {
+  if (isa<AGGREGATE_TYPE>(TREE_TYPE(lhs))) {
     LValue LV = EmitLV(lhs);
     MemRef NewLoc(LV.Ptr, LV.getAlignment(), TREE_THIS_VOLATILE(lhs));
     OutputCallRHS(stmt, &NewLoc);
@@ -8348,7 +8348,7 @@ void TreeToLLVM::RenderGIMPLE_RETURN(gimple stmt) {
   if (retval && retval != error_mark_node && retval != result) {
     // Store the return value to the function's DECL_RESULT.
     MemRef DestLoc(DECL_LOCAL(result), 1, false); // FIXME: What alignment?
-    if (AGGREGATE_TYPE_P(TREE_TYPE(result))) {
+    if (isa<AGGREGATE_TYPE>(TREE_TYPE(result))) {
       EmitAggregate(retval, DestLoc);
     } else {
       Value *Val = Builder.CreateBitCast(EmitRegister(retval),
@@ -8600,7 +8600,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
 /// EmitAssignSingleRHS - Helper for EmitAssignRHS.  Handles those RHS that are
 /// not register expressions.
 Value *TreeToLLVM::EmitAssignSingleRHS(tree rhs) {
-  assert(!AGGREGATE_TYPE_P(TREE_TYPE(rhs)) && "Expected a scalar type!");
+  assert(!isa<AGGREGATE_TYPE>(TREE_TYPE(rhs)) && "Expected a scalar type!");
 
   switch (TREE_CODE(rhs)) {
   // Catch-all for SSA names, constants etc.

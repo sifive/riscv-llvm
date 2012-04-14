@@ -77,7 +77,7 @@ vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
   HOST_WIDE_INT bytes =
     (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
 
-  if (type && AGGREGATE_TYPE_P (type))
+  if (type && isa<AGGREGATE_TYPE>(type))
   {
     int i;
     int cnt = 0;

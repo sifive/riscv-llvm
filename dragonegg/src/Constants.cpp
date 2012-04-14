@@ -690,7 +690,7 @@ static Constant *ConvertInitializerWithCast(tree exp, tree type,
   // If the types differ then this is probably something like a struct ending in
   // a flexible array being initialized with a struct ending in an array of some
   // definite size.
-  if (AGGREGATE_TYPE_P(type) || AGGREGATE_TYPE_P(TREE_TYPE(exp)))
+  if (isa<AGGREGATE_TYPE>(type) || isa<AGGREGATE_TYPE>(TREE_TYPE(exp)))
     return C;
 
   // Scalar to scalar cast.  This is where the implicit scalar casts that GCC
@@ -1426,7 +1426,7 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
 
   // Make the IR easier to read by returning a constant of the expected type if
   // it is safe and efficient to do so.
-  if (!AGGREGATE_TYPE_P(TREE_TYPE(exp)))
+  if (!isa<AGGREGATE_TYPE>(TREE_TYPE(exp)))
     Init = InterpretAsType(Init, ConvertType(TREE_TYPE(exp)), 0, Folder);
 
 #ifndef NDEBUG
@@ -1651,7 +1651,7 @@ static Constant *AddressOfImpl(tree exp, TargetFolder &Folder) {
   // Ensure that the address has the expected type.  It is simpler to do this
   // once here rather than in every AddressOf helper.
   Type *Ty;
-  if (VOID_TYPE_P(TREE_TYPE(exp)))
+  if (isa<VOID_TYPE>(TREE_TYPE(exp)))
     Ty = GetUnitPointerType(Context); // void* -> i8*.
   else
     Ty = ConvertType(TREE_TYPE(exp))->getPointerTo();

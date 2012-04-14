@@ -78,8 +78,8 @@ extern "C" int ix86_regparm;
             PAttribute |= Attribute::InReg;                     \
           else                                                  \
             local_fp_regparm = 0;                               \
-      } else if (INTEGRAL_TYPE_P(Type) ||                       \
-                 POINTER_TYPE_P(Type)) {                        \
+      } else if (isa<INTEGRAL_TYPE>(Type) ||                    \
+                 isa<ACCESS_TYPE>(Type)) {                      \
           int words =                                           \
                   (Size + BITS_PER_WORD - 1) / BITS_PER_WORD;   \
           local_regparm -= words;                               \

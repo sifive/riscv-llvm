@@ -38,7 +38,11 @@
 
 /// dragonegg_tree_code - Fake helper tree codes.
 enum dragonegg_tree_code {
-  STRUCT_TYPE, // A record, union or qualified union type.
+  ACCESS_TYPE,          // A pointer or reference type.
+  AGGREGATE_TYPE,       // A record, union, qualified union or array type.
+  FLOAT_TYPE,           // A scalar, complex or vector floating point type.
+  INTEGRAL_TYPE,        // A enumeral, boolean or integer type.
+  RECORD_OR_UNION_TYPE, // A record, union or qualified union type.
 };
 
 /// isa - Return true if the given tree has the specified code.
@@ -47,8 +51,16 @@ template<enum tree_code code> bool isa(const_tree t) {
 }
 template<enum dragonegg_tree_code code> bool isa(const_tree t) {
   switch (code) {
-  case STRUCT_TYPE:
-    return isa<RECORD_TYPE>(t) || isa<UNION_TYPE>(t) || isa<QUAL_UNION_TYPE>(t);
+  case ACCESS_TYPE:
+    return POINTER_TYPE_P(t);
+  case AGGREGATE_TYPE:
+    return AGGREGATE_TYPE_P(t);
+  case FLOAT_TYPE:
+    return FLOAT_TYPE_P(t);
+  case INTEGRAL_TYPE:
+    return INTEGRAL_TYPE_P(t);
+  case RECORD_OR_UNION_TYPE:
+    return RECORD_OR_UNION_TYPE_P(t);
   }
 }
 

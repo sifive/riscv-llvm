@@ -1031,7 +1031,7 @@ bool ValidateRegisterVariable(tree decl) {
 #endif
   else if (DECL_INITIAL(decl) != 0 && TREE_STATIC(decl))
     error("global register variable has initial value");
-  else if (AGGREGATE_TYPE_P(TREE_TYPE(decl)))
+  else if (isa<AGGREGATE_TYPE>(TREE_TYPE(decl)))
     sorry("LLVM cannot handle register variable %<%s%>, report a bug",
           RegName);
   else {
