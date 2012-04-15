@@ -31,6 +31,7 @@
 #include "llvm/Module.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/MDBuilder.h"
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
@@ -319,14 +320,8 @@ static MDNode *describeTypeRange(tree type) {
   // Unlike GCC's, LLVM ranges do not include the upper end point.
   ++Hi;
 
-  // If the range is everything then it is useless.
-  if (Hi == Lo)
-    return 0;
-
-  // Return the range [Lo, Hi).
-  Type *Ty = IntegerType::get(Context, BitWidth);
-  Value *Range[2] = { ConstantInt::get(Ty, Lo), ConstantInt::get(Ty, Hi) };
-  return MDNode::get(Context, Range);
+  MDBuilder MDHelper(Context);
+  return MDHelper.CreateRange(Lo, Hi);
 }
 
 /// isDirectMemoryAccessSafe - Whether directly storing/loading a value of the

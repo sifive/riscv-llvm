@@ -27,8 +27,7 @@
 // LLVM headers
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Metadata.h"
+#include "llvm/Support/MDBuilder.h"
 
 // System headers
 #include <gmp.h>
@@ -61,17 +60,9 @@ static MDNode *getTBAARoot() {
     // Create the root node.  This must be unique to the compilation unit since
     // the names of the nodes we hang off it have no intrinsic meaning: nodes
     // from different compilation units must not be merged even if they have the
-    // same name.  To ensure uniqueness the root node is made self-referential.
-    MDNode *Dummy = MDNode::getTemporary(Context, ArrayRef<Value*>());
-    Root = MDNode::get(Context, Dummy);
-    // At this point we have
-    //   !0 = metadata !{}            <- dummy
-    //   !1 = metadata !{metadata !0} <- root
-    // Replace the dummy operand with the root node itself and delete the dummy.
-    Root->replaceOperandWith(0, Root);
-    MDNode::deleteTemporary(Dummy);
-    // We now have
-    //   !1 = metadata !{metadata !1} <- self-referential root
+    // same name.
+    MDBuilder MDHelper(Context);
+    Root = MDHelper.CreateAnonymousTBAARoot();
   }
   return Root;
 }
@@ -148,8 +139,9 @@ MDNode *describeAliasSet(tree t) {
   tree type = TYPE_CANONICAL(TYPE_MAIN_VARIANT(TYPE_P(t) ? t : TREE_TYPE(t)));
   std::string TreeName = ("alias set " + Twine(alias_set) + ": " +
     getDescriptiveName(type)).str();
-  Value *Ops[2] = { MDString::get(Context, TreeName), getTBAARoot() };
-  MDNode *AliasTag = MDNode::get(Context, Ops);
+  MDBuilder MDHelper(Context);
+
+  MDNode *AliasTag = MDHelper.CreateTBAANode(TreeName, getTBAARoot());
   NodeTags[alias_set] = AliasTag;
   LeafNodes.push_back(alias_set);
   return AliasTag;
