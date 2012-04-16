@@ -582,17 +582,6 @@ TreeToLLVM::TreeToLLVM(tree fndecl) :
   ReturnBB = 0;
   ReturnOffset = 0;
 
-  if (
-#if (GCC_MINOR > 5)
-    fast_math_flags_set_p(&global_options)
-#else
-    fast_math_flags_set_p()
-#endif
-  ) {
-    MDBuilder MDHelper(Context);
-    Builder.SetDefaultFPMathTag(MDHelper.createFastFPMath());
-  }
-
   if (EmitDebugInfo()) {
     expanded_location Location = expand_location(DECL_SOURCE_LOCATION (fndecl));
 
