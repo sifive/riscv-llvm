@@ -62,7 +62,7 @@ static MDNode *getTBAARoot() {
     // from different compilation units must not be merged even if they have the
     // same name.
     MDBuilder MDHelper(Context);
-    Root = MDHelper.CreateAnonymousTBAARoot();
+    Root = MDHelper.createAnonymousTBAARoot();
   }
   return Root;
 }
@@ -141,7 +141,7 @@ MDNode *describeAliasSet(tree t) {
     getDescriptiveName(type)).str();
   MDBuilder MDHelper(Context);
 
-  MDNode *AliasTag = MDHelper.CreateTBAANode(TreeName, getTBAARoot());
+  MDNode *AliasTag = MDHelper.createTBAANode(TreeName, getTBAARoot());
   NodeTags[alias_set] = AliasTag;
   LeafNodes.push_back(alias_set);
   return AliasTag;

@@ -321,7 +321,7 @@ static MDNode *describeTypeRange(tree type) {
   ++Hi;
 
   MDBuilder MDHelper(Context);
-  return MDHelper.CreateRange(Lo, Hi);
+  return MDHelper.createRange(Lo, Hi);
 }
 
 /// isDirectMemoryAccessSafe - Whether directly storing/loading a value of the
