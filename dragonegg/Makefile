@@ -40,15 +40,17 @@ else
 LOADABLE_MODULE_OPTIONS=-shared -Wl,-O1 -Wl,--version-script=$(TOP_DIR)/exports.map
 endif
 
-GCC_PLUGIN_DIR:=$(shell $(GCC) -print-file-name=plugin)
-GCC_VERSION:=$(shell $(GCC) -dumpversion).0
-GCC_MAJOR=$(word 1, $(subst ., ,$(GCC_VERSION)))
-GCC_MINOR=$(word 2, $(subst ., ,$(GCC_VERSION)))
-GCC_MICRO=$(word 3, $(subst ., ,$(GCC_VERSION)))
-GCC_LANGUAGES=$(shell $(GCC) -v 2>&1 | grep '^Configured with:' | sed 's/^.*--enable-languages=\([^ ]*\).*/\1/')
-TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
-
 LLVM_VERSION:=$(shell $(LLVM_CONFIG) --version)
+
+GCC_VERSION:=$(shell $(GCC) -dumpversion).0
+GCC_MAJOR:=$(word 1, $(subst ., ,$(GCC_VERSION)))
+GCC_MINOR:=$(word 2, $(subst ., ,$(GCC_VERSION)))
+GCC_MICRO:=$(word 3, $(subst ., ,$(GCC_VERSION)))
+
+GCC_LANGUAGES:=$(shell $(GCC) -v 2>&1 | grep '^Configured with:' | sed 's/^.*--enable-languages=\([^ ]*\).*/\1/')
+GCC_PLUGIN_DIR:=$(shell $(GCC) -print-file-name=plugin)
+
+TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
 
 PLUGIN=dragonegg.so
 PLUGIN_OBJECTS=Aliasing.o Backend.o Cache.o Constants.o Convert.o Debug.o \
@@ -66,7 +68,7 @@ CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -MD -MP \
 	     -DIN_GCC -DLLVM_VERSION=\"$(LLVM_VERSION)\" \
 	     -DGCC_MAJOR=$(GCC_MAJOR) -DGCC_MINOR=$(GCC_MINOR) \
-	     -DGCC_MICRO=$(GCC_MICRO) \
+	     -DGCC_MICRO=$(GCC_MICRO) -DGCC_LANG=\"$(GCC_LANG)\" \
 	     -I$(INCLUDE_DIR) -isystem$(GCC_PLUGIN_DIR)/include
 ifdef DISABLE_VERSION_CHECK
 CPP_OPTIONS+=-DDISABLE_VERSION_CHECK
@@ -91,6 +93,49 @@ export PYTHONPATH:=$(TEST_SRC_DIR):$(LIT_DIR)/lit:$(PYTHONPATH)
 
 default: $(PLUGIN)
 
+
+# gcc-4.6 and earlier are built as C, gcc-4.8 and later are built as C++, while
+# gcc-4.7 may be built as C or as C++.  The plugin accesses symbols inside gcc
+# so needs to know if they are mangled or not.  Determine the gcc build language
+# and store it in GCC_LANG.
+
+GCC_LANG_PLUGIN:=lang_plugin.so
+GCC_LANG_TARGET:=
+ifeq ($(GCC_MAJOR),4)
+
+ifeq ($(GCC_MINOR),5)
+# gcc-4.5
+GCC_LANG:="C"
+else ifeq ($(GCC_MINOR),6)
+# gcc-4.6
+GCC_LANG:="C"
+else ifeq ($(GCC_MINOR),7)
+# gcc-4.7, may have been built as C or C++
+GCC_LANG_TARGET:=check_build_language
+
+$(GCC_LANG_PLUGIN): $(TOP_DIR)/utils/lang_plugin.c
+	@echo Compiling utils/$(<F)
+	$(QUIET)$(CC) -o $@ $< $(LOADABLE_MODULE_OPTIONS) \
+	  -I$(GCC_PLUGIN_DIR)/include
+
+# Try to load a simple plugin that attempts to use a non-mangled symbol
+# from gcc.  If it works then gcc was built as C.  Otherwise either gcc
+# was built as C++ (or something went wrong with the test).
+check_build_language:: $(GCC_LANG_PLUGIN)
+	$(eval GCC_LANG := $(shell $(GCC) -fplugin=./$(GCC_LANG_PLUGIN) -S \
+	  utils/empty.c 2> /dev/null && echo "C" || echo "C++"))
+	@echo "GCC was built as $(GCC_LANG)"
+else
+# gcc-4.8 and later
+GCC_LANG:="C++"
+endif
+
+else
+# gcc-5.0 and later
+GCC_LANG:="C++"
+endif
+
+
 $(TARGET_UTIL_OBJECTS): %.o : $(TOP_DIR)/utils/%.cpp
 	@echo Compiling utils/$*.cpp
 	$(QUIET)$(CXX) -c -DTARGET_TRIPLE=\"$(TARGET_TRIPLE)\" \
@@ -101,7 +146,7 @@ $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
 	$(QUIET)$(CXX) -o $@ $^ $(shell $(LLVM_CONFIG) --libs support) \
 	$(LD_OPTIONS)
 
-%.o : $(SRC_DIR)/%.cpp $(TARGET_UTIL)
+%.o : $(SRC_DIR)/%.cpp $(GCC_LANG_TARGET) $(TARGET_UTIL)
 	@echo Compiling $*.cpp
 	$(QUIET)$(CXX) -c $(TARGET_HEADERS) $(CPP_OPTIONS) $(CXXFLAGS) $<
 
@@ -142,7 +187,8 @@ check-validator:: $(PLUGIN) $(LIT_SITE_CONFIG)
 check:: check-validator check-compilator
 
 clean::
-	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL) $(LIT_SITE_CONFIG)
+	$(QUIET)rm -f *.o *.d $(GCC_LANG_PLUGIN) $(PLUGIN) $(TARGET_UTIL) \
+	  $(LIT_SITE_CONFIG)
 
 
 -include $(ALL_OBJECTS:.o=.d)

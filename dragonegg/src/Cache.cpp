@@ -34,7 +34,7 @@
 #include <gmp.h>
 
 // GCC headers
-extern "C" {
+extern GCC_LANG {
 #include "config.h"
 // Stop GCC declaring 'getopt' as it can clash with the system's declaration.
 #undef HAVE_DECL_GETOPT
@@ -111,7 +111,7 @@ static GTY((if_marked("tree2WeakVH_marked_p"),
 
 
 // Include the garbage collector header.
-extern "C" {
+extern GCC_LANG {
 #if (GCC_MINOR > 5)
 #include "dragonegg/gt-cache-4.6.h"
 #else

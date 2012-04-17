@@ -35,7 +35,7 @@
 #include <map>
 
 // GCC headers
-extern "C" {
+extern GCC_LANG {
 #include "config.h"
 // Stop GCC declaring 'getopt' as it can clash with the system's declaration.
 #undef HAVE_DECL_GETOPT
