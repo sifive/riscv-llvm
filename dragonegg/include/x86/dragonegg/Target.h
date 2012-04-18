@@ -46,7 +46,7 @@
    `inreg` parameter attribute */
 #define LLVM_TARGET_ENABLE_REGPARM
 
-extern GCC_LANG int ix86_regparm;
+extern "C" int ix86_regparm;
 
 #define LLVM_TARGET_INIT_REGPARM(local_regparm, local_fp_regparm, type) \
   {                                                             \

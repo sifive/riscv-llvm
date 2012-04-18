@@ -37,8 +37,9 @@ struct basic_block_def;
 union gimple_statement_d;
 union tree_node;
 
-extern GCC_LANG {
+extern "C" {
 extern void debug_gimple_stmt(union gimple_statement_d *);
+extern void debug_tree(union tree_node *);
 }
 
 namespace llvm {

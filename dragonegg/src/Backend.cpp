@@ -50,7 +50,7 @@
 #include <gmp.h>
 
 // GCC headers
-extern GCC_LANG {
+extern "C" {
 #include "config.h"
 // Stop GCC declaring 'getopt' as it can clash with the system's declaration.
 #undef HAVE_DECL_GETOPT
@@ -85,7 +85,7 @@ extern GCC_LANG {
 #endif
 
 // TODO: In GCC, add targhooks.h to the list of plugin headers and remove this.
-extern GCC_LANG tree default_mangle_decl_assembler_name (tree, tree);
+extern "C" tree default_mangle_decl_assembler_name (tree, tree);
 
 // Non-zero if libcalls should not be simplified.
 int flag_no_simplify_libcalls;
@@ -2284,14 +2284,12 @@ plugin_init(struct plugin_name_args *plugin_info,
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-#if (GCC_MINOR < 7)
     // Turn off pass_ipa_type_escape.
     pass_info.pass = &pass_simple_ipa_null.pass;
     pass_info.reference_pass_name = "type-escape-var";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-#endif
 
     // Turn off pass_ipa_pta.
     pass_info.pass = &pass_simple_ipa_null.pass;
@@ -2300,14 +2298,12 @@ plugin_init(struct plugin_name_args *plugin_info,
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-#if (GCC_MINOR < 7)
     // Turn off pass_ipa_struct_reorg.
     pass_info.pass = &pass_simple_ipa_null.pass;
     pass_info.reference_pass_name = "ipa_struct_reorg";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
-#endif
   }
 
   // Replace the LTO gimple pass with a pass that converts same-body aliases and
