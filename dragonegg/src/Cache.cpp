@@ -34,7 +34,10 @@
 #include <gmp.h>
 
 // GCC headers
+#include "auto-host.h"
+#ifndef ENABLE_BUILD_WITH_CXX
 extern "C" {
+#endif
 #include "config.h"
 // Stop GCC declaring 'getopt' as it can clash with the system's declaration.
 #undef HAVE_DECL_GETOPT
@@ -44,7 +47,9 @@ extern "C" {
 #include "tree.h"
 
 #include "ggc.h"
-}
+#ifndef ENABLE_BUILD_WITH_CXX
+} // extern "C"
+#endif
 
 using namespace llvm;
 
@@ -111,13 +116,17 @@ static GTY((if_marked("tree2WeakVH_marked_p"),
 
 
 // Include the garbage collector header.
+#ifndef ENABLE_BUILD_WITH_CXX
 extern "C" {
+#endif
 #if (GCC_MINOR > 5)
 #include "dragonegg/gt-cache-4.6.h"
 #else
 #include "dragonegg/gt-cache-4.5.h"
 #endif
-}
+#ifndef ENABLE_BUILD_WITH_CXX
+} // extern "C"
+#endif
 
 bool getCachedInteger(tree t, int &Val) {
   if (!intCache)

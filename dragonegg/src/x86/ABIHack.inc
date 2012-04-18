@@ -25,7 +25,10 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "auto-host.h"
+#ifndef ENABLE_BUILD_WITH_CXX
 extern "C" {
+#endif
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -47,7 +50,9 @@ extern "C" {
 #include "cgraph.h"
 #include "gimple.h"
 #include "params.h"
-}
+#ifndef ENABLE_BUILD_WITH_CXX
+} // extern "C"
+#endif
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)

@@ -50,7 +50,10 @@
 #include <gmp.h>
 
 // GCC headers
+#include "auto-host.h"
+#ifndef ENABLE_BUILD_WITH_CXX
 extern "C" {
+#endif
 #include "config.h"
 // Stop GCC declaring 'getopt' as it can clash with the system's declaration.
 #undef HAVE_DECL_GETOPT
@@ -75,7 +78,12 @@ extern "C" {
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "version.h"
-}
+
+// TODO: In GCC, add targhooks.h to the list of plugin headers and remove this.
+tree default_mangle_decl_assembler_name (tree, tree);
+#ifndef ENABLE_BUILD_WITH_CXX
+} // extern "C"
+#endif
 
 // Trees header.
 #include "dragonegg/Trees.h"
@@ -83,9 +91,6 @@ extern "C" {
 #if (GCC_MAJOR != 4)
 #error Unsupported GCC major version
 #endif
-
-// TODO: In GCC, add targhooks.h to the list of plugin headers and remove this.
-extern "C" tree default_mangle_decl_assembler_name (tree, tree);
 
 // Non-zero if libcalls should not be simplified.
 int flag_no_simplify_libcalls;

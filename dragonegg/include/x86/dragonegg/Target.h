@@ -46,7 +46,14 @@
    `inreg` parameter attribute */
 #define LLVM_TARGET_ENABLE_REGPARM
 
-extern "C" int ix86_regparm;
+#include "auto-host.h"
+#ifndef ENABLE_BUILD_WITH_CXX
+extern "C" {
+#endif
+extern int ix86_regparm;
+#ifndef ENABLE_BUILD_WITH_CXX
+} // extern "C"
+#endif
 
 #define LLVM_TARGET_INIT_REGPARM(local_regparm, local_fp_regparm, type) \
   {                                                             \

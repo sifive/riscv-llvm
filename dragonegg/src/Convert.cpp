@@ -40,7 +40,10 @@
 #include <gmp.h>
 
 // GCC headers
+#include "auto-host.h"
+#ifndef ENABLE_BUILD_WITH_CXX
 extern "C" {
+#endif
 #include "config.h"
 // Stop GCC declaring 'getopt' as it can clash with the system's declaration.
 #undef HAVE_DECL_GETOPT
@@ -52,6 +55,9 @@ extern "C" {
 #include "diagnostic.h"
 #include "except.h"
 #include "flags.h"
+#if (GCC_MINOR > 6)
+#include "gimple-pretty-print.h"
+#endif
 #include "langhooks.h"
 #include "output.h"
 #include "rtl.h"
@@ -74,7 +80,14 @@ extern struct target_regs default_target_regs;
 
 #define reg_raw_mode (default_target_regs.x_reg_raw_mode)
 #endif
-}
+
+#if (GCC_MINOR == 6)
+extern void debug_gimple_stmt(union gimple_statement_d *);
+#endif
+
+#ifndef ENABLE_BUILD_WITH_CXX
+} // extern "C"
+#endif
 
 // Trees header.
 #include "dragonegg/Trees.h"

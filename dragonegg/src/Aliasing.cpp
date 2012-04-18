@@ -34,7 +34,10 @@
 #include <map>
 
 // GCC headers
+#include "auto-host.h"
+#ifndef ENABLE_BUILD_WITH_CXX
 extern "C" {
+#endif
 #include "config.h"
 // Stop GCC declaring 'getopt' as it can clash with the system's declaration.
 #undef HAVE_DECL_GETOPT
@@ -44,7 +47,9 @@ extern "C" {
 #include "tree.h"
 
 #include "alias.h"
-}
+#ifndef ENABLE_BUILD_WITH_CXX
+} // extern "C"
+#endif
 
 // Trees header.
 #include "dragonegg/Trees.h"
