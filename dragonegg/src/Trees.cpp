@@ -91,7 +91,7 @@ std::string getDescriptiveName(const_tree t) {
   }
 
   // Handle types of all kinds.
-  if (TYPE_P(t)) {
+  if (isa<TYPE>(t)) {
     // If the type comes with a name then use it.
     const std::string &TypeName = getDescriptiveName(TYPE_NAME(t));
     if (!TypeName.empty()) {

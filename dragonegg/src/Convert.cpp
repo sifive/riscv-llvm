@@ -2336,7 +2336,7 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
 static Constant *ConvertTypeInfo(tree type) {
   // TODO: Once pass_ipa_free_lang is made a default pass, remove the call to
   // lookup_type_for_runtime below.
-  if (TYPE_P (type))
+  if (isa<TYPE>(type))
     type = lookup_type_for_runtime (type);
   STRIP_NOPS(type);
   if (isa<ADDR_EXPR>(type))

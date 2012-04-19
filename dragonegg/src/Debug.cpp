@@ -92,7 +92,7 @@ static void DirectoryAndFile(const std::string &FullPath,
 static uint64_t NodeSizeInBits(tree Node) {
   if (isa<ERROR_MARK>(Node)) {
     return BITS_PER_WORD;
-  } else if (TYPE_P(Node)) {
+  } else if (isa<TYPE>(Node)) {
     if (TYPE_SIZE(Node) == NULL_TREE)
       return 0;
     else if (isInt64(TYPE_SIZE(Node), true))
@@ -115,7 +115,7 @@ static uint64_t NodeSizeInBits(tree Node) {
 /// regardless of whether the node is a TYPE or DECL.
 static uint64_t NodeAlignInBits(tree Node) {
   if (isa<ERROR_MARK>(Node)) return BITS_PER_WORD;
-  if (TYPE_P(Node)) return TYPE_ALIGN(Node);
+  if (isa<TYPE>(Node)) return TYPE_ALIGN(Node);
   if (DECL_P(Node)) return DECL_ALIGN(Node);
   return BITS_PER_WORD;
 }
@@ -135,7 +135,7 @@ static StringRef GetNodeName(tree Node) {
 
   if (DECL_P(Node)) {
     Name = DECL_NAME(Node);
-  } else if (TYPE_P(Node)) {
+  } else if (isa<TYPE>(Node)) {
     Name = TYPE_NAME(Node);
   }
 
@@ -164,12 +164,12 @@ static expanded_location GetNodeLocation(tree Node, bool UseStub = true) {
 
   if (DECL_P(Node)) {
     Name = DECL_NAME(Node);
-  } else if (TYPE_P(Node)) {
+  } else if (isa<TYPE>(Node)) {
     Name = TYPE_NAME(Node);
   }
 
   if (Name) {
-    if (TYPE_STUB_DECL(Name)) {
+    if (isa<TYPE>(Name) && TYPE_STUB_DECL(Name)) {
       tree Stub = TYPE_STUB_DECL(Name);
       Location = expand_location(DECL_SOURCE_LOCATION(Stub));
     } else if (DECL_P(Name)) {
@@ -178,7 +178,7 @@ static expanded_location GetNodeLocation(tree Node, bool UseStub = true) {
   }
 
   if (!Location.line) {
-    if (UseStub && TYPE_STUB_DECL(Node)) {
+    if (UseStub && isa<TYPE>(Name) && TYPE_STUB_DECL(Node)) {
       tree Stub = TYPE_STUB_DECL(Node);
       Location = expand_location(DECL_SOURCE_LOCATION(Stub));
     } else if (DECL_P(Node)) {
@@ -291,7 +291,7 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn) {
   unsigned VIndex = 0;
   DIType ContainingType;
   if (DECL_VINDEX (FnDecl) &&
-      DECL_CONTEXT (FnDecl) && TYPE_P((DECL_CONTEXT (FnDecl)))) { // Workaround GCC PR42653
+      DECL_CONTEXT (FnDecl) && isa<TYPE>((DECL_CONTEXT (FnDecl)))) { // Workaround GCC PR42653
     if (host_integerp (DECL_VINDEX (FnDecl), 0))
       VIndex = tree_low_cst (DECL_VINDEX (FnDecl), 0);
     Virtuality = dwarf::DW_VIRTUALITY_virtual;
@@ -344,7 +344,7 @@ DIDescriptor DebugInfo::findRegion(tree Node) {
     if (MDNode *R = dyn_cast_or_null<MDNode>(&*I->second))
       return DIDescriptor(R);
 
-  if (TYPE_P (Node)) {
+  if (isa<TYPE>(Node)) {
     DIType Ty = getOrCreateType(Node);
     return DIDescriptor(Ty);
   } else if (DECL_P (Node)) {

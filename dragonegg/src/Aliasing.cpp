@@ -141,7 +141,8 @@ MDNode *describeAliasSet(tree t) {
 
   // Create metadata describing the new node hanging off root.  The name doesn't
   // matter much but needs to be unique for the compilation unit.
-  tree type = TYPE_CANONICAL(TYPE_MAIN_VARIANT(TYPE_P(t) ? t : TREE_TYPE(t)));
+  tree type =
+    TYPE_CANONICAL(TYPE_MAIN_VARIANT(isa<TYPE>(t) ? t : TREE_TYPE(t)));
   std::string TreeName = ("alias set " + Twine(alias_set) + ": " +
     getDescriptiveName(type)).str();
   MDBuilder MDHelper(Context);
