@@ -1611,6 +1611,23 @@ static Constant *AddressOfLABEL_DECL(tree exp, TargetFolder &) {
   return TheTreeToLLVM->AddressOfLABEL_DECL(exp);
 }
 
+#if (GCC_MINOR > 5)
+/// AddressOfMEM_REF - Return the address of a memory reference.
+static Constant *AddressOfMEM_REF(tree exp, TargetFolder &Folder) {
+  // The address is the first operand offset in bytes by the second.
+  Constant *Addr = getAsRegister(TREE_OPERAND(exp, 0), Folder);
+  if (integer_zerop(TREE_OPERAND(exp, 1)))
+    return Addr;
+
+  // Convert to a byte pointer and displace by the offset.
+  Addr = Folder.CreateBitCast(Addr, GetUnitPointerType(Context));
+  APInt Delta = getIntegerValue(TREE_OPERAND(exp, 1));
+  Constant *Offset = ConstantInt::get(Context, Delta);
+  // The address is always inside the referenced object, so "inbounds".
+  return Folder.CreateInBoundsGetElementPtr(Addr, Offset);
+}
+#endif
+
 /// AddressOfImpl - Implementation of AddressOf.
 static Constant *AddressOfImpl(tree exp, TargetFolder &Folder) {
   Constant *Addr;
@@ -1651,6 +1668,11 @@ static Constant *AddressOfImpl(tree exp, TargetFolder &Folder) {
   case LABEL_DECL:
     Addr = AddressOfLABEL_DECL(exp, Folder);
     break;
+#if (GCC_MINOR > 5)
+  case MEM_REF:
+    Addr = AddressOfMEM_REF(exp, Folder);
+    break;
+#endif
   }
 
   // Ensure that the address has the expected type.  It is simpler to do this
