@@ -621,6 +621,7 @@ TreeToLLVM::~TreeToLLVM() {
 
 /// isLocalDecl - Whether this declaration is local to the current function.
 static bool isLocalDecl(tree decl) {
+  if (isa<CONST_DECL>(decl)) return false;
   assert(HAS_RTL_P(decl) && "Expected a declaration with RTL!");
   return
     // GCC bug workaround: RESULT_DECL may not have DECL_CONTEXT set in thunks.

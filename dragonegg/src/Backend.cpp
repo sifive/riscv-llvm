@@ -145,7 +145,8 @@ static void createPerModuleOptimizationPasses();
 
 /// set_decl_llvm - Remember the LLVM value for a GCC declaration.
 Value *set_decl_llvm(tree t, Value *V) {
-  assert(HAS_RTL_P(t) && "Expected a declaration with RTL!");
+  assert((isa<CONST_DECL>(t) || HAS_RTL_P(t)) &&
+         "Expected a declaration with RTL!");
   assert((!V || isa<GlobalValue>(V)) && "Expected a global value!");
   setCachedValue(t, V);
   return V;
@@ -153,7 +154,8 @@ Value *set_decl_llvm(tree t, Value *V) {
 
 /// get_decl_llvm - Retrieve the LLVM value for a GCC declaration, or NULL.
 Value *get_decl_llvm(tree t) {
-  assert(HAS_RTL_P(t) && "Expected a declaration with RTL!");
+  assert((isa<CONST_DECL>(t) || HAS_RTL_P(t)) &&
+         "Expected a declaration with RTL!");
   Value *V = getCachedValue(t);
   return V ? V->stripPointerCasts() : 0;
 }
@@ -1083,8 +1085,9 @@ Value *make_decl_llvm(tree decl) {
 
   // Global register variable with asm name, e.g.:
   // register unsigned long esp __asm__("ebp");
-  if (!isa<FUNCTION_DECL>(decl) && DECL_REGISTER(decl)) {
-    // This  just verifies that the variable is ok.  The actual "load/store"
+  if (!isa<FUNCTION_DECL>(decl) && !isa<CONST_DECL>(decl) &&
+      DECL_REGISTER(decl)) {
+    // This just verifies that the variable is ok.  The actual "load/store"
     // code paths handle accesses to the variable.
     ValidateRegisterVariable(decl);
     return NULL;
