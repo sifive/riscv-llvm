@@ -1524,7 +1524,7 @@ namespace llvm {
     typedef tree_node NodeType;
     typedef RecursiveTypeIterator ChildIteratorType;
     static inline NodeType *getEntryNode(tree t) {
-      assert(isa<TYPE>(t) && "Expected a type!");
+      assert(TYPE_P(t) && "Expected a type!");
       return t;
     }
     static inline ChildIteratorType child_begin(tree type) {
