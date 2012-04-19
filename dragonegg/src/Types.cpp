@@ -102,6 +102,7 @@ namespace {
 
       switch (TREE_CODE(type_ref)) {
       default:
+        debug_tree(type_ref);
         llvm_unreachable("Unexpected tree kind!");
       case ARRAY_TYPE:
       case COMPLEX_TYPE:
@@ -116,7 +117,9 @@ namespace {
       case FIELD_DECL:
         // Here type_ref is a field of the record or union type being iterated
         // over.  Move on to the next field.
-        type_ref = TREE_CHAIN(type_ref);
+        do
+          type_ref = TREE_CHAIN(type_ref);
+        while (type_ref && !isa<FIELD_DECL>(type_ref));
         break;
 
       case FUNCTION_TYPE:
@@ -171,7 +174,10 @@ namespace {
       case UNION_TYPE:
         // The contained types are the types of the record's fields.  Use the
         // first FIELD_DECL as the "pointer" to the first contained type.
-        return ContainedTypeIterator(TYPE_FIELDS(type));
+        for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field))
+          if (isa<FIELD_DECL>(field))
+            return ContainedTypeIterator(field);
+        return end();
 
       case FUNCTION_TYPE:
       case METHOD_TYPE:
@@ -1092,7 +1098,8 @@ static Type *ConvertRecordTypeRecursive(tree type) {
   // Record all interesting fields so they can easily be visited backwards.
   SmallVector<tree, 16> Fields;
   for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
-    assert(isa<FIELD_DECL>(field) && "Lang data not freed?");
+    if (!isa<FIELD_DECL>(field))
+      continue;
     // Ignore fields with variable or unknown position since they cannot be
     // represented by the LLVM type system.
     if (!OffsetIsLLVMCompatible(field))
