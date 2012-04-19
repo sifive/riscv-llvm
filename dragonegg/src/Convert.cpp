@@ -8145,6 +8145,16 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
 
 void TreeToLLVM::RenderGIMPLE_ASSIGN(gimple stmt) {
   tree lhs = gimple_assign_lhs(stmt);
+
+#if (GCC_MINOR > 6)
+  // Assigning a right-hand side with TREE_CLOBBER_P says that the left-hand
+  // side is dead from this point on.
+  // TODO: Consider outputting an llvm.lifetime.end intrinsic to indicate this.
+  if (get_gimple_rhs_class(gimple_expr_code(stmt)) == GIMPLE_SINGLE_RHS &&
+      TREE_CLOBBER_P(gimple_assign_rhs1(stmt)))
+    return;
+#endif
+
   if (isa<AGGREGATE_TYPE>(TREE_TYPE(lhs))) {
     assert(get_gimple_rhs_class(gimple_expr_code(stmt)) == GIMPLE_SINGLE_RHS &&
            "Aggregate type but rhs not simple!");
