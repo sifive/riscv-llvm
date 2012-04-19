@@ -1147,7 +1147,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
     // Record all interesting fields so they can easily be visited backwards.
     SmallVector<tree, 16> Fields;
     for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
-      assert(isa<FIELD_DECL>(field) && "Lang data not freed?");
+      if (!isa<FIELD_DECL>(field)) continue;
       // Ignore fields with variable or unknown position since they cannot be
       // default initialized.
       if (!OffsetIsLLVMCompatible(field))

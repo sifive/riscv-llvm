@@ -1894,7 +1894,7 @@ static unsigned CostOfAccessingAllElements(tree type) {
     Type *Ty = ConvertType(type);
     unsigned TotalCost = 0;
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
-      assert(isa<FIELD_DECL>(Field) && "Lang data not freed?");
+      if (!isa<FIELD_DECL>(Field)) continue;
       // If the field has no size, for example because it is a C-style variable
       // length array, then just give up.
       if (!DECL_SIZE(Field))
@@ -1956,6 +1956,7 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
 
     // Copy each field in turn.
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
+      if (!isa<FIELD_DECL>(Field)) continue;
       // Ignore fields of size zero.
       if (integer_zerop(DECL_SIZE(Field)))
         continue;
@@ -2053,6 +2054,7 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
 
     // Zero each field in turn.
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
+      if (!isa<FIELD_DECL>(Field)) continue;
       // Ignore fields of size zero.
       if (integer_zerop(DECL_SIZE(Field)))
         continue;

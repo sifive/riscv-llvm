@@ -1098,8 +1098,7 @@ static Type *ConvertRecordTypeRecursive(tree type) {
   // Record all interesting fields so they can easily be visited backwards.
   SmallVector<tree, 16> Fields;
   for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
-    if (!isa<FIELD_DECL>(field))
-      continue;
+    if (!isa<FIELD_DECL>(field)) continue;
     // Ignore fields with variable or unknown position since they cannot be
     // represented by the LLVM type system.
     if (!OffsetIsLLVMCompatible(field))
