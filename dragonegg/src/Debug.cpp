@@ -178,7 +178,7 @@ static expanded_location GetNodeLocation(tree Node, bool UseStub = true) {
   }
 
   if (!Location.line) {
-    if (UseStub && isa<TYPE>(Name) && TYPE_STUB_DECL(Node)) {
+    if (UseStub && isa<TYPE>(Node) && TYPE_STUB_DECL(Node)) {
       tree Stub = TYPE_STUB_DECL(Node);
       Location = expand_location(DECL_SOURCE_LOCATION(Stub));
     } else if (DECL_P(Node)) {
