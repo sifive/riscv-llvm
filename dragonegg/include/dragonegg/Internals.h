@@ -328,12 +328,12 @@ public:
   /// of the types involved. This is an inferred cast.
   Value *CastToAnyType (Value *V, bool VSigned, Type *Ty, bool TySigned);
 
-  /// CastFromSameSizeInteger - Cast an integer value to the given scalar type
-  /// of the same bitwidth.
+  /// CastFromSameSizeInteger - Cast an integer (or vector of integer) value to
+  /// the given scalar (resp. vector of scalar) type of the same bitwidth.
   Value *CastFromSameSizeInteger(Value *V, Type *Ty);
 
-  /// CastToSameSizeInteger - Cast the specified scalar value to an integer of
-  /// the same bit width.
+  /// CastToSameSizeInteger - Cast the specified scalar (or vector of scalar)
+  /// value to an integer (resp. vector of integer) of the same bit width.
   Value *CastToSameSizeInteger(Value *V);
 
   /// CastToFPType - Cast the specified value to the specified type assuming

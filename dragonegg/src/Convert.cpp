@@ -1782,40 +1782,51 @@ Value *TreeToLLVM::CastToAnyType(Value *V, bool VisSigned,
   return Builder.CreateCast(opc, V, DestTy);
 }
 
-/// CastFromSameSizeInteger - Cast an integer value to the given scalar type
-/// of the same bitwidth.
+/// CastFromSameSizeInteger - Cast an integer (or vector of integer) value to
+/// the given scalar (resp. vector of scalar) type of the same bitwidth.
 Value *TreeToLLVM::CastFromSameSizeInteger(Value *V, Type *Ty) {
-  assert(V->getType()->isIntegerTy() && "Expected an integer type!");
-  if (Ty->isIntegerTy()) {
-    // Already an integer - nothing to do.
-    assert(V->getType() == Ty && "Integer type not same size!");
+  Type *OrigTy = V->getType();
+  Type *OrigEltTy = OrigTy->getScalarType();
+  assert(OrigEltTy->isIntegerTy() && "Expected an integer type!");
+  Type *EltTy = Ty->getScalarType();
+  if (EltTy->isIntegerTy()) {
+    // Already an integer/vector of integer - nothing to do.
+    assert(OrigTy == Ty && "Integer type not same size!");
     return V;
   }
-  if (Ty->isPointerTy()) {
-    // A pointer - use inttoptr.
-    assert(V->getType()->getPrimitiveSizeInBits() ==
+  if (EltTy->isPointerTy()) {
+    // A pointer/vector of pointer - use inttoptr.
+    assert(OrigEltTy->getPrimitiveSizeInBits() ==
            TD.getPointerSizeInBits() && "Pointer type not same size!");
     return Builder.CreateIntToPtr(V, Ty);
   }
   // Everything else.
-  assert(Ty->isFloatingPointTy() && "Not a scalar type?");
+  assert(Ty->isFPOrFPVectorTy() && "Expected a floating point type!");
   return Builder.CreateBitCast(V, Ty); // Will catch any size mismatch.
 }
 
-/// CastToSameSizeInteger - Cast the specified scalar value to an integer of
-/// the same bit width.
+/// CastToSameSizeInteger - Cast the specified scalar (or vector of scalar)
+/// value to an integer (resp. vector of integer) of the same bit width.
 Value *TreeToLLVM::CastToSameSizeInteger(Value *V) {
-  Type *Ty = V->getType();
-  if (Ty->isIntegerTy())
-    // Already an integer - nothing to do.
+  Type *OrigTy = V->getType();
+  Type *OrigEltTy = OrigTy->getScalarType();
+  if (OrigEltTy->isIntegerTy())
+    // Already an integer/vector of integer - nothing to do.
     return V;
-  if (Ty->isPointerTy())
-    // A pointer - use a same size ptrtoint.
-    return Builder.CreatePtrToInt(V, TD.getIntPtrType(Context));
+  unsigned VecElts = isa<VectorType>(OrigTy) ?
+    cast<VectorType>(OrigTy)->getNumElements() : 0;
+  if (OrigEltTy->isPointerTy()) {
+    // A pointer/vector of pointer - form a (vector of) pointer sized integers.
+    Type *NewEltTy = TD.getIntPtrType(Context);
+    Type *NewTy = VecElts ? VectorType::get(NewEltTy, VecElts) : NewEltTy;
+    return Builder.CreatePtrToInt(V, NewTy);
+  }
   // Everything else.
-  assert(Ty->isFloatingPointTy() && "Not a scalar type?");
-  unsigned BitWidth = Ty->getPrimitiveSizeInBits();
-  return Builder.CreateBitCast(V, IntegerType::get(Context, BitWidth));
+  assert(OrigTy->isFPOrFPVectorTy() && "Expected a floating point type!");
+  unsigned BitWidth = OrigEltTy->getPrimitiveSizeInBits();
+  Type *NewEltTy = IntegerType::get(Context, BitWidth);
+  Type *NewTy = VecElts ? VectorType::get(NewEltTy, VecElts) : NewEltTy;
+  return Builder.CreateBitCast(V, NewTy);
 }
 
 /// that the value and type are floating point.
