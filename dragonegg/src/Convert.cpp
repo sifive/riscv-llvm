@@ -1782,7 +1782,42 @@ Value *TreeToLLVM::CastToAnyType(Value *V, bool VisSigned,
   return Builder.CreateCast(opc, V, DestTy);
 }
 
-/// CastToFPType - Cast the specified value to the specified type assuming
+/// CastFromSameSizeInteger - Cast an integer value to the given scalar type
+/// of the same bitwidth.
+Value *TreeToLLVM::CastFromSameSizeInteger(Value *V, Type *Ty) {
+  assert(V->getType()->isIntegerTy() && "Expected an integer type!");
+  if (Ty->isIntegerTy()) {
+    // Already an integer - nothing to do.
+    assert(V->getType() == Ty && "Integer type not same size!");
+    return V;
+  }
+  if (Ty->isPointerTy()) {
+    // A pointer - use inttoptr.
+    assert(V->getType()->getPrimitiveSizeInBits() ==
+           TD.getPointerSizeInBits() && "Pointer type not same size!");
+    return Builder.CreateIntToPtr(V, Ty);
+  }
+  // Everything else.
+  assert(Ty->isFloatingPointTy() && "Not a scalar type?");
+  return Builder.CreateBitCast(V, Ty); // Will catch any size mismatch.
+}
+
+/// CastToSameSizeInteger - Cast the specified scalar value to an integer of
+/// the same bit width.
+Value *TreeToLLVM::CastToSameSizeInteger(Value *V) {
+  Type *Ty = V->getType();
+  if (Ty->isIntegerTy())
+    // Already an integer - nothing to do.
+    return V;
+  if (Ty->isPointerTy())
+    // A pointer - use a same size ptrtoint.
+    return Builder.CreatePtrToInt(V, TD.getIntPtrType(Context));
+  // Everything else.
+  assert(Ty->isFloatingPointTy() && "Not a scalar type?");
+  unsigned BitWidth = Ty->getPrimitiveSizeInBits();
+  return Builder.CreateBitCast(V, IntegerType::get(Context, BitWidth));
+}
+
 /// that the value and type are floating point.
 Value *TreeToLLVM::CastToFPType(Value *V, Type* Ty) {
   unsigned SrcBits = V->getType()->getPrimitiveSizeInBits();
@@ -7117,15 +7152,24 @@ Value *TreeToLLVM::EmitReg_CEIL_DIV_EXPR(tree op0, tree op1) {
 }
 
 Value *TreeToLLVM::EmitReg_BIT_AND_EXPR(tree op0, tree op1) {
-  return Builder.CreateAnd(EmitRegister(op0), EmitRegister(op1));
+  Value *LHS = CastToSameSizeInteger(EmitRegister(op0));
+  Value *RHS = CastToSameSizeInteger(EmitRegister(op1));
+  Value *Res = Builder.CreateAnd(LHS, RHS);
+  return CastFromSameSizeInteger(Res, getRegType(TREE_TYPE(op0)));
 }
 
 Value *TreeToLLVM::EmitReg_BIT_IOR_EXPR(tree op0, tree op1) {
-  return Builder.CreateOr(EmitRegister(op0), EmitRegister(op1));
+  Value *LHS = CastToSameSizeInteger(EmitRegister(op0));
+  Value *RHS = CastToSameSizeInteger(EmitRegister(op1));
+  Value *Res = Builder.CreateOr(LHS, RHS);
+  return CastFromSameSizeInteger(Res, getRegType(TREE_TYPE(op0)));
 }
 
 Value *TreeToLLVM::EmitReg_BIT_XOR_EXPR(tree op0, tree op1) {
-  return Builder.CreateXor(EmitRegister(op0), EmitRegister(op1));
+  Value *LHS = CastToSameSizeInteger(EmitRegister(op0));
+  Value *RHS = CastToSameSizeInteger(EmitRegister(op1));
+  Value *Res = Builder.CreateXor(LHS, RHS);
+  return CastFromSameSizeInteger(Res, getRegType(TREE_TYPE(op0)));
 }
 
 Value *TreeToLLVM::EmitReg_COMPLEX_EXPR(tree op0, tree op1) {
