@@ -1103,9 +1103,6 @@ static Type *ConvertRecordTypeRecursive(tree type) {
     // represented by the LLVM type system.
     if (!OffsetIsLLVMCompatible(field))
       continue;
-    // Skip fields that are known not to be present.
-    if (isa<QUAL_UNION_TYPE>(type) && integer_zerop(DECL_QUALIFIER(field)))
-      continue;
     Fields.push_back(field);
   }
 

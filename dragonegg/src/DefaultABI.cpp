@@ -320,22 +320,12 @@ void DefaultABI::HandleUnion(tree type, std::vector<Type*> &ScalarElts) {
     tree MaxElt = 0;
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
       if (isa<FIELD_DECL>(Field)) {
-        // Skip fields that are known not to be present.
-        if (isa<QUAL_UNION_TYPE>(type) &&
-            integer_zerop(DECL_QUALIFIER(Field)))
-          continue;
-
         tree SizeTree = TYPE_SIZE(TREE_TYPE(Field));
         unsigned Size = ((unsigned)TREE_INT_CST_LOW(SizeTree)+7)/8;
         if (Size > MaxSize) {
           MaxSize = Size;
           MaxElt = Field;
         }
-
-        // Skip remaining fields if this one is known to be present.
-        if (isa<QUAL_UNION_TYPE>(type) &&
-            integer_onep(DECL_QUALIFIER(Field)))
-          break;
       }
     }
 
