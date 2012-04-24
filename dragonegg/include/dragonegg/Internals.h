@@ -570,10 +570,15 @@ private:
   Value *EmitReg_WIDEN_MULT_EXPR(tree_node *type, tree_node *op0,
                                  tree_node *op1);
 
+  // Ternary expressions.
+  Value *EmitReg_CondExpr(tree_node *op0, tree_node *op1, tree_node *op2);
+
   Value *EmitLoadOfLValue(tree_node *exp);
   Value *EmitOBJ_TYPE_REF(tree_node *exp);
   Value *EmitADDR_EXPR(tree_node *exp);
+#if (GCC_MINOR < 7)
   Value *EmitCondExpr(tree_node *exp);
+#endif
   Value *EmitCallOf(Value *Callee, gimple_statement_d *stmt,
                     const MemRef *DestLoc, const AttrListPtr &PAL);
   CallInst *EmitSimpleCall(StringRef CalleeName, tree_node *ret_type,

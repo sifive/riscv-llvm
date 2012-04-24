@@ -2816,30 +2816,14 @@ Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
   return Builder.CreateBitCast(LV.Ptr, getRegType(TREE_TYPE(exp)));
 }
 
+#if (GCC_MINOR < 7)
 Value *TreeToLLVM::EmitCondExpr(tree exp) {
-  // Emit the condition.  It may not be in SSA form, but if not then it is a
-  // comparison.
-  // COND_EXPR_COND and friends do not work for VEC_COND_EXPR, which is also
-  // handled here, which is why the tree operands are accessed directly.
-  tree cond = TREE_OPERAND(exp, 0);
-  Value *CondVal = COMPARISON_CLASS_P(cond) ?
-    EmitCompare(TREE_OPERAND(cond, 0), TREE_OPERAND(cond, 1), TREE_CODE(cond)) :
-    EmitRegister(cond);
-
-  // Ensure the condition has i1 type.
-  if (!CondVal->getType()->getScalarType()->isIntegerTy(1))
-    CondVal = Builder.CreateICmpNE(CondVal,
-                                   Constant::getNullValue(CondVal->getType()));
-
-  // Emit the true and false values.
-  Value *TrueVal = EmitRegister(TREE_OPERAND(exp, 1));
-  Value *FalseVal = EmitRegister(TREE_OPERAND(exp, 2));
-  FalseVal = TriviallyTypeConvert(FalseVal, TrueVal->getType());
-
-  // Select the value to use based on the condition.
-  Value *Result = Builder.CreateSelect(CondVal, TrueVal, FalseVal);
-  return TriviallyTypeConvert(Result, getRegType(TREE_TYPE(exp)));
+  return TriviallyTypeConvert(EmitReg_CondExpr(TREE_OPERAND(exp, 0),
+                                               TREE_OPERAND(exp, 1),
+                                               TREE_OPERAND(exp, 2)),
+                              getRegType(TREE_TYPE(exp)));
 }
+#endif
 
 Value *TreeToLLVM::EmitOBJ_TYPE_REF(tree exp) {
   return Builder.CreateBitCast(EmitRegister(OBJ_TYPE_REF_EXPR(exp)),
@@ -7183,6 +7167,31 @@ Value *TreeToLLVM::EmitReg_BIT_XOR_EXPR(tree op0, tree op1) {
   return CastFromSameSizeInteger(Res, getRegType(TREE_TYPE(op0)));
 }
 
+/// EmitReg_CondExpr - Handle COND_EXPR and VEC_COND_EXPR gimple assign right-
+/// hand sides.
+Value *TreeToLLVM::EmitReg_CondExpr(tree op0, tree op1, tree op2) {
+  // The condition is either a comparison or an SSA register.  Note that the
+  // reason for accessing tree operands directly rather than taking advantage
+  // of COND_EXPR_COND and friends is that the latter fail for VEC_COND_EXPR,
+  // which is also handled here.
+  Value *CondVal = COMPARISON_CLASS_P(op0) ?
+    EmitCompare(TREE_OPERAND(op0, 0), TREE_OPERAND(op0, 1), TREE_CODE(op0)) :
+    EmitRegister(op0);
+
+  // Ensure the condition has i1 type.
+  if (!CondVal->getType()->getScalarType()->isIntegerTy(1))
+    CondVal = Builder.CreateICmpNE(CondVal,
+                                   Constant::getNullValue(CondVal->getType()));
+
+  // Emit the true and false values.
+  Value *TrueVal = EmitRegister(op1);
+  Value *FalseVal = EmitRegister(op2);
+  FalseVal = TriviallyTypeConvert(FalseVal, TrueVal->getType());
+
+  // Select the value to use based on the condition.
+  return Builder.CreateSelect(CondVal, TrueVal, FalseVal);
+}
+
 Value *TreeToLLVM::EmitReg_COMPLEX_EXPR(tree op0, tree op1) {
   return CreateComplex(EmitRegister(op0), EmitRegister(op1));
 }
@@ -8523,6 +8532,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   tree_code code = gimple_assign_rhs_code(stmt);
   tree rhs1 = gimple_assign_rhs1(stmt);
   tree rhs2 = gimple_assign_rhs2(stmt);
+  tree rhs3 = gimple_assign_rhs3(stmt);
 
   Value *RHS = 0;
   switch (code) {
@@ -8668,6 +8678,11 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_VEC_WIDEN_MULT_LO_EXPR(type, rhs1, rhs2); break;
   case WIDEN_MULT_EXPR:
     RHS = EmitReg_WIDEN_MULT_EXPR(type, rhs1, rhs2); break;
+
+  // Ternary expressions.
+  case COND_EXPR:
+  case VEC_COND_EXPR:
+    RHS = EmitReg_CondExpr(rhs1, rhs2, rhs3); break;
   }
 
   return TriviallyTypeConvert(RHS, getRegType(type));
@@ -8684,8 +8699,10 @@ Value *TreeToLLVM::EmitAssignSingleRHS(tree rhs) {
 
   // Expressions (tcc_expression).
   case ADDR_EXPR:     return EmitADDR_EXPR(rhs);
+#if (GCC_MINOR < 7)
   case COND_EXPR:
   case VEC_COND_EXPR: return EmitCondExpr(rhs);
+#endif
   case OBJ_TYPE_REF:  return EmitOBJ_TYPE_REF(rhs);
 
   // Exceptional (tcc_exceptional).
