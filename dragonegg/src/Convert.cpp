@@ -8532,7 +8532,9 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   tree_code code = gimple_assign_rhs_code(stmt);
   tree rhs1 = gimple_assign_rhs1(stmt);
   tree rhs2 = gimple_assign_rhs2(stmt);
+#if (GCC_MINOR > 6)
   tree rhs3 = gimple_assign_rhs3(stmt);
+#endif
 
   Value *RHS = 0;
   switch (code) {
@@ -8680,9 +8682,11 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
     RHS = EmitReg_WIDEN_MULT_EXPR(type, rhs1, rhs2); break;
 
   // Ternary expressions.
+#if (GCC_MINOR > 6)
   case COND_EXPR:
   case VEC_COND_EXPR:
     RHS = EmitReg_CondExpr(rhs1, rhs2, rhs3); break;
+#endif
   }
 
   return TriviallyTypeConvert(RHS, getRegType(type));
