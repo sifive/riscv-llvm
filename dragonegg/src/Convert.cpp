@@ -7618,6 +7618,32 @@ Value *TreeToLLVM::EmitReg_VEC_PACK_TRUNC_EXPR(tree type, tree op0, tree op1) {
   return Builder.CreateShuffleVector(LHS, RHS, ConstantVector::get(Mask));
 }
 
+#if (GCC_MINOR > 6)
+Value *TreeToLLVM::EmitReg_VEC_PERM_EXPR(tree op0, tree op1, tree op2) {
+  unsigned Length = (unsigned)TYPE_VECTOR_SUBPARTS(TREE_TYPE(op0));
+
+  // The vectors to shuffle.
+  Value *V0 = EmitRegister(op0);
+  Value *V1 = EmitRegister(op1);
+
+  // The shuffle mask.
+  Value *Mask = EmitRegister(op2);
+  assert(isa<Constant>(Mask) && "Only constant permutation masks supported!");
+
+  // Convert to a vector of i32, as required by the shufflevector instruction.
+  Type *MaskTy = VectorType::get(Builder.getInt32Ty(), Length);
+  tree mask_elt_type = TREE_TYPE(TREE_TYPE(op2));
+  Mask = Builder.CreateIntCast(Mask, MaskTy, !TYPE_UNSIGNED(mask_elt_type));
+
+  // The GCC semantics are that mask indices off the end are wrapped back into
+  // range, so reduce the mask modulo 2*Length.
+  assert(!(Length & (Length - 1)) && "Vector length not a power of two!");
+  Mask = Builder.CreateAnd(Mask, ConstantInt::get(Mask->getType(), 2*Length-1));
+
+  return Builder.CreateShuffleVector(V0, V1, Mask);
+}
+#endif
+
 Value *TreeToLLVM::EmitReg_VecUnpackHiExpr(tree type, tree op0) {
   // Eg: <2 x double> = VEC_UNPACK_HI_EXPR(<4 x float>)
   Value *Op = EmitRegister(op0);
@@ -8686,6 +8712,8 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
   case COND_EXPR:
   case VEC_COND_EXPR:
     RHS = EmitReg_CondExpr(rhs1, rhs2, rhs3); break;
+  case VEC_PERM_EXPR:
+    RHS = EmitReg_VEC_PERM_EXPR(rhs1, rhs2, rhs3); break;
 #endif
   }
 

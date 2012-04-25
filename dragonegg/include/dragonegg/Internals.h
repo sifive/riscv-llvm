@@ -572,6 +572,9 @@ private:
 
   // Ternary expressions.
   Value *EmitReg_CondExpr(tree_node *op0, tree_node *op1, tree_node *op2);
+#if (GCC_MINOR > 6)
+  Value *EmitReg_VEC_PERM_EXPR(tree_node *op0, tree_node *op1, tree_node *op2);
+#endif
 
   Value *EmitLoadOfLValue(tree_node *exp);
   Value *EmitOBJ_TYPE_REF(tree_node *exp);
