@@ -1579,7 +1579,7 @@ static void emit_same_body_alias(struct cgraph_node *alias,
   TREE_ASM_WRITTEN(alias->decl) = 1;
 }
 
-/// emit_aliases - Convert same-body aliases and file-scope asm into LLVM IR.
+/// emit_aliases - Convert same-body aliases to LLVM IR.
 static void emit_aliases(cgraph_node_set set
 #if (GCC_MINOR > 5)
                          , varpool_node_set /*vset*/
@@ -1590,8 +1590,6 @@ static void emit_aliases(cgraph_node_set set
 
   InitializeBackend();
 
-// FIXME: Work out what needs to be done here for gcc-4.7.
-#if (GCC_MINOR < 7)
   // Emit any same-body aliases in the order they were created.
   SmallPtrSet<tree, 32> Visited;
   for (cgraph_node_set_iterator csi = csi_start(set); !csi_end_p(csi);
@@ -1600,6 +1598,7 @@ static void emit_aliases(cgraph_node_set set
     if (!Visited.insert(node->decl))
       continue;
 
+#if (GCC_MINOR < 7)
     struct cgraph_node *alias, *next;
     for (alias = node->same_body; alias && alias->next; alias = alias->next) ;
     for (; alias; alias = next) {
@@ -1607,12 +1606,16 @@ static void emit_aliases(cgraph_node_set set
       if (!alias->thunk.thunk_p)
         emit_same_body_alias(alias, node);
     }
-  }
+#else
+    struct ipa_ref *ref;
+    for (int i = 0; ipa_ref_list_refering_iterate(&node->ref_list, i, ref); i++)
+      if (ref->use == IPA_REF_ALIAS)
+        emit_same_body_alias(ipa_ref_refering_node(ref), node);
 #endif
+  }
 }
 
-/// pass_emit_aliases - IPA pass that converts same-body aliases and file-scope
-/// asm into LLVM IR.
+/// pass_emit_aliases - IPA pass that converts same-body aliases to LLVM IR.
 static struct ipa_opt_pass_d pass_emit_aliases = {
     {
       IPA_PASS,
@@ -2320,8 +2323,8 @@ plugin_init(struct plugin_name_args *plugin_info,
 #endif
   }
 
-  // Replace the LTO gimple pass with a pass that converts same-body aliases and
-  // file-scope asm to LLVM IR.
+  // Replace the LTO gimple pass with a pass that converts same-body aliases to
+  // LLVM IR.
   pass_info.pass = &pass_emit_aliases.pass;
   pass_info.reference_pass_name = "lto_gimple_out";
   pass_info.ref_pass_instance_number = 0;
