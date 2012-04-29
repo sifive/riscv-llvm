@@ -834,6 +834,121 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
   }
 }
 
+/// GetLinkageForAlias - The given GCC declaration is an alias.  Return the
+/// appropriate LLVM linkage type for it.
+static GlobalValue::LinkageTypes GetLinkageForAlias(tree decl) {
+  if (DECL_COMDAT(decl))
+    // Need not be put out unless needed in this translation unit.
+    return GlobalValue::InternalLinkage;
+
+  if (DECL_ONE_ONLY(decl))
+    // Copies of this DECL in multiple translation units should be merged.
+    return GlobalValue::getWeakLinkage(flag_odr);
+
+  if (DECL_WEAK(decl))
+    // The user may have explicitly asked for weak linkage - ignore flag_odr.
+    return GlobalValue::WeakAnyLinkage;
+
+  if (!TREE_PUBLIC(decl))
+    // Not accessible from outside this translation unit.
+    return GlobalValue::InternalLinkage;
+
+  if (DECL_EXTERNAL(decl))
+    // Do not allocate storage, and refer to a definition elsewhere.
+    return GlobalValue::InternalLinkage;
+
+  return GlobalValue::ExternalLinkage;
+}
+
+/// emit_alias - Given decl and target emit alias to target.
+static void emit_alias(tree decl, tree target) {
+  if (errorcount || sorrycount)
+    return; // Do not process broken code.
+
+  // Get or create LLVM global for our alias.
+  GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
+
+  while (isa<IDENTIFIER_NODE>(target) && IDENTIFIER_TRANSPARENT_ALIAS(target))
+    target = TREE_CHAIN(target);
+
+  if (isa<IDENTIFIER_NODE>(target)) {
+    if (struct cgraph_node *fnode = cgraph_node_for_asm(target))
+      target = fnode->decl;
+    else if (struct varpool_node *vnode = varpool_node_for_asm(target))
+      target = vnode->decl;
+  }
+
+  GlobalValue *Aliasee = 0;
+  if (isa<IDENTIFIER_NODE>(target)) {
+    if (!lookup_attribute("weakref", DECL_ATTRIBUTES(decl))) {
+      Aliasee = TheModule->getNamedValue(IDENTIFIER_POINTER(target)); 
+      if (!Aliasee || Aliasee->hasLocalLinkage()) {
+        error("%q+D aliased to undefined symbol %qs", decl,
+              IDENTIFIER_POINTER(target));
+        return;
+      }
+    } else {
+      // weakref to external symbol.
+      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
+        Aliasee = new GlobalVariable(*TheModule,
+                                     GV->getType()->getElementType(),
+                                     GV->isConstant(),
+                                     GlobalVariable::ExternalWeakLinkage, NULL,
+                                     IDENTIFIER_POINTER(target));
+      else if (Function *F = dyn_cast<Function>(V))
+        Aliasee = Function::Create(F->getFunctionType(),
+                                   Function::ExternalWeakLinkage,
+                                   IDENTIFIER_POINTER(target),
+                                   TheModule);
+      else
+        llvm_unreachable("Unsuported global value");
+    }
+  } else {
+    Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target));
+  }
+
+  GlobalValue::LinkageTypes Linkage = GetLinkageForAlias(decl);
+
+  if (Linkage != GlobalValue::InternalLinkage) {
+    // Create the LLVM alias.
+    GlobalAlias* GA = new GlobalAlias(Aliasee->getType(), Linkage, "",
+                                      Aliasee, TheModule);
+    handleVisibility(decl, GA);
+
+    // Associate it with decl instead of V.
+    V->replaceAllUsesWith(ConstantExpr::getBitCast(GA, V->getType()));
+    changeLLVMConstant(V, GA);
+    GA->takeName(V);
+  } else {
+    // Make all users of the alias directly use the aliasee instead.
+    V->replaceAllUsesWith(ConstantExpr::getBitCast(Aliasee, V->getType()));
+    changeLLVMConstant(V, Aliasee);
+  }
+
+  V->eraseFromParent();
+
+  // Mark the alias as written so gcc doesn't waste time outputting it.
+  TREE_ASM_WRITTEN(decl) = 1;
+}
+
+/// emit_varpool_aliases - Output any aliases associated with the given varpool
+/// node.
+static void emit_varpool_aliases(struct varpool_node *node) {
+#if (GCC_MINOR < 7)
+  for (struct varpool_node *alias = node->extra_name; alias;
+       alias = alias->next)
+    emit_alias(alias->decl, node->decl);
+#else
+  struct ipa_ref *ref;
+  for (int i = 0; ipa_ref_list_refering_iterate(&node->ref_list, i, ref); i++)
+    if (ref->use == IPA_REF_ALIAS) {
+      struct varpool_node *alias = ipa_ref_refering_varpool_node(ref);
+      emit_alias(alias->decl, alias->alias_of);
+      emit_varpool_aliases(alias);
+    }
+#endif
+}
+
 /// emit_global - Emit the specified VAR_DECL or aggregate CONST_DECL to LLVM as
 /// a global variable.  This function implements the end of assemble_variable.
 static void emit_global(tree decl) {
@@ -1009,6 +1124,17 @@ static void emit_global(tree decl) {
 
   // Mark the global as written so gcc doesn't waste time outputting it.
   TREE_ASM_WRITTEN(decl) = 1;
+
+  // Output any associated aliases.
+  if (isa<VAR_DECL>(decl))
+    if (struct varpool_node *vnode =
+#if (GCC_MINOR < 6)
+        varpool_node(decl)
+#else
+        varpool_get_node(decl)
+#endif
+        )
+      emit_varpool_aliases(vnode);
 
 //TODO  timevar_pop(TV_LLVM_GLOBALS);
 }
@@ -1432,6 +1558,30 @@ static void llvm_start_unit(void * /*gcc_data*/, void * /*user_data*/) {
   targetm.mangle_decl_assembler_name = default_mangle_decl_assembler_name;
 }
 
+/// emit_cgraph_aliases - Output any aliases associated with the given cgraph
+/// node.
+static void emit_cgraph_aliases(struct cgraph_node *node) {
+#if (GCC_MINOR < 7)
+  struct cgraph_node *alias, *next;
+  for (alias = node->same_body; alias && alias->next; alias = alias->next) ;
+  for (; alias; alias = next) {
+    next = alias->previous;
+    if (!alias->thunk.thunk_p)
+      emit_alias(alias->decl, alias->thunk.alias);
+  }
+#else
+  // There is no need to walk thunks here (cf. cgraphunit), because we arrange
+  // for thunks to be output as functions and thus visit thunk aliases when the
+  // thunk function is output.
+  struct ipa_ref *ref;
+  for (int i = 0; ipa_ref_list_refering_iterate(&node->ref_list, i, ref); i++)
+    if (ref->use == IPA_REF_ALIAS) {
+      struct cgraph_node *alias = ipa_ref_refering_node(ref);
+      emit_alias(alias->decl, alias->thunk.alias);
+      emit_cgraph_aliases(alias);
+    }
+#endif
+}
 
 /// emit_current_function - Turn the current gimple function into LLVM IR.  This
 /// is called once for each function in the compilation unit.
@@ -1446,6 +1596,9 @@ static void emit_current_function() {
     Fn = Emitter.EmitFunction();
   }
 
+  // Output any associated aliases.
+  emit_cgraph_aliases(cgraph_get_node(current_function_decl));
+
   if (!errorcount && !sorrycount) { // Do not process broken code.
     createPerFunctionOptimizationPasses();
 
@@ -1456,196 +1609,6 @@ static void emit_current_function() {
     // inline it or something else.
   }
 }
-
-/// GetLinkageForAlias - The given GCC declaration is an alias.  Return the
-/// appropriate LLVM linkage type for it.
-static GlobalValue::LinkageTypes GetLinkageForAlias(tree decl) {
-  if (DECL_COMDAT(decl))
-    // Need not be put out unless needed in this translation unit.
-    return GlobalValue::InternalLinkage;
-
-  if (DECL_ONE_ONLY(decl))
-    // Copies of this DECL in multiple translation units should be merged.
-    return GlobalValue::getWeakLinkage(flag_odr);
-
-  if (DECL_WEAK(decl))
-    // The user may have explicitly asked for weak linkage - ignore flag_odr.
-    return GlobalValue::WeakAnyLinkage;
-
-  if (!TREE_PUBLIC(decl))
-    // Not accessible from outside this translation unit.
-    return GlobalValue::InternalLinkage;
-
-  if (DECL_EXTERNAL(decl))
-    // Do not allocate storage, and refer to a definition elsewhere.
-    return GlobalValue::InternalLinkage;
-
-  return GlobalValue::ExternalLinkage;
-}
-
-/// emit_alias - Given decl and target emit alias to target.
-static void emit_alias(tree decl, tree target) {
-  if (errorcount || sorrycount)
-    return; // Do not process broken code.
-
-  // Get or create LLVM global for our alias.
-  GlobalValue *V = cast<GlobalValue>(DECL_LLVM(decl));
-
-  bool weakref = lookup_attribute("weakref", DECL_ATTRIBUTES(decl));
-  if (weakref)
-    while (IDENTIFIER_TRANSPARENT_ALIAS(target))
-      target = TREE_CHAIN(target);
-
-  if (isa<IDENTIFIER_NODE>(target)) {
-    if (struct cgraph_node *fnode = cgraph_node_for_asm(target))
-      target = fnode->decl;
-    else if (struct varpool_node *vnode = varpool_node_for_asm(target))
-      target = vnode->decl;
-  }
-
-  GlobalValue *Aliasee = 0;
-  if (isa<IDENTIFIER_NODE>(target)) {
-    if (!weakref) {
-      error("%q+D aliased to undefined symbol %qs", decl,
-            IDENTIFIER_POINTER(target));
-      return;
-    }
-
-    // weakref to external symbol.
-    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-      Aliasee = new GlobalVariable(*TheModule, GV->getType()->getElementType(),
-                                   GV->isConstant(),
-                                   GlobalVariable::ExternalWeakLinkage, NULL,
-                                   IDENTIFIER_POINTER(target));
-    else if (Function *F = dyn_cast<Function>(V))
-      Aliasee = Function::Create(F->getFunctionType(),
-                                 Function::ExternalWeakLinkage,
-                                 IDENTIFIER_POINTER(target),
-                                 TheModule);
-    else
-      llvm_unreachable("Unsuported global value");
-  } else {
-    Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target));
-  }
-
-  GlobalValue::LinkageTypes Linkage = GetLinkageForAlias(decl);
-
-  if (Linkage != GlobalValue::InternalLinkage) {
-    // Create the LLVM alias.
-    GlobalAlias* GA = new GlobalAlias(Aliasee->getType(), Linkage, "",
-                                      Aliasee, TheModule);
-    handleVisibility(decl, GA);
-
-    // Associate it with decl instead of V.
-    V->replaceAllUsesWith(ConstantExpr::getBitCast(GA, V->getType()));
-    changeLLVMConstant(V, GA);
-    GA->takeName(V);
-  } else {
-    // Make all users of the alias directly use the aliasee instead.
-    V->replaceAllUsesWith(ConstantExpr::getBitCast(Aliasee, V->getType()));
-    changeLLVMConstant(V, Aliasee);
-  }
-
-  V->eraseFromParent();
-
-  // Mark the alias as written so gcc doesn't waste time outputting it.
-  TREE_ASM_WRITTEN(decl) = 1;
-}
-
-/// emit_same_body_alias - Turn a same-body alias into LLVM IR.
-static void emit_same_body_alias(struct cgraph_node *alias,
-                                 struct cgraph_node * /*target*/) {
-  if (errorcount || sorrycount)
-    return; // Do not process broken code.
-
-  // If the target is not "extern inline" then output an ordinary alias.
-  tree target = alias->thunk.alias;
-  if (!DECL_EXTERNAL(target)) {
-    emit_alias(alias->decl, target);
-    return;
-  }
-
-  // Same body aliases have the property that if the body of the aliasee is not
-  // output then neither are the aliases.  To arrange this for "extern inline"
-  // functions, which have AvailableExternally linkage in LLVM, make all users
-  // of the alias directly use the aliasee instead.
-  GlobalValue *Alias = cast<GlobalValue>(DECL_LLVM(alias->decl));
-  GlobalValue *Aliasee = cast<GlobalValue>(DEFINITION_LLVM(target));
-  Alias->replaceAllUsesWith(ConstantExpr::getBitCast(Aliasee,Alias->getType()));
-  changeLLVMConstant(Alias, Aliasee);
-  Alias->eraseFromParent();
-
-  // Mark the alias as written so gcc doesn't waste time outputting it.
-  TREE_ASM_WRITTEN(alias->decl) = 1;
-}
-
-/// emit_aliases - Convert same-body aliases to LLVM IR.
-static void emit_aliases(cgraph_node_set set
-#if (GCC_MINOR > 5)
-                         , varpool_node_set /*vset*/
-#endif
-                         ) {
-  if (errorcount || sorrycount)
-    return; // Do not process broken code.
-
-  InitializeBackend();
-
-  // Emit any same-body aliases in the order they were created.
-  SmallPtrSet<tree, 32> Visited;
-  for (cgraph_node_set_iterator csi = csi_start(set); !csi_end_p(csi);
-       csi_next(&csi)) {
-    struct cgraph_node *node = csi_node(csi);
-    if (!Visited.insert(node->decl))
-      continue;
-
-#if (GCC_MINOR < 7)
-    struct cgraph_node *alias, *next;
-    for (alias = node->same_body; alias && alias->next; alias = alias->next) ;
-    for (; alias; alias = next) {
-      next = alias->previous;
-      if (!alias->thunk.thunk_p)
-        emit_same_body_alias(alias, node);
-    }
-#else
-    struct ipa_ref *ref;
-    for (int i = 0; ipa_ref_list_refering_iterate(&node->ref_list, i, ref); i++)
-      if (ref->use == IPA_REF_ALIAS)
-        emit_same_body_alias(ipa_ref_refering_node(ref), node);
-#endif
-  }
-}
-
-/// pass_emit_aliases - IPA pass that converts same-body aliases to LLVM IR.
-static struct ipa_opt_pass_d pass_emit_aliases = {
-    {
-      IPA_PASS,
-      "emit_aliases",	/* name */
-      NULL,		/* gate */
-      NULL,		/* execute */
-      NULL,		/* sub */
-      NULL,		/* next */
-      0,		/* static_pass_number */
-      TV_NONE,		/* tv_id */
-      0,		/* properties_required */
-      0,		/* properties_provided */
-      0,		/* properties_destroyed */
-      0,		/* todo_flags_start */
-      0			/* todo_flags_finish */
-    },
-    NULL,		/* generate_summary */
-    emit_aliases,	/* write_summary */
-    NULL,		/* read_summary */
-#if (GCC_MINOR > 5)
-    NULL,		/* write_optimization_summary */
-    NULL,		/* read_optimization_summary */
-#else
-    NULL,		/* function_read_summary */
-#endif
-    NULL,		/* stmt_fixup */
-    0,			/* function_transform_todo_flags_start */
-    NULL,		/* function_transform */
-    NULL		/* variable_transform */
-};
 
 /// rtl_emit_function - Turn a gimple function into LLVM IR.  This is called
 /// once for each function in the compilation unit if GCC optimizations are
@@ -1688,6 +1651,46 @@ static struct rtl_opt_pass pass_rtl_emit_function =
 };
 
 
+/// emit_file_scope_asms - Output any file-scope assembly.
+static void emit_file_scope_asms() {
+  for (struct cgraph_asm_node *can = cgraph_asm_nodes; can; can = can->next) {
+    tree string = can->asm_str;
+    if (isa<ADDR_EXPR>(string))
+      string = TREE_OPERAND(string, 0);
+    TheModule->appendModuleInlineAsm(TREE_STRING_POINTER (string));
+  }
+  // Remove the asms so gcc doesn't waste time outputting them.
+  cgraph_asm_nodes = NULL;
+}
+
+#if (GCC_MINOR > 6)
+/// get_alias_symbol - Return the name of the aliasee for this alias.
+static tree get_alias_symbol(tree decl) {
+  tree alias = lookup_attribute("alias", DECL_ATTRIBUTES(decl));
+  return get_identifier(TREE_STRING_POINTER(TREE_VALUE(TREE_VALUE(alias))));
+}
+
+/// emit_cgraph_weakrefs - Output any cgraph weak references to external
+/// declarations.
+static void emit_cgraph_weakrefs() {
+  for (struct cgraph_node *node = cgraph_nodes; node; node = node->next)
+    if (node->alias && DECL_EXTERNAL(node->decl) &&
+        lookup_attribute("weakref", DECL_ATTRIBUTES(node->decl)))
+      emit_alias(node->decl, node->thunk.alias ?
+        node->thunk.alias : get_alias_symbol(node->decl));
+}
+
+/// emit_varpool_weakrefs - Output any varpool weak references to external
+/// declarations.
+static void emit_varpool_weakrefs() {
+  for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next)
+    if (vnode->alias && DECL_EXTERNAL(vnode->decl) &&
+        lookup_attribute("weakref", DECL_ATTRIBUTES(vnode->decl)))
+      emit_alias(vnode->decl, vnode->alias_of ?
+        vnode->alias_of : get_alias_symbol(vnode->decl));
+}
+#endif
+
 /// llvm_emit_globals - Output GCC global variables, aliases and asm's to the
 /// LLVM IR.
 static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
@@ -1697,14 +1700,7 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
   InitializeBackend();
 
   // Emit any file-scope asms.
-  for (struct cgraph_asm_node *can = cgraph_asm_nodes; can; can = can->next) {
-    tree string = can->asm_str;
-    if (isa<ADDR_EXPR>(string))
-      string = TREE_OPERAND(string, 0);
-    TheModule->appendModuleInlineAsm(TREE_STRING_POINTER (string));
-  }
-  // Remove the asms so gcc doesn't waste time outputting them.
-  cgraph_asm_nodes = NULL;
+  emit_file_scope_asms();
 
   // Some global variables must be output even if unused, for example because
   // they are externally visible.  Output them now.  All other variables are
@@ -1738,7 +1734,16 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
       emit_global(decl);
   }
 
-  // Emit any aliases.
+#if (GCC_MINOR > 6)
+  // Aliases of functions and global variables with bodies are output when the
+  // body is.  Output any aliases (weak references) of globals without bodies,
+  // i.e. external declarations, now.
+  emit_cgraph_weakrefs();
+  emit_varpool_weakrefs();
+#endif
+
+  // Emit any aliases that aren't represented in cgraph or varpool, for example
+  // a function that aliases a variable or a variable that aliases a function.
   alias_pair *p;
   for (unsigned i = 0; VEC_iterate(alias_pair, alias_pairs, i, p); i++)
     emit_alias(p->decl, p->target);
@@ -2323,15 +2328,13 @@ plugin_init(struct plugin_name_args *plugin_info,
 #endif
   }
 
-  // Replace the LTO gimple pass with a pass that converts same-body aliases to
-  // LLVM IR.
-  pass_info.pass = &pass_emit_aliases.pass;
+  // Disable all LTO passes.
+  pass_info.pass = &pass_ipa_null.pass;
   pass_info.reference_pass_name = "lto_gimple_out";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-  // Disable any other LTO passes.
   pass_info.pass = &pass_ipa_null.pass;
   pass_info.reference_pass_name = "lto_decls_out";
   pass_info.ref_pass_instance_number = 0;
@@ -2435,7 +2438,7 @@ plugin_init(struct plugin_name_args *plugin_info,
   pass_info.pos_op = PASS_POS_REPLACE;
   register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
-  // Output GCC global variables to the LLVM IR and finish the .s file once the
+  // Output pending state to the LLVM IR module, optimize and codegen once the
   // compilation unit has been completely processed.
   register_callback(plugin_name, PLUGIN_FINISH_UNIT, llvm_finish_unit, NULL);
 
