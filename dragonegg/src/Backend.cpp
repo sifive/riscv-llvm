@@ -1539,8 +1539,6 @@ static void llvm_start_unit(void * /*gcc_data*/, void * /*user_data*/) {
 #endif
   flag_generate_lto = 1;
   flag_whole_program = 0;
-#else
-# error "LTO support required but not enabled in GCC"
 #endif
 
   // Stop GCC outputting serious amounts of debug info.
