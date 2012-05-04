@@ -132,12 +132,12 @@ $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/dragonegg-lit.site.cfg.in
 check-compilator:: $(PLUGIN) $(LIT_SITE_CONFIG)
 	@echo "Running test suite 'compilator'"
 	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
-	--config-prefix=dragonegg-lit $(TEST_SRC_DIR)/compilator
+	--config-prefix=compilator-lit $(TEST_SRC_DIR)/compilator
 
 check-validator:: $(PLUGIN) $(LIT_SITE_CONFIG)
 	@echo "Running test suite 'validator'"
 	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
-	--config-prefix=dragonegg-lit $(TEST_SRC_DIR)/validator
+	--config-prefix=validator-lit $(TEST_SRC_DIR)/validator
 
 check:: check-validator check-compilator
 
