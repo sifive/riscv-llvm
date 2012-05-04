@@ -1479,8 +1479,9 @@ Constant *ConvertInitializer(tree exp) {
 //                            ... AddressOf ...
 //===----------------------------------------------------------------------===//
 
-/// AddressOfCST - Return the address of a simple constant, eg a of number.
-static Constant *AddressOfCST(tree exp, TargetFolder &Folder) {
+/// AddressOfSimpleConstant - Return the address of a simple constant, such as a
+/// number or constructor.
+static Constant *AddressOfSimpleConstant(tree exp, TargetFolder &Folder) {
   Constant *Init = ConvertInitializerImpl(exp, Folder);
 
   // Cache the constants to avoid making obvious duplicates that have to be
@@ -1580,6 +1581,12 @@ static Constant *AddressOfCOMPONENT_REF(tree exp, TargetFolder &Folder) {
   return FieldPtr;
 }
 
+/// AddressOfCOMPOUND_LITERAL_EXPR - Return the address of a compound literal.
+static Constant *AddressOfCOMPOUND_LITERAL_EXPR(tree exp, TargetFolder &Folder){
+  tree decl = DECL_EXPR_DECL(COMPOUND_LITERAL_EXPR_DECL_EXPR(exp));
+  return AddressOfImpl(decl, Folder);
+}
+
 /// AddressOfDecl - Return the address of a global.
 static Constant *AddressOfDecl(tree exp, TargetFolder &) {
   return cast<Constant>(DEFINITION_LLVM(exp));
@@ -1640,7 +1647,7 @@ static Constant *AddressOfImpl(tree exp, TargetFolder &Folder) {
   case REAL_CST:
   case STRING_CST:
   case VECTOR_CST:
-    Addr = AddressOfCST(exp, Folder);
+    Addr = AddressOfSimpleConstant(exp, Folder);
     break;
   case ARRAY_RANGE_REF:
   case ARRAY_REF:
@@ -1650,7 +1657,10 @@ static Constant *AddressOfImpl(tree exp, TargetFolder &Folder) {
     Addr = AddressOfCOMPONENT_REF(exp, Folder);
     break;
   case COMPOUND_LITERAL_EXPR:
-    Addr = AddressOfImpl(DECL_EXPR_DECL(TREE_OPERAND(exp, 0)), Folder);
+    Addr = AddressOfCOMPOUND_LITERAL_EXPR(exp, Folder);
+    break;
+  case CONSTRUCTOR:
+    Addr = AddressOfSimpleConstant(exp, Folder);
     break;
   case CONST_DECL:
   case FUNCTION_DECL:
