@@ -1649,7 +1649,7 @@ static Constant *AddressOfImpl(tree exp, TargetFolder &Folder) {
   case COMPONENT_REF:
     Addr = AddressOfCOMPONENT_REF(exp, Folder);
     break;
-  case COMPOUND_LITERAL_EXPR: // FIXME: not gimple - defined by C front-end
+  case COMPOUND_LITERAL_EXPR:
     Addr = AddressOfImpl(DECL_EXPR_DECL(TREE_OPERAND(exp, 0)), Folder);
     break;
   case CONST_DECL:
