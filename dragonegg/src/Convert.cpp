@@ -3347,11 +3347,13 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     BeginBlock(NextBlock);
   }
 
+  // If the call statement has void type then either the callee does not return
+  // a result, or it does but the result should be discarded.
+  if (isa<VOID_TYPE>(gimple_call_return_type(stmt)))
+    return 0;
+
   if (Client.isShadowReturn())
     return Client.EmitShadowResult(gimple_call_return_type(stmt), DestLoc);
-
-  if (Call->getType()->isVoidTy())
-    return 0;
 
   if (Client.isAggrReturn()) {
     MemRef Target;
