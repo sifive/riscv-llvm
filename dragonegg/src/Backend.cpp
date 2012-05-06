@@ -990,16 +990,21 @@ static void emit_global(tree decl) {
   // global union, and the LLVM type followed a union initializer that is
   // different from the union element used for the type.
   if (GV->getType()->getElementType() != Init->getType()) {
-    GV->removeFromParent();
-    GlobalVariable *NGV = new GlobalVariable(*TheModule, Init->getType(),
-                                             GV->isConstant(),
-                                             GlobalValue::ExternalLinkage, 0,
-                                             GV->getName());
-    GV->replaceAllUsesWith(TheFolder->CreateBitCast(NGV, GV->getType()));
-    changeLLVMConstant(GV, NGV);
-    delete GV;
-    SET_DECL_LLVM(decl, NGV);
-    GV = NGV;
+    if (GV == Init) {
+      // Global initialized to its own address.
+      Init = TheFolder->CreateBitCast(Init, GV->getType()->getElementType());
+    } else {
+      GV->removeFromParent();
+      GlobalVariable *NGV = new GlobalVariable(*TheModule, Init->getType(),
+                                               GV->isConstant(),
+                                               GlobalValue::ExternalLinkage, 0,
+                                               GV->getName());
+      GV->replaceAllUsesWith(TheFolder->CreateBitCast(NGV, GV->getType()));
+      changeLLVMConstant(GV, NGV);
+      delete GV;
+      SET_DECL_LLVM(decl, NGV);
+      GV = NGV;
+    }
   }
 
   // Set the initializer.
