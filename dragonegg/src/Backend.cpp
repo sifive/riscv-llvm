@@ -985,30 +985,30 @@ static void emit_global(tree decl) {
     Init = ConvertInitializer(DECL_INITIAL(decl));
   }
 
-  // If we had a forward definition that has a type that disagrees with our
-  // initializer, insert a cast now.  This sort of thing occurs when we have a
-  // global union, and the LLVM type followed a union initializer that is
-  // different from the union element used for the type.
-  if (GV->getType()->getElementType() != Init->getType()) {
-    if (GV == Init) {
-      // Global initialized to its own address.
-      Init = TheFolder->CreateBitCast(Init, GV->getType()->getElementType());
-    } else {
-      GV->removeFromParent();
-      GlobalVariable *NGV = new GlobalVariable(*TheModule, Init->getType(),
-                                               GV->isConstant(),
-                                               GlobalValue::ExternalLinkage, 0,
-                                               GV->getName());
-      GV->replaceAllUsesWith(TheFolder->CreateBitCast(NGV, GV->getType()));
-      changeLLVMConstant(GV, NGV);
-      delete GV;
-      SET_DECL_LLVM(decl, NGV);
-      GV = NGV;
-    }
-  }
-
   // Set the initializer.
-  GV->setInitializer(Init);
+  if (GV->getType()->getElementType() == Init->getType()) {
+    GV->setInitializer(Init);
+  } else if (GV == Init && GV->getType()->getElementType()->isPointerTy()) {
+    // Global initialized to its own address, cast the address.
+    Init = TheFolder->CreateBitCast(Init, GV->getType()->getElementType());
+    GV->setInitializer(Init);
+  } else {
+    // If we had a forward definition that has a type that disagrees with our
+    // initializer, insert a cast now.  This sort of thing occurs when we have a
+    // global union, and the LLVM type followed a union initializer that is
+    // different from the union element used for the type.
+    GV->removeFromParent();
+    GlobalVariable *NGV = new GlobalVariable(*TheModule, Init->getType(),
+                                             GV->isConstant(),
+                                             GlobalValue::ExternalLinkage, 0,
+                                             GV->getName());
+    NGV->setInitializer(Init);
+    GV->replaceAllUsesWith(TheFolder->CreateBitCast(NGV, GV->getType()));
+    changeLLVMConstant(GV, NGV);
+    SET_DECL_LLVM(decl, NGV);
+    delete GV; // Frees Init if equal to GV.
+    GV = NGV;
+  }
 
   // Set thread local (TLS)
   if (isa<VAR_DECL>(decl) && DECL_THREAD_LOCAL_P(decl))
