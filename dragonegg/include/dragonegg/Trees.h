@@ -43,7 +43,7 @@ enum dragonegg_tree_code {
   FLOAT_TYPE,           // A scalar, complex or vector floating point type.
   INTEGRAL_TYPE,        // A enumeral, boolean or integer type.
   RECORD_OR_UNION_TYPE, // A record, union or qualified union type.
-  TYPE,                 // Any type.
+  TYPE                  // Any type.
 };
 
 /// isa - Return true if the given tree has the specified code.
