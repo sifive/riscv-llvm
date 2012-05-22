@@ -4281,8 +4281,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 
     Value* Args[] = {
       EmitMemory(gimple_call_arg(stmt, 0)),
-      NewTy,
-      Constant::getNullValue(Type::getInt32Ty(Context))
+      NewTy
     };
 
     // Grab the current return type.
