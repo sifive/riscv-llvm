@@ -51,8 +51,35 @@
   <!--=====================================================================-->
 
   <ul>
-  <li><p><a href="#gettingrelease">DragonEgg-3.0</a> is the most recent
+  <li><p><a href="#gettingrelease">DragonEgg-3.1</a> is the most recent
       DragonEgg release.  It requires
+      <a href="http://llvm.org/releases/download.html#3.0">LLVM-3.1</a> and
+      <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>,
+      <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a> or
+      <a href="http://gcc.gnu.org/gcc-4.7/">gcc-4.7</a> (gcc-4.7 is only
+      partially supported).
+      <p>The 3.1 release has the following notable changes:</p>
+      <ul>
+
+      <li>Partial support for gcc-4.7. Ada support is poor, but other languages
+          work fairly well.</li>
+
+      <li>Support for ARM processors. Some essential gcc headers that are needed
+          to build DragonEgg for ARM are not installed by gcc. To work around
+          this, copy the missing headers from the gcc source tree.</li>
+
+      <li>Better optimization for Fortran by exploiting the fact that Fortran
+          scalar arguments have 'restrict' semantics.</li>
+
+      <li>Better optimization for all languages by passing information about
+          type aliasing and type ranges to the LLVM optimizers.</li>
+
+      <li>A regression test-suite was added.</li>
+
+      </ul>
+
+  <li><p><a href="#gettingrelease">DragonEgg-3.0</a> was the fourth DragonEgg
+      release.  It requires
       <a href="http://llvm.org/releases/download.html#3.0">LLVM-3.0</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> or
       <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a>.
@@ -259,31 +286,32 @@ declare i32 @puts(i8* nocapture) nounwind
   <!--=====================================================================-->
 
   <p>Get the
-  <a href="http://llvm.org/releases/download.html#3.0">DragonEgg-3.0 source code</a>:
-     <pre>	wget http://llvm.org/releases/3.0/dragonegg-3.0.tar.gz</pre>
+  <a href="http://llvm.org/releases/download.html#3.1">DragonEgg-3.1 source code</a>:
+     <pre>	wget http://llvm.org/releases/3.1/dragonegg-3.1.src.tar.gz</pre>
   <p>Unpack it:</p>
-     <pre>	tar xzf dragonegg-3.0.tar.gz</pre>
-  <p>Install version 3.0 of LLVM, for example by downloading and installing the
-  <a href="http://llvm.org/releases/download.html#3.0">LLVM-3.0 binaries</a>
+     <pre>	tar xzf dragonegg-3.1.src.tar.gz</pre>
+  <p>Install version 3.1 of LLVM, for example by downloading and installing the
+  <a href="http://llvm.org/releases/download.html#3.1">LLVM-3.1 binaries</a>
   (mysteriously referred to as clang binaries) for your platform.</p>
-  <p>Make sure you have <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> or
-  <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a> installed (you do not need
+  <p>Make sure you have <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>,
+  <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a> or
+  <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.7</a> installed (you do not need
   to build your own copy).  On Debian and Ubuntu linux systems you also need to
-  install the <tt>gcc-4.5-plugin-dev</tt> or <tt>gcc-4.6-plugin-dev</tt>
-  package, as appropriate.</p>
+  install the <tt>gcc-4.5-plugin-dev</tt>, <tt>gcc-4.6-plugin-dev</tt> or
+  <tt>gcc-4.7-plugin-dev</tt> package, as appropriate.</p>
   <p>Doing</p>
      <pre>	GCC=gcc-4.6 make</pre>
-  <p>(if using gcc-4.6), or</p>
-     <pre>	GCC=gcc-4.5 make</pre>
-  <p>(if using gcc-4.5) in the <tt>dragonegg-3.0</tt> directory should then
-  build <tt>dragonegg.so</tt>.  If the LLVM binaries are not in your path then
-  you can use</p>
+  <p>(if using gcc-4.6; otherwise replace gcc-4.6 with your gcc version)
+  in the <tt>dragonegg-3.1.src</tt> directory should then build
+  <tt>dragonegg.so</tt>.  If the LLVM binaries are not in your path then you
+  can use</p>
      <pre>	GCC=gcc-4.6 LLVM_CONFIG=directory_where_llvm_installed/bin/llvm-config make</pre>
    <p>If you only built LLVM and did not install it then you can still build
      dragonegg by setting LLVM_CONFIG to point to the copy of llvm-config in the
      build tree.</p>
-  <p>To use <tt>dragonegg.so</tt>, compile something with gcc-4.5/gcc-4.6,
-  adding <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt> to the command line.
+  <p>To use <tt>dragonegg.so</tt>, compile something with
+  gcc-4.5/gcc-4.6/gcc-4.7, adding
+  <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt> to the command line.
   See the <tt>README</tt> file for more details and useful command line
   options.</p>
 
@@ -297,9 +325,9 @@ declare i32 @puts(i8* nocapture) nounwind
      <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
   <p><a href="http://llvm.org/docs/GettingStarted.html">Build LLVM</a> in the
   usual way.</p>
-  <p>Install gcc-4.5 or gcc-4.6 (you do not need to build your own copy).  On
-  debian and ubuntu you need to install the corresponding plugin-dev package
-  (gcc-4.5-plugin-dev or gcc-4.6-plugin-dev).</p>
+  <p>Install gcc-4.5, gcc-4.6 or gcc-4.7 (you do not need to build your own
+  copy).  On debian and ubuntu you need to install the corresponding plugin-dev
+  package (gcc-4.5-plugin-dev, gcc-4.6-plugin-dev, etc).</p>
   <p>Doing</p>
      <pre>	GCC=path_to_just_installed_gcc make</pre>
   <p>in the <tt>dragonegg</tt> directory should then build <tt>dragonegg.so</tt>.
