@@ -728,7 +728,7 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
       Attrs.push_back(AttributeWithIndex::get(ArgTys.size(), PAttributes));
   }
 
-  PAL = AttrListPtr::get(Attrs.begin(), Attrs.end());
+  PAL = AttrListPtr::get(Attrs);
   return FunctionType::get(RetTy, ArgTys, false);
 }
 
@@ -903,7 +903,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     Attrs.push_back(AttributeWithIndex::get(~0, FnAttributes));
 
   // Finally, make the function type and result attributes.
-  PAL = AttrListPtr::get(Attrs.begin(), Attrs.end());
+  PAL = AttrListPtr::get(Attrs);
   return FunctionType::get(RetTy, ArgTypes, Args == 0);
 }
 
