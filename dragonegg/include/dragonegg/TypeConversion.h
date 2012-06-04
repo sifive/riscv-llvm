@@ -1,4 +1,4 @@
-//=---------- Types.h - Converting and working with types ---------*- C++ -*-=//
+//=----- TypeConversion.h - Converting and working with types -----*- C++ -*-=//
 //
 // Copyright (C) 2011 to 2012  Duncan Sands.
 //

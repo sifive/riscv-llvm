@@ -1,4 +1,4 @@
-//===----------- Types.cpp - Converting GCC types to LLVM types -----------===//
+//===------- TypeConversion.cpp - Converting GCC types to LLVM types ------===//
 //
 // Copyright (C) 2005 to 2012  Chris Lattner, Duncan Sands et al.
 //
@@ -23,7 +23,7 @@
 // Plugin headers
 #include "dragonegg/ABI.h"
 #include "dragonegg/Cache.h"
-#include "dragonegg/Types.h"
+#include "dragonegg/TypeConversion.h"
 #include "dragonegg/ADT/IntervalList.h"
 #include "dragonegg/ADT/Range.h"
 

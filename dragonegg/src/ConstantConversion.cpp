@@ -1,4 +1,4 @@
-//===------- Constants.cpp - Converting and working with constants --------===//
+//===--- ConstantConversion.cpp - Converting and working with constants ---===//
 //
 // Copyright (C) 2011 to 2012  Duncan Sands
 //
@@ -22,9 +22,9 @@
 
 // Plugin headers
 #include "dragonegg/Cache.h"
-#include "dragonegg/Constants.h"
+#include "dragonegg/ConstantConversion.h"
 #include "dragonegg/Internals.h"
-#include "dragonegg/Types.h"
+#include "dragonegg/TypeConversion.h"
 #include "dragonegg/ADT/IntervalList.h"
 #include "dragonegg/ADT/Range.h"
 

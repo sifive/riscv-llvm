@@ -23,9 +23,9 @@
 // Plugin headers
 #include "dragonegg/ABI.h"
 #include "dragonegg/Aliasing.h"
-#include "dragonegg/Constants.h"
+#include "dragonegg/ConstantConversion.h"
 #include "dragonegg/Debug.h"
-#include "dragonegg/Types.h"
+#include "dragonegg/TypeConversion.h"
 
 // LLVM headers
 #include "llvm/Module.h"

@@ -22,11 +22,11 @@
 
 // Plugin headers
 #include "dragonegg/Cache.h"
-#include "dragonegg/Constants.h"
+#include "dragonegg/ConstantConversion.h"
 #include "dragonegg/Debug.h"
 #include "dragonegg/OS.h"
 #include "dragonegg/Target.h"
-#include "dragonegg/Types.h"
+#include "dragonegg/TypeConversion.h"
 
 // LLVM headers
 #include "llvm/LLVMContext.h"
