@@ -305,9 +305,9 @@ enum x86_64_reg_class
       F.AddFeature("cmpxchg16b", false);			\
 								\
     if (TARGET_FMA)						\
-      F.AddFeature("fma3");					\
+      F.AddFeature("fma");					\
     else if (target_flags_explicit & OPTION_MASK_ISA_FMA)	\
-      F.AddFeature("fma3", false);				\
+      F.AddFeature("fma", false);				\
 								\
     if (TARGET_FMA4)						\
       F.AddFeature("fma4");					\
