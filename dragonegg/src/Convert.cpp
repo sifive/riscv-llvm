@@ -4200,8 +4200,10 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_ADJUST_TRAMPOLINE:
     return EmitBuiltinAdjustTrampoline(stmt, Result);
   case BUILT_IN_ALLOCA:         return EmitBuiltinAlloca(stmt, Result);
+#if (GCC_MINOR > 6)
   case BUILT_IN_ALLOCA_WITH_ALIGN:
                                 return EmitBuiltinAllocaWithAlign(stmt, Result);
+#endif
   case BUILT_IN_BZERO:          return EmitBuiltinBZero(stmt, Result);
   case BUILT_IN_CONSTANT_P:     return EmitBuiltinConstantP(stmt, Result);
   case BUILT_IN_EXPECT:         return EmitBuiltinExpect(stmt, Result);
