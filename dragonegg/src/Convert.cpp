@@ -4200,6 +4200,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_ADJUST_TRAMPOLINE:
     return EmitBuiltinAdjustTrampoline(stmt, Result);
   case BUILT_IN_ALLOCA:         return EmitBuiltinAlloca(stmt, Result);
+  case BUILT_IN_ALLOCA_WITH_ALIGN:
+                                return EmitBuiltinAllocaWithAlign(stmt, Result);
   case BUILT_IN_BZERO:          return EmitBuiltinBZero(stmt, Result);
   case BUILT_IN_CONSTANT_P:     return EmitBuiltinConstantP(stmt, Result);
   case BUILT_IN_EXPECT:         return EmitBuiltinExpect(stmt, Result);
@@ -5724,6 +5726,17 @@ bool TreeToLLVM::EmitBuiltinAlloca(gimple stmt, Value *&Result) {
     return false;
   Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
   Result = Builder.CreateAlloca(Type::getInt8Ty(Context), Amt);
+  return true;
+}
+
+bool TreeToLLVM::EmitBuiltinAllocaWithAlign(gimple stmt, Value *&Result) {
+  if (!validate_gimple_arglist(stmt, INTEGER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return false;
+  Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
+  uint64_t Align = getInt64(gimple_call_arg(stmt, 1), true);
+  AllocaInst *Alloca = Builder.CreateAlloca(Type::getInt8Ty(Context), Amt);
+  Alloca->setAlignment(Align / 8);
+  Result = Alloca;
   return true;
 }
 

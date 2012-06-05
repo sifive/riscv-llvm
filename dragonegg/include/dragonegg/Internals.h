@@ -619,6 +619,7 @@ private:
 
   bool EmitBuiltinAdjustTrampoline(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinAlloca(gimple_statement_d *stmt, Value *&Result);
+  bool EmitBuiltinAllocaWithAlign(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinBZero(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinConstantP(gimple_statement_d *stmt, Value *&Result);
   bool EmitBuiltinExpect(gimple_statement_d *stmt, Value *&Result);
