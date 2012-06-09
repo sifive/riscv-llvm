@@ -677,7 +677,7 @@ DIType DebugInfo::createEnumType(tree type) {
       tree EnumValue = TREE_VALUE(Link);
       if (isa<CONST_DECL>(EnumValue))
         EnumValue = DECL_INITIAL(EnumValue);
-      uint64_t Value = getInt64(EnumValue, true);
+      uint64_t Value = getIntegerValue(EnumValue).getZExtValue();
       const char *EnumName = IDENTIFIER_POINTER(TREE_PURPOSE(Link));
       Elements.push_back(DebugFactory.CreateEnumerator(EnumName, Value));
     }
