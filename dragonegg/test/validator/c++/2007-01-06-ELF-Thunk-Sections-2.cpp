@@ -1,13 +1,13 @@
 // RUN: %dragonegg %s -S -o - | FileCheck %s
 // PR1085
-// XFAIL: gcc-4.7
+// XFAIL: gcc-4.5, gcc-4.6
 
-// CHECK: define weak void @_ZThn8_N
-// CHECK: define weak void @_ZThn8_N
-// CHECK: define weak void @_ZThn8_N
-// CHECK: define weak void @_ZThn8_N
-// CHECK: define weak void @_ZThn8_N
-// CHECK: define weak void @_ZThn8_N
+// CHECK: define linkonce_odr void @_ZThn8_N
+// CHECK: define linkonce_odr void @_ZThn8_N
+// CHECK: define linkonce_odr void @_ZThn8_N
+// CHECK: define linkonce_odr void @_ZThn8_N
+// CHECK: define linkonce_odr void @_ZThn8_N
+// CHECK: define linkonce_odr void @_ZThn8_N
 
 class 
 __attribute__((visibility("default"))) QGenericArgument
