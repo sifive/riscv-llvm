@@ -1,4 +1,5 @@
 // RUN: %dragonegg -fstrict-enums -S -o - %s | FileCheck %s
+// XFAIL: gcc-4.5
 
 enum A { alpha, beta } a;
 
