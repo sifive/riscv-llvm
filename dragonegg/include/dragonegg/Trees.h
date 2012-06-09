@@ -92,9 +92,14 @@ inline bool hasNSW(const_tree type) {
   return !TYPE_UNSIGNED(type) && TYPE_OVERFLOW_UNDEFINED(type);
 }
 
-/// getIntegerValue - Return the specified INTEGER_CST as an APInt (the bitwidth
-/// is the precision of the constant's type, aka TYPE_PRECISION).
-llvm::APInt getIntegerValue(const_tree exp);
+/// getAPIntValue - Return the specified INTEGER_CST as an APInt.  The default
+/// bitwidth used for the result is the precision of the constant's type, aka
+/// TYPE_PRECISION.  If a larger bitwidth is specified then the value is sign-
+/// or zero-extended to the larger size, following the signedness of the type.
+/// If a smaller bitwidth is specified then the value is truncated.  This will
+/// however result in an error if truncating changes the numerical value, i.e.
+/// the truncated value must sign-/zero-extend to the original.
+llvm::APInt getAPIntValue(const_tree exp, unsigned Bitwidth = 0);
 
 /// isInt64 - Return true if t is an INTEGER_CST that fits in a 64 bit integer.
 /// If Unsigned is false, returns whether it fits in a int64_t.  If Unsigned is

@@ -1626,7 +1626,7 @@ static Constant *AddressOfMEM_REF(tree exp, TargetFolder &Folder) {
 
   // Convert to a byte pointer and displace by the offset.
   Addr = Folder.CreateBitCast(Addr, GetUnitPointerType(Context));
-  APInt Delta = getIntegerValue(TREE_OPERAND(exp, 1));
+  APInt Delta = getAPIntValue(TREE_OPERAND(exp, 1));
   Constant *Offset = ConstantInt::get(Context, Delta);
   // The address is always inside the referenced object, so "inbounds".
   return Folder.CreateInBoundsGetElementPtr(Addr, Offset);

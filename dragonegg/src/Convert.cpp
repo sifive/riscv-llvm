@@ -318,17 +318,8 @@ static MDNode *describeTypeRange(tree type) {
 
   unsigned BitWidth = GET_MODE_BITSIZE(TYPE_MODE(type));
 
-  APInt Lo = getIntegerValue(min);
-  assert(Lo.getBitWidth() <= BitWidth && "Min value doesn't fit in type!");
-  if (Lo.getBitWidth() != BitWidth)
-    Lo = TYPE_UNSIGNED(TREE_TYPE(min)) ?
-      Lo.zext(BitWidth) : Lo.sext(BitWidth);
-
-  APInt Hi = getIntegerValue(max);
-  assert(Hi.getBitWidth() <= BitWidth && "Max value doesn't fit in type!");
-  if (Hi.getBitWidth() != BitWidth)
-    Hi = TYPE_UNSIGNED(TREE_TYPE(max)) ?
-      Hi.zext(BitWidth) : Hi.sext(BitWidth);
+  APInt Lo = getAPIntValue(min, BitWidth);
+  APInt Hi = getAPIntValue(max, BitWidth);
 
   // Unlike GCC's, LLVM ranges do not include the upper end point.
   ++Hi;
@@ -6195,7 +6186,7 @@ LValue TreeToLLVM::EmitLV_MEM_REF(tree exp) {
   if (!integer_zerop(TREE_OPERAND(exp, 1))) {
     // Convert to a byte pointer and displace by the offset.
     Addr = Builder.CreateBitCast(Addr, GetUnitPointerType(Context));
-    APInt Offset = getIntegerValue(TREE_OPERAND(exp, 1));
+    APInt Offset = getAPIntValue(TREE_OPERAND(exp, 1));
     // The address is always inside the referenced object, so "inbounds".
     Addr = Builder.CreateInBoundsGEP(Addr, ConstantInt::get(Context, Offset));
   }
@@ -6302,7 +6293,7 @@ LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
   }
 
   if (TMR_OFFSET(exp) && !integer_zerop (TMR_OFFSET(exp))) {
-    Constant *Off = ConstantInt::get(Context, getIntegerValue(TMR_OFFSET(exp)));
+    Constant *Off = ConstantInt::get(Context, getAPIntValue(TMR_OFFSET(exp)));
     Delta = Delta ? Builder.CreateAdd(Delta, Off) : Off;
   }
 
@@ -6452,7 +6443,7 @@ Constant *TreeToLLVM::EmitComplexRegisterConstant(tree reg) {
 /// EmitIntegerRegisterConstant - Turn the given INTEGER_CST into an LLVM
 /// constant of the corresponding register type.
 Constant *TreeToLLVM::EmitIntegerRegisterConstant(tree reg) {
-  ConstantInt *CI = ConstantInt::get(Context, getIntegerValue(reg));
+  ConstantInt *CI = ConstantInt::get(Context, getAPIntValue(reg));
   // The destination can be a pointer, integer or floating point type so we need
   // a generalized cast here
   Type *Ty = getRegType(TREE_TYPE(reg));

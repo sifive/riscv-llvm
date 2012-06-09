@@ -136,20 +136,44 @@ std::string getDescriptiveName(const_tree t) {
   return std::string();
 }
 
-/// getIntegerValue - Return the specified INTEGER_CST as an APInt.
-APInt getIntegerValue(const_tree exp) {
+/// getAPIntValue - Return the specified INTEGER_CST as an APInt.  The default
+/// bitwidth used for the result is the precision of the constant's type, aka
+/// TYPE_PRECISION.  If a larger bitwidth is specified then the value is sign-
+/// or zero-extended to the larger size, following the signedness of the type.
+/// If a smaller bitwidth is specified then the value is truncated.  This will
+/// however result in an error if truncating changes the numerical value, i.e.
+/// the truncated value must sign-/zero-extend to the original.
+APInt getAPIntValue(const_tree exp, unsigned Bitwidth) {
   assert(isa<INTEGER_CST>(exp) && "Expected an integer constant!");
   double_int val = tree_to_double_int(exp);
-  unsigned NumBits = TYPE_PRECISION(TREE_TYPE(exp));
+  unsigned DefaultWidth = TYPE_PRECISION(TREE_TYPE(exp));
 
-  if (integerPartWidth == HOST_BITS_PER_WIDE_INT)
-    return APInt(NumBits, /*numWords*/2, (integerPart*)&val);
-  assert(integerPartWidth == 2 * HOST_BITS_PER_WIDE_INT &&
-         "Unsupported host integer width!");
-  unsigned ShiftAmt = HOST_BITS_PER_WIDE_INT;
-  integerPart Part = integerPart((unsigned HOST_WIDE_INT)val.low) +
-    (integerPart((unsigned HOST_WIDE_INT)val.high) << ShiftAmt);
-  return APInt(NumBits, Part);
+  APInt DefaultValue;
+  if (integerPartWidth == HOST_BITS_PER_WIDE_INT) {
+    DefaultValue = APInt(DefaultWidth, /*numWords*/2, (integerPart*)&val);
+  } else {
+    assert(integerPartWidth == 2 * HOST_BITS_PER_WIDE_INT &&
+           "Unsupported host integer width!");
+    unsigned ShiftAmt = HOST_BITS_PER_WIDE_INT;
+    integerPart Part = integerPart((unsigned HOST_WIDE_INT)val.low) +
+      (integerPart((unsigned HOST_WIDE_INT)val.high) << ShiftAmt);
+    DefaultValue = APInt(DefaultWidth, Part);
+  }
+
+  if (!Bitwidth || Bitwidth == DefaultWidth)
+    return DefaultValue;
+
+  if (Bitwidth > DefaultWidth)
+    return TYPE_UNSIGNED(TREE_TYPE(exp)) ?
+      DefaultValue.zext(Bitwidth) : DefaultValue.sext(Bitwidth);
+
+  assert((TYPE_UNSIGNED(TREE_TYPE(exp)) ||
+          DefaultValue.trunc(Bitwidth).sext(DefaultWidth) == DefaultValue) &&
+         "Truncating changed signed value!");
+  assert((!TYPE_UNSIGNED(TREE_TYPE(exp)) ||
+          DefaultValue.trunc(Bitwidth).zext(DefaultWidth) == DefaultValue) &&
+         "Truncating changed unsigned value!");
+  return DefaultValue.trunc(Bitwidth);
 }
 
 /// isInt64 - Return true if t is an INTEGER_CST that fits in a 64 bit integer.
