@@ -124,7 +124,7 @@ $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/dragonegg-lit.site.cfg.in
 	$(QUIET)echo s=@GCC@=$(GCC)=g >> lit.tmp
 	$(QUIET)echo s=@GCC_LANGUAGES@=$(GCC_LANGUAGES)=g >> lit.tmp
 	$(QUIET)echo s=@LLVM_TOOLS_DIR@=$(LLVM_TOOLS_DIR)=g >> lit.tmp
-	$(QUIET)echo s=@TARGET_TRIPLE@=$(TARGET_TRIPLE)=g >> lit.tmp
+	$(QUIET)echo s=@TARGET_TRIPLE@=$(TARGET_TRIPLE)-gcc-$(GCC_MAJOR).$(GCC_MINOR)=g >> lit.tmp
 	$(QUIET)echo s=@TEST_OUTPUT_DIR@=$(CURDIR)/test/Output=g >> lit.tmp
 	$(QUIET)sed -f lit.tmp $< > $@
 	$(QUIET)-rm -f lit.tmp
