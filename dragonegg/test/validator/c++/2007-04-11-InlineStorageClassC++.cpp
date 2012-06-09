@@ -12,6 +12,7 @@
 // RUN:   grep xstatnoWeak | grep internal | count 1
 // RUN: %dragonegg %s -S -O0 -o - | grep define | \
 // RUN:   grep xextnoWeak | grep linkonce | count 1
+// XFAIL: gcc-4.5
 inline int xglobWeak(int) __attribute__((weak));
 inline int xglobWeak (int i) {
   return i*2;
