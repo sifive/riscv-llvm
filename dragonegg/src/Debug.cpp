@@ -209,8 +209,7 @@ static StringRef getLinkageName(tree Node) {
 }
 
 DebugInfo::DebugInfo(Module *m)
-: M(m)
-, DebugFactory(*m)
+: DebugFactory(*m)
 , CurFullPath("")
 , PrevFullPath("")
 , CurLineNo(0)

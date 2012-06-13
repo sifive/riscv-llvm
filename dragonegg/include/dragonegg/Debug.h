@@ -260,7 +260,6 @@ private:
 
   std::map<tree_node *, WeakVH> RegionMap;
 
-  Module *M;                            // The current module.
   DIFactory DebugFactory;
   const char *CurFullPath;              // Previous location file encountered.
   const char *PrevFullPath;             // Previous location file encountered.
