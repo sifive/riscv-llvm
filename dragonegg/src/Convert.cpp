@@ -1778,6 +1778,7 @@ Value *TreeToLLVM::CastToAnyType(Value *V, bool VisSigned,
 Value *TreeToLLVM::CastFromSameSizeInteger(Value *V, Type *Ty) {
   Type *OrigTy = V->getType();
   Type *OrigEltTy = OrigTy->getScalarType();
+  (void)OrigEltTy;
   assert(OrigEltTy->isIntegerTy() && "Expected an integer type!");
   Type *EltTy = Ty->getScalarType();
   if (EltTy->isIntegerTy()) {
