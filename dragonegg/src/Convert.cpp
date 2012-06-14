@@ -6632,7 +6632,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
     return DefineSSAName(reg, UndefValue::get(getRegType(TREE_TYPE(reg))));
 
   // Read the initial value of the parameter and associate it with the ssa name.
-  assert(DECL_LOCAL_IF_SET(var) && "Parameter not laid out?");
+  assert(DECL_LOCAL_IF_SET(var) != 0 && "Parameter not laid out?");
 
   unsigned Alignment = DECL_ALIGN(var);
   assert(Alignment != 0 && "Parameter with unknown alignment!");
