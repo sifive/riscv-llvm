@@ -146,7 +146,7 @@ extern bool isZeroSizedStructOrUnion(tree_node *type);
 // getLLVMScalarTypeForStructReturn - Return LLVM Type if TY can be
 // returned as a scalar, otherwise return NULL. This is the default
 // target independent implementation.
-static inline
+inline
 Type* getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) {
   Type *Ty = ConvertType(type);
   uint64_t Size = getTargetData().getTypeAllocSize(Ty);
@@ -172,7 +172,7 @@ Type* getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) {
 // getLLVMAggregateTypeForStructReturn - Return LLVM type if TY can be
 // returns as multiple values, otherwise return NULL. This is the default
 // target independent implementation.
-static inline
+inline
 Type* getLLVMAggregateTypeForStructReturn(tree_node * /*type*/) {
   return NULL;
 }
@@ -298,7 +298,7 @@ Type* getLLVMAggregateTypeForStructReturn(tree_node * /*type*/) {
 #define LLVM_EXTRACT_MULTIPLE_RETURN_VALUE(Src,Dest,V,B)     \
   llvm_default_extract_multiple_return_value((Src),(Dest),(V),(B))
 #endif
-static inline
+inline
 void llvm_default_extract_multiple_return_value(Value * /*Src*/, Value * /*Dest*/,
                                                 bool /*isVolatile*/,
                                                 LLVMBuilder &/*Builder*/) {
