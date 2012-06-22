@@ -458,6 +458,11 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 #if (GCC_MINOR > 5)
   Options.EnableSegmentedStacks = flag_split_stack;
 #endif
+#ifdef HAVE_INITFINI_ARRAY
+  Options.UseInitArray = true;
+#else
+  Options.UseInitArray = false;
+#endif
 #ifdef LLVM_SET_TARGET_MACHINE_OPTIONS
   LLVM_SET_TARGET_MACHINE_OPTIONS(Options);
 #endif
