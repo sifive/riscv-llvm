@@ -32,6 +32,7 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/PassManager.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Assembly/PrintModulePass.h"
@@ -377,22 +378,43 @@ static std::string ComputeTargetTriple() {
   // If the target wants to override the architecture, e.g. turning
   // powerpc-darwin-... into powerpc64-darwin-... when -m64 is enabled, do so
   // now.
-  std::string TargetTriple = TARGET_NAME;
+  std::string TargetTriple = Triple::normalize(TARGET_NAME);
+  std::string Components[4]; // Arch-Vendor-OS-Environment
 #ifdef LLVM_OVERRIDE_TARGET_ARCH
-  std::string Arch = LLVM_OVERRIDE_TARGET_ARCH();
-  if (!Arch.empty()) {
-    std::string::size_type DashPos = TargetTriple.find('-');
-    if (DashPos != std::string::npos)// If we have a sane t-t, replace the arch.
-      TargetTriple = Arch + TargetTriple.substr(DashPos);
-  }
+  Components[0] = LLVM_OVERRIDE_TARGET_ARCH();
 #endif
-#ifdef LLVM_OVERRIDE_TARGET_VERSION
-  char *NewTriple;
-  bool OverRidden = LLVM_OVERRIDE_TARGET_VERSION(TargetTriple.c_str(),
-                                                 &NewTriple);
-  if (OverRidden)
-    TargetTriple = std::string(NewTriple);
+#ifdef LLVM_OVERRIDE_TARGET_VENDOR
+  Components[1] = LLVM_OVERRIDE_TARGET_VENDOR();
 #endif
+#ifdef LLVM_OVERRIDE_TARGET_OS
+  Components[2] = LLVM_OVERRIDE_TARGET_OS();
+#endif
+#ifdef LLVM_OVERRIDE_TARGET_ENVIRONMENT
+  Components[3] = LLVM_OVERRIDE_TARGET_ENVIRONMENT();
+#endif
+  bool Override = false;
+  for (unsigned i = 0; i != array_lengthof(Components); ++i)
+    if (!Components[i].empty()) {
+      Override = true;
+      break;
+    }
+  if (!Override)
+    return TargetTriple;
+
+  SmallVector<StringRef, 4> Parts;
+  StringRef(TargetTriple).split(Parts, "-");
+  for (unsigned i = 0; i != array_lengthof(Components); ++i)
+    if (!Components[i].empty()) {
+      if (Parts.size() <= i)
+        Parts.append(i - Parts.size() + 1, "");
+      Parts[i] = Components[i];
+    }
+
+  if (Parts.size() == 0)
+    return "";
+  TargetTriple = Parts[0];
+  for (unsigned i = 1; i != Parts.size(); ++i)
+    TargetTriple += (Twine("-") + Parts[i]).str();
   return TargetTriple;
 }
 

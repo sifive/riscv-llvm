@@ -374,6 +374,11 @@ enum x86_64_reg_class
 #define LLVM_OVERRIDE_TARGET_ARCH() \
   (TARGET_64BIT ? "x86_64" : "i386")
 
+#if (GCC_MINOR > 6)
+#define LLVM_OVERRIDE_TARGET_ENVIRONMENT() \
+  (TARGET_X32 ? "gnux32" : "")
+#endif
+
 #define LLVM_ASM_EXTENSIONS(ESCAPED_CHAR, ASM, RESULT)			\
   else if ((ESCAPED_CHAR) == 'v') {					\
     /* %v means to use the AVX prefix 'v' if TARGET_AVX is true. */	\
