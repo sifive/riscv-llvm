@@ -53,6 +53,7 @@
 // GCC headers
 #include "auto-host.h"
 #ifndef ENABLE_BUILD_WITH_CXX
+#include <cstring> // Otherwise included by system.h with C linkage.
 extern "C" {
 #endif
 #include "config.h"
