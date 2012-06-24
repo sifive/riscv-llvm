@@ -718,12 +718,7 @@ static void createPerModuleOptimizationPasses() {
   PassBuilder.Inliner = InliningPass;
   PassBuilder.populateModulePassManager(*PerModulePasses);
 
-  if (EmitIR && 0) {
-    // Emit an LLVM .bc file to the output.  This is used when passed
-    // -emit-llvm -c to the GCC driver.
-    InitializeOutputStreams(true);
-    PerModulePasses->add(createBitcodeWriterPass(*OutStream));
-  } else if (EmitIR) {
+  if (EmitIR) {
     // Emit an LLVM .ll file to the output.  This is used when passed
     // -emit-llvm -S to the GCC driver.
     InitializeOutputStreams(false);
