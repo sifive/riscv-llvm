@@ -1136,6 +1136,16 @@ static Type *ConvertRecordTypeRecursive(tree type) {
     }
     uint64_t LastBit = FirstBit + BitWidth;
 
+    if (LastBit > TypeSize) {
+      // Qualified union types may list fields that cannot be present, but that
+      // the optimizers weren't smart enough to remove.  It can sometimes happen
+      // that the optimizers nonetheless managed to simplify the type size to a
+      // constant, which can be smaller than the size of the non-present fields
+      // if were larger than the rest.
+      assert(isa<QUAL_UNION_TYPE>(type) && "Field runs off end of type!");
+      LastBit = TypeSize;
+    }
+
     // Set the type of the range of bits occupied by the field to the LLVM type
     // for the field.
     Layout.AddInterval(TypedRange::get(FirstBit, LastBit, FieldTy));
