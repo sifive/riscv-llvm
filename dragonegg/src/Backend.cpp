@@ -413,10 +413,10 @@ static std::string ComputeTargetTriple() {
 
   if (Parts.size() == 0)
     return "";
-  TargetTriple = Parts[0];
+  std::string NewTriple = Parts[0];
   for (unsigned i = 1; i != Parts.size(); ++i)
-    TargetTriple += (Twine("-") + Parts[i]).str();
-  return TargetTriple;
+    NewTriple += (Twine("-") + Parts[i]).str();
+  return NewTriple;
 }
 
 /// CreateTargetMachine - Create the TargetMachine we will generate code with.
