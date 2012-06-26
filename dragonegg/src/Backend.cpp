@@ -1040,10 +1040,8 @@ static void emit_global(tree decl) {
     switch (DECL_TLS_MODEL(decl)) {
     case TLS_MODEL_NONE:
       llvm_unreachable("TLS_MODEL_NONE for thread local var is impossible");
-      break;
     case TLS_MODEL_EMULATED:
       llvm_unreachable("LLVM does not support TLS_MODEL_EMULATED");
-      break;
     case TLS_MODEL_GLOBAL_DYNAMIC:
       GV->setThreadLocalMode(GlobalVariable::GeneralDynamicTLSModel);
       break;
