@@ -1862,7 +1862,9 @@ Value *TreeToLLVM::CreateAnyNeg(Value *V, tree type) {
 Value *TreeToLLVM::CreateAnySub(Value *LHS, Value *RHS, tree type) {
   if (isa<FLOAT_TYPE>(type))
     return Builder.CreateFSub(LHS, RHS);
-  return Builder.CreateSub(LHS, RHS, "", hasNUW(type), hasNSW(type));
+  return Builder.CreateSub(CastToSameSizeInteger(LHS),
+                           CastToSameSizeInteger(RHS), "",
+                           hasNUW(type), hasNSW(type));
 }
 
 /// CreateTemporary - Create a new alloca instruction of the specified type,
