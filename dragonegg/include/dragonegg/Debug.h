@@ -27,7 +27,7 @@
 #include "dragonegg/Internals.h"
 
 // LLVM headers
-#include "llvm/Analysis/DebugInfo.h"
+#include "llvm/DebugInfo.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/ValueHandle.h"
 
