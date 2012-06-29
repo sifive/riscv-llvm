@@ -1350,6 +1350,11 @@ static Constant *ConvertCONSTRUCTOR(tree exp, TargetFolder &Folder) {
 static Constant *ConvertMINUS_EXPR(tree exp, TargetFolder &Folder) {
   Constant *LHS = getAsRegister(TREE_OPERAND(exp, 0), Folder);
   Constant *RHS = getAsRegister(TREE_OPERAND(exp, 1), Folder);
+  if (LHS->getType()->getScalarType()->isPointerTy()) {
+    Type *PtrIntTy = getTargetData().getIntPtrType(Context);
+    LHS = Folder.CreatePtrToInt(LHS, PtrIntTy);
+    RHS = Folder.CreatePtrToInt(RHS, PtrIntTy);
+  }
   return RepresentAsMemory(Folder.CreateSub(LHS, RHS), main_type(exp), Folder);
 }
 
