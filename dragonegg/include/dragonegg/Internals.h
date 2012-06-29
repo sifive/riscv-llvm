@@ -25,12 +25,12 @@
 
 // LLVM headers
 #include "llvm/Intrinsics.h"
+#include "llvm/IRBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/IRBuilder.h"
 #include "llvm/Support/TargetFolder.h"
 
 struct basic_block_def;
