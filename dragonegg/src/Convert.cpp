@@ -7640,19 +7640,55 @@ Value *TreeToLLVM::EmitReg_VEC_PERM_EXPR(tree op0, tree op1, tree op2) {
 
   // The shuffle mask.
   Value *Mask = EmitRegister(op2);
-  assert(isa<Constant>(Mask) && "Only constant permutation masks supported!");
-
-  // Convert to a vector of i32, as required by the shufflevector instruction.
-  Type *MaskTy = VectorType::get(Builder.getInt32Ty(), Length);
-  tree mask_elt_type = TREE_TYPE(TREE_TYPE(op2));
-  Mask = Builder.CreateIntCast(Mask, MaskTy, !TYPE_UNSIGNED(mask_elt_type));
 
   // The GCC semantics are that mask indices off the end are wrapped back into
   // range, so reduce the mask modulo 2*Length.
   assert(!(Length & (Length - 1)) && "Vector length not a power of two!");
   Mask = Builder.CreateAnd(Mask, ConstantInt::get(Mask->getType(), 2*Length-1));
 
-  return Builder.CreateShuffleVector(V0, V1, Mask);
+  // Convert to a vector of i32, as required by the shufflevector instruction.
+  Type *MaskTy = VectorType::get(Builder.getInt32Ty(), Length);
+  tree mask_elt_type = TREE_TYPE(TREE_TYPE(op2));
+  Value *Mask32 = Builder.CreateIntCast(Mask, MaskTy,
+                                        !TYPE_UNSIGNED(mask_elt_type));
+
+  // Use a shufflevector instruction if this directly corresponds to one, i.e.
+  // if the mask is a vector of constant integers or undef.
+  if (ShuffleVectorInst::isValidOperands(V0, V1, Mask32))
+    return Builder.CreateShuffleVector(V0, V1, Mask32);
+
+  // Store the vectors to successive memory locations in a temporary.
+  tree elt_type = TREE_TYPE(TREE_TYPE(op0));
+  Type *EltTy = ConvertType(elt_type);
+  unsigned Align = TD.getABITypeAlignment(EltTy);
+  // The temporary is a struct containing the pair of input vectors.
+  Type *TmpTy = StructType::get(ConvertType(TREE_TYPE(op0)),
+                                ConvertType(TREE_TYPE(op1)), NULL);
+  AllocaInst *Tmp = CreateTemporary(TmpTy, Align);
+  // Store the first vector to the first element of the pair.
+  Value *Tmp0 = Builder.CreateStructGEP(Tmp, 0);
+  StoreRegisterToMemory(V0, MemRef(Tmp0, Align, /*Volatile*/false),
+                        TREE_TYPE(op0), 0, Builder);
+  // Store the second vector to the second element of the pair.
+  Value *Tmp1 = Builder.CreateStructGEP(Tmp, 1);
+  StoreRegisterToMemory(V1, MemRef(Tmp1, Align, /*Volatile*/false),
+                        TREE_TYPE(op1), 0, Builder);
+
+  // Load out the components according to the mask.
+  Value *Result = UndefValue::get(V0->getType());
+  Value *BaseAddr = Builder.CreateBitCast(Tmp, EltTy->getPointerTo());
+  for (unsigned i = 0; i != Length; ++i) {
+    // Extract from the mask the index of the element to load.
+    Value *MaskIdx = Builder.getInt32(i);
+    Value *Idx = Builder.CreateExtractElement(Mask, MaskIdx);
+    // Advance that many elements from the start of the temporary and load it.
+    Value *Ptr = Builder.CreateInBoundsGEP(BaseAddr, Idx);
+    Value *Elt = LoadRegisterFromMemory(MemRef(Ptr, Align, false), elt_type, 0,
+                                        Builder);
+    // Insert it into the result.
+    Result = Builder.CreateInsertElement(Result, Elt, MaskIdx);
+  }
+  return Result;
 }
 #endif
 
