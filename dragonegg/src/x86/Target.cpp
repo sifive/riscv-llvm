@@ -1824,3 +1824,11 @@ bool llvm_x86_should_pass_aggregate_in_integer_regs(tree type, unsigned *size,
   else
     return !isSingleElementStructOrArray(type, false, true);
 }
+
+const char *llvm_x86_override_target_environment() {
+#ifdef TARGET_X32
+  return TARGET_X32 ? "gnux32" : "";
+#else
+  return "";
+#endif
+}
