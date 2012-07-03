@@ -1,5 +1,6 @@
 // RUN: %dragonegg -S -x objective-c -m32 %s -o /dev/null
 // This used to crash, 6831493.
+// XFAIL: gcc-4.5
 #include <stdlib.h>
 
 struct s0 {
