@@ -1473,7 +1473,7 @@ namespace {
     /// about self-recursion.
     void SkipNonRecursiveTypes() {
       while (I != ContainedTypeIterator::end() &&
-             !mayRecurse(TYPE_MAIN_VARIANT(*I)))
+             !(isa<TYPE>(*I) && mayRecurse(TYPE_MAIN_VARIANT(*I))))
         ++I;
     }
 
