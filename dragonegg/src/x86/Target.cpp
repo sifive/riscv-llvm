@@ -26,6 +26,7 @@
 
 // LLVM headers
 #include "llvm/Module.h"
+#include "llvm/MC/SubtargetFeature.h"
 
 // System headers
 #include <gmp.h>
@@ -939,6 +940,25 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     Result = Builder.CreateCall2(cttz, Result, Builder.getTrue());
     return true;
   }
+  case rdrand16_step:
+  case rdrand32_step:
+  case rdrand64_step: {
+    Intrinsic::ID ID;
+    if (Handler == rdrand16_step)
+      ID = Intrinsic::x86_rdrand_16;
+    else if (Handler == rdrand32_step)
+      ID = Intrinsic::x86_rdrand_32;
+    else {
+      assert(Handler == rdrand64_step && "Unexpected rdrand builtin!");
+      ID = Intrinsic::x86_rdrand_64;
+    }
+
+    Function *rdrand = Intrinsic::getDeclaration(TheModule, ID);
+    Value *Call = Builder.CreateCall(rdrand);
+    Builder.CreateStore(Builder.CreateExtractValue(Call, 0), Ops[0]);
+    Result = Builder.CreateExtractValue(Call, 1);
+    return true;
+  }
   }
   llvm_unreachable("Forgot case for code?");
 }
@@ -1831,4 +1851,104 @@ const char *llvm_x86_override_target_environment() {
 #else
   return "";
 #endif
+}
+
+void llvm_x86_set_subtarget_features(std::string &C,
+                                   llvm::SubtargetFeatures &F) {
+  if (TARGET_MACHO && ! strcmp (ix86_arch_string, "apple"))
+    C = TARGET_64BIT ? "core2" : "yonah";
+  else
+    C = ix86_arch_string;
+
+  if (TARGET_64BIT)
+    F.AddFeature("64bit");
+  else if (target_flags_explicit & OPTION_MASK_ISA_64BIT)
+    F.AddFeature("64bit", false);
+
+  if (TARGET_3DNOW)
+    F.AddFeature("3dnow");
+  else if (target_flags_explicit & OPTION_MASK_ISA_3DNOW)
+    F.AddFeature("3dnow", false);
+
+  if (TARGET_3DNOW_A)
+    F.AddFeature("3dnowa");
+  else if (target_flags_explicit & OPTION_MASK_ISA_3DNOW_A)
+    F.AddFeature("3dnowa", false);
+
+  if (TARGET_AES)
+    F.AddFeature("aes");
+  else if (target_flags_explicit & OPTION_MASK_ISA_AES)
+    F.AddFeature("aes", false);
+
+  if (TARGET_AVX)
+    F.AddFeature("avx");
+  else if (target_flags_explicit & OPTION_MASK_ISA_AVX)
+    F.AddFeature("avx", false);
+
+  if (TARGET_CMPXCHG16B)
+    F.AddFeature("cmpxchg16b");
+  else if (target_flags_explicit & OPTION_MASK_ISA_CX16)
+    F.AddFeature("cmpxchg16b", false);
+
+  if (TARGET_FMA)
+    F.AddFeature("fma");
+  else if (target_flags_explicit & OPTION_MASK_ISA_FMA)
+    F.AddFeature("fma", false);
+
+  if (TARGET_FMA4)
+    F.AddFeature("fma4");
+  else if (target_flags_explicit & OPTION_MASK_ISA_FMA4)
+    F.AddFeature("fma4", false);
+
+  if (TARGET_MMX)
+    F.AddFeature("mmx");
+  else if (target_flags_explicit & OPTION_MASK_ISA_MMX)
+    F.AddFeature("mmx", false);
+
+  if (TARGET_POPCNT)
+    F.AddFeature("popcnt");
+  else if (target_flags_explicit & OPTION_MASK_ISA_POPCNT)
+    F.AddFeature("popcnt", false);
+
+#ifdef TARGET_RDRND
+  if (TARGET_RDRND)
+    F.AddFeature("rdrand");
+  else if (target_flags_explicit & OPTION_MASK_ISA_RDRND)
+    F.AddFeature("rdrand", false);
+#endif
+
+  if (TARGET_SSE)
+    F.AddFeature("sse");
+  else if (target_flags_explicit & OPTION_MASK_ISA_SSE)
+    F.AddFeature("sse", false);
+
+  if (TARGET_SSE2)
+    F.AddFeature("sse2");
+  else if (target_flags_explicit & OPTION_MASK_ISA_SSE2)
+    F.AddFeature("sse2", false);
+
+  if (TARGET_SSE3)
+    F.AddFeature("sse3");
+  else if (target_flags_explicit & OPTION_MASK_ISA_SSE3)
+    F.AddFeature("sse3", false);
+
+  if (TARGET_SSE4_1)
+    F.AddFeature("sse41");
+  else if (target_flags_explicit & OPTION_MASK_ISA_SSE4_1)
+    F.AddFeature("sse41", false);
+
+  if (TARGET_SSE4_2)
+    F.AddFeature("sse42");
+  else if (target_flags_explicit & OPTION_MASK_ISA_SSE4_2)
+    F.AddFeature("sse42", false);
+
+  if (TARGET_SSE4A)
+    F.AddFeature("sse4a");
+  else if (target_flags_explicit & OPTION_MASK_ISA_SSE4A)
+    F.AddFeature("sse4a", false);
+
+  if (TARGET_SSSE3)
+    F.AddFeature("ssse3");
+  else if (target_flags_explicit & OPTION_MASK_ISA_SSSE3)
+    F.AddFeature("ssse3", false);
 }
