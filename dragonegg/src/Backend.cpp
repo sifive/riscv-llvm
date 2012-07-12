@@ -40,6 +40,7 @@
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/PluginLoader.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetData.h"
