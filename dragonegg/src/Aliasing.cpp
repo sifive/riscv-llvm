@@ -25,9 +25,9 @@
 #include "dragonegg/Aliasing.h"
 
 // LLVM headers
+#include "llvm/MDBuilder.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Support/MDBuilder.h"
 
 // System headers
 #include <gmp.h>
