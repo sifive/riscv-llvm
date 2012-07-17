@@ -36,14 +36,22 @@ ifndef VERBOSE
 QUIET:=@
 endif
 
-COMMON_FLAGS=-Wall -Wextra -fvisibility=hidden
+COMMON_FLAGS=-Wall -Wextra
+ifdef ENABLE_LLVM_PLUGINS
+COMMON_FLAGS+=-DENABLE_LLVM_PLUGINS
+else
+COMMON_FLAGS+=-fvisibility=hidden
+endif
 CFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cflags)
 CXXFLAGS+=$(COMMON_FLAGS) $(shell $(LLVM_CONFIG) --cxxflags)
 
 ifeq ($(shell uname),Darwin)
 LOADABLE_MODULE_OPTIONS=-bundle -undefined dynamic_lookup
 else
-LOADABLE_MODULE_OPTIONS=-shared -Wl,-O1 -Wl,--version-script=$(TOP_DIR)/exports.map
+LOADABLE_MODULE_OPTIONS=-shared -Wl,-O1
+ifndef ENABLE_LLVM_PLUGINS
+LOADABLE_MODULE_OPTIONS+=-Wl,--version-script=$(TOP_DIR)/exports.map
+endif
 endif
 
 GCC_PLUGIN_DIR:=$(shell $(GCC) -print-file-name=plugin)
@@ -79,6 +87,12 @@ CPP_OPTIONS+=-DDISABLE_VERSION_CHECK
 endif
 
 LD_OPTIONS+=$(shell $(LLVM_CONFIG) --ldflags) $(LDFLAGS)
+
+LLVM_COMPONENTS=ipo scalaropts target
+ifdef ENABLE_LLVM_PLUGINS
+# The same components as the "opt" tool.
+LLVM_COMPONENTS+=bitreader bitwriter asmparser instrumentation vectorize
+endif
 
 # NOTE: The following flags can only be used after TARGET_UTIL has been built.
 TARGET_HEADERS+=-DTARGET_NAME=\"$(shell $(TARGET_UTIL) -t)\" \
@@ -119,8 +133,9 @@ $(TARGET_OBJECT): $(TARGET_UTIL)
 $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 	@echo Linking $@
 	$(QUIET)$(CXX) -o $@ $(LOADABLE_MODULE_OPTIONS) $(CXXFLAGS) \
-	$(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(shell $(LLVM_CONFIG) --libs \
-	analysis core ipo scalaropts target $(shell $(TARGET_UTIL) -p)) \
+	$(PLUGIN_OBJECTS) $(TARGET_OBJECT) \
+	$(shell $(LLVM_CONFIG) --libs $(LLVM_COMPONENTS) \
+	$(shell $(TARGET_UTIL) -p)) \
 	$(LD_OPTIONS)
 
 $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/dragonegg-lit.site.cfg.in

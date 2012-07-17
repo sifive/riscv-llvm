@@ -54,6 +54,9 @@ the LLVM_CONFIG variable.
 
 The end result of the build is a shared library, dragonegg.so.
 
+If you want the dragonegg plugin to be able to load LLVM plugins then pass
+ENABLE_LLVM_PLUGINS=1 to make.
+
 
 ----------------------
 - USAGE INSTRUCTIONS -
