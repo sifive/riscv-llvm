@@ -354,12 +354,6 @@ static void ConfigureLLVM(void) {
 //TODO    ArgStrings.push_back(Arg);
 //TODO  }
 
-  if (flag_stack_protect > 0) {
-    std::string Arg("--stack-protector-buffer-size=" +
-                    utostr(PARAM_VALUE(PARAM_SSP_BUFFER_SIZE)));
-    ArgStrings.push_back(Arg);
-  }
-
   for (unsigned i = 0, e = ArgStrings.size(); i != e; ++i)
     Args.push_back(ArgStrings[i].c_str());
 
@@ -491,6 +485,7 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 #else
   Options.UseInitArray = false;
 #endif
+  Options.SSPBufferSize = PARAM_VALUE(PARAM_SSP_BUFFER_SIZE);
 #ifdef LLVM_SET_TARGET_MACHINE_OPTIONS
   LLVM_SET_TARGET_MACHINE_OPTIONS(Options);
 #endif
