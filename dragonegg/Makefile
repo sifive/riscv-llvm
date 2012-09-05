@@ -54,15 +54,15 @@ LOADABLE_MODULE_OPTIONS+=-Wl,--version-script=$(TOP_DIR)/exports.map
 endif
 endif
 
-GCC_PLUGIN_DIR:=$(shell $(GCC) -print-file-name=plugin)
-GCC_VERSION:=$(shell $(GCC) -dumpversion).0
+GCC_PLUGIN_DIR=$(shell $(GCC) -print-file-name=plugin)
+GCC_VERSION=$(shell $(GCC) -dumpversion).0
 GCC_MAJOR=$(word 1, $(subst ., ,$(GCC_VERSION)))
 GCC_MINOR=$(word 2, $(subst ., ,$(GCC_VERSION)))
 GCC_MICRO=$(word 3, $(subst ., ,$(GCC_VERSION)))
 GCC_LANGUAGES=$(shell $(GCC) -v 2>&1 | grep '^Configured with:' | sed 's/^.*--enable-languages=\([^ ]*\).*/\1/')
-TARGET_TRIPLE:=$(shell $(GCC) -dumpmachine)
+TARGET_TRIPLE=$(shell $(GCC) -dumpmachine)
 
-LLVM_VERSION:=$(shell $(LLVM_CONFIG) --version)
+LLVM_VERSION=$(shell $(LLVM_CONFIG) --version)
 
 PLUGIN=dragonegg.so
 PLUGIN_OBJECTS=Aliasing.o Backend.o Cache.o ConstantConversion.o Convert.o \
@@ -111,7 +111,15 @@ export PYTHONPATH:=$(TEST_SRC_DIR):$(LIT_DIR)/lit:$(PYTHONPATH)
 
 default: $(PLUGIN)
 
-$(TARGET_UTIL_OBJECTS): %.o : $(TOP_DIR)/utils/%.cpp
+.PHONY: gcc-sane
+gcc-sane:
+	$(QUIET)$(GCC) --version > /dev/null
+
+.PHONY: llvm-config-sane
+llvm-config-sane:
+	$(QUIET)$(LLVM_CONFIG) --version > /dev/null
+
+$(TARGET_UTIL_OBJECTS): %.o : $(TOP_DIR)/utils/%.cpp gcc-sane llvm-config-sane
 	@echo Compiling utils/$*.cpp
 	$(QUIET)$(CXX) -c -DTARGET_TRIPLE=\"$(TARGET_TRIPLE)\" \
 	$(CPP_OPTIONS) $(CXXFLAGS) $<
@@ -150,19 +158,23 @@ $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/dragonegg-lit.site.cfg.in
 	$(QUIET)sed -f lit.tmp $< > $@
 	$(QUIET)-rm -f lit.tmp
 
-check-compilator:: $(PLUGIN) $(LIT_SITE_CONFIG)
+.PHONY: check-compilator
+check-compilator: $(PLUGIN) $(LIT_SITE_CONFIG)
 	@echo "Running test suite 'compilator'"
 	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
 	--config-prefix=compilator-lit $(TEST_SRC_DIR)/compilator
 
-check-validator:: $(PLUGIN) $(LIT_SITE_CONFIG)
+.PHONY: check-validator
+check-validator: $(PLUGIN) $(LIT_SITE_CONFIG)
 	@echo "Running test suite 'validator'"
 	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
 	--config-prefix=validator-lit $(TEST_SRC_DIR)/validator
 
-check:: check-validator check-compilator
+.PHONY: check
+check: check-validator check-compilator
 
-clean::
+.PHONY: clean
+clean:
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL) $(LIT_SITE_CONFIG)
 
 
@@ -173,7 +185,8 @@ clean::
 # directory in GCC_BUILD_DIR.
 GENGTYPE_INPUT=$(SRC_DIR)/Cache.cpp
 GENGTYPE_OUTPUT=$(INCLUDE_DIR)/dragonegg/gt-cache-$(GCC_MAJOR).$(GCC_MINOR).h
-gt-cache.h::
+.PHONY: gt-cache.h
+gt-cache.h:
 	$(QUIET)$(GCC_BUILD_DIR)/gcc/build/gengtype \
 	-r $(GCC_BUILD_DIR)/gcc/gtype.state \
 	-P $(GENGTYPE_OUTPUT) $(GENGTYPE_INPUT)
