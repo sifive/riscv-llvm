@@ -109,7 +109,7 @@ LIT_SITE_CONFIG=test/dragonegg-lit.site.cfg
 TEST_SRC_DIR=$(TOP_DIR)/test
 export PYTHONPATH:=$(TEST_SRC_DIR):$(LIT_DIR)/lit:$(PYTHONPATH)
 
-default: $(PLUGIN)
+default: gcc-sane llvm-config-sane $(PLUGIN)
 
 .PHONY: gcc-sane
 gcc-sane:
@@ -119,7 +119,7 @@ gcc-sane:
 llvm-config-sane:
 	$(QUIET)$(LLVM_CONFIG) --version > /dev/null
 
-$(TARGET_UTIL_OBJECTS): %.o : $(TOP_DIR)/utils/%.cpp gcc-sane llvm-config-sane
+$(TARGET_UTIL_OBJECTS): %.o : $(TOP_DIR)/utils/%.cpp
 	@echo Compiling utils/$*.cpp
 	$(QUIET)$(CXX) -c -DTARGET_TRIPLE=\"$(TARGET_TRIPLE)\" \
 	$(CPP_OPTIONS) $(CXXFLAGS) $<
