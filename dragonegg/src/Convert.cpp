@@ -108,7 +108,7 @@ static unsigned int getPointerAlignment(tree exp) {
 #else
     get_pointer_alignment(exp);
 #endif
-  return align ? (align + 7) / 8 : 1;
+  return align >= 8 ? align / 8 : 1;
 }
 
 /// getSSAPlaceholder - A fake value associated with an SSA name when the name
@@ -6197,13 +6197,16 @@ LValue TreeToLLVM::EmitLV_MEM_REF(tree exp) {
 
   // Ensure the pointer has the right type.
   Addr = Builder.CreateBitCast(Addr, getPointerToType(TREE_TYPE(exp)));
+
   unsigned Alignment =
-#if (GCC_MINOR < 7)
-    get_object_alignment(exp, BIGGEST_ALIGNMENT);
+#if (GCC_MINOR < 6)
+    get_object_alignment(exp, TYPE_ALIGN(TREE_TYPE (exp)), BIGGEST_ALIGNMENT);
+#elif (GCC_MINOR < 7)
+    std::max(get_object_alignment(exp, BIGGEST_ALIGNMENT),
+             TYPE_ALIGN(TREE_TYPE (exp)));
 #else
-    get_object_alignment(exp);
+    get_object_or_type_alignment(exp);
 #endif
-  Alignment = std::max(TYPE_ALIGN(TREE_TYPE (exp)), Alignment);
   bool Volatile = TREE_THIS_VOLATILE(exp);
 
   return LValue(Addr, Alignment / 8, Volatile);
@@ -6311,13 +6314,14 @@ LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
 
   // The result can be of a different pointer type even if we didn't advance it.
   Addr = Builder.CreateBitCast(Addr, getPointerToType(TREE_TYPE(exp)));
-  unsigned Alignment = TYPE_ALIGN(TREE_TYPE (exp));
+  unsigned Alignment =
 #if (GCC_MINOR < 6)
-  Alignment = get_object_alignment(exp, Alignment, BIGGEST_ALIGNMENT);
+    get_object_alignment(exp, TYPE_ALIGN(TREE_TYPE (exp)), BIGGEST_ALIGNMENT);
 #elif (GCC_MINOR < 7)
-  Alignment = std::max(Alignment, get_object_alignment(exp, BIGGEST_ALIGNMENT));
+    std::max(get_object_alignment(exp, BIGGEST_ALIGNMENT),
+             TYPE_ALIGN(TREE_TYPE (exp)));
 #else
-  Alignment = std::max(Alignment, get_object_alignment(exp));
+    get_object_or_type_alignment(exp);
 #endif
   bool Volatile = TREE_THIS_VOLATILE(exp);
 
@@ -6637,7 +6641,7 @@ Value *TreeToLLVM::EmitReg_SSA_NAME(tree reg) {
   // Read the initial value of the parameter and associate it with the ssa name.
   assert(DECL_LOCAL_IF_SET(var) != 0 && "Parameter not laid out?");
 
-  unsigned Alignment = DECL_ALIGN(var);
+  unsigned Alignment = DECL_ALIGN(var) / 8;
   assert(Alignment != 0 && "Parameter with unknown alignment!");
 
   // Perform the load in the entry block, after all parameters have been set up
