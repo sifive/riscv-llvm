@@ -40,9 +40,6 @@
 #if ((BITS_PER_UNIT & 7) != 0)
 #error	BITS_PER_UNIT must be a multiple of 8
 #endif
-#if ((BITS_PER_UNIT & (BITS_PER_UNIT - 1)) != 0)
-#error	BITS_PER_UNIT must be a power of 2
-#endif
 
 
 /// dragonegg_tree_code - Fake helper tree codes.
