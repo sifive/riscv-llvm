@@ -308,9 +308,6 @@ Type *getPointerToType(tree type) {
 /// example, on a machine which has 16 bit bytes returns an i16 or an array of
 /// i16.
 Type *GetUnitType(LLVMContext &C, unsigned NumUnits) {
-  // The following assertion is here because just about every place that calls
-  // this routine implicitly assumes this.
-  assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
   Type *UnitTy = IntegerType::get(C, BITS_PER_UNIT);
   if (NumUnits == 1)
     return UnitTy;

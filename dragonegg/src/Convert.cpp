@@ -6085,7 +6085,6 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
     // Offset will hold the field offset in octets.
     Value *Offset;
 
-    assert(!(BITS_PER_UNIT & 7) && "Unit size not a multiple of 8 bits!");
     if (TREE_OPERAND(exp, 2)) {
       Offset = EmitRegister(TREE_OPERAND(exp, 2));
       // At this point the offset is measured in units divided by (exactly)

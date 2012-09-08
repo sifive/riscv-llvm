@@ -36,6 +36,15 @@
 // headers (and this one, as it may include GCC headers) are always included
 // last.
 
+// The following properties must hold if dragonegg is to work correctly.
+#if ((BITS_PER_UNIT & 7) != 0)
+#error	BITS_PER_UNIT must be a multiple of 8
+#endif
+#if ((BITS_PER_UNIT & (BITS_PER_UNIT - 1)) != 0)
+#error	BITS_PER_UNIT must be a power of 2
+#endif
+
+
 /// dragonegg_tree_code - Fake helper tree codes.
 enum dragonegg_tree_code {
   ACCESS_TYPE,          // A pointer or reference type.
