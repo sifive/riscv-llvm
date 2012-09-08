@@ -2012,8 +2012,8 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
       unsigned DestFieldAlign = DestLoc.getAlignment();
       unsigned SrcFieldAlign = SrcLoc.getAlignment();
       if (FieldIdx) {
-        DestFieldAlign = MinAlign(DestFieldAlign, DECL_ALIGN(Field) / 8);
-        SrcFieldAlign = MinAlign(SrcFieldAlign, DECL_ALIGN(Field) / 8);
+        DestFieldAlign = MinAlign(DestFieldAlign, getFieldAlignment(Field));
+        SrcFieldAlign = MinAlign(SrcFieldAlign, getFieldAlignment(Field));
       }
 
       // Copy the field.
@@ -2108,7 +2108,7 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
       // Compute the field's alignment.
       unsigned FieldAlign = DestLoc.getAlignment();
       if (FieldIdx)
-        FieldAlign = MinAlign(FieldAlign, DECL_ALIGN(Field) / 8);
+        FieldAlign = MinAlign(FieldAlign, getFieldAlignment(Field));
 
       // Zero the field.
       MemRef FieldLoc(FieldPtr, FieldAlign, DestLoc.Volatile);
@@ -6069,6 +6069,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 
   // BitStart - This is the actual offset of the field from the start of the
   // struct, in bits.  For bitfields this may be on a non-byte boundary.
+  uint64_t FieldBitOffset = getInt64(DECL_FIELD_BIT_OFFSET(FieldDecl), true);
   unsigned BitStart;
   Value *FieldPtr;
 
@@ -6079,8 +6080,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
     // Get a pointer to the byte in which the GCC field starts.
     FieldPtr = Builder.CreateStructGEP(StructAddrLV.Ptr, MemberIndex);
     // Within that byte, the bit at which the GCC field starts.
-    BitStart = TREE_INT_CST_LOW(DECL_FIELD_BIT_OFFSET(TREE_OPERAND(exp, 1)));
-    BitStart &= 7;
+    BitStart = FieldBitOffset & 7;
   } else {
     // Offset will hold the field offset in octets.
     Value *Offset;
@@ -6105,7 +6105,7 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
     }
 
     // Here BitStart gives the offset of the field in bits from Offset.
-    BitStart = getInt64(DECL_FIELD_BIT_OFFSET(FieldDecl), true);
+    BitStart = FieldBitOffset;
 
     // Incorporate as much of it as possible into the pointer computation.
     unsigned ByteOffset = BitStart / 8;
@@ -6121,9 +6121,9 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
     FieldPtr = Builder.CreateBitCast(FieldPtr, FieldTy->getPointerTo());
   }
 
-  // The alignment is given by DECL_ALIGN.  Be conservative and don't assume
-  // that the field is properly aligned even if the type is not.
-  LVAlign = MinAlign(LVAlign, DECL_ALIGN(FieldDecl) / 8);
+  // Compute the alignment of the octet containing the first bit of the field,
+  // without assuming that the containing struct itself is properly aligned.
+  LVAlign = MinAlign(LVAlign, getFieldAlignment(FieldDecl));
 
   // If the FIELD_DECL has an annotate attribute on it, emit it.
   if (lookup_attribute("annotate", DECL_ATTRIBUTES(FieldDecl)))

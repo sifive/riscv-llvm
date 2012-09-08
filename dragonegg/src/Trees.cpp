@@ -223,6 +223,18 @@ uint64_t getFieldOffsetInBits(const_tree field) {
   return Result;
 }
 
+/// getFieldAlignment - Return (in octets) the alignment within a structure of
+/// the octet containing the first bit of the given FIELD_DECL.
+unsigned getFieldAlignment(const_tree field) {
+  // DECL_OFFSET_ALIGN is the maximum power-of-two that is known to divide
+  // DECL_FIELD_OFFSET*BITS_PER_UNIT.  The field itself is offset a further
+  // DECL_FIELD_BIT_OFFSET bits.
+  assert(DECL_OFFSET_ALIGN(field) > 0 && (DECL_OFFSET_ALIGN(field) & 7) == 0 &&
+         "Field has no or wrong alignment!");
+  uint64_t FieldBitOffset = getInt64(DECL_FIELD_BIT_OFFSET(field), true);
+  return MinAlign(DECL_OFFSET_ALIGN(field) / 8, FieldBitOffset / 8);
+}
+
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
 bool isBitfield(const_tree field_decl) {
   if (!DECL_BIT_FIELD(field_decl))

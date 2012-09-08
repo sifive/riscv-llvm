@@ -122,6 +122,10 @@ inline bool OffsetIsLLVMCompatible(const_tree field_decl) {
 /// getFieldOffsetInBits - Return the bit offset of a FIELD_DECL in a structure.
 uint64_t getFieldOffsetInBits(const_tree field);
 
+/// getFieldAlignment - Return (in octets) the alignment within a structure of
+/// the octet containing the first bit of the given FIELD_DECL.
+unsigned getFieldAlignment(const_tree field);
+
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
 bool isBitfield(const_tree field_decl);
 
