@@ -1324,44 +1324,68 @@ Function *TreeToLLVM::FinishFunctionBody() {
   // If the function returns a value, get it into a register and return it now.
   if (!Fn->getReturnType()->isVoidTy()) {
     tree TreeRetVal = DECL_RESULT(FnDecl);
+    LValue ResultLV = EmitLV(TreeRetVal);
+    assert(!ResultLV.isBitfield() && "Bitfields not allowed here!");
+
     if (!isa<AGGREGATE_TYPE>(TREE_TYPE(TreeRetVal)) &&
         !isa<COMPLEX_TYPE>(TREE_TYPE(TreeRetVal))) {
       // If the DECL_RESULT is a scalar type, just load out the return value
       // and return it.
-      Value *RetVal = Builder.CreateLoad(DECL_LOCAL(TreeRetVal), "retval");
-      RetVal = Builder.CreateBitCast(RetVal, Fn->getReturnType());
-      RetVals.push_back(RetVal);
+      LoadInst *Load = Builder.CreateLoad(ResultLV.Ptr);
+      Load->setAlignment(ResultLV.getAlignment());
+      RetVals.push_back(Builder.CreateBitCast(Load, Fn->getReturnType()));
     } else {
-      Value *RetVal = DECL_LOCAL(TreeRetVal);
-      if (StructType *STy = dyn_cast<StructType>(Fn->getReturnType())) {
-        Value *R1 = Builder.CreateBitCast(RetVal, STy->getPointerTo());
+      uint64_t ResultSize =
+        getTargetData().getTypeAllocSize(ConvertType(TREE_TYPE(TreeRetVal)));
+      uint64_t ReturnSize =
+        getTargetData().getTypeAllocSize(Fn->getReturnType());
 
-        llvm::Value *Idxs[2];
-        Idxs[0] = Builder.getInt32(0);
-        for (unsigned ri = 0; ri < STy->getNumElements(); ++ri) {
-          Idxs[1] = Builder.getInt32(ri);
-          Value *GEP = Builder.CreateGEP(R1, Idxs, "mrv_gep");
-          Value *E = Builder.CreateLoad(GEP, "mrv");
-          RetVals.push_back(E);
-        }
-        // If the return type specifies an empty struct then return one.
-        if (RetVals.empty())
-          RetVals.push_back(UndefValue::get(Fn->getReturnType()));
+      // The load does not necessarily start at the beginning of the aggregate
+      // (x86-64).
+      if (ReturnOffset >= ResultSize) {
+        // Also catches the case of an empty return value.
+        RetVals.push_back(UndefValue::get(Fn->getReturnType()));
       } else {
-        // Otherwise, this aggregate result must be something that is returned
-        // in a scalar register for this target.  We must bit convert the
-        // aggregate to the specified scalar type, which we do by casting the
-        // pointer and loading.  The load does not necessarily start at the
-        // beginning of the aggregate (x86-64).
+        // Advance to the point we want to load from.
         if (ReturnOffset) {
-          RetVal = Builder.CreateBitCast(RetVal, Type::getInt8PtrTy(Context));
-          RetVal = Builder.CreateGEP(RetVal,
-                     ConstantInt::get(TD.getIntPtrType(Context), ReturnOffset));
+          ResultLV.Ptr =
+            Builder.CreateBitCast(ResultLV.Ptr, Type::getInt8PtrTy(Context));
+          ResultLV.Ptr =
+            Builder.CreateGEP(ResultLV.Ptr,
+                              ConstantInt::get(TD.getIntPtrType(Context),
+                                               ReturnOffset));
+          ResultLV.setAlignment(MinAlign(ResultLV.getAlignment(), ReturnOffset));
+          ResultSize -= ReturnOffset;
         }
-        RetVal = Builder.CreateBitCast(RetVal,
-                                       Fn->getReturnType()->getPointerTo());
-        RetVal = Builder.CreateLoad(RetVal, "retval");
-        RetVals.push_back(RetVal);
+
+        // A place to build up the function return value.
+        MemRef ReturnLoc = CreateTempLoc(Fn->getReturnType());
+
+        // Copy out DECL_RESULT while being careful to not overrun the source or
+        // destination buffers.
+        uint64_t OctetsToCopy = std::min(ResultSize, ReturnSize);
+        EmitMemCpy(ReturnLoc.Ptr, ResultLV.Ptr, Builder.getInt64(OctetsToCopy),
+                   std::min(ReturnLoc.getAlignment(), ResultLV.getAlignment()));
+
+        if (StructType *STy = dyn_cast<StructType>(Fn->getReturnType())) {
+          llvm::Value *Idxs[2];
+          Idxs[0] = Builder.getInt32(0);
+          for (unsigned ri = 0; ri < STy->getNumElements(); ++ri) {
+            Idxs[1] = Builder.getInt32(ri);
+            Value *GEP = Builder.CreateGEP(ReturnLoc.Ptr, Idxs, "mrv_gep");
+            Value *E = Builder.CreateLoad(GEP, "mrv");
+            RetVals.push_back(E);
+          }
+          // If the return type specifies an empty struct then return one.
+          if (RetVals.empty())
+            RetVals.push_back(UndefValue::get(Fn->getReturnType()));
+        } else {
+          // Otherwise, this aggregate result must be something that is returned
+          // in a scalar register for this target.  We must bit convert the
+          // aggregate to the specified scalar type, which we do by casting the
+          // pointer and loading.
+          RetVals.push_back(Builder.CreateLoad(ReturnLoc.Ptr, "retval"));
+        }
       }
     }
   }
