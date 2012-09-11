@@ -5,8 +5,8 @@ struct T {
   ~T() {}
 };
 
-int main() {
+T foo() {
   T x;
-  return 0;
+  return x;
 }
 // CHECK-NOT: declare

@@ -8316,11 +8316,25 @@ void TreeToLLVM::RenderGIMPLE_ASSIGN(gimple stmt) {
 
 #if (GCC_MINOR > 6)
   // Assigning a right-hand side with TREE_CLOBBER_P says that the left-hand
-  // side is dead from this point on.
-  // TODO: Consider outputting an llvm.lifetime.end intrinsic to indicate this.
+  // side is dead from this point on.  Output an llvm.lifetime.end intrinsic.
   if (get_gimple_rhs_class(gimple_expr_code(stmt)) == GIMPLE_SINGLE_RHS &&
-      TREE_CLOBBER_P(gimple_assign_rhs1(stmt)))
+      TREE_CLOBBER_P(gimple_assign_rhs1(stmt))) {
+    // Be conservative and only output the intrinsic if the left-hand side
+    // corresponds to some kind of concrete object.  Note that we generate
+    // code to read from RESULT_DECLs before returning from the function, so
+    // saying that a RESULT_DECL is dead means we are dead - which is why we
+    // don't even consider it.
+    if (isa<PARM_DECL>(lhs) || isa<VAR_DECL>(lhs)) {
+      Value *LHSAddr = Builder.CreateBitCast(DECL_LOCAL(lhs),
+                                             Builder.getInt8PtrTy());
+      uint64_t LHSSize = isInt64(DECL_SIZE(lhs), true) ?
+        getInt64(DECL_SIZE(lhs), true) / 8 : ~0UL;
+      Function *EndIntr = Intrinsic::getDeclaration(TheModule,
+                                                    Intrinsic::lifetime_end);
+      Builder.CreateCall2(EndIntr, Builder.getInt64(LHSSize), LHSAddr);
+    }
     return;
+  }
 #endif
 
   if (isa<AGGREGATE_TYPE>(TREE_TYPE(lhs))) {

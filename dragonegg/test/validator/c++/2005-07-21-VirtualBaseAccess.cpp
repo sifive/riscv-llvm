@@ -8,10 +8,11 @@ struct FOO {
 
 struct BAR : virtual FOO { BAR(); };
 
-int testfn() {
+BAR testfn() {
   // CHECK: "alloca point" = bitcast i32 0 to i32
   // CHECK: "ssa point" = bitcast i32 0 to i32
   // CHECK-NOT: cast
   BAR B;
   foo(&B.X);
+  return B;
 }
