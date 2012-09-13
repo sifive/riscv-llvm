@@ -434,13 +434,12 @@ void DefaultABI::PassInMixedRegisters(Type *Ty,
   StructType *STy = StructType::get(getGlobalContext(), Elts, false);
 
   unsigned Size = getTargetData().getTypeAllocSize(STy);
-  StructType *InSTy = dyn_cast<StructType>(Ty);
   unsigned InSize = 0;
   // If Ty and STy size does not match then last element is accessing
   // extra bits.
   unsigned LastEltSizeDiff = 0;
-  if (InSTy) {
-    InSize = getTargetData().getTypeAllocSize(InSTy);
+  if (isa<StructType>(Ty) || isa<ArrayType>(Ty)) {
+    InSize = getTargetData().getTypeAllocSize(Ty);
     if (InSize < Size) {
       unsigned N = STy->getNumElements();
       llvm::Type *LastEltTy = STy->getElementType(N-1);
