@@ -1,4 +1,4 @@
--- RUN: %dragonegg -S -O2 %s -I%p/Support -o - | FileCheck %s
+-- RUN: %dragonegg -S -O2 %s -o - | FileCheck %s
 package body Element_Copy is
 -- CHECK: @element_copy__variablesizedfieldIP
 -- CHECK: store i8 105,
