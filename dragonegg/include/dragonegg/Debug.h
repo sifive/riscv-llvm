@@ -52,8 +52,8 @@ class DIFactory {
   Function *DeclareFn;     // llvm.dbg.declare
   Function *ValueFn;       // llvm.dbg.value
 
-  DIFactory(const DIFactory &);     // DO NOT IMPLEMENT
-  void operator=(const DIFactory&); // DO NOT IMPLEMENT
+  DIFactory(const DIFactory &) LLVM_DELETED_FUNCTION;
+  void operator=(const DIFactory&) LLVM_DELETED_FUNCTION;
   public:
   enum ComplexAddrKind { OpPlus=1, OpDeref };
 
