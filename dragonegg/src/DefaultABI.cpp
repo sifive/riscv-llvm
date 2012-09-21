@@ -216,7 +216,7 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
       if (Attributes) {
         *Attributes |= Attribute::ByVal;
         *Attributes |=
-          Attribute::constructAlignmentFromInt(LLVM_BYVAL_ALIGNMENT(type));
+          Attributes::constructAlignmentFromInt(LLVM_BYVAL_ALIGNMENT(type));
       }
     } else {
       C.HandleScalarArgument(Ty, type);
@@ -242,7 +242,7 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
       if (Attributes) {
         *Attributes |= Attribute::ByVal;
         *Attributes |=
-          Attribute::constructAlignmentFromInt(LLVM_BYVAL_ALIGNMENT(type));
+          Attributes::constructAlignmentFromInt(LLVM_BYVAL_ALIGNMENT(type));
       }
     }
   } else if (LLVM_SHOULD_PASS_AGGREGATE_USING_BYVAL_ATTR(type, Ty)) {
@@ -250,7 +250,7 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
     if (Attributes) {
       *Attributes |= Attribute::ByVal;
       *Attributes |=
-        Attribute::constructAlignmentFromInt(LLVM_BYVAL_ALIGNMENT(type));
+        Attributes::constructAlignmentFromInt(LLVM_BYVAL_ALIGNMENT(type));
     }
   } else if (LLVM_SHOULD_PASS_AGGREGATE_IN_INTEGER_REGS(type, &Size,
                                                         &DontCheckAlignment)) {
