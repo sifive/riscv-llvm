@@ -412,51 +412,42 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     VectorType *v4f32 = VectorType::get(Type::getFloatTy(Context), 4);
     PointerType *v4f32Ptr = v4f32->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v4f32Ptr);
-    LoadInst *LI = Builder.CreateLoad(BC);
-    LI->setAlignment(1);
-    Result = LI;
+    Result = Builder.CreateAlignedLoad(BC, 1);
     return true;
   }
   case loadupd: {
     VectorType *v2f64 = VectorType::get(Type::getDoubleTy(Context), 2);
     PointerType *v2f64Ptr = v2f64->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v2f64Ptr);
-    LoadInst *LI = Builder.CreateLoad(BC);
-    LI->setAlignment(1);
-    Result = LI;
+    Result = Builder.CreateAlignedLoad(BC, 1);
     return true;
   }
   case loaddqu: {
     VectorType *v16i8 = VectorType::get(Type::getInt8Ty(Context), 16);
     PointerType *v16i8Ptr = v16i8->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v16i8Ptr);
-    LoadInst *LI = Builder.CreateLoad(BC);
-    LI->setAlignment(1);
-    Result = LI;
+    Result = Builder.CreateAlignedLoad(BC, 1);
     return true;
   }
   case storeups: {
     VectorType *v4f32 = VectorType::get(Type::getFloatTy(Context), 4);
     PointerType *v4f32Ptr = v4f32->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v4f32Ptr);
-    StoreInst *SI = Builder.CreateStore(Ops[1], BC);
-    SI->setAlignment(1);
+    Builder.CreateAlignedStore(Ops[1], BC, 1);
     return true;
   }
   case storeupd: {
     VectorType *v2f64 = VectorType::get(Type::getDoubleTy(Context), 2);
     PointerType *v2f64Ptr = v2f64->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v2f64Ptr);
-    StoreInst *SI = Builder.CreateStore(Ops[1], BC);
-    SI->setAlignment(1);
+    Builder.CreateAlignedStore(Ops[1], BC, 1);
     return true;
   }
   case storedqu: {
     VectorType *v16i8 = VectorType::get(Type::getInt8Ty(Context), 16);
     PointerType *v16i8Ptr = v16i8->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v16i8Ptr);
-    StoreInst *SI = Builder.CreateStore(Ops[1], BC);
-    SI->setAlignment(1);
+    Builder.CreateAlignedStore(Ops[1], BC, 1);
     return true;
   }
   case loadhps: {
@@ -804,9 +795,8 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
                                        PointerType::get(Ops[1]->getType(), AS),
                                        "cast");
 
-    StoreInst *SI = Builder.CreateStore(Ops[1], Ptr);
+    StoreInst *SI = Builder.CreateAlignedStore(Ops[1], Ptr, 16);
     SI->setMetadata(TheModule->getMDKindID("nontemporal"), Node);
-    SI->setAlignment(16);
     return true;
   }
   case rsqrtf: {

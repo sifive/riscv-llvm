@@ -178,8 +178,8 @@ static LoadInst *LoadFromLocation(MemRef Loc, Type *Ty, MDNode *AliasTag,
                                   LLVMBuilder &Builder) {
   unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, Ty->getPointerTo(AddrSpace));
-  LoadInst *LI = Builder.CreateLoad(Ptr, Loc.Volatile);
-  LI->setAlignment(Loc.getAlignment());
+  LoadInst *LI = Builder.CreateAlignedLoad(Ptr, Loc.getAlignment(),
+                                           Loc.Volatile);
   if (AliasTag)
     LI->setMetadata(LLVMContext::MD_tbaa, AliasTag);
   return LI;
@@ -191,8 +191,8 @@ static StoreInst *StoreToLocation(Value *V, MemRef Loc, MDNode *AliasTag,
   Type *Ty = V->getType();
   unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, Ty->getPointerTo(AddrSpace));
-  StoreInst *SI = Builder.CreateStore(V, Ptr, Loc.Volatile);
-  SI->setAlignment(Loc.getAlignment());
+  StoreInst *SI = Builder.CreateAlignedStore(V, Ptr,  Loc.getAlignment(),
+                                             Loc.Volatile);
   if (AliasTag)
     SI->setMetadata(LLVMContext::MD_tbaa, AliasTag);
   return SI;
@@ -1331,8 +1331,8 @@ Function *TreeToLLVM::FinishFunctionBody() {
         !isa<COMPLEX_TYPE>(TREE_TYPE(TreeRetVal))) {
       // If the DECL_RESULT is a scalar type, just load out the return value
       // and return it.
-      LoadInst *Load = Builder.CreateLoad(ResultLV.Ptr);
-      Load->setAlignment(ResultLV.getAlignment());
+      LoadInst *Load = Builder.CreateAlignedLoad(ResultLV.Ptr,
+                                                 ResultLV.getAlignment());
       RetVals.push_back(Builder.CreateBitCast(Load, Fn->getReturnType()));
     } else {
       uint64_t ResultSize =
@@ -2796,8 +2796,7 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
 
     // Load the bits.
     Value *Ptr = Builder.CreateBitCast(LV.Ptr, LoadType->getPointerTo());
-    Value *Val = Builder.CreateLoad(Ptr, LV.Volatile);
-    cast<LoadInst>(Val)->setAlignment(Alignment);
+    Value *Val = Builder.CreateAlignedLoad(Ptr, Alignment, LV.Volatile);
 
     // Mask the bits out by shifting left first, then shifting right.  The
     // optimizers will turn this into an "and" in the unsigned case.
@@ -3464,8 +3463,8 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     // Store the integer rather than the call result to the aggregate.
   }
   Ptr = Builder.CreateBitCast(Ptr, PointerType::getUnqual(Val->getType()));
-  StoreInst *St = Builder.CreateStore(Val, Ptr, DestLoc->Volatile);
-  St->setAlignment(DestLoc->getAlignment());
+  Builder.CreateAlignedStore(Val, Ptr, DestLoc->getAlignment(),
+                             DestLoc->Volatile);
   return 0;
 }
 
@@ -8963,8 +8962,7 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
 
   // Load the bits.
   Value *Ptr = Builder.CreateBitCast(LV.Ptr, LoadType->getPointerTo());
-  Value *Val = Builder.CreateLoad(Ptr, LV.Volatile);
-  cast<LoadInst>(Val)->setAlignment(LV.getAlignment());
+  Value *Val = Builder.CreateAlignedLoad(Ptr, LV.getAlignment(), LV.Volatile);
 
   // Get the right-hand side as a value of the same type.
   // FIXME: This assumes the right-hand side is an integer.
@@ -8991,6 +8989,5 @@ void TreeToLLVM::WriteScalarToLHS(tree lhs, Value *RHS) {
 
   // Finally, merge the two together and store it.
   Val = Builder.CreateOr(Val, RHS);
-  StoreInst *SI = Builder.CreateStore(Val, Ptr, LV.Volatile);
-  SI->setAlignment(LV.getAlignment());
+  Builder.CreateAlignedStore(Val, Ptr, LV.getAlignment(), LV.Volatile);
 }
