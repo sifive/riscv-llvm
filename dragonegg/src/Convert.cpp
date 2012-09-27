@@ -699,7 +699,8 @@ static void llvm_store_scalar_argument(Value *Loc, Value *ArgVal,
   } else {
     // This cast only involves pointers, therefore BitCast.
     Loc = Builder.CreateBitCast(Loc, LLVMTy->getPointerTo());
-    Builder.CreateStore(ArgVal, Loc);
+    // FIXME: Pass down the alignment so we can do better than using 1 here.
+    Builder.CreateAlignedStore(ArgVal, Loc, 1);
   }
 }
 
@@ -3019,7 +3020,8 @@ namespace {
       if (Loc) {
         // An address.  Convert to the right type and load the value out.
         Loc = Builder.CreateBitCast(Loc, Ty->getPointerTo());
-        return Builder.CreateLoad(Loc, "val");
+        // FIXME: Pass alignment information down rather than just using 1 here.
+        return Builder.CreateAlignedLoad(Loc, 1, "val");
       } else {
         // A value - just return it.
         assert(TheValue->getType() == Ty && "Value not of expected type!");
