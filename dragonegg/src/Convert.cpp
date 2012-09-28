@@ -6063,6 +6063,8 @@ LValue TreeToLLVM::EmitLV_BIT_FIELD_REF(tree exp) {
     // than this.  e.g. check out when compiling unwind-dw2-fde-darwin.c.
     Ptr.Ptr = Builder.CreateBitCast(Ptr.Ptr, ValTy->getPointerTo());
     Ptr.Ptr = Builder.CreateGEP(Ptr.Ptr, Builder.getInt32(UnitOffset));
+    unsigned OctetOffset = (UnitOffset * ValueSizeInBits) / 8;
+    Ptr.setAlignment(MinAlign(Ptr.getAlignment(), OctetOffset));
     BitStart -= UnitOffset*ValueSizeInBits;
   }
 
