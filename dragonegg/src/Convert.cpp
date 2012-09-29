@@ -1371,10 +1371,11 @@ Function *TreeToLLVM::FinishFunctionBody() {
           if (StructType *STy = dyn_cast<StructType>(Fn->getReturnType())) {
             llvm::Value *Idxs[2];
             Idxs[0] = Builder.getInt32(0);
+            bool Packed = STy->isPacked();
             for (unsigned ri = 0; ri < STy->getNumElements(); ++ri) {
               Idxs[1] = Builder.getInt32(ri);
               Value *GEP = Builder.CreateGEP(ReturnLoc.Ptr, Idxs, "mrv_gep");
-              Value *E = Builder.CreateLoad(GEP, "mrv");
+              Value *E = Builder.CreateAlignedLoad(GEP, /*Align*/Packed, "mrv");
               RetVals.push_back(E);
             }
             // If the return type specifies an empty struct then return one.

@@ -1678,9 +1678,9 @@ static void llvm_x86_extract_mrv_array_element(Value *Src, Value *Dest,
   if (STy->getElementType(SrcFieldNo)->isVectorTy()) {
     Value *ElemIndex = ConstantInt::get(Type::getInt32Ty(Context), SrcElemNo);
     Value *EVIElem = Builder.CreateExtractElement(EVI, ElemIndex, "mrv");
-    Builder.CreateStore(EVIElem, GEP, isVolatile);
+    Builder.CreateAlignedStore(EVIElem, GEP, 1, isVolatile);
   } else {
-    Builder.CreateStore(EVI, GEP, isVolatile);
+    Builder.CreateAlignedStore(EVI, GEP, 1, isVolatile);
   }
 }
 
@@ -1712,16 +1712,16 @@ void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,
     Value *E0Index = ConstantInt::get(Type::getInt32Ty(Context), 0);
     Value *EVI0 = Builder.CreateExtractElement(EVI, E0Index, "mrv.v");
     Value *GEP0 = Builder.CreateStructGEP(Dest, 0, "mrv_gep");
-    Builder.CreateStore(EVI0, GEP0, isVolatile);
+    Builder.CreateAlignedStore(EVI0, GEP0, 1, isVolatile);
 
     Value *E1Index = ConstantInt::get(Type::getInt32Ty(Context), 1);
     Value *EVI1 = Builder.CreateExtractElement(EVI, E1Index, "mrv.v");
     Value *GEP1 = Builder.CreateStructGEP(Dest, 1, "mrv_gep");
-    Builder.CreateStore(EVI1, GEP1, isVolatile);
+    Builder.CreateAlignedStore(EVI1, GEP1, 1, isVolatile);
 
     Value *GEP2 = Builder.CreateStructGEP(Dest, 2, "mrv_gep");
     Value *EVI2 = Builder.CreateExtractValue(Src, 1, "mrv_gr");
-    Builder.CreateStore(EVI2, GEP2, isVolatile);
+    Builder.CreateAlignedStore(EVI2, GEP2, 1, isVolatile);
     return;
   }
 
@@ -1733,7 +1733,7 @@ void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,
     if (DestElemType->isSingleValueType()) {
       Value *GEP = Builder.CreateStructGEP(Dest, DNO, "mrv_gep");
       Value *EVI = Builder.CreateExtractValue(Src, SNO, "mrv_gr");
-      Builder.CreateStore(EVI, GEP, isVolatile);
+      Builder.CreateAlignedStore(EVI, GEP, 1, isVolatile);
       ++DNO; ++SNO;
       continue;
     }
@@ -1747,13 +1747,13 @@ void llvm_x86_extract_multiple_return_value(Value *Src, Value *Dest,
       Idxs[2] = ConstantInt::get(Type::getInt32Ty(Context), 0);
       Value *GEP = Builder.CreateGEP(Dest, Idxs, "mrv_gep");
       Value *EVI = Builder.CreateExtractValue(Src, 0, "mrv_gr");
-      Builder.CreateStore(EVI, GEP, isVolatile);
+      Builder.CreateAlignedStore(EVI, GEP, 1, isVolatile);
       ++SNO;
 
       Idxs[2] = ConstantInt::get(Type::getInt32Ty(Context), 1);
       GEP = Builder.CreateGEP(Dest, Idxs, "mrv_gep");
       EVI = Builder.CreateExtractValue(Src, 1, "mrv_gr");
-      Builder.CreateStore(EVI, GEP, isVolatile);
+      Builder.CreateAlignedStore(EVI, GEP, 1, isVolatile);
       ++DNO; ++SNO;
       continue;
     }
