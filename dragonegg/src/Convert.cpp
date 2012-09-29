@@ -1003,6 +1003,8 @@ void TreeToLLVM::StartFunctionBody() {
   TARGET_ADJUST_LLVM_LINKAGE(Fn,FnDecl);
 #endif /* TARGET_ADJUST_LLVM_LINKAGE */
 
+  Fn->setUnnamedAddr(!TREE_ADDRESSABLE(FnDecl));
+
   // Handle visibility style
   handleVisibility(FnDecl, Fn);
 
