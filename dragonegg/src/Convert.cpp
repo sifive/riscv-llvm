@@ -1165,9 +1165,6 @@ void TreeToLLVM::StartFunctionBody() {
   // rather than in the order we come across them. This is only done to make the
   // IR more readable and is not needed for correctness.
   EmitVariablesInScope(DECL_INITIAL(FnDecl));
-
-  // Create a new block for the return node, but don't insert it yet.
-  ReturnBB = BasicBlock::Create(Context, "return");
 }
 
 /// EmitVariablesInScope - Output a declaration for every variable in the
@@ -1317,87 +1314,98 @@ void TreeToLLVM::PopulatePhiNodes() {
 }
 
 Function *TreeToLLVM::FinishFunctionBody() {
-  // Insert the return block at the end of the function.
-  BeginBlock(ReturnBB);
+  if (ReturnBB) {
+    // Insert the return block at the end of the function.
+    BeginBlock(ReturnBB);
 
-  SmallVector <Value *, 4> RetVals;
+    SmallVector <Value *, 4> RetVals;
 
-  // If the function returns a value, get it into a register and return it now.
-  if (!Fn->getReturnType()->isVoidTy()) {
-    tree TreeRetVal = DECL_RESULT(FnDecl);
-    LValue ResultLV = EmitLV(TreeRetVal);
-    assert(!ResultLV.isBitfield() && "Bitfields not allowed here!");
+    // If the function returns a value, get it into a register and return it now.
+    if (!Fn->getReturnType()->isVoidTy()) {
+      tree TreeRetVal = DECL_RESULT(FnDecl);
+      LValue ResultLV = EmitLV(TreeRetVal);
+      assert(!ResultLV.isBitfield() && "Bitfields not allowed here!");
 
-    if (!isa<AGGREGATE_TYPE>(TREE_TYPE(TreeRetVal)) &&
-        !isa<COMPLEX_TYPE>(TREE_TYPE(TreeRetVal))) {
-      // If the DECL_RESULT is a scalar type, just load out the return value
-      // and return it.
-      LoadInst *Load = Builder.CreateAlignedLoad(ResultLV.Ptr,
-                                                 ResultLV.getAlignment());
-      RetVals.push_back(Builder.CreateBitCast(Load, Fn->getReturnType()));
-    } else {
-      uint64_t ResultSize =
-        getTargetData().getTypeAllocSize(ConvertType(TREE_TYPE(TreeRetVal)));
-      uint64_t ReturnSize =
-        getTargetData().getTypeAllocSize(Fn->getReturnType());
-
-      // The load does not necessarily start at the beginning of the aggregate
-      // (x86-64).
-      if (ReturnOffset >= ResultSize) {
-        // Also catches the case of an empty return value.
-        RetVals.push_back(UndefValue::get(Fn->getReturnType()));
+      if (!isa<AGGREGATE_TYPE>(TREE_TYPE(TreeRetVal)) &&
+          !isa<COMPLEX_TYPE>(TREE_TYPE(TreeRetVal))) {
+        // If the DECL_RESULT is a scalar type, just load out the return value
+        // and return it.
+        LoadInst *Load = Builder.CreateAlignedLoad(ResultLV.Ptr,
+                                                   ResultLV.getAlignment());
+        RetVals.push_back(Builder.CreateBitCast(Load, Fn->getReturnType()));
       } else {
-        // Advance to the point we want to load from.
-        if (ReturnOffset) {
-          ResultLV.Ptr =
-            Builder.CreateBitCast(ResultLV.Ptr, Type::getInt8PtrTy(Context));
-          ResultLV.Ptr =
-            Builder.CreateGEP(ResultLV.Ptr,
-                              ConstantInt::get(TD.getIntPtrType(Context),
-                                               ReturnOffset));
-          ResultLV.setAlignment(MinAlign(ResultLV.getAlignment(), ReturnOffset));
-          ResultSize -= ReturnOffset;
-        }
+        uint64_t ResultSize =
+          getTargetData().getTypeAllocSize(ConvertType(TREE_TYPE(TreeRetVal)));
+        uint64_t ReturnSize =
+          getTargetData().getTypeAllocSize(Fn->getReturnType());
 
-        // A place to build up the function return value.
-        MemRef ReturnLoc = CreateTempLoc(Fn->getReturnType());
-
-        // Copy out DECL_RESULT while being careful to not overrun the source or
-        // destination buffers.
-        uint64_t OctetsToCopy = std::min(ResultSize, ReturnSize);
-        EmitMemCpy(ReturnLoc.Ptr, ResultLV.Ptr, Builder.getInt64(OctetsToCopy),
-                   std::min(ReturnLoc.getAlignment(), ResultLV.getAlignment()));
-
-        if (StructType *STy = dyn_cast<StructType>(Fn->getReturnType())) {
-          llvm::Value *Idxs[2];
-          Idxs[0] = Builder.getInt32(0);
-          for (unsigned ri = 0; ri < STy->getNumElements(); ++ri) {
-            Idxs[1] = Builder.getInt32(ri);
-            Value *GEP = Builder.CreateGEP(ReturnLoc.Ptr, Idxs, "mrv_gep");
-            Value *E = Builder.CreateLoad(GEP, "mrv");
-            RetVals.push_back(E);
-          }
-          // If the return type specifies an empty struct then return one.
-          if (RetVals.empty())
-            RetVals.push_back(UndefValue::get(Fn->getReturnType()));
+        // The load does not necessarily start at the beginning of the aggregate
+        // (x86-64).
+        if (ReturnOffset >= ResultSize) {
+          // Also catches the case of an empty return value.
+          RetVals.push_back(UndefValue::get(Fn->getReturnType()));
         } else {
-          // Otherwise, this aggregate result must be something that is returned
-          // in a scalar register for this target.  We must bit convert the
-          // aggregate to the specified scalar type, which we do by casting the
-          // pointer and loading.
-          RetVals.push_back(Builder.CreateLoad(ReturnLoc.Ptr, "retval"));
+          // Advance to the point we want to load from.
+          if (ReturnOffset) {
+            ResultLV.Ptr =
+              Builder.CreateBitCast(ResultLV.Ptr, Type::getInt8PtrTy(Context));
+            ResultLV.Ptr =
+              Builder.CreateGEP(ResultLV.Ptr,
+                                ConstantInt::get(TD.getIntPtrType(Context),
+                                                 ReturnOffset));
+            ResultLV.setAlignment(MinAlign(ResultLV.getAlignment(), ReturnOffset));
+            ResultSize -= ReturnOffset;
+          }
+
+          // A place to build up the function return value.
+          MemRef ReturnLoc = CreateTempLoc(Fn->getReturnType());
+
+          // Copy out DECL_RESULT while being careful to not overrun the source or
+          // destination buffers.
+          uint64_t OctetsToCopy = std::min(ResultSize, ReturnSize);
+          EmitMemCpy(ReturnLoc.Ptr, ResultLV.Ptr, Builder.getInt64(OctetsToCopy),
+                     std::min(ReturnLoc.getAlignment(), ResultLV.getAlignment()));
+
+          if (StructType *STy = dyn_cast<StructType>(Fn->getReturnType())) {
+            llvm::Value *Idxs[2];
+            Idxs[0] = Builder.getInt32(0);
+            for (unsigned ri = 0; ri < STy->getNumElements(); ++ri) {
+              Idxs[1] = Builder.getInt32(ri);
+              Value *GEP = Builder.CreateGEP(ReturnLoc.Ptr, Idxs, "mrv_gep");
+              Value *E = Builder.CreateLoad(GEP, "mrv");
+              RetVals.push_back(E);
+            }
+            // If the return type specifies an empty struct then return one.
+            if (RetVals.empty())
+              RetVals.push_back(UndefValue::get(Fn->getReturnType()));
+          } else {
+            // Otherwise, this aggregate result must be something that is returned
+            // in a scalar register for this target.  We must bit convert the
+            // aggregate to the specified scalar type, which we do by casting the
+            // pointer and loading.
+            RetVals.push_back(Builder.CreateLoad(ReturnLoc.Ptr, "retval"));
+          }
         }
       }
     }
+    if (RetVals.empty())
+      Builder.CreateRetVoid();
+    else if (RetVals.size() == 1 && RetVals[0]->getType() == Fn->getReturnType()){
+      Builder.CreateRet(RetVals[0]);
+    } else {
+      assert(Fn->getReturnType()->isAggregateType() && "Return type mismatch!");
+      Builder.CreateAggregateRet(RetVals.data(), (unsigned)RetVals.size());
+    }
+  } else { // !ReturnBB
+    BasicBlock *CurBB = Builder.GetInsertBlock();
+    // If the previous block has no terminator then it must be empty, remove it.
+    if (CurBB->getTerminator() == 0) {
+      assert(CurBB->getName().empty() && CurBB->begin() == CurBB->end() &&
+             "Falling through to a block that doesn't exist!");
+      CurBB->eraseFromParent();
+    }
   }
-  if (RetVals.empty())
-    Builder.CreateRetVoid();
-  else if (RetVals.size() == 1 && RetVals[0]->getType() == Fn->getReturnType()){
-    Builder.CreateRet(RetVals[0]);
-  } else {
-    assert(Fn->getReturnType()->isAggregateType() && "Return type mismatch!");
-    Builder.CreateAggregateRet(RetVals.data(), (unsigned)RetVals.size());
-  }
+
 
   // Populate phi nodes with their operands now that all ssa names have been
   // defined and all basic blocks output.
@@ -1407,14 +1415,16 @@ Function *TreeToLLVM::FinishFunctionBody() {
   EmitLandingPads();
   EmitFailureBlocks();
 
-  if (EmitDebugInfo()) {
+  if (ReturnBB) {
     // FIXME: This should be output just before the return call generated above.
     // But because EmitFunctionEnd pops the region stack, that means that if the
     // call to PopulatePhiNodes (for example) generates complicated debug info,
     // then the debug info logic barfs.  Testcases showing this are 20011126-2.c
     // or pr42221.c from the gcc testsuite compiled with -g -O3.
-    TheDebugInfo->EmitStopPoint(ReturnBB, Builder);
-    TheDebugInfo->EmitFunctionEnd(true);
+    if (EmitDebugInfo()) {
+      TheDebugInfo->EmitStopPoint(ReturnBB, Builder);
+      TheDebugInfo->EmitFunctionEnd(true);
+    }
   }
 
 #ifdef NDEBUG
@@ -8561,6 +8571,10 @@ void TreeToLLVM::RenderGIMPLE_RETURN(gimple stmt) {
   }
 
   // Emit a branch to the exit label.
+  if (!ReturnBB)
+    // Create a new block for the return node, but don't insert it yet.
+    ReturnBB = BasicBlock::Create(Context, "return");
+
   Builder.CreateBr(ReturnBB);
 }
 
