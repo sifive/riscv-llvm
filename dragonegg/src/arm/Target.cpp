@@ -552,9 +552,9 @@ static void llvm_arm_extract_mrv_array_element(Value *Src, Value *Dest,
   if (STy->getElementType(SrcFieldNo)->isVectorTy()) {
     Value *ElemIndex = ConstantInt::get(Type::getInt32Ty(Context), SrcElemNo);
     Value *EVIElem = Builder.CreateExtractElement(EVI, ElemIndex, "mrv");
-    Builder.CreateStore(EVIElem, GEP, isVolatile);
+    Builder.CreateAlignedStore(EVIElem, GEP, 1, isVolatile);
   } else {
-    Builder.CreateStore(EVI, GEP, isVolatile);
+    Builder.CreateAlignedStore(EVI, GEP, 1, isVolatile);
   }
 }
 
@@ -581,7 +581,7 @@ void llvm_arm_extract_multiple_return_value(Value *Src, Value *Dest,
     if (DestElemType->isSingleValueType()) {
       Value *GEP = Builder.CreateStructGEP(Dest, DNO, "mrv_gep");
       Value *EVI = Builder.CreateExtractValue(Src, SNO, "mrv_gr");
-      Builder.CreateStore(EVI, GEP, isVolatile);
+      Builder.CreateAlignedStore(EVI, GEP, 1, isVolatile);
       ++DNO; ++SNO;
       continue;
     }
