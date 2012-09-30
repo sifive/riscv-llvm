@@ -1401,15 +1401,15 @@ Function *TreeToLLVM::FinishFunctionBody() {
     }
   } else { // !ReturnBB
     BasicBlock *CurBB = Builder.GetInsertBlock();
-    // If the previous block has no terminator then it must be empty.
     if (CurBB->getTerminator() == 0) {
-      assert(CurBB->begin() == CurBB->end() && "Falls through to nowhere!");
-      // If it has a name then it may be branched to or have its address taken.
-      // If it doesn't even have a name then delete it.
-      if (!CurBB->getName().empty())
-        Builder.CreateUnreachable();
-      else
+      if (CurBB->getName().empty() && CurBB->begin() == CurBB->end())
+        // If the previous block has no label and is empty, remove it: it is a
+        // post-terminator block.
         CurBB->eraseFromParent();
+      else
+        // The previous block may contain code but no terminator if it finished
+        // with an unsupported GCC builtin.
+        Builder.CreateUnreachable();
     }
   }
 
