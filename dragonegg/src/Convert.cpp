@@ -2365,6 +2365,7 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
   }
 
   unsigned Alignment = DECL_ALIGN(decl) / 8; // Alignment in octets.
+  assert(Alignment != 0 && "Local variable with unknown alignment!");
 
   // If this is the alignment we would have given the variable anyway then don't
   // use an explicit alignment, making the IR look more portable.

@@ -1119,6 +1119,7 @@ static void emit_global(tree decl) {
     }
 
     GV->setAlignment(DECL_ALIGN(decl) / 8);
+    assert(GV->getAlignment() != 0 && "Global variable has unknown alignment!");
 #ifdef TARGET_ADJUST_CSTRING_ALIGN
     if (DECL_INITIAL(decl) != error_mark_node && // uninitialized?
         DECL_INITIAL(decl) && isa<STRING_CST>(DECL_INITIAL(decl)))
