@@ -975,7 +975,6 @@ static void emit_varpool_aliases(struct varpool_node *node) {
 /// emit_global - Emit the specified VAR_DECL or aggregate CONST_DECL to LLVM as
 /// a global variable.  This function implements the end of assemble_variable.
 static void emit_global(tree decl) {
-  // FIXME: Support alignment on globals: DECL_ALIGN.
   // FIXME: DECL_PRESERVE_P indicates the var is marked with attribute 'used'.
 
   // Global register variables don't turn into LLVM GlobalVariables.
@@ -1119,23 +1118,18 @@ static void emit_global(tree decl) {
 #endif
     }
 
-    // Set the alignment for the global if one of the following condition is met
-    // 1) DECL_ALIGN is better than the alignment as per ABI specification
-    // 2) DECL_ALIGN is set by user.
-    if (DECL_ALIGN(decl)) {
-      unsigned TargetAlign =
-        getTargetData().getABITypeAlignment(GV->getType()->getElementType());
-      if (DECL_USER_ALIGN(decl) ||
-          8 * TargetAlign < (unsigned)DECL_ALIGN(decl)) {
-        GV->setAlignment(DECL_ALIGN(decl) / 8);
-      }
+    GV->setAlignment(DECL_ALIGN(decl) / 8);
 #ifdef TARGET_ADJUST_CSTRING_ALIGN
-      else if (DECL_INITIAL(decl) != error_mark_node && // uninitialized?
-               DECL_INITIAL(decl) && isa<STRING_CST>(DECL_INITIAL(decl))) {
-        TARGET_ADJUST_CSTRING_ALIGN(GV);
-      }
+    if (DECL_INITIAL(decl) != error_mark_node && // uninitialized?
+        DECL_INITIAL(decl) && isa<STRING_CST>(DECL_INITIAL(decl)))
+      TARGET_ADJUST_CSTRING_ALIGN(GV);
 #endif
-    }
+
+    // If this is the alignment we would have given the variable anyway then don't
+    // use an explicit alignment, making the IR look more portable.
+    if (GV->getAlignment() ==
+        getTargetData().getABITypeAlignment(GV->getType()->getElementType()))
+      GV->setAlignment(0);
 
     // Handle used decls
     if (DECL_PRESERVE_P (decl)) {

@@ -1015,8 +1015,8 @@ void TreeToLLVM::StartFunctionBody() {
     register_ctor_dtor(Fn, DECL_FINI_PRIORITY(FnDecl), false);
 
   // Handle attribute "aligned".
-  if (DECL_ALIGN (FnDecl) != FUNCTION_BOUNDARY)
-    Fn->setAlignment(DECL_ALIGN (FnDecl) / 8);
+  if (DECL_ALIGN(FnDecl) != FUNCTION_BOUNDARY)
+    Fn->setAlignment(DECL_ALIGN(FnDecl) / 8);
 
   // Handle functions in specified sections.
   if (DECL_SECTION_NAME(FnDecl))
@@ -2364,16 +2364,12 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
     Ty = Type::getInt8Ty(Context);
   }
 
-  unsigned Alignment = 0; // Alignment in bytes.
+  unsigned Alignment = DECL_ALIGN(decl) / 8; // Alignment in octets.
 
-  // Set the alignment for the local if one of the following condition is met
-  // 1) DECL_ALIGN is better than the alignment as per ABI specification
-  // 2) DECL_ALIGN is set by user.
-  if (DECL_ALIGN(decl)) {
-    unsigned TargetAlign = getTargetData().getABITypeAlignment(Ty);
-    if (DECL_USER_ALIGN(decl) || 8 * TargetAlign < (unsigned)DECL_ALIGN(decl))
-      Alignment = DECL_ALIGN(decl) / 8;
-  }
+  // If this is the alignment we would have given the variable anyway then don't
+  // use an explicit alignment, making the IR look more portable.
+  if (Alignment == getTargetData().getABITypeAlignment(Ty))
+    Alignment = 0;
 
   // Insert an alloca for this variable.
   AllocaInst *AI;
@@ -6208,12 +6204,9 @@ LValue TreeToLLVM::EmitLV_DECL(tree exp) {
   // type void.
   if (Ty->isVoidTy()) Ty = StructType::get(Context);
   PointerType *PTy = Ty->getPointerTo();
-  // FIXME: If gcc wants less alignment, we should probably use that.
-  unsigned Alignment = Ty->isSized() ? TD.getABITypeAlignment(Ty) : 1;
-  if (DECL_ALIGN(exp)) {
-    if (DECL_USER_ALIGN(exp) || 8 * Alignment < (unsigned)DECL_ALIGN(exp))
-      Alignment = DECL_ALIGN(exp) / 8;
-  }
+  unsigned Alignment = DECL_ALIGN(exp) / 8;
+  if (!Alignment)
+    Alignment = 1;
 
   return LValue(Builder.CreateBitCast(Decl, PTy), Alignment);
 }
