@@ -1402,14 +1402,16 @@ Function *TreeToLLVM::FinishFunctionBody() {
   } else { // !ReturnBB
     BasicBlock *CurBB = Builder.GetInsertBlock();
     if (CurBB->getTerminator() == 0) {
-      if (CurBB->getName().empty() && CurBB->begin() == CurBB->end())
+      if (CurBB->getName().empty() && CurBB->begin() == CurBB->end()) {
         // If the previous block has no label and is empty, remove it: it is a
         // post-terminator block.
         CurBB->eraseFromParent();
-      else
+        Builder.SetInsertPoint(&Fn->getBasicBlockList().back());
+      } else {
         // The previous block may contain code but no terminator if it finished
         // with an unsupported GCC builtin.
         Builder.CreateUnreachable();
+      }
     }
   }
 
