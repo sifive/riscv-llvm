@@ -5763,7 +5763,9 @@ bool TreeToLLVM::EmitBuiltinAlloca(gimple stmt, Value *&Result) {
   if (!validate_gimple_arglist(stmt, INTEGER_TYPE, VOID_TYPE))
     return false;
   Value *Amt = EmitMemory(gimple_call_arg(stmt, 0));
-  Result = Builder.CreateAlloca(Type::getInt8Ty(Context), Amt);
+  AllocaInst *Alloca = Builder.CreateAlloca(Type::getInt8Ty(Context), Amt);
+  Alloca->setAlignment(BIGGEST_ALIGNMENT / 8);
+  Result = Alloca;
   return true;
 }
 
