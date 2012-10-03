@@ -3464,6 +3464,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   // pointer and storing into it.  The store does not necessarily start at the
   // beginning of the aggregate (x86-64).
   Value *Ptr = DestLoc->Ptr;
+  unsigned Align = DestLoc->getAlignment();
   // AggTy - The type of the aggregate being stored to.
   Type *AggTy = cast<PointerType>(Ptr->getType())->getElementType();
   // MaxStoreSize - The maximum number of bytes we can store without overflowing
@@ -3474,6 +3475,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     Ptr = Builder.CreateGEP(Ptr,
                     ConstantInt::get(TD.getIntPtrType(Context), Client.Offset),
                     flag_verbose_asm ? "ro" : "");
+    Align = MinAlign(Align, Client.Offset);
     MaxStoreSize -= Client.Offset;
   }
   assert(MaxStoreSize > 0 && "Storing off end of aggregate?");
@@ -3494,8 +3496,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     // Store the integer rather than the call result to the aggregate.
   }
   Ptr = Builder.CreateBitCast(Ptr, PointerType::getUnqual(Val->getType()));
-  Builder.CreateAlignedStore(Val, Ptr, DestLoc->getAlignment(),
-                             DestLoc->Volatile);
+  Builder.CreateAlignedStore(Val, Ptr, Align, DestLoc->Volatile);
   return 0;
 }
 
