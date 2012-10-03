@@ -167,7 +167,8 @@ MemRef DisplaceLocationByUnits(MemRef Loc, int32_t Offset,
   unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
   Type *UnitPtrTy = GetUnitPointerType(Context, AddrSpace);
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, UnitPtrTy);
-  Ptr = Builder.CreateConstInBoundsGEP1_32(Ptr, Offset);
+  Ptr = Builder.CreateConstInBoundsGEP1_32(Ptr, Offset,
+                                           flag_verbose_asm ? "dsplc" : "");
   Ptr = Builder.CreateBitCast(Ptr, Loc.Ptr->getType());
   uint32_t Align = MinAlign(Loc.getAlignment(), Offset);
   return MemRef(Ptr, Align, Loc.Volatile);
@@ -880,7 +881,8 @@ namespace {
       // This cast only involves pointers, therefore BitCast.
       Loc = Builder.CreateBitCast(Loc, StructTy->getPointerTo());
 
-      Loc = Builder.CreateStructGEP(Loc, FieldNo);
+      Loc = Builder.CreateStructGEP(Loc, FieldNo,
+                                    flag_verbose_asm ? "ntr" : "");
       LocStack.push_back(Loc);
     }
     void ExitField() {
@@ -1354,7 +1356,8 @@ Function *TreeToLLVM::FinishFunctionBody() {
             ResultLV.Ptr =
               Builder.CreateGEP(ResultLV.Ptr,
                                 ConstantInt::get(TD.getIntPtrType(Context),
-                                                 ReturnOffset));
+                                                 ReturnOffset),
+                                flag_verbose_asm ? "rtvl" : "");
             ResultLV.setAlignment(MinAlign(ResultLV.getAlignment(), ReturnOffset));
             ResultSize -= ReturnOffset;
           }
@@ -1374,8 +1377,10 @@ Function *TreeToLLVM::FinishFunctionBody() {
             bool Packed = STy->isPacked();
             for (unsigned ri = 0; ri < STy->getNumElements(); ++ri) {
               Idxs[1] = Builder.getInt32(ri);
-              Value *GEP = Builder.CreateGEP(ReturnLoc.Ptr, Idxs, "mrv_gep");
-              Value *E = Builder.CreateAlignedLoad(GEP, /*Align*/Packed, "mrv");
+              Value *GEP = Builder.CreateGEP(ReturnLoc.Ptr, Idxs,
+                                             flag_verbose_asm ? "mrv_gep" : "");
+              Value *E = Builder.CreateAlignedLoad(GEP, /*Align*/Packed,
+                                                   flag_verbose_asm ? "mrv":"");
               RetVals.push_back(E);
             }
             // If the return type specifies an empty struct then return one.
@@ -2049,8 +2054,10 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
       // Get the address of the field.
       int FieldIdx = GetFieldIndex(Field, Ty);
       assert(FieldIdx != INT_MAX && "Should not be copying if no LLVM field!");
-      Value *DestFieldPtr = Builder.CreateStructGEP(DestLoc.Ptr, FieldIdx);
-      Value *SrcFieldPtr = Builder.CreateStructGEP(SrcLoc.Ptr, FieldIdx);
+      Value *DestFieldPtr = Builder.CreateStructGEP(DestLoc.Ptr, FieldIdx,
+                                                    flag_verbose_asm ? "df":"");
+      Value *SrcFieldPtr = Builder.CreateStructGEP(SrcLoc.Ptr, FieldIdx,
+                                                   flag_verbose_asm ? "sf":"");
 
       // Compute the field's alignment.
       unsigned DestFieldAlign = DestLoc.getAlignment();
@@ -2082,8 +2089,10 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
     // Get the address of the component.
     Value *DestCompPtr = DestLoc.Ptr, *SrcCompPtr = SrcLoc.Ptr;
     if (i) {
-      DestCompPtr = Builder.CreateConstInBoundsGEP1_32(DestCompPtr, i);
-      SrcCompPtr = Builder.CreateConstInBoundsGEP1_32(SrcCompPtr, i);
+      DestCompPtr = Builder.CreateConstInBoundsGEP1_32(DestCompPtr, i,
+                                                  flag_verbose_asm ? "da" : "");
+      SrcCompPtr = Builder.CreateConstInBoundsGEP1_32(SrcCompPtr, i,
+                                                  flag_verbose_asm ? "sa" : "");
     }
 
     // Compute the component's alignment.
@@ -2147,7 +2156,8 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
       // Get the address of the field.
       int FieldIdx = GetFieldIndex(Field, Ty);
       assert(FieldIdx != INT_MAX && "Should not be zeroing if no LLVM field!");
-      Value *FieldPtr = Builder.CreateStructGEP(DestLoc.Ptr, FieldIdx);
+      Value *FieldPtr = Builder.CreateStructGEP(DestLoc.Ptr, FieldIdx,
+                                                flag_verbose_asm ? "zf" : "");
 
       // Compute the field's alignment.
       unsigned FieldAlign = DestLoc.getAlignment();
@@ -2174,7 +2184,8 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
     // Get the address of the component.
     Value *CompPtr = DestLoc.Ptr;
     if (i)
-      CompPtr = Builder.CreateConstInBoundsGEP1_32(CompPtr, i);
+      CompPtr = Builder.CreateConstInBoundsGEP1_32(CompPtr, i,
+                                                   flag_verbose_asm ? "za":"");
 
     // Compute the component's alignment.
     unsigned CompAlign = DestLoc.getAlignment();
@@ -3208,7 +3219,8 @@ namespace {
     void EnterField(unsigned FieldNo, llvm::Type *StructTy) {
       Value *Loc = getAddress();
       Loc = Builder.CreateBitCast(Loc, StructTy->getPointerTo());
-      pushAddress(Builder.CreateStructGEP(Loc, FieldNo, "elt"));
+      pushAddress(Builder.CreateStructGEP(Loc, FieldNo,
+                                          flag_verbose_asm ? "elt" : ""));
     }
     void ExitField() {
       assert(!LocStack.empty());
@@ -3460,7 +3472,8 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   if (Client.Offset) {
     Ptr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
     Ptr = Builder.CreateGEP(Ptr,
-                    ConstantInt::get(TD.getIntPtrType(Context), Client.Offset));
+                    ConstantInt::get(TD.getIntPtrType(Context), Client.Offset),
+                    flag_verbose_asm ? "ro" : "");
     MaxStoreSize -= Client.Offset;
   }
   assert(MaxStoreSize > 0 && "Storing off end of aggregate?");
@@ -5713,20 +5726,23 @@ bool TreeToLLVM::EmitBuiltinInitDwarfRegSizes(gimple stmt, Value *&/*Result*/) {
 
       Size = Builder.getInt8(size);
       Idx  = Builder.getInt32(rnum);
-      Builder.CreateStore(Size, Builder.CreateGEP(Addr, Idx), false);
+      Builder.CreateStore(Size, Builder.CreateGEP(Addr, Idx, flag_verbose_asm ?
+                                                  "rnum" : ""), false);
     }
   }
 
   if (!wrote_return_column) {
     Size = Builder.getInt8(GET_MODE_SIZE (Pmode));
     Idx  = Builder.getInt32(DWARF_FRAME_RETURN_COLUMN);
-    Builder.CreateStore(Size, Builder.CreateGEP(Addr, Idx), false);
+    Builder.CreateStore(Size, Builder.CreateGEP(Addr, Idx, flag_verbose_asm ?
+                                                "rcol" : ""), false);
   }
 
 #ifdef DWARF_ALT_FRAME_RETURN_COLUMN
   Size = Builder.getInt8(GET_MODE_SIZE (Pmode));
   Idx  = Builder.getInt32(DWARF_ALT_FRAME_RETURN_COLUMN);
-  Builder.CreateStore(Size, Builder.CreateGEP(Addr, Idx), false);
+  Builder.CreateStore(Size, Builder.CreateGEP(Addr, Idx, flag_verbose_asm ?
+                                              "acol" : ""), false);
 #endif
 
 #endif /* DWARF2_UNWIND_INFO */
@@ -6012,9 +6028,10 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
     // doing the GEP on a pointer to the first array element.
     Type *EltTy = ConvertType(ElementType);
     ArrayAddr = Builder.CreateBitCast(ArrayAddr, EltTy->getPointerTo());
+    StringRef GEPName = flag_verbose_asm ? "ar" : "";
     Value *Ptr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
-      Builder.CreateInBoundsGEP(ArrayAddr, IndexVal) :
-      Builder.CreateGEP(ArrayAddr, IndexVal);
+      Builder.CreateInBoundsGEP(ArrayAddr, IndexVal, GEPName) :
+      Builder.CreateGEP(ArrayAddr, IndexVal, GEPName);
     unsigned Alignment = MinAlign(ArrayAlign, TD.getABITypeAlignment(EltTy));
     return LValue(Builder.CreateBitCast(Ptr,
                   PointerType::getUnqual(ConvertType(TREE_TYPE(exp)))),
@@ -6027,9 +6044,10 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
 
   if (isa<VOID_TYPE>(TREE_TYPE(ArrayTreeType))) {
     ArrayAddr = Builder.CreateBitCast(ArrayAddr, Type::getInt8PtrTy(Context));
+    StringRef GEPName = flag_verbose_asm ? "va" : "";
     ArrayAddr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
-      Builder.CreateInBoundsGEP(ArrayAddr, IndexVal) :
-      Builder.CreateGEP(ArrayAddr, IndexVal);
+      Builder.CreateInBoundsGEP(ArrayAddr, IndexVal, GEPName) :
+      Builder.CreateGEP(ArrayAddr, IndexVal, GEPName);
     return LValue(ArrayAddr, 1);
   }
 
@@ -6049,9 +6067,10 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
 
   IndexVal = Builder.CreateMul(IndexVal, ScaleFactor);
   unsigned Alignment = MinAlign(ArrayAlign, TYPE_ALIGN(ElementType) / 8);
+  StringRef GEPName = flag_verbose_asm ? "ra" : "";
   Value *Ptr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
-    Builder.CreateInBoundsGEP(ArrayAddr, IndexVal) :
-    Builder.CreateGEP(ArrayAddr, IndexVal);
+    Builder.CreateInBoundsGEP(ArrayAddr, IndexVal, GEPName) :
+    Builder.CreateGEP(ArrayAddr, IndexVal, GEPName);
   return LValue(Builder.CreateBitCast(Ptr,
                 PointerType::getUnqual(ConvertType(TREE_TYPE(exp)))),
                 Alignment);
@@ -6080,7 +6099,8 @@ LValue TreeToLLVM::EmitLV_BIT_FIELD_REF(tree exp) {
     // TODO: If Ptr.Ptr is a struct type or something, we can do much better
     // than this.  e.g. check out when compiling unwind-dw2-fde-darwin.c.
     Ptr.Ptr = Builder.CreateBitCast(Ptr.Ptr, ValTy->getPointerTo());
-    Ptr.Ptr = Builder.CreateGEP(Ptr.Ptr, Builder.getInt32(UnitOffset));
+    Ptr.Ptr = Builder.CreateGEP(Ptr.Ptr, Builder.getInt32(UnitOffset),
+                                flag_verbose_asm ? "bfr" : "");
     unsigned OctetOffset = (UnitOffset * ValueSizeInBits) / 8;
     Ptr.setAlignment(MinAlign(Ptr.getAlignment(), OctetOffset));
     BitStart -= UnitOffset*ValueSizeInBits;
@@ -6123,7 +6143,8 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
   if (MemberIndex < INT_MAX) {
     assert(!TREE_OPERAND(exp, 2) && "Constant not gimple min invariant?");
     // Get a pointer to the byte in which the GCC field starts.
-    FieldPtr = Builder.CreateStructGEP(StructAddrLV.Ptr, MemberIndex);
+    FieldPtr = Builder.CreateStructGEP(StructAddrLV.Ptr, MemberIndex,
+                                       flag_verbose_asm ? "cr" : "");
     // Within that byte, the bit at which the GCC field starts.
     BitStart = FieldBitOffset & 7;
   } else {
@@ -6161,7 +6182,8 @@ LValue TreeToLLVM::EmitLV_COMPONENT_REF(tree exp) {
 
     Type *BytePtrTy = Type::getInt8PtrTy(Context);
     FieldPtr = Builder.CreateBitCast(StructAddrLV.Ptr, BytePtrTy);
-    FieldPtr = Builder.CreateInBoundsGEP(FieldPtr, Offset);
+    FieldPtr = Builder.CreateInBoundsGEP(FieldPtr, Offset, flag_verbose_asm ?
+                                         "rc" : "");
     FieldPtr = Builder.CreateBitCast(FieldPtr, FieldTy->getPointerTo());
   }
 
@@ -6233,7 +6255,8 @@ LValue TreeToLLVM::EmitLV_MEM_REF(tree exp) {
     Addr = Builder.CreateBitCast(Addr, GetUnitPointerType(Context));
     APInt Offset = getAPIntValue(TREE_OPERAND(exp, 1));
     // The address is always inside the referenced object, so "inbounds".
-    Addr = Builder.CreateInBoundsGEP(Addr, ConstantInt::get(Context, Offset));
+    Addr = Builder.CreateInBoundsGEP(Addr, ConstantInt::get(Context, Offset),
+                                     flag_verbose_asm ? "mrf" : "");
   }
 
   // Ensure the pointer has the right type.
@@ -6298,7 +6321,8 @@ LValue TreeToLLVM::EmitLV_XXXXPART_EXPR(tree exp, unsigned Idx) {
     // IMAGPART alignment = MinAlign(Ptr.Alignment, sizeof field);
     Alignment = MinAlign(Ptr.getAlignment(),
                          TD.getTypeAllocSize(Ptr.Ptr->getType()));
-  return LValue(Builder.CreateStructGEP(Ptr.Ptr, Idx), Alignment);
+  return LValue(Builder.CreateStructGEP(Ptr.Ptr, Idx, flag_verbose_asm ?
+                                        "prtxpr" : ""), Alignment);
 }
 
 LValue TreeToLLVM::EmitLV_SSA_NAME(tree exp) {
@@ -6348,9 +6372,10 @@ LValue TreeToLLVM::EmitLV_TARGET_MEM_REF(tree exp) {
   if (Delta) {
     // Advance the base pointer by the given number of units.
     Addr = Builder.CreateBitCast(Addr, GetUnitPointerType(Context));
+    StringRef GEPName = flag_verbose_asm ? "" : "tmrf";
     Addr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
-      Builder.CreateInBoundsGEP(Addr, Delta)
-      : Builder.CreateGEP(Addr, Delta);
+      Builder.CreateInBoundsGEP(Addr, Delta, GEPName)
+      : Builder.CreateGEP(Addr, Delta, GEPName);
   }
 
   // The result can be of a different pointer type even if we didn't advance it.
@@ -7421,8 +7446,10 @@ Value *TreeToLLVM::EmitReg_POINTER_PLUS_EXPR(tree op0, tree op1) {
 
   // Convert the pointer into an i8* and add the offset to it.
   Ptr = Builder.CreateBitCast(Ptr, GetUnitPointerType(Context));
+  StringRef GEPName = flag_verbose_asm ? "pp" : "";
   return POINTER_TYPE_OVERFLOW_UNDEFINED ?
-    Builder.CreateInBoundsGEP(Ptr, Idx) : Builder.CreateGEP(Ptr, Idx);
+    Builder.CreateInBoundsGEP(Ptr, Idx, GEPName) :
+    Builder.CreateGEP(Ptr, Idx, GEPName);
 }
 
 Value *TreeToLLVM::EmitReg_RDIV_EXPR(tree op0, tree op1) {
@@ -7711,11 +7738,13 @@ Value *TreeToLLVM::EmitReg_VEC_PERM_EXPR(tree op0, tree op1, tree op2) {
                                 ConvertType(TREE_TYPE(op1)), NULL);
   AllocaInst *Tmp = CreateTemporary(TmpTy, Align);
   // Store the first vector to the first element of the pair.
-  Value *Tmp0 = Builder.CreateStructGEP(Tmp, 0);
+  Value *Tmp0 = Builder.CreateStructGEP(Tmp, 0, flag_verbose_asm ?
+                                        "vp1s" : "");
   StoreRegisterToMemory(V0, MemRef(Tmp0, Align, /*Volatile*/false),
                         TREE_TYPE(op0), 0, Builder);
   // Store the second vector to the second element of the pair.
-  Value *Tmp1 = Builder.CreateStructGEP(Tmp, 1);
+  Value *Tmp1 = Builder.CreateStructGEP(Tmp, 1, flag_verbose_asm ?
+                                        "vp2s" : "");
   StoreRegisterToMemory(V1, MemRef(Tmp1, Align, /*Volatile*/false),
                         TREE_TYPE(op1), 0, Builder);
 
@@ -7727,7 +7756,8 @@ Value *TreeToLLVM::EmitReg_VEC_PERM_EXPR(tree op0, tree op1, tree op2) {
     Value *MaskIdx = Builder.getInt32(i);
     Value *Idx = Builder.CreateExtractElement(Mask, MaskIdx);
     // Advance that many elements from the start of the temporary and load it.
-    Value *Ptr = Builder.CreateInBoundsGEP(BaseAddr, Idx);
+    Value *Ptr = Builder.CreateInBoundsGEP(BaseAddr, Idx, flag_verbose_asm ?
+                                           "vpl" : "");
     Value *Elt = LoadRegisterFromMemory(MemRef(Ptr, Align, false), elt_type, 0,
                                         Builder);
     // Insert it into the result.
