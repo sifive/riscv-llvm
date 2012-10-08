@@ -354,7 +354,7 @@ void DefaultABI::PassInIntegerRegisters(tree type,
   // from Int64 alignment. ARM backend needs this.
   unsigned Align = TYPE_ALIGN(type)/8;
   unsigned Int64Align =
-    getTargetData().getABITypeAlignment(Type::getInt64Ty(getGlobalContext()));
+    getDataLayout().getABITypeAlignment(Type::getInt64Ty(getGlobalContext()));
   bool UseInt64 = (DontCheckAlignment || Align >= Int64Align);
 
   unsigned ElementSize = UseInt64 ? 8:4;
@@ -384,7 +384,7 @@ void DefaultABI::PassInIntegerRegisters(tree type,
     LastEltTy = Type::getInt8Ty(getGlobalContext());
   }
   if (LastEltTy) {
-    if (Size != getTargetData().getTypeAllocSize(LastEltTy))
+    if (Size != getDataLayout().getTypeAllocSize(LastEltTy))
       LastEltRealSize = Size;
   }
 
@@ -425,7 +425,7 @@ void DefaultABI::PassInMixedRegisters(Type *Ty,
   // that occupies storage but has no useful information, and is not passed
   // anywhere".  Happens on x86-64.
   std::vector<Type*> Elts(OrigElts);
-  Type* wordType = getTargetData().getPointerSize() == 4 ?
+  Type* wordType = getDataLayout().getPointerSize() == 4 ?
     Type::getInt32Ty(getGlobalContext()) : Type::getInt64Ty(getGlobalContext());
   for (unsigned i=0, e=Elts.size(); i!=e; ++i)
     if (OrigElts[i]->isVoidTy())
@@ -433,19 +433,19 @@ void DefaultABI::PassInMixedRegisters(Type *Ty,
 
   StructType *STy = StructType::get(getGlobalContext(), Elts, false);
 
-  unsigned Size = getTargetData().getTypeAllocSize(STy);
+  unsigned Size = getDataLayout().getTypeAllocSize(STy);
   unsigned InSize = 0;
   // If Ty and STy size does not match then last element is accessing
   // extra bits.
   unsigned LastEltSizeDiff = 0;
   if (isa<StructType>(Ty) || isa<ArrayType>(Ty)) {
-    InSize = getTargetData().getTypeAllocSize(Ty);
+    InSize = getDataLayout().getTypeAllocSize(Ty);
     if (InSize < Size) {
       unsigned N = STy->getNumElements();
       llvm::Type *LastEltTy = STy->getElementType(N-1);
       if (LastEltTy->isIntegerTy())
         LastEltSizeDiff =
-          getTargetData().getTypeAllocSize(LastEltTy) - (Size - InSize);
+          getDataLayout().getTypeAllocSize(LastEltTy) - (Size - InSize);
     }
   }
   for (unsigned i = 0, e = Elts.size(); i != e; ++i) {

@@ -277,7 +277,7 @@ int GetFieldIndex(tree decl, Type *Ty) {
 
   // Find the LLVM field that contains the first bit of the GCC field.
   uint64_t OffsetInBytes = getFieldOffsetInBits(decl) / 8; // Ignore bit in byte
-  const StructLayout *SL = getTargetData().getStructLayout(STy);
+  const StructLayout *SL = getDataLayout().getStructLayout(STy);
   Index = SL->getElementContainingOffset(OffsetInBytes);
 
   // The GCC field must start in the first byte of the LLVM field.
@@ -358,7 +358,7 @@ static Type *CheckTypeConversion(tree type, Type *Ty) {
   // they do.
   if (isSizeCompatible(type) && Ty->isSized()) {
     uint64_t GCCSize = getInt64(TYPE_SIZE(type), true);
-    uint64_t LLVMSize = getTargetData().getTypeAllocSizeInBits(Ty);
+    uint64_t LLVMSize = getDataLayout().getTypeAllocSizeInBits(Ty);
     if (LLVMSize != GCCSize) {
       Mismatch = true;
       errs() << "GCC size: " << GCCSize << "; LLVM size: " << LLVMSize
@@ -368,7 +368,7 @@ static Type *CheckTypeConversion(tree type, Type *Ty) {
   // Check that the LLVM type has the same alignment or less than the GCC type.
   if (Ty->isSized()) {
     unsigned GCCAlign = TYPE_ALIGN(type);
-    unsigned LLVMAlign = getTargetData().getABITypeAlignment(Ty) * 8;
+    unsigned LLVMAlign = getDataLayout().getABITypeAlignment(Ty) * 8;
     if (LLVMAlign > GCCAlign) {
       Mismatch = true;
       errs() << "GCC align: " << GCCAlign << "; LLVM align: " << LLVMAlign
@@ -457,7 +457,7 @@ Type *getRegType(tree type) {
   }
 
   case OFFSET_TYPE:
-    return getTargetData().getIntPtrType(Context);
+    return getDataLayout().getIntPtrType(Context);
 
   case POINTER_TYPE:
   case REFERENCE_TYPE:
@@ -486,7 +486,7 @@ Type *getRegType(tree type) {
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers.
     Type *EltTy = isa<ACCESS_TYPE>(TREE_TYPE(type)) ?
-      getTargetData().getIntPtrType(Context) : getRegType(TREE_TYPE(type));
+      getDataLayout().getIntPtrType(Context) : getRegType(TREE_TYPE(type));
     return VectorType::get(EltTy, TYPE_VECTOR_SUBPARTS(type));
   }
 
@@ -520,7 +520,7 @@ static Type *ConvertArrayTypeRecursive(tree type) {
   // gives a constant size.
   if (isInt64(TYPE_SIZE(type), true)) {
     uint64_t PadBits = getInt64(TYPE_SIZE(type), true) -
-      getTargetData().getTypeAllocSizeInBits(Ty);
+      getDataLayout().getTypeAllocSizeInBits(Ty);
     if (PadBits) {
       Type *Padding = ArrayType::get(Type::getInt8Ty(Context), PadBits / 8);
       Ty = StructType::get(Ty, Padding, NULL);
@@ -977,7 +977,7 @@ class TypedRange {
   /// isSafeToReturnContentsDirectly - Return whether the current value for the
   /// type properly represents the bits in the range and so can be handed to the
   /// user as is.
-  bool isSafeToReturnContentsDirectly(const TargetData &TD) const {
+  bool isSafeToReturnContentsDirectly(const DataLayout &TD) const {
     // If there is no type (allowed when the range is empty) then one needs to
     // be created.
     if (!Ty)
@@ -1024,7 +1024,7 @@ public:
   /// than the width of the range.  Unlike the other methods for this class this
   /// one requires that the width of the range be a multiple of an address unit,
   /// which usually means a multiple of 8.
-  Type *extractContents(const TargetData &TD) {
+  Type *extractContents(const DataLayout &TD) {
     assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
     /// If the current value for the type can be used to represent the bits in
     /// the range then just return it.
@@ -1086,7 +1086,7 @@ static Type *ConvertRecordTypeRecursive(tree type) {
   assert(TYPE_SIZE(type) && "Incomplete types should be handled elsewhere!");
 
   IntervalList<TypedRange, uint64_t, 8> Layout;
-  const TargetData &TD = getTargetData();
+  const DataLayout &TD = getDataLayout();
 
   // Get the size of the type in bits.  If the type has variable or ginormous
   // size then it is convenient to pretend it is "infinitely" big.
@@ -1401,7 +1401,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
     // which are really just integer offsets.  Return the appropriate integer
     // type directly.
     // Caching the type conversion is not worth it.
-    return CheckTypeConversion(type, getTargetData().getIntPtrType(Context));
+    return CheckTypeConversion(type, getDataLayout().getIntPtrType(Context));
 
   case REAL_TYPE:
     // Caching the type conversion is not worth it.
@@ -1440,7 +1440,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers.
     if (isa<ACCESS_TYPE>(TREE_TYPE(type)))
-      Ty = getTargetData().getIntPtrType(Context);
+      Ty = getDataLayout().getIntPtrType(Context);
     else
       Ty = ConvertTypeNonRecursive(main_type(type));
     Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));

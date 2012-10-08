@@ -1426,7 +1426,7 @@ static bool llvm_suitable_multiple_ret_value_type(Type *Ty,
 Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) {
   *Offset = 0;
   Type *Ty = ConvertType(type);
-  uint64_t Size = getTargetData().getTypeAllocSize(Ty);
+  uint64_t Size = getDataLayout().getTypeAllocSize(Ty);
   if (Size == 0)
     return Type::getVoidTy(Context);
   else if (Size == 1)

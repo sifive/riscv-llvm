@@ -42,7 +42,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -275,9 +275,9 @@ static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
   // TODO: Change getTypeSizeInBits for aggregate types so it is no longer
   // rounded up to the alignment.
   uint64_t gcc_size = getInt64(DECL_SIZE(decl), true);
-  const TargetData *TD = TheTarget->getTargetData();
+  const DataLayout *TD = TheTarget->getDataLayout();
   unsigned Align = 8 * TD->getABITypeAlignment(Ty);
-  return TheTarget->getTargetData()->getTypeAllocSizeInBits(Ty) ==
+  return TheTarget->getDataLayout()->getTypeAllocSizeInBits(Ty) ==
     ((gcc_size + Align - 1) / Align) * Align;
 }
 #endif
@@ -491,7 +491,7 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 #endif
   TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr, Options,
                                        RelocModel, CMModel, CodeGenOptLevel());
-  assert(TheTarget->getTargetData()->isBigEndian() == BYTES_BIG_ENDIAN);
+  assert(TheTarget->getDataLayout()->isBigEndian() == BYTES_BIG_ENDIAN);
   TheTarget->setMCUseCFI(flag_dwarf2_cfi_asm);
   // Binutils does not yet support the use of file directives with an explicit
   // directory.  FIXME: Once GCC learns to detect support for this, condition
@@ -529,7 +529,7 @@ static void CreateModule(const std::string &TargetTriple) {
   // Install information about the target triple and data layout into the module
   // for optimizer use.
   TheModule->setTargetTriple(TargetTriple);
-  TheModule->setDataLayout(TheTarget->getTargetData()->
+  TheModule->setDataLayout(TheTarget->getDataLayout()->
                            getStringRepresentation());
 }
 
@@ -589,7 +589,7 @@ static void InitializeBackend(void) {
   // Create a module to hold the generated LLVM IR.
   CreateModule(TargetTriple);
 
-  TheFolder = new TargetFolder(TheTarget->getTargetData());
+  TheFolder = new TargetFolder(TheTarget->getDataLayout());
 
   if (debug_info_level > DINFO_LEVEL_NONE)
     TheDebugInfo = new DebugInfo(TheModule);
@@ -639,7 +639,7 @@ static void createPerFunctionOptimizationPasses() {
   // Create and set up the per-function pass manager.
   // FIXME: Move the code generator to be function-at-a-time.
   PerFunctionPasses = new FunctionPassManager(TheModule);
-  PerFunctionPasses->add(new TargetData(TheModule));
+  PerFunctionPasses->add(new DataLayout(TheModule));
 
 #ifndef NDEBUG
   PerFunctionPasses->add(createVerifierPass());
@@ -682,7 +682,7 @@ static void createPerModuleOptimizationPasses() {
     return;
 
   PerModulePasses = new PassManager();
-  PerModulePasses->add(new TargetData(TheModule));
+  PerModulePasses->add(new DataLayout(TheModule));
 
   bool NeedAlwaysInliner = false;
   llvm::Pass *InliningPass = 0;
@@ -733,7 +733,7 @@ static void createPerModuleOptimizationPasses() {
     if (PerModulePasses || 1) {
       FunctionPassManager *PM = CodeGenPasses =
         new FunctionPassManager(TheModule);
-      PM->add(new TargetData(*TheTarget->getTargetData()));
+      PM->add(new DataLayout(*TheTarget->getDataLayout()));
 
       // Request that addPassesToEmitFile run the Verifier after running
       // passes which modify the IR.
@@ -1129,7 +1129,7 @@ static void emit_global(tree decl) {
     // If this is the alignment we would have given the variable anyway then don't
     // use an explicit alignment, making the IR look more portable.
     if (GV->getAlignment() ==
-        getTargetData().getABITypeAlignment(GV->getType()->getElementType()))
+        getDataLayout().getABITypeAlignment(GV->getType()->getElementType()))
       GV->setAlignment(0);
 
     // Handle used decls

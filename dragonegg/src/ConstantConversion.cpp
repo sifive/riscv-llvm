@@ -32,7 +32,7 @@
 #include "llvm/GlobalVariable.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 
 // System headers
 #include <gmp.h>
@@ -282,7 +282,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
 
   // Sanitize the range to make life easier in what follows.
   Type *Ty = C->getType();
-  int StoreSize = getTargetData().getTypeStoreSizeInBits(Ty);
+  int StoreSize = getDataLayout().getTypeStoreSizeInBits(Ty);
   R = R.Meet(SignedRange(0, StoreSize));
 
   // Quick exit if it is clear that there are no bits in the range.
@@ -295,7 +295,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
     llvm_unreachable("Unsupported type!");
   case Type::PointerTyID: {
     // Cast to an integer with the same number of bits and return that.
-    IntegerType *IntTy = getTargetData().getIntPtrType(Context);
+    IntegerType *IntTy = getDataLayout().getIntPtrType(Context);
     return BitSlice(0, StoreSize, Folder.CreatePtrToInt(C, IntTy));
   }
   case Type::DoubleTyID:
@@ -321,7 +321,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
   case Type::ArrayTyID: {
     ArrayType *ATy = cast<ArrayType>(Ty);
     Type *EltTy = ATy->getElementType();
-    const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
+    const unsigned Stride = getDataLayout().getTypeAllocSizeInBits(EltTy);
     assert(Stride > 0 && "Store size smaller than alloc size?");
     // Elements with indices in [FirstElt, LastElt) overlap the range.
     unsigned FirstElt = R.getFirst() / Stride;
@@ -347,7 +347,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
 
   case Type::StructTyID: {
     StructType *STy = cast<StructType>(Ty);
-    const StructLayout *SL = getTargetData().getStructLayout(STy);
+    const StructLayout *SL = getDataLayout().getStructLayout(STy);
     // Fields with indices in [FirstIdx, LastIdx) overlap the range.
     unsigned FirstIdx = SL->getElementContainingOffset(R.getFirst()/8);
     unsigned LastIdx = 1 + SL->getElementContainingOffset((R.getLast()-1)/8);
@@ -360,7 +360,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
       Constant *Field = Folder.CreateExtractValue(C, i);
       // Only part of the field may be needed.  Compute which bits they are.
       Type *FieldTy = Field->getType();
-      unsigned FieldStoreSize = getTargetData().getTypeStoreSizeInBits(FieldTy);
+      unsigned FieldStoreSize = getDataLayout().getTypeStoreSizeInBits(FieldTy);
       SignedRange NeededBits(0, FieldStoreSize);
       NeededBits = NeededBits.Meet(R.Displace(-FieldOffsetInBits));
       // View the needed part of the field as a bunch of bits.
@@ -376,7 +376,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
   case Type::VectorTyID: {
     VectorType *VTy = cast<VectorType>(Ty);
     Type *EltTy = VTy->getElementType();
-    const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
+    const unsigned Stride = getDataLayout().getTypeAllocSizeInBits(EltTy);
     assert(Stride > 0 && "Store size smaller than alloc size?");
     // Elements with indices in [FirstElt, LastElt) overlap the range.
     unsigned FirstElt = R.getFirst() / Stride;
@@ -426,7 +426,7 @@ static Constant *InterpretAsType(Constant *C, Type* Ty, int StartingBit,
     llvm_unreachable("Unsupported type!");
   case Type::IntegerTyID: {
     unsigned BitWidth = Ty->getPrimitiveSizeInBits();
-    unsigned StoreSize = getTargetData().getTypeStoreSizeInBits(Ty);
+    unsigned StoreSize = getDataLayout().getTypeStoreSizeInBits(Ty);
     // Convert the constant into a bunch of bits.  Only the bits to be "loaded"
     // out are needed, so rather than converting the entire constant this only
     // converts enough to get all of the required bits.
@@ -445,7 +445,7 @@ static Constant *InterpretAsType(Constant *C, Type* Ty, int StartingBit,
   case Type::PointerTyID: {
     // Interpret as an integer with the same number of bits then cast back to
     // the original type.
-    IntegerType *IntTy = getTargetData().getIntPtrType(Context);
+    IntegerType *IntTy = getDataLayout().getIntPtrType(Context);
     C = InterpretAsType(C, IntTy, StartingBit, Folder);
     return Folder.CreateIntToPtr(C, Ty);
   }
@@ -467,7 +467,7 @@ static Constant *InterpretAsType(Constant *C, Type* Ty, int StartingBit,
     // Interpret each array element in turn.
     ArrayType *ATy = cast<ArrayType>(Ty);
     Type *EltTy = ATy->getElementType();
-    const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
+    const unsigned Stride = getDataLayout().getTypeAllocSizeInBits(EltTy);
     const unsigned NumElts = ATy->getNumElements();
     std::vector<Constant*> Vals(NumElts);
     for (unsigned i = 0; i != NumElts; ++i)
@@ -478,7 +478,7 @@ static Constant *InterpretAsType(Constant *C, Type* Ty, int StartingBit,
   case Type::StructTyID: {
     // Interpret each struct field in turn.
     StructType *STy = cast<StructType>(Ty);
-    const StructLayout *SL = getTargetData().getStructLayout(STy);
+    const StructLayout *SL = getDataLayout().getStructLayout(STy);
     unsigned NumElts = STy->getNumElements();
     std::vector<Constant*> Vals(NumElts);
     for (unsigned i = 0; i != NumElts; ++i)
@@ -492,7 +492,7 @@ static Constant *InterpretAsType(Constant *C, Type* Ty, int StartingBit,
     // Interpret each vector element in turn.
     VectorType *VTy = cast<VectorType>(Ty);
     Type *EltTy = VTy->getElementType();
-    const unsigned Stride = getTargetData().getTypeAllocSizeInBits(EltTy);
+    const unsigned Stride = getDataLayout().getTypeAllocSizeInBits(EltTy);
     const unsigned NumElts = VTy->getNumElements();
     SmallVector<Constant*, 16> Vals(NumElts);
     for (unsigned i = 0; i != NumElts; ++i)
@@ -559,7 +559,7 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
     unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
     unsigned Stride = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
     SmallVector<Constant*, 16> Vals(NumElts);
-    IntegerType *IntPtrTy = getTargetData().getIntPtrType(Context);
+    IntegerType *IntPtrTy = getDataLayout().getIntPtrType(Context);
     for (unsigned i = 0; i != NumElts; ++i) {
       Vals[i] = ExtractRegisterFromConstantImpl(C, elt_type,
                                                 StartingBit+i*Stride, Folder);
@@ -580,7 +580,7 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
 /// using LoadRegisterFromMemory to load a register value back out starting from
 /// byte StartingByte.
 Constant *ExtractRegisterFromConstant(Constant *C, tree type, int StartingByte) {
-  TargetFolder Folder(&getTargetData());
+  TargetFolder Folder(&getDataLayout());
   return ExtractRegisterFromConstantImpl(C, type, StartingByte, Folder);
 }
 
@@ -817,7 +817,7 @@ static Constant *ConvertADDR_EXPR(tree exp, TargetFolder &Folder) {
 
 /// ConvertArrayCONSTRUCTOR - Convert a CONSTRUCTOR with array or vector type.
 static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
-  const TargetData &TD = getTargetData();
+  const DataLayout &TD = getDataLayout();
 
   tree init_type = main_type(exp);
   Type *InitTy = ConvertType(init_type);
@@ -983,7 +983,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   if (isa<VECTOR_TYPE>(init_type) && ActualEltTy == EltTy) {
     // If this is a vector of pointers, convert it to a vector of integers.
     if (isa<PointerType>(EltTy)) {
-      IntegerType *IntPtrTy = getTargetData().getIntPtrType(Context);
+      IntegerType *IntPtrTy = getDataLayout().getIntPtrType(Context);
       for (unsigned i = 0, e = Elts.size(); i != e; ++i)
         Elts[i] = Folder.CreatePtrToInt(Elts[i], IntPtrTy);
     }
@@ -1020,7 +1020,7 @@ class FieldContents {
   /// isSafeToReturnContentsDirectly - Return whether the current value for the
   /// constant properly represents the bits in the range and so can be handed to
   /// the user as is.
-  bool isSafeToReturnContentsDirectly(const TargetData &TD) const {
+  bool isSafeToReturnContentsDirectly(const DataLayout &TD) const {
     // If there is no constant (allowed when the range is empty) then one needs
     // to be created.
     if (!C)
@@ -1069,7 +1069,7 @@ public:
   /// larger than the width of the range.  Unlike the other methods for this
   /// class, this one requires that the width of the range be a multiple of an
   /// address unit, which usually means a multiple of 8.
-  Constant *extractContents(const TargetData &TD) {
+  Constant *extractContents(const DataLayout &TD) {
     assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
     /// If the current value for the constant can be used to represent the bits
     /// in the range then just return it.
@@ -1135,7 +1135,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // FIXME: This new logic, especially the handling of bitfields, is untested
   // and probably wrong on big-endian machines.
   IntervalList<FieldContents, int, 8> Layout;
-  const TargetData &TD = getTargetData();
+  const DataLayout &TD = getDataLayout();
   tree type = main_type(exp);
   Type *Ty = ConvertType(type);
   uint64_t TypeSize = TD.getTypeAllocSizeInBits(Ty);
@@ -1351,7 +1351,7 @@ static Constant *ConvertMINUS_EXPR(tree exp, TargetFolder &Folder) {
   Constant *LHS = getAsRegister(TREE_OPERAND(exp, 0), Folder);
   Constant *RHS = getAsRegister(TREE_OPERAND(exp, 1), Folder);
   if (LHS->getType()->getScalarType()->isPointerTy()) {
-    Type *PtrIntTy = getTargetData().getIntPtrType(Context);
+    Type *PtrIntTy = getDataLayout().getIntPtrType(Context);
     LHS = Folder.CreatePtrToInt(LHS, PtrIntTy);
     RHS = Folder.CreatePtrToInt(RHS, PtrIntTy);
   }
@@ -1445,14 +1445,14 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
   // sizes should be the same.
   Type *Ty = ConvertType(TREE_TYPE(exp));
   if (Ty->isSized()) {
-    uint64_t InitSize = getTargetData().getTypeAllocSizeInBits(Init->getType());
-    uint64_t TypeSize = getTargetData().getTypeAllocSizeInBits(Ty);
+    uint64_t InitSize = getDataLayout().getTypeAllocSizeInBits(Init->getType());
+    uint64_t TypeSize = getDataLayout().getTypeAllocSizeInBits(Ty);
     if (InitSize < TypeSize) {
       debug_tree(exp);
       llvm_unreachable("Constant too small for type!");
     }
   }
-  if (getTargetData().getABITypeAlignment(Init->getType()) * 8 >
+  if (getDataLayout().getABITypeAlignment(Init->getType()) * 8 >
       TYPE_ALIGN(main_type(exp))) {
     debug_tree(exp);
     llvm_unreachable("Constant over aligned!");
@@ -1476,7 +1476,7 @@ static Constant *ConvertInitializerImpl(tree exp, TargetFolder &Folder) {
 /// initial value may exceed the alloc size of the LLVM memory type generated
 /// for the GCC type (see ConvertType); it is never smaller than the alloc size.
 Constant *ConvertInitializer(tree exp) {
-  TargetFolder Folder(&getTargetData());
+  TargetFolder Folder(&getDataLayout());
   return ConvertInitializerImpl(exp, Folder);
 }
 
@@ -1706,6 +1706,6 @@ static Constant *AddressOfImpl(tree exp, TargetFolder &Folder) {
 /// type of the pointee is the memory type that corresponds to the type of exp
 /// (see ConvertType).
 Constant *AddressOf(tree exp) {
-  TargetFolder Folder(&getTargetData());
+  TargetFolder Folder(&getDataLayout());
   return AddressOfImpl(exp, Folder);
 }

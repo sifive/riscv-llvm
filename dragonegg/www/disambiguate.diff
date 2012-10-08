@@ -36,7 +36,7 @@ diff -r -u -N dragonegg-2.9-old/ABI.h dragonegg-2.9-new/ABI.h
 -
 -// LLVM headers
 -#include "llvm/LLVMContext.h"
--#include "llvm/Target/TargetData.h"
+-#include "llvm/DataLayout.h"
 -
 -namespace llvm {
 -  class BasicBlock;
@@ -152,7 +152,7 @@ diff -r -u -N dragonegg-2.9-old/ABI.h dragonegg-2.9-new/ABI.h
 -static inline
 -const Type* getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) {
 -  const Type *Ty = ConvertType(type);
--  unsigned Size = getTargetData().getTypeAllocSize(Ty);
+-  unsigned Size = getDataLayout().getTypeAllocSize(Ty);
 -  *Offset = 0;
 -  if (Size == 0)
 -    return Type::getVoidTy(getGlobalContext());
@@ -2308,7 +2308,7 @@ diff -r -u -N dragonegg-2.9-old/include/dragonegg/ABI.h dragonegg-2.9-new/includ
 +
 +// LLVM headers
 +#include "llvm/LLVMContext.h"
-+#include "llvm/Target/TargetData.h"
++#include "llvm/DataLayout.h"
 +
 +namespace llvm {
 +  class BasicBlock;
@@ -2424,7 +2424,7 @@ diff -r -u -N dragonegg-2.9-old/include/dragonegg/ABI.h dragonegg-2.9-new/includ
 +static inline
 +const Type* getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) {
 +  const Type *Ty = ConvertType(type);
-+  unsigned Size = getTargetData().getTypeAllocSize(Ty);
++  unsigned Size = getDataLayout().getTypeAllocSize(Ty);
 +  *Offset = 0;
 +  if (Size == 0)
 +    return Type::getVoidTy(getGlobalContext());
@@ -4303,7 +4303,7 @@ diff -r -u -N dragonegg-2.9-old/include/dragonegg/Internals.h dragonegg-2.9-new/
 +  class Type;
 +  class FunctionType;
 +  class TargetMachine;
-+  class TargetData;
++  class DataLayout;
 +  class DebugInfo;
 +  template<typename> class AssertingVH;
 +  template<typename> class TrackingVH;
@@ -4329,8 +4329,8 @@ diff -r -u -N dragonegg-2.9-old/include/dragonegg/Internals.h dragonegg-2.9-new/
 +/// TheFolder - The constant folder to use.
 +extern TargetFolder *TheFolder;
 +
-+/// getTargetData - Return the current TargetData object from TheTarget.
-+const TargetData &getTargetData();
++/// getDataLayout - Return the current DataLayout object from TheTarget.
++const DataLayout &getDataLayout();
 +
 +/// flag_default_initialize_globals - Whether global variables with no explicit
 +/// initial value should be zero initialized.
@@ -4605,7 +4605,7 @@ diff -r -u -N dragonegg-2.9-old/include/dragonegg/Internals.h dragonegg-2.9-new/
 +///
 +class TreeToLLVM {
 +  // State that is initialized when the function starts.
-+  const TargetData &TD;
++  const DataLayout &TD;
 +  tree_node *FnDecl;
 +  Function *Fn;
 +  BasicBlock *ReturnBB;
@@ -5221,7 +5221,7 @@ diff -r -u -N dragonegg-2.9-old/Internals.h dragonegg-2.9-new/Internals.h
 -  class Type;
 -  class FunctionType;
 -  class TargetMachine;
--  class TargetData;
+-  class DataLayout;
 -  class DebugInfo;
 -  template<typename> class AssertingVH;
 -  template<typename> class TrackingVH;
@@ -5247,8 +5247,8 @@ diff -r -u -N dragonegg-2.9-old/Internals.h dragonegg-2.9-new/Internals.h
 -/// TheFolder - The constant folder to use.
 -extern TargetFolder *TheFolder;
 -
--/// getTargetData - Return the current TargetData object from TheTarget.
--const TargetData &getTargetData();
+-/// getDataLayout - Return the current DataLayout object from TheTarget.
+-const DataLayout &getDataLayout();
 -
 -/// flag_default_initialize_globals - Whether global variables with no explicit
 -/// initial value should be zero initialized.
@@ -5523,7 +5523,7 @@ diff -r -u -N dragonegg-2.9-old/Internals.h dragonegg-2.9-new/Internals.h
 -///
 -class TreeToLLVM {
 -  // State that is initialized when the function starts.
--  const TargetData &TD;
+-  const DataLayout &TD;
 -  tree_node *FnDecl;
 -  Function *Fn;
 -  BasicBlock *ReturnBB;

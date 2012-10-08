@@ -363,7 +363,7 @@ static bool isDirectMemoryAccessSafe(Type *RegTy, tree type) {
       return false;
     // Check that the field positions agree with GCC.
     unsigned StrideBits = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
-    return getTargetData().getTypeAllocSizeInBits(EltRegTy) == StrideBits;
+    return getDataLayout().getTypeAllocSizeInBits(EltRegTy) == StrideBits;
   }
 
   case OFFSET_TYPE:
@@ -449,7 +449,7 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type, MDNode *AliasTag,
       // See if changing the element type to an integer with size equal to the
       // mode size gives a vector type that corresponds to the in-memory layout.
       Type *MemTy = IntegerType::get(Context, Size);
-      if (getTargetData().getTypeAllocSizeInBits(MemTy) == Size) {
+      if (getDataLayout().getTypeAllocSizeInBits(MemTy) == Size) {
         // It does!  Load out the memory as a vector of that type then truncate
         // to the register size.
         Type *MemVecTy = VectorType::get(MemTy, NumElts);
@@ -461,7 +461,7 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type, MDNode *AliasTag,
     Value *Res = UndefValue::get(RegTy);
     bool isVectorOfPointers = isa<PointerType>(EltRegTy);
     unsigned Stride = GET_MODE_SIZE(TYPE_MODE(elt_type));
-    IntegerType *IntPtrTy = getTargetData().getIntPtrType(Context);
+    IntegerType *IntPtrTy = getDataLayout().getIntPtrType(Context);
     for (unsigned i = 0; i != NumElts; ++i) {
       Value *Idx = Builder.getInt32(i);
       Value *Elt = LoadRegisterFromMemory(Loc, elt_type, AliasTag, Builder);
@@ -536,7 +536,7 @@ static void StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
       // See if changing the element type to an integer with size equal to the
       // mode size gives a vector type that corresponds to the in-memory layout.
       Type *MemTy = IntegerType::get(Context, Size);
-      if (getTargetData().getTypeAllocSizeInBits(MemTy) == Size) {
+      if (getDataLayout().getTypeAllocSizeInBits(MemTy) == Size) {
         // It does!  Extend the register value to a vector of that type then
         // store it to memory.
         Type *MemVecTy = VectorType::get(MemTy, NumElts);
@@ -568,8 +568,8 @@ static void StoreRegisterToMemory(Value *V, MemRef Loc, tree type,
 /// TheTreeToLLVM - Keep track of the current function being compiled.
 TreeToLLVM *TheTreeToLLVM = 0;
 
-const TargetData &getTargetData() {
-  return *TheTarget->getTargetData();
+const DataLayout &getDataLayout() {
+  return *TheTarget->getDataLayout();
 }
 
 /// EmitDebugInfo - Return true if debug info is to be emitted for current
@@ -581,7 +581,7 @@ bool TreeToLLVM::EmitDebugInfo() {
 }
 
 TreeToLLVM::TreeToLLVM(tree fndecl) :
-    TD(getTargetData()), Builder(Context, *TheFolder) {
+    TD(getDataLayout()), Builder(Context, *TheFolder) {
   FnDecl = fndecl;
   AllocaInsertionPoint = 0;
   Fn = 0;
@@ -841,7 +841,7 @@ namespace {
         // we might need the other bytes.  We must also be careful to use
         // the smaller alignment.
         Type *SBP = Type::getInt8PtrTy(Context);
-        Type *IntPtr = getTargetData().getIntPtrType(Context);
+        Type *IntPtr = getDataLayout().getIntPtrType(Context);
         Value *Ops[5] = {
           Builder.CreateCast(Instruction::BitCast, Loc, SBP),
           Builder.CreateCast(Instruction::BitCast, AI, SBP),
@@ -1339,9 +1339,9 @@ Function *TreeToLLVM::FinishFunctionBody() {
         RetVals.push_back(Builder.CreateBitCast(Load, Fn->getReturnType()));
       } else {
         uint64_t ResultSize =
-          getTargetData().getTypeAllocSize(ConvertType(TREE_TYPE(TreeRetVal)));
+          getDataLayout().getTypeAllocSize(ConvertType(TREE_TYPE(TreeRetVal)));
         uint64_t ReturnSize =
-          getTargetData().getTypeAllocSize(Fn->getReturnType());
+          getDataLayout().getTypeAllocSize(Fn->getReturnType());
 
         // The load does not necessarily start at the beginning of the aggregate
         // (x86-64).
@@ -2083,7 +2083,7 @@ void TreeToLLVM::CopyElementByElement(MemRef DestLoc, MemRef SrcLoc,
   SrcLoc.Ptr = Builder.CreateBitCast(SrcLoc.Ptr, CompType->getPointerTo());
 
   // Copy each component in turn.
-  unsigned ComponentBytes = getTargetData().getTypeAllocSize(CompType);
+  unsigned ComponentBytes = getDataLayout().getTypeAllocSize(CompType);
   unsigned ArrayLength = ArrayLengthOf(type);
   for (unsigned i = 0; i != ArrayLength; ++i) {
     // Get the address of the component.
@@ -2178,7 +2178,7 @@ void TreeToLLVM::ZeroElementByElement(MemRef DestLoc, tree type) {
   DestLoc.Ptr = Builder.CreateBitCast(DestLoc.Ptr, CompType->getPointerTo());
 
   // Zero each component in turn.
-  unsigned ComponentBytes = getTargetData().getTypeAllocSize(CompType);
+  unsigned ComponentBytes = getDataLayout().getTypeAllocSize(CompType);
   unsigned ArrayLength = ArrayLengthOf(type);
   for (unsigned i = 0; i != ArrayLength; ++i) {
     // Get the address of the component.
@@ -2380,7 +2380,7 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
 
   // If this is the alignment we would have given the variable anyway then don't
   // use an explicit alignment, making the IR look more portable.
-  if (Alignment == getTargetData().getABITypeAlignment(Ty))
+  if (Alignment == getDataLayout().getABITypeAlignment(Ty))
     Alignment = 0;
 
   // Insert an alloca for this variable.
@@ -6019,7 +6019,7 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
   ArrayAddr = ArrayAddrLV.Ptr;
   ArrayAlign = ArrayAddrLV.getAlignment();
 
-  Type *IntPtrTy = getTargetData().getIntPtrType(Context);
+  Type *IntPtrTy = getDataLayout().getIntPtrType(Context);
   IndexVal = Builder.CreateIntCast(IndexVal, IntPtrTy,
                                    /*isSigned*/!TYPE_UNSIGNED(IndexType));
 
@@ -6595,7 +6595,7 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
 
   // Convert the elements.
   SmallVector<Constant*, 16> Elts;
-  IntegerType *IntTy = getTargetData().getIntPtrType(Context);
+  IntegerType *IntTy = getDataLayout().getIntPtrType(Context);
   for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt)) {
     Constant *Elt = EmitRegisterConstant(TREE_VALUE(elt));
     // LLVM does not support vectors of pointers, so turn any pointers into

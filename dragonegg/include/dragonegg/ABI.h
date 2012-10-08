@@ -32,7 +32,7 @@
 
 // LLVM headers
 #include "llvm/LLVMContext.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 
 namespace llvm {
   class BasicBlock;
@@ -149,7 +149,7 @@ extern bool isZeroSizedStructOrUnion(tree_node *type);
 inline
 Type* getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) {
   Type *Ty = ConvertType(type);
-  uint64_t Size = getTargetData().getTypeAllocSize(Ty);
+  uint64_t Size = getDataLayout().getTypeAllocSize(Ty);
   *Offset = 0;
   if (Size == 0)
     return Type::getVoidTy(getGlobalContext());

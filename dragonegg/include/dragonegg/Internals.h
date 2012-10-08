@@ -51,7 +51,7 @@ namespace llvm {
   class ConstantInt;
   class Type;
   class TargetMachine;
-  class TargetData;
+  class DataLayout;
   template<typename> class AssertingVH;
   template<typename> class TrackingVH;
 }
@@ -77,8 +77,8 @@ extern llvm::TargetMachine *TheTarget;
 /// TheFolder - The constant folder to use.
 extern TargetFolder *TheFolder;
 
-/// getTargetData - Return the current TargetData object from TheTarget.
-const TargetData &getTargetData();
+/// getDataLayout - Return the current DataLayout object from TheTarget.
+const DataLayout &getDataLayout();
 
 /// flag_default_initialize_globals - Whether global variables with no explicit
 /// initial value should be zero initialized.
@@ -222,7 +222,7 @@ struct PhiRecord {
 ///
 class TreeToLLVM {
   // State that is initialized when the function starts.
-  const TargetData &TD;
+  const DataLayout &TD;
   tree_node *FnDecl;
   Function *Fn;
   BasicBlock *ReturnBB;
