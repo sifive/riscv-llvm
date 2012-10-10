@@ -1030,28 +1030,28 @@ void TreeToLLVM::StartFunctionBody() {
 
   // Handle noinline Functions
   if (lookup_attribute ("noinline", DECL_ATTRIBUTES (FnDecl)))
-    Fn->addFnAttr(Attribute::NoInline);
+    Fn->addFnAttr(Attributes::NoInline);
 
   // Handle always_inline attribute
   if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (FnDecl)))
-    Fn->addFnAttr(Attribute::AlwaysInline);
+    Fn->addFnAttr(Attributes::AlwaysInline);
 
   // Pass inline keyword to optimizer.
   if (DECL_DECLARED_INLINE_P(FnDecl))
-    Fn->addFnAttr(Attribute::InlineHint);
+    Fn->addFnAttr(Attributes::InlineHint);
 
   if (optimize_size)
-    Fn->addFnAttr(Attribute::OptimizeForSize);
+    Fn->addFnAttr(Attributes::OptimizeForSize);
 
   // Handle stack smashing protection.
   if (flag_stack_protect == 1)
-    Fn->addFnAttr(Attribute::StackProtect);
+    Fn->addFnAttr(Attributes::StackProtect);
   else if (flag_stack_protect == 2)
-    Fn->addFnAttr(Attribute::StackProtectReq);
+    Fn->addFnAttr(Attributes::StackProtectReq);
 
   // Handle naked attribute
   if (lookup_attribute ("naked", DECL_ATTRIBUTES (FnDecl)))
-    Fn->addFnAttr(Attribute::Naked);
+    Fn->addFnAttr(Attributes::Naked);
 
   // Handle annotate attributes
   if (DECL_ATTRIBUTES(FnDecl))

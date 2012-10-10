@@ -1826,9 +1826,9 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 //TODO       I != E; ++I)
 //TODO    if (!I->isDeclaration()) {
 //TODO      if (flag_disable_red_zone)
-//TODO        I->addFnAttr(Attribute::NoRedZone);
+//TODO        I->addFnAttr(Attributes::NoRedZone);
 //TODO      if (flag_no_implicit_float)
-//TODO        I->addFnAttr(Attribute::NoImplicitFloat);
+//TODO        I->addFnAttr(Attributes::NoImplicitFloat);
 //TODO    }
 
   // Add an llvm.global_ctors global if needed.
