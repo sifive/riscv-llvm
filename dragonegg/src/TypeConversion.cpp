@@ -643,13 +643,13 @@ namespace {
 static Attributes HandleArgumentExtension(tree ArgTy) {
   if (isa<BOOLEAN_TYPE>(ArgTy)) {
     if (TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE)
-      return Attributes::get(Attributes::Builder(Attributes::ZExt));
+      return Attributes::get(Attributes::Builder().addAttribute(Attributes::ZExt));
   } else if (isa<INTEGER_TYPE>(ArgTy) &&
              TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE) {
     if (TYPE_UNSIGNED(ArgTy))
-      return Attributes::get(Attributes::Builder(Attributes::ZExt));
+      return Attributes::get(Attributes::Builder().addAttribute(Attributes::ZExt));
     else
-      return Attributes::get(Attributes::Builder(Attributes::SExt));
+      return Attributes::get(Attributes::Builder().addAttribute(Attributes::SExt));
   }
 
   return Attribute();
