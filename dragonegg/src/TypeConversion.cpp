@@ -643,16 +643,16 @@ namespace {
 static Attributes HandleArgumentExtension(tree ArgTy) {
   if (isa<BOOLEAN_TYPE>(ArgTy)) {
     if (TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE)
-      return Attribute::ZExt;
+      return Attributes::get(Attributes::Builder(Attributes::ZExt));
   } else if (isa<INTEGER_TYPE>(ArgTy) &&
              TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE) {
     if (TYPE_UNSIGNED(ArgTy))
-      return Attribute::ZExt;
+      return Attributes::get(Attributes::Builder(Attributes::ZExt));
     else
-      return Attribute::SExt;
+      return Attributes::get(Attributes::Builder(Attributes::SExt));
   }
 
-  return Attribute::None;
+  return Attribute();
 }
 
 /// ConvertParamListToLLVMSignature - This method is used to build the argument
@@ -689,29 +689,35 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
   TARGET_ADJUST_LLVM_RETATTR(RAttributes, type);
 #endif
 
-  if (RAttributes != Attribute::None)
+  if (RAttributes.hasAttributes())
     Attrs.push_back(AttributeWithIndex::get(0, RAttributes));
 
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
-  if (ABIConverter.isShadowReturn())
+  if (ABIConverter.isShadowReturn()) {
+    Attributes::Builder B;
+    B.addAttribute(Attributes::StructRet)
+      .addAttribute(Attributes::NoAlias);
     Attrs.push_back(AttributeWithIndex::get(ArgTys.size(),
-                                    Attribute::StructRet | Attribute::NoAlias));
+                                            Attributes::get(B)));
+  }
 
   std::vector<Type*> ScalarArgs;
   if (static_chain) {
     // Pass the static chain as the first parameter.
     ABIConverter.HandleArgument(TREE_TYPE(static_chain), ScalarArgs);
     // Mark it as the chain argument.
+    Attributes::Builder B;
+    B.addAttribute(Attributes::Nest);
     Attrs.push_back(AttributeWithIndex::get(ArgTys.size(),
-                                             Attribute::Nest));
+                                            Attributes::get(B)));
   }
 
   for (ArrayRef<tree>::iterator I = Args.begin(), E = Args.end(); I != E; ++I) {
     tree ArgTy = TREE_TYPE(*I);
 
     // Determine if there are any attributes for this param.
-    Attributes PAttributes = Attribute::None;
+    Attributes PAttributes;
 
     ABIConverter.HandleArgument(ArgTy, ScalarArgs, &PAttributes);
 
@@ -719,10 +725,12 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
     PAttributes |= HandleArgumentExtension(ArgTy);
 
     // Compute noalias attributes.
+    Attributes::Builder B;
     if (isa<ACCESS_TYPE>(ArgTy) && TYPE_RESTRICT(ArgTy))
-      PAttributes |= Attribute::NoAlias;
+      B.addAttribute(Attributes::NoAlias);
 
-    if (PAttributes != Attribute::None)
+    PAttributes |= Attributes::get(B);
+    if (PAttributes.hasAttributes())
       Attrs.push_back(AttributeWithIndex::get(ArgTys.size(), PAttributes));
   }
 
@@ -748,44 +756,46 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // Compute attributes for return type (and function attributes).
   SmallVector<AttributeWithIndex, 8> Attrs;
-  Attributes FnAttributes = Attribute::None;
+  Attributes::Builder FnAttributes;
 
   int flags = flags_from_decl_or_type(decl ? decl : type);
 
   // Check for 'readnone' and 'readonly' function attributes.
   if (flags & ECF_CONST)
-    FnAttributes |= Attribute::ReadNone;
+    FnAttributes.addAttribute(Attributes::ReadNone);
   else if (flags & ECF_PURE)
-    FnAttributes |= Attribute::ReadOnly;
+    FnAttributes.addAttribute(Attributes::ReadOnly);
 
   // TODO: Handle ECF_LOOPING_CONST_OR_PURE
 
   // Check for 'noreturn' function attribute.
   if (flags & ECF_NORETURN)
-    FnAttributes |= Attribute::NoReturn;
+    FnAttributes.addAttribute(Attributes::NoReturn);
 
   // Check for 'nounwind' function attribute.
   if (flags & ECF_NOTHROW)
-    FnAttributes |= Attribute::NoUnwind;
+    FnAttributes.addAttribute(Attributes::NoUnwind);
 
   // Check for 'returnstwice' function attribute.
   if (flags & ECF_RETURNS_TWICE)
-    FnAttributes |= Attribute::ReturnsTwice;
+    FnAttributes.addAttribute(Attributes::ReturnsTwice);
 
   // Since they write the return value through a pointer,
   // 'sret' functions cannot be 'readnone' or 'readonly'.
-  if (ABIConverter.isShadowReturn())
-    FnAttributes &= ~(Attribute::ReadNone|Attribute::ReadOnly);
+  if (ABIConverter.isShadowReturn()) {
+    FnAttributes.removeAttribute(Attributes::ReadNone)
+      .removeAttribute(Attributes::ReadOnly);
+  }
 
   // Demote 'readnone' nested functions to 'readonly' since
   // they may need to read through the static chain.
-  if (static_chain && (FnAttributes & Attribute::ReadNone)) {
-    FnAttributes &= ~Attribute::ReadNone;
-    FnAttributes |= Attribute::ReadOnly;
+  if (static_chain && FnAttributes.hasAttribute(Attributes::ReadNone)) {
+    FnAttributes.removeAttribute(Attributes::ReadNone);
+    FnAttributes.addAttribute(Attributes::ReadOnly);
   }
 
   // Compute whether the result needs to be zext or sext'd.
-  Attributes RAttributes = Attribute::None;
+  Attributes RAttributes;
   RAttributes |= HandleArgumentExtension(TREE_TYPE(type));
 
   // Allow the target to change the attributes.
@@ -795,24 +805,30 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // The value returned by a 'malloc' function does not alias anything.
   if (flags & ECF_MALLOC)
-    RAttributes |= Attribute::NoAlias;
+    RAttributes |= Attributes::get(Attributes::Builder(Attribute::NoAlias));
 
-  if (RAttributes != Attribute::None)
+  if (RAttributes.hasAttributes())
     Attrs.push_back(AttributeWithIndex::get(0, RAttributes));
 
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
-  if (ABIConverter.isShadowReturn())
+  if (ABIConverter.isShadowReturn()) {
+    Attributes::Builder B;
+    B.addAttribute(Attributes::StructRet)
+      .addAttribute(Attributes::NoAlias);
     Attrs.push_back(AttributeWithIndex::get(ArgTypes.size(),
-                                    Attribute::StructRet | Attribute::NoAlias));
+                                            Attributes::get(B)));
+  }
 
   std::vector<Type*> ScalarArgs;
   if (static_chain) {
     // Pass the static chain as the first parameter.
     ABIConverter.HandleArgument(TREE_TYPE(static_chain), ScalarArgs);
     // Mark it as the chain argument.
+    Attributes::Builder B;
+    B.addAttribute(Attributes::Nest);
     Attrs.push_back(AttributeWithIndex::get(ArgTypes.size(),
-                                             Attribute::Nest));
+                                            Attributes::get(B)));
   }
 
 #ifdef LLVM_TARGET_ENABLE_REGPARM
@@ -848,7 +864,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
         }
 
     // Determine if there are any attributes for this param.
-    Attributes PAttributes = Attribute::None;
+    Attributes PAttributes;
 
     unsigned OldSize = ArgTypes.size();
 
@@ -862,7 +878,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     // types.
     tree RestrictArgTy = (DeclArgs) ? TREE_TYPE(DeclArgs) : ArgTy;
     if (isa<ACCESS_TYPE>(RestrictArgTy) && TYPE_RESTRICT(RestrictArgTy))
-      PAttributes |= Attribute::NoAlias;
+      PAttributes |= Attributes::get(Attributes::Builder(Attributes::NoAlias));
 
 #ifdef LLVM_TARGET_ENABLE_REGPARM
     // Allow the target to mark this as inreg.
@@ -873,8 +889,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
                                     local_regparam, local_fp_regparam);
 #endif // LLVM_TARGET_ENABLE_REGPARM
 
-    if (PAttributes != Attribute::None) {
-      HasByVal |= (PAttributes & Attribute::ByVal) != Attribute::None;
+    if (PAttributes.hasAttributes()) {
+      HasByVal |= PAttributes.hasAttribute(Attributes::ByVal);
 
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
@@ -892,13 +908,14 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   // write to struct arguments passed by value, but in LLVM this becomes a
   // write through the byval pointer argument, which LLVM does not allow for
   // readonly/readnone functions.
-  if (HasByVal)
-    FnAttributes &= ~(Attribute::ReadNone | Attribute::ReadOnly);
+  if (HasByVal) {
+    FnAttributes.removeAttribute(Attributes::ReadNone)
+      .removeAttribute(Attributes::ReadOnly);
 
   assert(RetTy && "Return type not specified!");
 
-  if (FnAttributes != Attribute::None)
-    Attrs.push_back(AttributeWithIndex::get(~0, FnAttributes));
+  if (FnAttributes.hasAttribute())
+    Attrs.push_back(AttributeWithIndex::get(~0, Attributes::get(FnAttributes)));
 
   // Finally, make the function type and result attributes.
   PAL = AttrListPtr::get(Attrs);

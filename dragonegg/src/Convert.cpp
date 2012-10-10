@@ -3242,11 +3242,14 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     PAL = cast<Function>(Callee)->getAttributes();
 
   // Work out whether to use an invoke or an ordinary call.
-  if (!stmt_could_throw_p(stmt))
+  if (!stmt_could_throw_p(stmt)) {
     // This call does not throw - mark it 'nounwind'.
-    PAL = PAL.addAttr(~0, Attribute::NoUnwind);
+    Attributes::Builder B;
+    B.addAttribute(Attributes::NoUnwind);
+    PAL = PAL.addAttr(~0, Attributes::get(B));
+  }
 
-  if (!PAL.paramHasAttr(~0, Attribute::NoUnwind)) {
+  if (!PAL.getFnAttributes(~0).hasAttribute(Attributes::NoUnwind)) {
     // This call may throw.  Determine if we need to generate
     // an invoke rather than a simple call.
     LPadNo = lookup_stmt_eh_lp(stmt);
@@ -3333,13 +3336,13 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
       }
     }
 
-    Attributes Attrs = Attribute::None;
+    Attributes Attrs;
 
     unsigned OldSize = CallOperands.size();
 
     ABIConverter.HandleArgument(type, ScalarArgs, &Attrs);
 
-    if (Attrs != Attribute::None) {
+    if (Attrs.hasAttributes()) {
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
       for (unsigned j = OldSize + 1; j <= CallOperands.size(); ++j) {
@@ -5264,10 +5267,10 @@ Value *TreeToLLVM::EmitBuiltinCEXPI(gimple stmt) {
       PassedInMemory = true;
     }
 
-    Attributes Attrs = Attribute::None;
+    Attributes Attrs;
     std::vector<Type*> ScalarArgs;
     ABIConverter.HandleArgument(cplx_type, ScalarArgs, &Attrs);
-    assert(Attrs == Attribute::None && "Got attributes but none given!");
+    assert(!Attrs.hasAttributes() && "Got attributes but none given!");
     Client.clear();
 
     // Create the call.
