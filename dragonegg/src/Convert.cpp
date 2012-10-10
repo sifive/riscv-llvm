@@ -3249,7 +3249,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     PAL = PAL.addAttr(~0, Attributes::get(B));
   }
 
-  if (!PAL.getFnAttributes(~0).hasAttribute(Attributes::NoUnwind)) {
+  if (!PAL.getFnAttributes().hasAttribute(Attributes::NoUnwind)) {
     // This call may throw.  Determine if we need to generate
     // an invoke rather than a simple call.
     LPadNo = lookup_stmt_eh_lp(stmt);
