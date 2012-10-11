@@ -805,7 +805,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // The value returned by a 'malloc' function does not alias anything.
   if (flags & ECF_MALLOC)
-    RAttributes |= Attributes::get(Attributes::Builder(Attributes::NoAlias));
+    RAttributes |=
+      Attributes::get(Attributes::Builder().addAttribute(Attributes::NoAlias));
 
   if (RAttributes.hasAttributes())
     Attrs.push_back(AttributeWithIndex::get(0, RAttributes));
@@ -878,7 +879,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     // types.
     tree RestrictArgTy = (DeclArgs) ? TREE_TYPE(DeclArgs) : ArgTy;
     if (isa<ACCESS_TYPE>(RestrictArgTy) && TYPE_RESTRICT(RestrictArgTy))
-      PAttributes |= Attributes::get(Attributes::Builder(Attributes::NoAlias));
+      PAttributes |=
+       Attributes::get(Attributes::Builder().addAttribute(Attributes::NoAlias));
 
 #ifdef LLVM_TARGET_ENABLE_REGPARM
     // Allow the target to mark this as inreg.
@@ -908,13 +910,13 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   // write to struct arguments passed by value, but in LLVM this becomes a
   // write through the byval pointer argument, which LLVM does not allow for
   // readonly/readnone functions.
-  if (HasByVal) {
+  if (HasByVal)
     FnAttributes.removeAttribute(Attributes::ReadNone)
       .removeAttribute(Attributes::ReadOnly);
 
   assert(RetTy && "Return type not specified!");
 
-  if (FnAttributes.hasAttribute())
+  if (FnAttributes.hasAttributes())
     Attrs.push_back(AttributeWithIndex::get(~0, Attributes::get(FnAttributes)));
 
   // Finally, make the function type and result attributes.
