@@ -805,7 +805,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // The value returned by a 'malloc' function does not alias anything.
   if (flags & ECF_MALLOC)
-    RAttributes |= Attributes::get(Attributes::Builder(Attribute::NoAlias));
+    RAttributes |= Attributes::get(Attributes::Builder(Attributes::NoAlias));
 
   if (RAttributes.hasAttributes())
     Attrs.push_back(AttributeWithIndex::get(0, RAttributes));
