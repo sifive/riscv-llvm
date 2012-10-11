@@ -428,7 +428,8 @@ void DefaultABI::PassInMixedRegisters(Type *Ty,
   // that occupies storage but has no useful information, and is not passed
   // anywhere".  Happens on x86-64.
   std::vector<Type*> Elts(OrigElts);
-  Type* wordType = getDataLayout().getPointerSize() == 4 ?
+  unsigned AS = Ty->isPointerTy() ? cast<PointerType>(Ty)->getAddressSpace() : 0;
+  Type* wordType = getDataLayout().getPointerSize(AS) == 4 ?
     Type::getInt32Ty(getGlobalContext()) : Type::getInt64Ty(getGlobalContext());
   for (unsigned i=0, e=Elts.size(); i!=e; ++i)
     if (OrigElts[i]->isVoidTy())

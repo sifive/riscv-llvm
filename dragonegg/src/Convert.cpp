@@ -1839,7 +1839,9 @@ Value *TreeToLLVM::CastFromSameSizeInteger(Value *V, Type *Ty) {
   if (EltTy->isPointerTy()) {
     // A pointer/vector of pointer - use inttoptr.
     assert(OrigEltTy->getPrimitiveSizeInBits() ==
-           TD.getPointerSizeInBits() && "Pointer type not same size!");
+           TD.getPointerSizeInBits(
+             cast<PointerType>(EltTy)->getAddressSpace())
+           && "Pointer type not same size!");
     return Builder.CreateIntToPtr(V, Ty);
   }
   // Everything else.
