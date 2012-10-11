@@ -95,7 +95,7 @@ extern int ix86_regparm;
                   (Size + BITS_PER_WORD - 1) / BITS_PER_WORD;   \
           local_regparm -= words;                               \
           if (local_regparm>=0)                                 \
-            PAttribute |= Attribute::InReg;                     \
+            PAttribute |= Attributes(Attributes::InReg);        \
           else                                                  \
             local_regparm = 0;                                  \
       }                                                         \
