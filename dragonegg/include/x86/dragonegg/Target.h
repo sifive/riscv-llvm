@@ -43,7 +43,7 @@ class SubtargetFeatures;
     tree_node *type_attributes = TYPE_ATTRIBUTES (type);              \
     if (!TARGET_64BIT && (TARGET_SSEREGPARM ||                  \
                lookup_attribute("sseregparm", type_attributes)))\
-      RAttributes |= Attribute::InReg;                          \
+      RAttributes |= Attributes(Attributes::InReg);             \
   }
 
 /* LLVM specific stuff for converting gcc's `regparm` attribute to LLVM's
@@ -86,7 +86,7 @@ extern int ix86_regparm;
            TYPE_PRECISION(Type)==64)) {                         \
           local_fp_regparm -= 1;                                \
           if (local_fp_regparm >= 0)                            \
-            PAttribute |= Attribute::InReg;                     \
+            PAttribute |= Attributes(Attributes::InReg);        \
           else                                                  \
             local_fp_regparm = 0;                               \
       } else if (isa<INTEGRAL_TYPE>(Type) ||                    \

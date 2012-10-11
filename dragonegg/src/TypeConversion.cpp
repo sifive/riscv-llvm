@@ -652,7 +652,7 @@ static Attributes HandleArgumentExtension(tree ArgTy) {
       return Attributes::get(Attributes::Builder().addAttribute(Attributes::SExt));
   }
 
-  return Attribute();
+  return Attributes();
 }
 
 /// ConvertParamListToLLVMSignature - This method is used to build the argument
