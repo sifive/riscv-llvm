@@ -329,7 +329,7 @@ public:
   /// should be handled.  This handles things like decimating structures into
   /// their fields.
   void HandleArgument(tree_node *type, std::vector<Type*> &ScalarElts,
-                      Attributes::Builder *AttrBuilder = NULL);
+                      AttrBuilder *AttrBuilder = NULL);
 
   /// HandleUnion - Handle a UNION_TYPE or QUAL_UNION_TYPE tree.
   ///
