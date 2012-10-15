@@ -217,7 +217,8 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
         Attributes::Builder B;
         B.addAttribute(Attributes::ByVal);
         B.addAlignmentAttr(LLVM_BYVAL_ALIGNMENT(type));
-        *Attributes = Attributes::get(B.addAttributes(*Attributes));
+        *Attributes = Attributes::get(Ty->getContext(),
+                                      B.addAttributes(*Attributes));
       }
     } else {
       C.HandleScalarArgument(Ty, type);
@@ -244,7 +245,8 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
         Attributes::Builder B;
         B.addAttribute(Attributes::ByVal);
         B.addAlignmentAttr(LLVM_BYVAL_ALIGNMENT(type));
-        *Attributes = Attributes::get(B.addAttributes(*Attributes));
+        *Attributes = Attributes::get(Ty->getContext(),
+                                      B.addAttributes(*Attributes));
       }
     }
   } else if (LLVM_SHOULD_PASS_AGGREGATE_USING_BYVAL_ATTR(type, Ty)) {
@@ -253,7 +255,8 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
       Attributes::Builder B;
       B.addAttribute(Attributes::ByVal);
       B.addAlignmentAttr(LLVM_BYVAL_ALIGNMENT(type));
-      *Attributes = Attributes::get(B.addAttributes(*Attributes));
+      *Attributes = Attributes::get(Ty->getContext(),
+                                    B.addAttributes(*Attributes));
     }
   } else if (LLVM_SHOULD_PASS_AGGREGATE_IN_INTEGER_REGS(type, &Size,
                                                         &DontCheckAlignment)) {

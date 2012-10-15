@@ -640,16 +640,16 @@ namespace {
   };
 }
 
-static Attributes HandleArgumentExtension(tree ArgTy) {
+static Attributes HandleArgumentExtension(LLVMContext &C, tree ArgTy) {
   if (isa<BOOLEAN_TYPE>(ArgTy)) {
     if (TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE)
-      return Attributes::get(Attributes::Builder().addAttribute(Attributes::ZExt));
+      return Attributes::get(C, Attributes::Builder().addAttribute(Attributes::ZExt));
   } else if (isa<INTEGER_TYPE>(ArgTy) &&
              TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE) {
     if (TYPE_UNSIGNED(ArgTy))
-      return Attributes::get(Attributes::Builder().addAttribute(Attributes::ZExt));
+      return Attributes::get(C, Attributes::Builder().addAttribute(Attributes::ZExt));
     else
-      return Attributes::get(Attributes::Builder().addAttribute(Attributes::SExt));
+      return Attributes::get(C, Attributes::Builder().addAttribute(Attributes::SExt));
   }
 
   return Attributes();
@@ -680,9 +680,10 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
   ABIConverter.HandleReturnType(ReturnType, current_function_decl, false);
 
   SmallVector<AttributeWithIndex, 8> Attrs;
+  LLVMContext &Context = RetTy->getContext()
 
   // Compute whether the result needs to be zext or sext'd.
-  Attributes RAttributes = HandleArgumentExtension(ReturnType);
+  Attributes RAttributes = HandleArgumentExtension(Context, ReturnType);
 
   // Allow the target to change the attributes.
 #ifdef TARGET_ADJUST_LLVM_RETATTR
@@ -699,7 +700,7 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
     B.addAttribute(Attributes::StructRet)
       .addAttribute(Attributes::NoAlias);
     Attrs.push_back(AttributeWithIndex::get(ArgTys.size(),
-                                            Attributes::get(B)));
+                                            Attributes::get(Context, B)));
   }
 
   std::vector<Type*> ScalarArgs;
@@ -710,7 +711,7 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
     Attributes::Builder B;
     B.addAttribute(Attributes::Nest);
     Attrs.push_back(AttributeWithIndex::get(ArgTys.size(),
-                                            Attributes::get(B)));
+                                            Attributes::get(Context, B)));
   }
 
   for (ArrayRef<tree>::iterator I = Args.begin(), E = Args.end(); I != E; ++I) {
@@ -722,14 +723,14 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
     ABIConverter.HandleArgument(ArgTy, ScalarArgs, &PAttributes);
 
     // Compute zext/sext attributes.
-    PAttributes |= HandleArgumentExtension(ArgTy);
+    PAttributes |= HandleArgumentExtension(Context, ArgTy);
 
     // Compute noalias attributes.
     Attributes::Builder B;
     if (isa<ACCESS_TYPE>(ArgTy) && TYPE_RESTRICT(ArgTy))
       B.addAttribute(Attributes::NoAlias);
 
-    PAttributes |= Attributes::get(B);
+    PAttributes |= Attributes::get(Context, B);
     if (PAttributes.hasAttributes())
       Attrs.push_back(AttributeWithIndex::get(ArgTys.size(), PAttributes));
   }
@@ -796,7 +797,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // Compute whether the result needs to be zext or sext'd.
   Attributes RAttributes;
-  RAttributes |= HandleArgumentExtension(TREE_TYPE(type));
+  LLVMContext &Context = RetTy->getContext();
+  RAttributes |= HandleArgumentExtension(Context, TREE_TYPE(type));
 
   // Allow the target to change the attributes.
 #ifdef TARGET_ADJUST_LLVM_RETATTR
@@ -806,7 +808,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   // The value returned by a 'malloc' function does not alias anything.
   if (flags & ECF_MALLOC)
     RAttributes |=
-      Attributes::get(Attributes::Builder().addAttribute(Attributes::NoAlias));
+      Attributes::get(Context, Attributes::Builder().addAttribute(Attributes::NoAlias));
 
   if (RAttributes.hasAttributes())
     Attrs.push_back(AttributeWithIndex::get(0, RAttributes));
@@ -818,7 +820,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     B.addAttribute(Attributes::StructRet)
       .addAttribute(Attributes::NoAlias);
     Attrs.push_back(AttributeWithIndex::get(ArgTypes.size(),
-                                            Attributes::get(B)));
+                                            Attributes::get(Context, B)));
   }
 
   std::vector<Type*> ScalarArgs;
@@ -829,7 +831,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     Attributes::Builder B;
     B.addAttribute(Attributes::Nest);
     Attrs.push_back(AttributeWithIndex::get(ArgTypes.size(),
-                                            Attributes::get(B)));
+                                            Attributes::get(Context, B)));
   }
 
 #ifdef LLVM_TARGET_ENABLE_REGPARM
@@ -872,7 +874,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     ABIConverter.HandleArgument(ArgTy, ScalarArgs, &PAttributes);
 
     // Compute zext/sext attributes.
-    PAttributes |= HandleArgumentExtension(ArgTy);
+    PAttributes |= HandleArgumentExtension(Context, ArgTy);
 
     // Compute noalias attributes. If we have a decl for the function
     // inspect it for restrict qualifiers, otherwise try the argument
@@ -880,7 +882,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     tree RestrictArgTy = (DeclArgs) ? TREE_TYPE(DeclArgs) : ArgTy;
     if (isa<ACCESS_TYPE>(RestrictArgTy) && TYPE_RESTRICT(RestrictArgTy))
       PAttributes |=
-       Attributes::get(Attributes::Builder().addAttribute(Attributes::NoAlias));
+        Attributes::get(Context, Attributes::Builder().addAttribute(Attributes::NoAlias));
 
 #ifdef LLVM_TARGET_ENABLE_REGPARM
     // Allow the target to mark this as inreg.
@@ -917,7 +919,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   assert(RetTy && "Return type not specified!");
 
   if (FnAttributes.hasAttributes())
-    Attrs.push_back(AttributeWithIndex::get(~0, Attributes::get(FnAttributes)));
+    Attrs.push_back(AttributeWithIndex::get(~0, Attributes::get(Context, FnAttributes)));
 
   // Finally, make the function type and result attributes.
   PAL = AttrListPtr::get(Attrs);

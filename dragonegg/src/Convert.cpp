@@ -3248,7 +3248,8 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     // This call does not throw - mark it 'nounwind'.
     Attributes::Builder B;
     B.addAttribute(Attributes::NoUnwind);
-    PAL = PAL.addAttr(Callee->getContext(), ~0, Attributes::get(B));
+    PAL = PAL.addAttr(Callee->getContext(), ~0,
+                      Attributes::get(Callee->getContext(), B));
   }
 
   if (!PAL.getFnAttributes().hasAttribute(Attributes::NoUnwind)) {
