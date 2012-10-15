@@ -680,7 +680,7 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
   ABIConverter.HandleReturnType(ReturnType, current_function_decl, false);
 
   SmallVector<AttributeWithIndex, 8> Attrs;
-  LLVMContext &Context = RetTy->getContext()
+  LLVMContext &Context = RetTy->getContext();
 
   // Compute whether the result needs to be zext or sext'd.
   Attributes RAttributes = HandleArgumentExtension(Context, ReturnType);
