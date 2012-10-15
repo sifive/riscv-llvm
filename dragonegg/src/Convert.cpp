@@ -3246,10 +3246,9 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   // Work out whether to use an invoke or an ordinary call.
   if (!stmt_could_throw_p(stmt)) {
     // This call does not throw - mark it 'nounwind'.
-    Attributes::Builder B;
-    B.addAttribute(Attributes::NoUnwind);
-    PAL = PAL.addAttr(Callee->getContext(), ~0,
-                      Attributes::get(Callee->getContext(), B));
+    Attributes NoUnwind = Attributes::get(Callee->getContext(),
+                                          Attributes::NoUnwind);
+    PAL = PAL.addAttr(Callee->getContext(), ~0, NoUnwind);
   }
 
   if (!PAL.getFnAttributes().hasAttribute(Attributes::NoUnwind)) {
@@ -3339,18 +3338,17 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
       }
     }
 
-    Attributes Attrs;
+    Attributes::Builder AttrBuilder;
 
     unsigned OldSize = CallOperands.size();
 
-    ABIConverter.HandleArgument(type, ScalarArgs, &Attrs);
+    ABIConverter.HandleArgument(type, ScalarArgs, &AttrBuilder);
 
-    if (Attrs.hasAttributes()) {
+    if (AttrBuilder.hasAttributes()) {
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
-      for (unsigned j = OldSize + 1; j <= CallOperands.size(); ++j) {
-        PAL = PAL.addAttr(Callee->getContext(), j, Attrs);
-      }
+      for (unsigned j = OldSize + 1; j <= CallOperands.size(); ++j)
+        PAL = PAL.addAttr(Context, j, Attributes::get(Context, AttrBuilder));
     }
 
     Client.clear();
@@ -5270,10 +5268,10 @@ Value *TreeToLLVM::EmitBuiltinCEXPI(gimple stmt) {
       PassedInMemory = true;
     }
 
-    Attributes Attrs;
+    Attributes::Builder AttrBuilder;
     std::vector<Type*> ScalarArgs;
-    ABIConverter.HandleArgument(cplx_type, ScalarArgs, &Attrs);
-    assert(!Attrs.hasAttributes() && "Got attributes but none given!");
+    ABIConverter.HandleArgument(cplx_type, ScalarArgs, &AttrBuilder);
+    assert(!AttrBuilder.hasAttributes() && "Got attributes but none given!");
     Client.clear();
 
     // Create the call.

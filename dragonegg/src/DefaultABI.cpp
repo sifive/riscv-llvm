@@ -192,7 +192,7 @@ void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
 /// should be handled.  This handles things like decimating structures into
 /// their fields.
 void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
-                                Attributes *Attributes) {
+                                Attributes::Builder *AttrBuilder) {
   unsigned Size = 0;
   bool DontCheckAlignment = false;
   Type *Ty = ConvertType(type);
@@ -213,12 +213,9 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
       PassInIntegerRegisters(type, ScalarElts, 0, false);
     } else if (LLVM_SHOULD_PASS_VECTOR_USING_BYVAL_ATTR(type)) {
       C.HandleByValArgument(Ty, type);
-      if (Attributes) {
-        Attributes::Builder B;
-        B.addAttribute(Attributes::ByVal);
-        B.addAlignmentAttr(LLVM_BYVAL_ALIGNMENT(type));
-        *Attributes = Attributes::get(Ty->getContext(),
-                                      B.addAttributes(*Attributes));
+      if (AttrBuilder) {
+        AttrBuilder->addAttribute(Attributes::ByVal);
+        AttrBuilder->addAlignmentAttr(LLVM_BYVAL_ALIGNMENT(type));
       }
     } else {
       C.HandleScalarArgument(Ty, type);
@@ -241,22 +238,16 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
       PassInMixedRegisters(Ty, Elts, ScalarElts);
     else {
       C.HandleByValArgument(Ty, type);
-      if (Attributes) {
-        Attributes::Builder B;
-        B.addAttribute(Attributes::ByVal);
-        B.addAlignmentAttr(LLVM_BYVAL_ALIGNMENT(type));
-        *Attributes = Attributes::get(Ty->getContext(),
-                                      B.addAttributes(*Attributes));
+      if (AttrBuilder) {
+        AttrBuilder->addAttribute(Attributes::ByVal);
+        AttrBuilder->addAlignmentAttr(LLVM_BYVAL_ALIGNMENT(type));
       }
     }
   } else if (LLVM_SHOULD_PASS_AGGREGATE_USING_BYVAL_ATTR(type, Ty)) {
     C.HandleByValArgument(Ty, type);
-    if (Attributes) {
-      Attributes::Builder B;
-      B.addAttribute(Attributes::ByVal);
-      B.addAlignmentAttr(LLVM_BYVAL_ALIGNMENT(type));
-      *Attributes = Attributes::get(Ty->getContext(),
-                                    B.addAttributes(*Attributes));
+    if (AttrBuilder) {
+      AttrBuilder->addAttribute(Attributes::ByVal);
+      AttrBuilder->addAlignmentAttr(LLVM_BYVAL_ALIGNMENT(type));
     }
   } else if (LLVM_SHOULD_PASS_AGGREGATE_IN_INTEGER_REGS(type, &Size,
                                                         &DontCheckAlignment)) {

@@ -30,7 +30,7 @@ class SubtargetFeatures;
 /* LLVM specific stuff for supporting calling convention output */
 #define TARGET_ADJUST_LLVM_CC(CC, type)                         \
   {                                                             \
-    tree_node *type_attributes = TYPE_ATTRIBUTES (type);              \
+    tree_node *type_attributes = TYPE_ATTRIBUTES (type);        \
     if (lookup_attribute ("stdcall", type_attributes)) {        \
       CC = CallingConv::X86_StdCall;                            \
     } else if (lookup_attribute("fastcall", type_attributes)) { \
@@ -38,12 +38,12 @@ class SubtargetFeatures;
     }                                                           \
   }
 
-#define TARGET_ADJUST_LLVM_RETATTR(Rattributes, type)           \
-  {                                                             \
-    tree_node *type_attributes = TYPE_ATTRIBUTES (type);              \
-    if (!TARGET_64BIT && (TARGET_SSEREGPARM ||                  \
-               lookup_attribute("sseregparm", type_attributes)))\
-      RAttributes |= Attributes(Attributes::InReg);             \
+#define TARGET_ADJUST_LLVM_RETATTR(type, AttrBuilder)             \
+  {                                                               \
+    tree_node *type_attributes = TYPE_ATTRIBUTES (type);          \
+    if (!TARGET_64BIT && (TARGET_SSEREGPARM ||                    \
+               lookup_attribute("sseregparm", type_attributes)))  \
+      AttrBuilder.addAttribute(Attributes::InReg);                \
   }
 
 /* LLVM specific stuff for converting gcc's `regparm` attribute to LLVM's
@@ -76,7 +76,7 @@ extern int ix86_regparm;
       local_fp_regparm = 3;                                     \
   }
 
-#define LLVM_ADJUST_REGPARM_ATTRIBUTE(PAttribute, Type, Size,   \
+#define LLVM_ADJUST_REGPARM_ATTRIBUTE(AttrBuilder, Type, Size,  \
                                       local_regparm,            \
                                       local_fp_regparm)         \
   {                                                             \
@@ -86,7 +86,7 @@ extern int ix86_regparm;
            TYPE_PRECISION(Type)==64)) {                         \
           local_fp_regparm -= 1;                                \
           if (local_fp_regparm >= 0)                            \
-            PAttribute |= Attributes(Attributes::InReg);        \
+            AttrBuilder.addAttribute(Attributes::InReg);        \
           else                                                  \
             local_fp_regparm = 0;                               \
       } else if (isa<INTEGRAL_TYPE>(Type) ||                    \
@@ -95,7 +95,7 @@ extern int ix86_regparm;
                   (Size + BITS_PER_WORD - 1) / BITS_PER_WORD;   \
           local_regparm -= words;                               \
           if (local_regparm>=0)                                 \
-            PAttribute |= Attributes(Attributes::InReg);        \
+            AttrBuilder.addAttribute(Attributes::InReg);        \
           else                                                  \
             local_regparm = 0;                                  \
       }                                                         \
