@@ -3338,7 +3338,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
       }
     }
 
-    Attributes::Builder AttrBuilder;
+    AttrBuilder AttrBuilder;
 
     unsigned OldSize = CallOperands.size();
 
@@ -5268,7 +5268,7 @@ Value *TreeToLLVM::EmitBuiltinCEXPI(gimple stmt) {
       PassedInMemory = true;
     }
 
-    Attributes::Builder AttrBuilder;
+    AttrBuilder AttrBuilder;
     std::vector<Type*> ScalarArgs;
     ABIConverter.HandleArgument(cplx_type, ScalarArgs, &AttrBuilder);
     assert(!AttrBuilder.hasAttributes() && "Got attributes but none given!");

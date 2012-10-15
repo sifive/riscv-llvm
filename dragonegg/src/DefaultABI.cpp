@@ -192,7 +192,7 @@ void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
 /// should be handled.  This handles things like decimating structures into
 /// their fields.
 void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
-                                Attributes::Builder *AttrBuilder) {
+                                AttrBuilder *AttrBuilder) {
   unsigned Size = 0;
   bool DontCheckAlignment = false;
   Type *Ty = ConvertType(type);

@@ -640,7 +640,7 @@ namespace {
   };
 }
 
-static void HandleArgumentExtension(tree ArgTy, Attributes::Builder &AttrBuilder) {
+static void HandleArgumentExtension(tree ArgTy, AttrBuilder &AttrBuilder) {
   if (isa<BOOLEAN_TYPE>(ArgTy)) {
     if (TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE)
       AttrBuilder.addAttribute(Attributes::ZExt);
@@ -681,7 +681,7 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
   LLVMContext &Context = RetTy->getContext();
 
   // Compute whether the result needs to be zext or sext'd.
-  Attributes::Builder RAttrBuilder;
+  AttrBuilder RAttrBuilder;
   HandleArgumentExtension(ReturnType, RAttrBuilder);
 
   // Allow the target to change the attributes.
@@ -696,7 +696,7 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
   if (ABIConverter.isShadowReturn()) {
-    Attributes::Builder B;
+    AttrBuilder B;
     B.addAttribute(Attributes::StructRet)
       .addAttribute(Attributes::NoAlias);
     Attrs.push_back(AttributeWithIndex::get(ArgTys.size(),
@@ -716,7 +716,7 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
     tree ArgTy = TREE_TYPE(*I);
 
     // Determine if there are any attributes for this param.
-    Attributes::Builder PAttrBuilder;
+    AttrBuilder PAttrBuilder;
 
     ABIConverter.HandleArgument(ArgTy, ScalarArgs, &PAttrBuilder);
 
@@ -755,7 +755,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // Compute attributes for return type (and function attributes).
   SmallVector<AttributeWithIndex, 8> Attrs;
-  Attributes::Builder FnAttrBuilder;
+  AttrBuilder FnAttrBuilder;
 
   int flags = flags_from_decl_or_type(decl ? decl : type);
 
@@ -795,7 +795,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // Compute whether the result needs to be zext or sext'd.
   LLVMContext &Context = RetTy->getContext();
-  Attributes::Builder RAttrBuilder;
+  AttrBuilder RAttrBuilder;
   HandleArgumentExtension(TREE_TYPE(type), RAttrBuilder);
 
   // Allow the target to change the attributes.
@@ -814,7 +814,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
   if (ABIConverter.isShadowReturn()) {
-    Attributes::Builder B;
+    AttrBuilder B;
     B.addAttribute(Attributes::StructRet)
       .addAttribute(Attributes::NoAlias);
     Attrs.push_back(AttributeWithIndex::get(ArgTypes.size(),
@@ -863,7 +863,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
         }
 
     // Determine if there are any attributes for this param.
-    Attributes::Builder PAttrBuilder;
+    AttrBuilder PAttrBuilder;
 
     unsigned OldSize = ArgTypes.size();
 
