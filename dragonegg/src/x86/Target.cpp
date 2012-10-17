@@ -1850,95 +1850,24 @@ void llvm_x86_set_subtarget_features(std::string &C,
   else
     C = ix86_arch_string;
 
-  if (TARGET_64BIT)
-    F.AddFeature("64bit");
-  else if (target_flags_explicit & OPTION_MASK_ISA_64BIT)
-    F.AddFeature("64bit", false);
-
-  if (TARGET_3DNOW)
-    F.AddFeature("3dnow");
-  else if (target_flags_explicit & OPTION_MASK_ISA_3DNOW)
-    F.AddFeature("3dnow", false);
-
-  if (TARGET_3DNOW_A)
-    F.AddFeature("3dnowa");
-  else if (target_flags_explicit & OPTION_MASK_ISA_3DNOW_A)
-    F.AddFeature("3dnowa", false);
-
-  if (TARGET_AES)
-    F.AddFeature("aes");
-  else if (target_flags_explicit & OPTION_MASK_ISA_AES)
-    F.AddFeature("aes", false);
-
-  if (TARGET_AVX)
-    F.AddFeature("avx");
-  else if (target_flags_explicit & OPTION_MASK_ISA_AVX)
-    F.AddFeature("avx", false);
-
-  if (TARGET_CMPXCHG16B)
-    F.AddFeature("cmpxchg16b");
-  else if (target_flags_explicit & OPTION_MASK_ISA_CX16)
-    F.AddFeature("cmpxchg16b", false);
-
-  if (TARGET_FMA)
-    F.AddFeature("fma");
-  else if (target_flags_explicit & OPTION_MASK_ISA_FMA)
-    F.AddFeature("fma", false);
-
-  if (TARGET_FMA4)
-    F.AddFeature("fma4");
-  else if (target_flags_explicit & OPTION_MASK_ISA_FMA4)
-    F.AddFeature("fma4", false);
-
-  if (TARGET_MMX)
-    F.AddFeature("mmx");
-  else if (target_flags_explicit & OPTION_MASK_ISA_MMX)
-    F.AddFeature("mmx", false);
-
-  if (TARGET_POPCNT)
-    F.AddFeature("popcnt");
-  else if (target_flags_explicit & OPTION_MASK_ISA_POPCNT)
-    F.AddFeature("popcnt", false);
-
+  F.AddFeature("64bit", TARGET_64BIT);
+  F.AddFeature("3dnow", TARGET_3DNOW);
+  F.AddFeature("3dnowa", TARGET_3DNOW_A);
+  F.AddFeature("aes", TARGET_AES);
+  F.AddFeature("avx", TARGET_AVX);
+  F.AddFeature("cmpxchg16b", TARGET_CMPXCHG16B);
+  F.AddFeature("fma", TARGET_FMA);
+  F.AddFeature("fma4", TARGET_FMA4);
+  F.AddFeature("mmx", TARGET_MMX);
+  F.AddFeature("popcnt", TARGET_POPCNT);
 #ifdef TARGET_RDRND
-  if (TARGET_RDRND)
-    F.AddFeature("rdrand");
-  else if (target_flags_explicit & OPTION_MASK_ISA_RDRND)
-    F.AddFeature("rdrand", false);
+  F.AddFeature("rdrand", TARGET_RDRND);
 #endif
-
-  if (TARGET_SSE)
-    F.AddFeature("sse");
-  else if (target_flags_explicit & OPTION_MASK_ISA_SSE)
-    F.AddFeature("sse", false);
-
-  if (TARGET_SSE2)
-    F.AddFeature("sse2");
-  else if (target_flags_explicit & OPTION_MASK_ISA_SSE2)
-    F.AddFeature("sse2", false);
-
-  if (TARGET_SSE3)
-    F.AddFeature("sse3");
-  else if (target_flags_explicit & OPTION_MASK_ISA_SSE3)
-    F.AddFeature("sse3", false);
-
-  if (TARGET_SSE4_1)
-    F.AddFeature("sse41");
-  else if (target_flags_explicit & OPTION_MASK_ISA_SSE4_1)
-    F.AddFeature("sse41", false);
-
-  if (TARGET_SSE4_2)
-    F.AddFeature("sse42");
-  else if (target_flags_explicit & OPTION_MASK_ISA_SSE4_2)
-    F.AddFeature("sse42", false);
-
-  if (TARGET_SSE4A)
-    F.AddFeature("sse4a");
-  else if (target_flags_explicit & OPTION_MASK_ISA_SSE4A)
-    F.AddFeature("sse4a", false);
-
-  if (TARGET_SSSE3)
-    F.AddFeature("ssse3");
-  else if (target_flags_explicit & OPTION_MASK_ISA_SSSE3)
-    F.AddFeature("ssse3", false);
+  F.AddFeature("sse", TARGET_SSE);
+  F.AddFeature("sse2", TARGET_SSE2);
+  F.AddFeature("sse3", TARGET_SSE3);
+  F.AddFeature("sse41", TARGET_SSE4_1);
+  F.AddFeature("sse42", TARGET_SSE4_2);
+  F.AddFeature("sse4a", TARGET_SSE4A);
+  F.AddFeature("ssse3", TARGET_SSSE3);
 }

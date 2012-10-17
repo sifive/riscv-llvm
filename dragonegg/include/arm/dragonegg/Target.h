@@ -169,23 +169,11 @@ bool llvm_arm_should_pass_or_return_aggregate_in_regs(tree_node *TreeType,
       C = ("arm7tdmi"); \
       break; \
     } \
-    if (TARGET_VFP3)            \
-      F.AddFeature("vfp3");         \
-    else {              \
-      F.AddFeature("vfp3", false);        \
-      if (TARGET_VFP && TARGET_HARD_FLOAT)      \
-        F.AddFeature("vfp2");         \
-      else              \
-        F.AddFeature("vfp2", false);        \
-    }               \
-    if (TARGET_NEON)            \
-      F.AddFeature("neon");         \
-    else              \
-      F.AddFeature("neon", false);        \
-    if (TARGET_FP16)            \
-      F.AddFeature("fp16");         \
-    else              \
-      F.AddFeature("fp16", false);        \
+    F.AddFeature("vfp3", TARGET_VFP3);                        \
+    if (!TARGET_VFP3)                                         \
+      F.AddFeature("vfp2", TARGET_VFP && TARGET_HARD_FLOAT);  \
+    F.AddFeature("neon", TARGET_NEON);                        \
+    F.AddFeature("fp16", TARGET_FP16);                        \
   }
 
 /* Encode arm / thumb modes and arm subversion number in the triplet. e.g.
