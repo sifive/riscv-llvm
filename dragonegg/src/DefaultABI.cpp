@@ -148,7 +148,7 @@ void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
     if (ScalarType)
       C.HandleAggregateResultAsScalar(ConvertType(ScalarType));
     else if (LLVM_SHOULD_RETURN_VECTOR_AS_SHADOW(type, isBuiltin))
-      C.HandleScalarShadowResult(Ty->getPointerTo(), false);
+      C.HandleScalarShadowResult(Ty->getPointerTo(0), false);
     else
       C.HandleScalarResult(Ty);
   } else if (Ty->isSingleValueType() || Ty->isVoidTy()) {
