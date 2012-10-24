@@ -767,7 +767,7 @@ static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
   Type *FPTy =
     FunctionType::get(Type::getVoidTy(Context),
                       std::vector<Type*>(), false);
-  FPTy = FPTy->getPointerTo(0);
+  FPTy = FPTy->getPointerTo();
 
   for (unsigned i = 0, e = Tors.size(); i != e; ++i) {
     StructInit[0] = ConstantInt::get(Type::getInt32Ty(Context), Tors[i].second);

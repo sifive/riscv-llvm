@@ -410,42 +410,42 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
 //TODO  }
   case loadups: {
     VectorType *v4f32 = VectorType::get(Type::getFloatTy(Context), 4);
-    PointerType *v4f32Ptr = v4f32->getPointerTo(0);
+    PointerType *v4f32Ptr = v4f32->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v4f32Ptr);
     Result = Builder.CreateAlignedLoad(BC, 1);
     return true;
   }
   case loadupd: {
     VectorType *v2f64 = VectorType::get(Type::getDoubleTy(Context), 2);
-    PointerType *v2f64Ptr = v2f64->getPointerTo(0);
+    PointerType *v2f64Ptr = v2f64->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v2f64Ptr);
     Result = Builder.CreateAlignedLoad(BC, 1);
     return true;
   }
   case loaddqu: {
     VectorType *v16i8 = VectorType::get(Type::getInt8Ty(Context), 16);
-    PointerType *v16i8Ptr = v16i8->getPointerTo(0);
+    PointerType *v16i8Ptr = v16i8->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v16i8Ptr);
     Result = Builder.CreateAlignedLoad(BC, 1);
     return true;
   }
   case storeups: {
     VectorType *v4f32 = VectorType::get(Type::getFloatTy(Context), 4);
-    PointerType *v4f32Ptr = v4f32->getPointerTo(0);
+    PointerType *v4f32Ptr = v4f32->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v4f32Ptr);
     Builder.CreateAlignedStore(Ops[1], BC, 1);
     return true;
   }
   case storeupd: {
     VectorType *v2f64 = VectorType::get(Type::getDoubleTy(Context), 2);
-    PointerType *v2f64Ptr = v2f64->getPointerTo(0);
+    PointerType *v2f64Ptr = v2f64->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v2f64Ptr);
     Builder.CreateAlignedStore(Ops[1], BC, 1);
     return true;
   }
   case storedqu: {
     VectorType *v16i8 = VectorType::get(Type::getInt8Ty(Context), 16);
-    PointerType *v16i8Ptr = v16i8->getPointerTo(0);
+    PointerType *v16i8Ptr = v16i8->getPointerTo();
     Value *BC = Builder.CreateBitCast(Ops[0], v16i8Ptr);
     Builder.CreateAlignedStore(Ops[1], BC, 1);
     return true;

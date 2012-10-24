@@ -461,7 +461,7 @@ static Value *LoadRegisterFromMemory(MemRef Loc, tree type, MDNode *AliasTag,
     Value *Res = UndefValue::get(RegTy);
     bool isVectorOfPointers = isa<PointerType>(EltRegTy);
     unsigned Stride = GET_MODE_SIZE(TYPE_MODE(elt_type));
-    IntegerType *IntPtrTy = getDataLayout().getIntPtrType(EltRegTy);
+    IntegerType *IntPtrTy = getDataLayout().getIntPtrType(Context);
     for (unsigned i = 0; i != NumElts; ++i) {
       Value *Idx = Builder.getInt32(i);
       Value *Elt = LoadRegisterFromMemory(Loc, elt_type, AliasTag, Builder);
@@ -840,10 +840,8 @@ namespace {
         // bytes, but only 10 are copied.  If the object is really a union
         // we might need the other bytes.  We must also be careful to use
         // the smaller alignment.
-        // FIXME: Where do we get the address space?
-        unsigned AS = 0;
         Type *SBP = Type::getInt8PtrTy(Context);
-        Type *IntPtr = getDataLayout().getIntPtrType(Context, AS);
+        Type *IntPtr = getDataLayout().getIntPtrType(Context);
         Value *Ops[5] = {
           Builder.CreateCast(Instruction::BitCast, Loc, SBP),
           Builder.CreateCast(Instruction::BitCast, AI, SBP),
@@ -1357,7 +1355,7 @@ Function *TreeToLLVM::FinishFunctionBody() {
               Builder.CreateBitCast(ResultLV.Ptr, Type::getInt8PtrTy(Context));
             ResultLV.Ptr =
               Builder.CreateGEP(ResultLV.Ptr,
-                                ConstantInt::get(TD.getIntPtrType(ResultLV.Ptr->getType()),
+                                ConstantInt::get(TD.getIntPtrType(Context),
                                                  ReturnOffset),
                                 flag_verbose_asm ? "rtvl" : "");
             ResultLV.setAlignment(MinAlign(ResultLV.getAlignment(), ReturnOffset));
@@ -1863,7 +1861,7 @@ Value *TreeToLLVM::CastToSameSizeInteger(Value *V) {
     cast<VectorType>(OrigTy)->getNumElements() : 0;
   if (OrigEltTy->isPointerTy()) {
     // A pointer/vector of pointer - form a (vector of) pointer sized integers.
-    Type *NewEltTy = TD.getIntPtrType(OrigEltTy);
+    Type *NewEltTy = TD.getIntPtrType(Context);
     Type *NewTy = VecElts ? VectorType::get(NewEltTy, VecElts) : NewEltTy;
     return Builder.CreatePtrToInt(V, NewTy);
   }
@@ -2221,9 +2219,8 @@ void TreeToLLVM::EmitAggregateZero(MemRef DestLoc, tree type) {
 
 Value *TreeToLLVM::EmitMemCpy(Value *DestPtr, Value *SrcPtr, Value *Size,
                               unsigned Align) {
-
   Type *SBP = Type::getInt8PtrTy(Context);
-  Type *IntPtr = TD.getIntPtrType(DestPtr->getType());
+  Type *IntPtr = TD.getIntPtrType(Context);
   Value *Ops[5] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateBitCast(SrcPtr, SBP),
@@ -2241,7 +2238,7 @@ Value *TreeToLLVM::EmitMemCpy(Value *DestPtr, Value *SrcPtr, Value *Size,
 Value *TreeToLLVM::EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size,
                                unsigned Align) {
   Type *SBP = Type::getInt8PtrTy(Context);
-  Type *IntPtr = TD.getIntPtrType(DestPtr->getType());
+  Type *IntPtr = TD.getIntPtrType(Context);
   Value *Ops[5] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateBitCast(SrcPtr, SBP),
@@ -2259,7 +2256,7 @@ Value *TreeToLLVM::EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size,
 Value *TreeToLLVM::EmitMemSet(Value *DestPtr, Value *SrcVal, Value *Size,
                               unsigned Align) {
   Type *SBP = Type::getInt8PtrTy(Context);
-  Type *IntPtr = TD.getIntPtrType(DestPtr->getType());
+  Type *IntPtr = TD.getIntPtrType(Context);
   Value *Ops[5] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateIntCast(SrcVal, Type::getInt8Ty(Context), /*isSigned*/true),
@@ -2908,7 +2905,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
         // LLVM does not support vectors of pointers, so turn any pointers into
         // integers.
         if (isa<PointerType>(Elt->getType()))
-          Elt = Builder.CreatePtrToInt(Elt, TD.getIntPtrType(Elt->getType()));
+          Elt = Builder.CreatePtrToInt(Elt, TD.getIntPtrType(Context));
         assert(Elt->getType() == VTy->getElementType() &&
                "Unexpected type for vector constructor!");
         BuildVecOps.push_back(Elt);
@@ -2974,7 +2971,7 @@ static Value *llvm_load_scalar_argument(Value *L,
   assert(!BYTES_BIG_ENDIAN && "Unsupported case - please report");
   assert(LLVMTy->isIntegerTy() && "Expected an integer value!");
   Type *LoadType = IntegerType::get(Context, RealSize * 8);
-  L = Builder.CreateBitCast(L, LoadType->getPointerTo(LLVMTy));
+  L = Builder.CreateBitCast(L, LoadType->getPointerTo());
   Value *Val = Builder.CreateLoad(L);
   if (LoadType->getPrimitiveSizeInBits() >= LLVMTy->getPrimitiveSizeInBits())
     Val = Builder.CreateTrunc(Val, LLVMTy);
@@ -3480,7 +3477,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   if (Client.Offset) {
     Ptr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
     Ptr = Builder.CreateGEP(Ptr,
-                    ConstantInt::get(TD.getIntPtrType(Ptr->getType()), Client.Offset),
+                    ConstantInt::get(TD.getIntPtrType(Context), Client.Offset),
                     flag_verbose_asm ? "ro" : "");
     Align = MinAlign(Align, Client.Offset);
     MaxStoreSize -= Client.Offset;
@@ -5677,9 +5674,7 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&/*Result*/) {
   if (!validate_gimple_arglist(stmt, INTEGER_TYPE, POINTER_TYPE, VOID_TYPE))
     return false;
 
-  // FIXME: Where do I get the address space from here?
-  unsigned AS = 0;
-  Type *IntPtr = TD.getIntPtrType(Context, AS);
+  Type *IntPtr = TD.getIntPtrType(Context);
   Value *Offset = EmitMemory(gimple_call_arg(stmt, 0));
   Value *Handler = EmitMemory(gimple_call_arg(stmt, 1));
 
@@ -6028,7 +6023,7 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
   ArrayAddr = ArrayAddrLV.Ptr;
   ArrayAlign = ArrayAddrLV.getAlignment();
 
-  Type *IntPtrTy = getDataLayout().getIntPtrType(ArrayAddr->getType());
+  Type *IntPtrTy = getDataLayout().getIntPtrType(Context);
   IndexVal = Builder.CreateIntCast(IndexVal, IntPtrTy,
                                    /*isSigned*/!TYPE_UNSIGNED(IndexType));
 
@@ -6604,9 +6599,7 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
 
   // Convert the elements.
   SmallVector<Constant*, 16> Elts;
-  // FIXME: Where do I get the address space from?
-  unsigned AS = 0;
-  IntegerType *IntTy = getDataLayout().getIntPtrType(Context, AS);
+  IntegerType *IntTy = getDataLayout().getIntPtrType(Context);
   for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt)) {
     Constant *Elt = EmitRegisterConstant(TREE_VALUE(elt));
     // LLVM does not support vectors of pointers, so turn any pointers into

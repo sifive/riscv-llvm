@@ -300,7 +300,7 @@ Type *getPointerToType(tree type) {
     // void* -> byte*
     return GetUnitPointerType(Context);
   // FIXME: Handle address spaces.
-  return ConvertType(type)->getPointerTo(0);
+  return ConvertType(type)->getPointerTo();
 }
 
 /// GetUnitType - Returns an integer one address unit wide if 'NumUnits' is 1;
@@ -457,9 +457,7 @@ Type *getRegType(tree type) {
   }
 
   case OFFSET_TYPE:
-    // FIXME: Need to get the Address space here.
-    unsigned AS = 0;
-    return getDataLayout().getIntPtrType(Context, AS);
+    return getDataLayout().getIntPtrType(Context);
 
   case POINTER_TYPE:
   case REFERENCE_TYPE:
@@ -486,11 +484,9 @@ Type *getRegType(tree type) {
 
   case VECTOR_TYPE: {
     // LLVM does not support vectors of pointers, so turn any pointers into
-    // integers. <-- This isn't true since at least 3.1 as far as I know - MicahV
-    // FIXME: Need to get the Address space here.
-    unsigned AS = 0;
+    // integers.
     Type *EltTy = isa<ACCESS_TYPE>(TREE_TYPE(type)) ?
-      getDataLayout().getIntPtrType(Context, AS) : getRegType(TREE_TYPE(type));
+      getDataLayout().getIntPtrType(Context) : getRegType(TREE_TYPE(type));
     return VectorType::get(EltTy, TYPE_VECTOR_SUBPARTS(type));
   }
 
@@ -1423,9 +1419,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
     // which are really just integer offsets.  Return the appropriate integer
     // type directly.
     // Caching the type conversion is not worth it.
-    // FIXME: Need to get the Address space here.
-    unsigned AS = 0;
-    return CheckTypeConversion(type, getDataLayout().getIntPtrType(Context, AS));
+    return CheckTypeConversion(type, getDataLayout().getIntPtrType(Context));
 
   case REAL_TYPE:
     // Caching the type conversion is not worth it.
@@ -1464,9 +1458,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers.
     if (isa<ACCESS_TYPE>(TREE_TYPE(type)))
-      // FIXME: Need to get the Address space here.
-      unsigned AS = 0;
-      Ty = getDataLayout().getIntPtrType(Context, AS);
+      Ty = getDataLayout().getIntPtrType(Context);
     else
       Ty = ConvertTypeNonRecursive(main_type(type));
     Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));

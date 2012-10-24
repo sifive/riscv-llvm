@@ -295,7 +295,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
     llvm_unreachable("Unsupported type!");
   case Type::PointerTyID: {
     // Cast to an integer with the same number of bits and return that.
-    IntegerType *IntTy = getDataLayout().getIntPtrType(Ty);
+    IntegerType *IntTy = getDataLayout().getIntPtrType(Context);
     return BitSlice(0, StoreSize, Folder.CreatePtrToInt(C, IntTy));
   }
   case Type::DoubleTyID:
@@ -445,7 +445,7 @@ static Constant *InterpretAsType(Constant *C, Type* Ty, int StartingBit,
   case Type::PointerTyID: {
     // Interpret as an integer with the same number of bits then cast back to
     // the original type.
-    IntegerType *IntTy = getDataLayout().getIntPtrType(Ty);
+    IntegerType *IntTy = getDataLayout().getIntPtrType(Context);
     C = InterpretAsType(C, IntTy, StartingBit, Folder);
     return Folder.CreateIntToPtr(C, Ty);
   }
@@ -559,9 +559,7 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
     unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
     unsigned Stride = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
     SmallVector<Constant*, 16> Vals(NumElts);
-    // FIXME: what is the address space here?
-    unsigned AS = 0;
-    IntegerType *IntPtrTy = getDataLayout().getIntPtrType(Context, AS);
+    IntegerType *IntPtrTy = getDataLayout().getIntPtrType(Context);
     for (unsigned i = 0; i != NumElts; ++i) {
       Vals[i] = ExtractRegisterFromConstantImpl(C, elt_type,
                                                 StartingBit+i*Stride, Folder);
@@ -985,7 +983,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   if (isa<VECTOR_TYPE>(init_type) && ActualEltTy == EltTy) {
     // If this is a vector of pointers, convert it to a vector of integers.
     if (isa<PointerType>(EltTy)) {
-      IntegerType *IntPtrTy = getDataLayout().getIntPtrType(EltTy);
+      IntegerType *IntPtrTy = getDataLayout().getIntPtrType(Context);
       for (unsigned i = 0, e = Elts.size(); i != e; ++i)
         Elts[i] = Folder.CreatePtrToInt(Elts[i], IntPtrTy);
     }
@@ -1353,7 +1351,7 @@ static Constant *ConvertMINUS_EXPR(tree exp, TargetFolder &Folder) {
   Constant *LHS = getAsRegister(TREE_OPERAND(exp, 0), Folder);
   Constant *RHS = getAsRegister(TREE_OPERAND(exp, 1), Folder);
   if (LHS->getType()->getScalarType()->isPointerTy()) {
-    Type *PtrIntTy = getDataLayout().getIntPtrType(LHS->getType());
+    Type *PtrIntTy = getDataLayout().getIntPtrType(Context);
     LHS = Folder.CreatePtrToInt(LHS, PtrIntTy);
     RHS = Folder.CreatePtrToInt(RHS, PtrIntTy);
   }
@@ -1542,8 +1540,7 @@ static Constant *AddressOfARRAY_REF(tree exp, TargetFolder &Folder) {
   // doing the GEP on a pointer to the first array element.
   Constant *ArrayAddr = AddressOfImpl(array, Folder);
   Type *EltTy = ConvertType(main_type(main_type(array)));
-  // FIXME: not sure what to put here.
-  ArrayAddr = Folder.CreateBitCast(ArrayAddr, EltTy->getPointerTo(0));
+  ArrayAddr = Folder.CreateBitCast(ArrayAddr, EltTy->getPointerTo());
 
   return POINTER_TYPE_OVERFLOW_UNDEFINED ?
     Folder.CreateInBoundsGetElementPtr(ArrayAddr, IndexVal) :
