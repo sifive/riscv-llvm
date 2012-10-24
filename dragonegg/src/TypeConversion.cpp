@@ -456,11 +456,11 @@ Type *getRegType(tree type) {
     return StructType::get(EltTy, EltTy, NULL);
   }
 
-  case OFFSET_TYPE:
+  case OFFSET_TYPE: {
     // FIXME: Need to get the Address space here.
     unsigned AS = 0;
     return getDataLayout().getIntPtrType(Context, AS);
-
+  }
   case POINTER_TYPE:
   case REFERENCE_TYPE:
     // void* -> byte*
@@ -1418,7 +1418,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
     return RememberTypeConversion(type, Ty);
   }
 
-  case OFFSET_TYPE:
+  case OFFSET_TYPE: {
     // Handle OFFSET_TYPE specially.  This is used for pointers to members,
     // which are really just integer offsets.  Return the appropriate integer
     // type directly.
@@ -1426,7 +1426,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
     // FIXME: Need to get the Address space here.
     unsigned AS = 0;
     return CheckTypeConversion(type, getDataLayout().getIntPtrType(Context, AS));
-
+  }
   case REAL_TYPE:
     // Caching the type conversion is not worth it.
     switch (TYPE_PRECISION(type)) {
