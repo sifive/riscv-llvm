@@ -559,17 +559,9 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
     unsigned NumElts = TYPE_VECTOR_SUBPARTS(type);
     unsigned Stride = GET_MODE_BITSIZE(TYPE_MODE(elt_type));
     SmallVector<Constant*, 16> Vals(NumElts);
-    for (unsigned i = 0; i != NumElts; ++i) {
+    for (unsigned i = 0; i != NumElts; ++i)
       Vals[i] = ExtractRegisterFromConstantImpl(C, elt_type,
                                                 StartingBit+i*Stride, Folder);
-      // LLVM does not support vectors of pointers, so turn any pointers into
-      // integers.
-      if (isa<PointerType>(Vals[i]->getType())) {
-        IntegerType *IntPtrTy =
-          getDataLayout().getIntPtrType(Vals[i]->getType());
-        Vals[i] = Folder.CreatePtrToInt(Vals[i], IntPtrTy);
-      }
-    }
     return ConstantVector::get(Vals);
   }
 
@@ -982,15 +974,8 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // Make the IR more pleasant by returning as a vector if the GCC type was a
   // vector.  However this is only correct if the initial values had the same
   // type as the vector element type, rather than some random other type.
-  if (isa<VECTOR_TYPE>(init_type) && ActualEltTy == EltTy) {
-    // If this is a vector of pointers, convert it to a vector of integers.
-    if (isa<PointerType>(EltTy)) {
-      IntegerType *IntPtrTy = getDataLayout().getIntPtrType(EltTy);
-      for (unsigned i = 0, e = Elts.size(); i != e; ++i)
-        Elts[i] = Folder.CreatePtrToInt(Elts[i], IntPtrTy);
-    }
+  if (isa<VECTOR_TYPE>(init_type) && ActualEltTy == EltTy)
     return ConstantVector::get(Elts);
-  }
   return ConstantArray::get(ArrayType::get(ActualEltTy, Elts.size()), Elts);
 }
 
