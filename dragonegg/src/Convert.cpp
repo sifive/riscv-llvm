@@ -164,7 +164,7 @@ static StringRef SelectFPName(tree type, StringRef FloatName,
 MemRef DisplaceLocationByUnits(MemRef Loc, int32_t Offset,
                                LLVMBuilder &Builder) {
   // Convert to a byte pointer and displace by the offset.
-  unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
+  unsigned AddrSpace = Loc.Ptr->getType()->getPointerAddressSpace();
   Type *UnitPtrTy = GetUnitPointerType(Context, AddrSpace);
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, UnitPtrTy);
   Ptr = Builder.CreateConstInBoundsGEP1_32(Ptr, Offset,
@@ -177,7 +177,7 @@ MemRef DisplaceLocationByUnits(MemRef Loc, int32_t Offset,
 /// LoadFromLocation - Load a value of the given type from a memory location.
 static LoadInst *LoadFromLocation(MemRef Loc, Type *Ty, MDNode *AliasTag,
                                   LLVMBuilder &Builder) {
-  unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
+  unsigned AddrSpace = Loc.Ptr->getType()->getPointerAddressSpace();
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, Ty->getPointerTo(AddrSpace));
   LoadInst *LI = Builder.CreateAlignedLoad(Ptr, Loc.getAlignment(),
                                            Loc.Volatile);
@@ -190,7 +190,7 @@ static LoadInst *LoadFromLocation(MemRef Loc, Type *Ty, MDNode *AliasTag,
 static StoreInst *StoreToLocation(Value *V, MemRef Loc, MDNode *AliasTag,
                                   LLVMBuilder &Builder) {
   Type *Ty = V->getType();
-  unsigned AddrSpace = cast<PointerType>(Loc.Ptr->getType())->getAddressSpace();
+  unsigned AddrSpace = Loc.Ptr->getType()->getPointerAddressSpace();
   Value *Ptr = Builder.CreateBitCast(Loc.Ptr, Ty->getPointerTo(AddrSpace));
   StoreInst *SI = Builder.CreateAlignedStore(V, Ptr,  Loc.getAlignment(),
                                              Loc.Volatile);
