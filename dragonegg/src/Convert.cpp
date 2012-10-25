@@ -840,10 +840,8 @@ namespace {
         // bytes, but only 10 are copied.  If the object is really a union
         // we might need the other bytes.  We must also be careful to use
         // the smaller alignment.
-        // FIXME: Where do we get the address space?
-        unsigned AS = 0;
         Type *SBP = Type::getInt8PtrTy(Context);
-        Type *IntPtr = getDataLayout().getIntPtrType(Context, AS);
+        Type *IntPtr = getDataLayout().getIntPtrType(Context, 0);
         Value *Ops[5] = {
           Builder.CreateCast(Instruction::BitCast, Loc, SBP),
           Builder.CreateCast(Instruction::BitCast, AI, SBP),
@@ -1357,7 +1355,7 @@ Function *TreeToLLVM::FinishFunctionBody() {
               Builder.CreateBitCast(ResultLV.Ptr, Type::getInt8PtrTy(Context));
             ResultLV.Ptr =
               Builder.CreateGEP(ResultLV.Ptr,
-                                ConstantInt::get(TD.getIntPtrType(ResultLV.Ptr->getType()),
+                                ConstantInt::get(TD.getIntPtrType(Context, 0),
                                                  ReturnOffset),
                                 flag_verbose_asm ? "rtvl" : "");
             ResultLV.setAlignment(MinAlign(ResultLV.getAlignment(), ReturnOffset));
@@ -1859,16 +1857,15 @@ Value *TreeToLLVM::CastToSameSizeInteger(Value *V) {
   if (OrigEltTy->isIntegerTy())
     // Already an integer/vector of integer - nothing to do.
     return V;
-  unsigned VecElts = isa<VectorType>(OrigTy) ?
-    cast<VectorType>(OrigTy)->getNumElements() : 0;
   if (OrigEltTy->isPointerTy()) {
     // A pointer/vector of pointer - form a (vector of) pointer sized integers.
-    Type *NewEltTy = TD.getIntPtrType(OrigEltTy);
-    Type *NewTy = VecElts ? VectorType::get(NewEltTy, VecElts) : NewEltTy;
+    Type *NewTy = TD.getIntPtrType(OrigTy);
     return Builder.CreatePtrToInt(V, NewTy);
   }
   // Everything else.
   assert(OrigTy->isFPOrFPVectorTy() && "Expected a floating point type!");
+  unsigned VecElts = isa<VectorType>(OrigTy) ?
+    cast<VectorType>(OrigTy)->getNumElements() : 0;
   unsigned BitWidth = OrigEltTy->getPrimitiveSizeInBits();
   Type *NewEltTy = IntegerType::get(Context, BitWidth);
   Type *NewTy = VecElts ? VectorType::get(NewEltTy, VecElts) : NewEltTy;
@@ -3480,8 +3477,9 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   if (Client.Offset) {
     Ptr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
     Ptr = Builder.CreateGEP(Ptr,
-                    ConstantInt::get(TD.getIntPtrType(Ptr->getType()), Client.Offset),
-                    flag_verbose_asm ? "ro" : "");
+                            ConstantInt::get(TD.getIntPtrType(Ptr->getType()),
+                                             Client.Offset),
+                            flag_verbose_asm ? "ro" : "");
     Align = MinAlign(Align, Client.Offset);
     MaxStoreSize -= Client.Offset;
   }
@@ -5677,9 +5675,7 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&/*Result*/) {
   if (!validate_gimple_arglist(stmt, INTEGER_TYPE, POINTER_TYPE, VOID_TYPE))
     return false;
 
-  // FIXME: Where do I get the address space from here?
-  unsigned AS = 0;
-  Type *IntPtr = TD.getIntPtrType(Context, AS);
+  Type *IntPtr = TD.getIntPtrType(Context, 0);
   Value *Offset = EmitMemory(gimple_call_arg(stmt, 0));
   Value *Handler = EmitMemory(gimple_call_arg(stmt, 1));
 
@@ -6604,15 +6600,14 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
 
   // Convert the elements.
   SmallVector<Constant*, 16> Elts;
-  // FIXME: Where do I get the address space from?
-  unsigned AS = 0;
-  IntegerType *IntTy = getDataLayout().getIntPtrType(Context, AS);
   for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt)) {
     Constant *Elt = EmitRegisterConstant(TREE_VALUE(elt));
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers.
-    if (isa<PointerType>(Elt->getType()))
+    if (isa<PointerType>(Elt->getType())) {
+      IntegerType *IntTy = getDataLayout().getIntPtrType(Elt->getType());
       Elt = Builder.getFolder().CreatePtrToInt(Elt, IntTy);
+    }
     Elts.push_back(Elt);
   }
 

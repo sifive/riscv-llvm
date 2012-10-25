@@ -456,11 +456,9 @@ Type *getRegType(tree type) {
     return StructType::get(EltTy, EltTy, NULL);
   }
 
-  case OFFSET_TYPE: {
-    // FIXME: Need to get the Address space here.
-    unsigned AS = 0;
-    return getDataLayout().getIntPtrType(Context, AS);
-  }
+  case OFFSET_TYPE:
+    return getDataLayout().getIntPtrType(Context, TYPE_ADDR_SPACE(type));
+
   case POINTER_TYPE:
   case REFERENCE_TYPE:
     // void* -> byte*
@@ -487,10 +485,10 @@ Type *getRegType(tree type) {
   case VECTOR_TYPE: {
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers. <-- This isn't true since at least 3.1 as far as I know - MicahV
-    // FIXME: Need to get the Address space here.
-    unsigned AS = 0;
+    // FIXME     ^-- Yes, but does it work reliably? - Duncan
     Type *EltTy = isa<ACCESS_TYPE>(TREE_TYPE(type)) ?
-      getDataLayout().getIntPtrType(Context, AS) : getRegType(TREE_TYPE(type));
+      getDataLayout().getIntPtrType(Context, TYPE_ADDR_SPACE(TREE_TYPE(type))) :
+      getRegType(TREE_TYPE(type));
     return VectorType::get(EltTy, TYPE_VECTOR_SUBPARTS(type));
   }
 
@@ -1423,8 +1421,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
     // which are really just integer offsets.  Return the appropriate integer
     // type directly.
     // Caching the type conversion is not worth it.
-    // FIXME: Need to get the Address space here.
-    unsigned AS = 0;
+    unsigned AS = TYPE_ADDR_SPACE(type);
     return CheckTypeConversion(type, getDataLayout().getIntPtrType(Context, AS));
   }
   case REAL_TYPE:
@@ -1463,13 +1460,11 @@ static Type *ConvertTypeNonRecursive(tree type) {
     Type *Ty;
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers.
-    if (isa<ACCESS_TYPE>(TREE_TYPE(type))) {
-      // FIXME: Need to get the Address space here.
-      unsigned AS = 0;
-      Ty = getDataLayout().getIntPtrType(Context, AS);
-    } else {
+    if (isa<ACCESS_TYPE>(TREE_TYPE(type)))
+      Ty = getDataLayout().getIntPtrType(Context,
+                                         TYPE_ADDR_SPACE(TREE_TYPE(type)));
+    else
       Ty = ConvertTypeNonRecursive(main_type(type));
-    }
     Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));
     return RememberTypeConversion(type, Ty);
   }
