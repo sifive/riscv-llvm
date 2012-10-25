@@ -581,7 +581,7 @@ bool TreeToLLVM::EmitDebugInfo() {
 }
 
 TreeToLLVM::TreeToLLVM(tree fndecl) :
-    TD(getDataLayout()), Builder(Context, *TheFolder) {
+    DL(getDataLayout()), Builder(Context, *TheFolder) {
   FnDecl = fndecl;
   AllocaInsertionPoint = 0;
   Fn = 0;
@@ -1355,7 +1355,7 @@ Function *TreeToLLVM::FinishFunctionBody() {
               Builder.CreateBitCast(ResultLV.Ptr, Type::getInt8PtrTy(Context));
             ResultLV.Ptr =
               Builder.CreateGEP(ResultLV.Ptr,
-                                ConstantInt::get(TD.getIntPtrType(Context, 0),
+                                ConstantInt::get(DL.getIntPtrType(Context, 0),
                                                  ReturnOffset),
                                 flag_verbose_asm ? "rtvl" : "");
             ResultLV.setAlignment(MinAlign(ResultLV.getAlignment(), ReturnOffset));
@@ -1839,7 +1839,7 @@ Value *TreeToLLVM::CastFromSameSizeInteger(Value *V, Type *Ty) {
   if (EltTy->isPointerTy()) {
     // A pointer/vector of pointer - use inttoptr.
     assert(OrigEltTy->getPrimitiveSizeInBits() ==
-           TD.getPointerSizeInBits(
+           DL.getPointerSizeInBits(
              cast<PointerType>(EltTy)->getAddressSpace())
            && "Pointer type not same size!");
     return Builder.CreateIntToPtr(V, Ty);
@@ -1859,7 +1859,7 @@ Value *TreeToLLVM::CastToSameSizeInteger(Value *V) {
     return V;
   if (OrigEltTy->isPointerTy()) {
     // A pointer/vector of pointer - form a (vector of) pointer sized integers.
-    Type *NewTy = TD.getIntPtrType(OrigTy);
+    Type *NewTy = DL.getIntPtrType(OrigTy);
     return Builder.CreatePtrToInt(V, NewTy);
   }
   // Everything else.
@@ -1941,7 +1941,7 @@ MemRef TreeToLLVM::CreateTempLoc(Type *Ty) {
   AllocaInst *AI = CreateTemporary(Ty);
   // MemRefs do not allow alignment 0.
   if (!AI->getAlignment())
-    AI->setAlignment(TD.getPrefTypeAlignment(Ty));
+    AI->setAlignment(DL.getPrefTypeAlignment(Ty));
   return MemRef(AI, AI->getAlignment(), false);
 }
 
@@ -2220,7 +2220,7 @@ Value *TreeToLLVM::EmitMemCpy(Value *DestPtr, Value *SrcPtr, Value *Size,
                               unsigned Align) {
 
   Type *SBP = Type::getInt8PtrTy(Context);
-  Type *IntPtr = TD.getIntPtrType(DestPtr->getType());
+  Type *IntPtr = DL.getIntPtrType(DestPtr->getType());
   Value *Ops[5] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateBitCast(SrcPtr, SBP),
@@ -2238,7 +2238,7 @@ Value *TreeToLLVM::EmitMemCpy(Value *DestPtr, Value *SrcPtr, Value *Size,
 Value *TreeToLLVM::EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size,
                                unsigned Align) {
   Type *SBP = Type::getInt8PtrTy(Context);
-  Type *IntPtr = TD.getIntPtrType(DestPtr->getType());
+  Type *IntPtr = DL.getIntPtrType(DestPtr->getType());
   Value *Ops[5] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateBitCast(SrcPtr, SBP),
@@ -2256,7 +2256,7 @@ Value *TreeToLLVM::EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size,
 Value *TreeToLLVM::EmitMemSet(Value *DestPtr, Value *SrcVal, Value *Size,
                               unsigned Align) {
   Type *SBP = Type::getInt8PtrTy(Context);
-  Type *IntPtr = TD.getIntPtrType(DestPtr->getType());
+  Type *IntPtr = DL.getIntPtrType(DestPtr->getType());
   Value *Ops[5] = {
     Builder.CreateBitCast(DestPtr, SBP),
     Builder.CreateIntCast(SrcVal, Type::getInt8Ty(Context), /*isSigned*/true),
@@ -2905,7 +2905,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
         // LLVM does not support vectors of pointers, so turn any pointers into
         // integers.
         if (isa<PointerType>(Elt->getType()))
-          Elt = Builder.CreatePtrToInt(Elt, TD.getIntPtrType(Elt->getType()));
+          Elt = Builder.CreatePtrToInt(Elt, DL.getIntPtrType(Elt->getType()));
         assert(Elt->getType() == VTy->getElementType() &&
                "Unexpected type for vector constructor!");
         BuildVecOps.push_back(Elt);
@@ -3416,8 +3416,8 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
       // a temporary then load the value out later.
       Target = CreateTempLoc(ConvertType(gimple_call_return_type(stmt)));
 
-    if (TD.getTypeAllocSize(Call->getType()) <=
-        TD.getTypeAllocSize(cast<PointerType>(Target.Ptr->getType())
+    if (DL.getTypeAllocSize(Call->getType()) <=
+        DL.getTypeAllocSize(cast<PointerType>(Target.Ptr->getType())
                                              ->getElementType())) {
       Value *Dest = Builder.CreateBitCast(Target.Ptr,
                                           Call->getType()->getPointerTo());
@@ -3454,7 +3454,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     if (Call->getType()->canLosslesslyBitCastTo(RetTy))
       return Builder.CreateBitCast(Call, RetTy); // Simple case.
     // Probably a scalar to complex conversion.
-    assert(TD.getTypeAllocSize(Call->getType()) == TD.getTypeAllocSize(RetTy) &&
+    assert(DL.getTypeAllocSize(Call->getType()) == DL.getTypeAllocSize(RetTy) &&
            "Size mismatch in scalar to scalar conversion!");
     Value *Tmp = CreateTemporary(Call->getType());
     Builder.CreateStore(Call, Tmp);
@@ -3473,11 +3473,11 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   Type *AggTy = cast<PointerType>(Ptr->getType())->getElementType();
   // MaxStoreSize - The maximum number of bytes we can store without overflowing
   // the aggregate.
-  int64_t MaxStoreSize = TD.getTypeAllocSize(AggTy);
+  int64_t MaxStoreSize = DL.getTypeAllocSize(AggTy);
   if (Client.Offset) {
     Ptr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
     Ptr = Builder.CreateGEP(Ptr,
-                            ConstantInt::get(TD.getIntPtrType(Ptr->getType()),
+                            ConstantInt::get(DL.getIntPtrType(Ptr->getType()),
                                              Client.Offset),
                             flag_verbose_asm ? "ro" : "");
     Align = MinAlign(Align, Client.Offset);
@@ -3486,7 +3486,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   assert(MaxStoreSize > 0 && "Storing off end of aggregate?");
   Value *Val = Call;
   // Check whether storing the scalar directly would overflow the aggregate.
-  if (TD.getTypeStoreSize(Call->getType()) > (uint64_t)MaxStoreSize) {
+  if (DL.getTypeStoreSize(Call->getType()) > (uint64_t)MaxStoreSize) {
     // Chop down the size of the scalar to the maximum number of bytes that can
     // be stored without overflowing the destination.
     // TODO: Check whether this works correctly on big-endian machines.
@@ -5290,7 +5290,7 @@ Value *TreeToLLVM::EmitBuiltinCEXPI(gimple stmt) {
       // Extract to a temporary then load the value out later.
       MemRef Target = CreateTempLoc(CplxTy);
 
-      assert(TD.getTypeAllocSize(CI->getType()) <= TD.getTypeAllocSize(CplxTy)
+      assert(DL.getTypeAllocSize(CI->getType()) <= DL.getTypeAllocSize(CplxTy)
              && "Complex number returned in too large registers!");
       Value *Dest = Builder.CreateBitCast(Target.Ptr,
                                           CI->getType()->getPointerTo());
@@ -5302,7 +5302,7 @@ Value *TreeToLLVM::EmitBuiltinCEXPI(gimple stmt) {
       return CI;   // Normal scalar return.
 
     // Probably { float, float } being returned as a double.
-    assert(TD.getTypeAllocSize(CI->getType()) == TD.getTypeAllocSize(CplxTy) &&
+    assert(DL.getTypeAllocSize(CI->getType()) == DL.getTypeAllocSize(CplxTy) &&
            "Size mismatch in scalar to scalar conversion!");
     Value *Tmp = CreateTemporary(CI->getType());
     Builder.CreateStore(CI, Tmp);
@@ -5675,7 +5675,7 @@ bool TreeToLLVM::EmitBuiltinEHReturn(gimple stmt, Value *&/*Result*/) {
   if (!validate_gimple_arglist(stmt, INTEGER_TYPE, POINTER_TYPE, VOID_TYPE))
     return false;
 
-  Type *IntPtr = TD.getIntPtrType(Context, 0);
+  Type *IntPtr = DL.getIntPtrType(Context, 0);
   Value *Offset = EmitMemory(gimple_call_arg(stmt, 0));
   Value *Handler = EmitMemory(gimple_call_arg(stmt, 1));
 
@@ -6038,7 +6038,7 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
     Value *Ptr = POINTER_TYPE_OVERFLOW_UNDEFINED ?
       Builder.CreateInBoundsGEP(ArrayAddr, IndexVal, GEPName) :
       Builder.CreateGEP(ArrayAddr, IndexVal, GEPName);
-    unsigned Alignment = MinAlign(ArrayAlign, TD.getABITypeAlignment(EltTy));
+    unsigned Alignment = MinAlign(ArrayAlign, DL.getABITypeAlignment(EltTy));
     return LValue(Builder.CreateBitCast(Ptr,
                   PointerType::getUnqual(ConvertType(TREE_TYPE(exp)))),
                   Alignment);
@@ -6090,11 +6090,11 @@ LValue TreeToLLVM::EmitLV_BIT_FIELD_REF(tree exp) {
   unsigned BitSize = (unsigned)TREE_INT_CST_LOW(TREE_OPERAND(exp, 1));
   Type *ValTy = ConvertType(TREE_TYPE(exp));
 
-  unsigned ValueSizeInBits = TD.getTypeSizeInBits(ValTy);
+  unsigned ValueSizeInBits = DL.getTypeSizeInBits(ValTy);
   assert(BitSize <= ValueSizeInBits &&
          "ValTy isn't large enough to hold the value loaded!");
 
-  assert(ValueSizeInBits == TD.getTypeAllocSizeInBits(ValTy) &&
+  assert(ValueSizeInBits == DL.getTypeAllocSizeInBits(ValTy) &&
          "FIXME: BIT_FIELD_REF logic is broken for non-round types");
 
   // BIT_FIELD_REF values can have BitStart values that are quite large.  We
@@ -6326,7 +6326,7 @@ LValue TreeToLLVM::EmitLV_XXXXPART_EXPR(tree exp, unsigned Idx) {
   else
     // IMAGPART alignment = MinAlign(Ptr.Alignment, sizeof field);
     Alignment = MinAlign(Ptr.getAlignment(),
-                         TD.getTypeAllocSize(Ptr.Ptr->getType()));
+                         DL.getTypeAllocSize(Ptr.Ptr->getType()));
   return LValue(Builder.CreateStructGEP(Ptr.Ptr, Idx, flag_verbose_asm ?
                                         "prtxpr" : ""), Alignment);
 }
@@ -7739,7 +7739,7 @@ Value *TreeToLLVM::EmitReg_VEC_PERM_EXPR(tree op0, tree op1, tree op2) {
   // Store the vectors to successive memory locations in a temporary.
   tree elt_type = TREE_TYPE(TREE_TYPE(op0));
   Type *EltTy = ConvertType(elt_type);
-  unsigned Align = TD.getABITypeAlignment(EltTy);
+  unsigned Align = DL.getABITypeAlignment(EltTy);
   // The temporary is a struct containing the pair of input vectors.
   Type *TmpTy = StructType::get(ConvertType(TREE_TYPE(op0)),
                                 ConvertType(TREE_TYPE(op1)), NULL);
@@ -8108,7 +8108,7 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
         assert(!LV.isBitfield() && "Inline asm can't have bitfield operand");
 
         // Small structs and unions can be treated as integers.
-        uint64_t TySize = TD.getTypeSizeInBits(LLVMTy);
+        uint64_t TySize = DL.getTypeSizeInBits(LLVMTy);
         if (TySize == 1 || TySize == 8 || TySize == 16 ||
             TySize == 32 || TySize == 64 || (TySize == 128 && !AllowsMem)) {
           LLVMTy = IntegerType::get(Context, (unsigned)TySize);
@@ -8156,8 +8156,8 @@ void TreeToLLVM::RenderGIMPLE_ASM(gimple stmt) {
                   "output constraint of incompatible type!");
             return;
           }
-          uint64_t OTyBits = TD.getTypeSizeInBits(OTy);
-          uint64_t OpTyBits = TD.getTypeSizeInBits(OpTy);
+          uint64_t OTyBits = DL.getTypeSizeInBits(OTy);
+          uint64_t OpTyBits = DL.getTypeSizeInBits(OpTy);
           if (OTyBits == 0 || OpTyBits == 0) {
             error("unsupported inline asm: input constraint with a matching "
                   "output constraint of incompatible type!");

@@ -997,7 +997,7 @@ class TypedRange {
   /// isSafeToReturnContentsDirectly - Return whether the current value for the
   /// type properly represents the bits in the range and so can be handed to the
   /// user as is.
-  bool isSafeToReturnContentsDirectly(const DataLayout &TD) const {
+  bool isSafeToReturnContentsDirectly(const DataLayout &DL) const {
     // If there is no type (allowed when the range is empty) then one needs to
     // be created.
     if (!Ty)
@@ -1012,7 +1012,7 @@ class TypedRange {
       return false;
     // If the type is wider than the range then it needs to be truncated before
     // being passed to the user.
-    uint64_t AllocBits = TD.getTypeAllocSizeInBits(Ty);
+    uint64_t AllocBits = DL.getTypeAllocSizeInBits(Ty);
     return AllocBits <= R.getWidth();
   }
 
@@ -1044,18 +1044,18 @@ public:
   /// than the width of the range.  Unlike the other methods for this class this
   /// one requires that the width of the range be a multiple of an address unit,
   /// which usually means a multiple of 8.
-  Type *extractContents(const DataLayout &TD) {
+  Type *extractContents(const DataLayout &DL) {
     assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
     /// If the current value for the type can be used to represent the bits in
     /// the range then just return it.
-    if (isSafeToReturnContentsDirectly(TD))
+    if (isSafeToReturnContentsDirectly(DL))
       return Ty;
     // If the range is empty then return a type with zero size.
     if (R.empty()) {
       // Return an empty array.  Remember the returned value as an optimization
       // in case we are called again.
       Ty = GetUnitType(Context, 0);
-      assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
+      assert(isSafeToReturnContentsDirectly(DL) && "Unit over aligned?");
       return Ty;
     }
     // If the type is something like i17 then round it up to a multiple of a
@@ -1064,7 +1064,7 @@ public:
       unsigned BitWidth = RoundUpToAlignment(Ty->getPrimitiveSizeInBits(),
                                              BITS_PER_UNIT);
       Ty = IntegerType::get(Context, BitWidth);
-      if (isSafeToReturnContentsDirectly(TD))
+      if (isSafeToReturnContentsDirectly(DL))
         return Ty;
     }
     // Represent the range using an array of bytes.  Remember the returned type
@@ -1075,7 +1075,7 @@ public:
     uint64_t Units = R.getWidth() / BITS_PER_UNIT;
     Ty = GetUnitType(Context, Units);
     Starts = R.getFirst();
-    assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
+    assert(isSafeToReturnContentsDirectly(DL) && "Unit over aligned?");
     return Ty;
   }
 };
@@ -1106,7 +1106,7 @@ static Type *ConvertRecordTypeRecursive(tree type) {
   assert(TYPE_SIZE(type) && "Incomplete types should be handled elsewhere!");
 
   IntervalList<TypedRange, uint64_t, 8> Layout;
-  const DataLayout &TD = getDataLayout();
+  const DataLayout &DL = getDataLayout();
 
   // Get the size of the type in bits.  If the type has variable or ginormous
   // size then it is convenient to pretend it is "infinitely" big.
@@ -1147,7 +1147,7 @@ static Type *ConvertRecordTypeRecursive(tree type) {
       // If the field has variable or unknown size then use the size of the
       // LLVM type instead as it gives the minimum size the field may have.
       assert(FieldTy->isSized() && "Type field has no size!");
-      BitWidth = TD.getTypeAllocSizeInBits(FieldTy);
+      BitWidth = DL.getTypeAllocSizeInBits(FieldTy);
       if (FirstBit + BitWidth > TypeSize)
         BitWidth = TypeSize - FirstBit;
     }
@@ -1181,8 +1181,8 @@ static Type *ConvertRecordTypeRecursive(tree type) {
   for (unsigned i = 0, e = Layout.getNumIntervals(); i != e; ++i) {
     TypedRange F = Layout.getInterval(i);
     uint64_t First = F.getRange().getFirst();
-    Type *Ty = F.extractContents(TD);
-    unsigned Alignment = TD.getABITypeAlignment(Ty) * 8;
+    Type *Ty = F.extractContents(DL);
+    unsigned Alignment = DL.getABITypeAlignment(Ty) * 8;
     if (Alignment > MaxAlign || First % Alignment) {
       Pack = true;
       break;
@@ -1197,7 +1197,7 @@ static Type *ConvertRecordTypeRecursive(tree type) {
   for (unsigned i = 0, e = Layout.getNumIntervals(); i != e; ++i) {
     TypedRange F = Layout.getInterval(i);
     uint64_t First = F.getRange().getFirst();
-    Type *Ty = F.extractContents(TD);
+    Type *Ty = F.extractContents(DL);
     assert(EndOfPrevious <= First && "Previous field too big!");
 
     // If there is a gap then we may need to fill it with padding.
@@ -1209,7 +1209,7 @@ static Type *ConvertRecordTypeRecursive(tree type) {
       if (!Pack) {
         // If the field's alignment will take care of the gap then there is no
         // need for padding.
-        unsigned Alignment = TD.getABITypeAlignment(Ty) * 8;
+        unsigned Alignment = DL.getABITypeAlignment(Ty) * 8;
         if (First == (EndOfPrevious + Alignment - 1) / Alignment * Alignment)
           NeedPadding = false;
       }
@@ -1224,7 +1224,7 @@ static Type *ConvertRecordTypeRecursive(tree type) {
 
     // Append the field.
     Elts.push_back(Ty);
-    EndOfPrevious = First + TD.getTypeAllocSizeInBits(Ty);
+    EndOfPrevious = First + DL.getTypeAllocSizeInBits(Ty);
   }
 
   // If the GCC type has a sensible size then we guarantee that LLVM type has

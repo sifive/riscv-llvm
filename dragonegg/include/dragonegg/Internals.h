@@ -222,7 +222,7 @@ struct PhiRecord {
 ///
 class TreeToLLVM {
   // State that is initialized when the function starts.
-  const DataLayout &TD;
+  const DataLayout &DL;
   tree_node *FnDecl;
   Function *Fn;
   BasicBlock *ReturnBB;

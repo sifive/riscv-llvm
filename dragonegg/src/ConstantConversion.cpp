@@ -819,7 +819,7 @@ static Constant *ConvertADDR_EXPR(tree exp, TargetFolder &Folder) {
 
 /// ConvertArrayCONSTRUCTOR - Convert a CONSTRUCTOR with array or vector type.
 static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
-  const DataLayout &TD = getDataLayout();
+  const DataLayout &DL = getDataLayout();
 
   tree init_type = main_type(exp);
   Type *InitTy = ConvertType(init_type);
@@ -829,7 +829,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
 
   // Check that the element type has a known, constant size.
   assert(isSizeCompatible(elt_type) && "Variable sized array element!");
-  uint64_t EltSize = TD.getTypeAllocSizeInBits(EltTy);
+  uint64_t EltSize = DL.getTypeAllocSizeInBits(EltTy);
 
   /// Elts - The initial values to use for the array elements.  A null entry
   /// means that the corresponding array element should be default initialized.
@@ -856,7 +856,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(exp), ix, elt_index, elt_value) {
     // Find and decode the constructor's value.
     Constant *Val = ConvertInitializerWithCast(elt_value, elt_type, Folder);
-    uint64_t ValSize = TD.getTypeAllocSizeInBits(Val->getType());
+    uint64_t ValSize = DL.getTypeAllocSizeInBits(Val->getType());
     assert(ValSize <= EltSize && "Element initial value too big!");
 
     // If the initial value is smaller than the element size then pad it out.
@@ -929,16 +929,16 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // While there, compute the maximum element alignment.
   bool isHomogeneous = true;
   Type *ActualEltTy = Elts[0]->getType();
-  unsigned MaxAlign = TD.getABITypeAlignment(ActualEltTy);
+  unsigned MaxAlign = DL.getABITypeAlignment(ActualEltTy);
   for (unsigned i = 1; i != NumElts; ++i)
     if (Elts[i]->getType() != ActualEltTy) {
-      MaxAlign = std::max(TD.getABITypeAlignment(Elts[i]->getType()), MaxAlign);
+      MaxAlign = std::max(DL.getABITypeAlignment(Elts[i]->getType()), MaxAlign);
       isHomogeneous = false;
     }
 
   // We guarantee that initializers are always at least as big as the LLVM type
   // for the initializer.  If needed, append padding to ensure this.
-  uint64_t TypeSize = TD.getTypeAllocSizeInBits(InitTy);
+  uint64_t TypeSize = DL.getTypeAllocSizeInBits(InitTy);
   if (NumElts * EltSize < TypeSize) {
     unsigned PadBits = TypeSize - NumElts * EltSize;
     assert(PadBits % BITS_PER_UNIT == 0 && "Non-unit type size?");
@@ -1022,7 +1022,7 @@ class FieldContents {
   /// isSafeToReturnContentsDirectly - Return whether the current value for the
   /// constant properly represents the bits in the range and so can be handed to
   /// the user as is.
-  bool isSafeToReturnContentsDirectly(const DataLayout &TD) const {
+  bool isSafeToReturnContentsDirectly(const DataLayout &DL) const {
     // If there is no constant (allowed when the range is empty) then one needs
     // to be created.
     if (!C)
@@ -1038,7 +1038,7 @@ class FieldContents {
       return false;
     // If the constant is wider than the range then it needs to be truncated
     // before being passed to the user.
-    unsigned AllocBits = TD.getTypeAllocSizeInBits(Ty);
+    unsigned AllocBits = DL.getTypeAllocSizeInBits(Ty);
     return AllocBits <= (unsigned)R.getWidth();
   }
 
@@ -1071,18 +1071,18 @@ public:
   /// larger than the width of the range.  Unlike the other methods for this
   /// class, this one requires that the width of the range be a multiple of an
   /// address unit, which usually means a multiple of 8.
-  Constant *extractContents(const DataLayout &TD) {
+  Constant *extractContents(const DataLayout &DL) {
     assert(R.getWidth() % BITS_PER_UNIT == 0 && "Boundaries not aligned?");
     /// If the current value for the constant can be used to represent the bits
     /// in the range then just return it.
-    if (isSafeToReturnContentsDirectly(TD))
+    if (isSafeToReturnContentsDirectly(DL))
       return C;
     // If the range is empty then return a constant with zero size.
     if (R.empty()) {
       // Return an empty array.  Remember the returned value as an optimization
       // in case we are called again.
       C = UndefValue::get(GetUnitType(Context, 0));
-      assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
+      assert(isSafeToReturnContentsDirectly(DL) && "Unit over aligned?");
       return C;
     }
     // If the type is something like i17 then round it up to a multiple of a
@@ -1094,7 +1094,7 @@ public:
                                              BITS_PER_UNIT);
       Ty = IntegerType::get(Context, BitWidth);
       C = TheFolder->CreateZExtOrBitCast(C, Ty);
-      if (isSafeToReturnContentsDirectly(TD))
+      if (isSafeToReturnContentsDirectly(DL))
         return C;
     }
     // Turn the contents into a bunch of bytes.  Remember the returned value as
@@ -1106,7 +1106,7 @@ public:
     C = InterpretAsType(C, GetUnitType(Context, Units), R.getFirst() - Starts,
                         Folder);
     Starts = R.getFirst();
-    assert(isSafeToReturnContentsDirectly(TD) && "Unit over aligned?");
+    assert(isSafeToReturnContentsDirectly(DL) && "Unit over aligned?");
     return C;
   }
 };
@@ -1137,10 +1137,10 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   // FIXME: This new logic, especially the handling of bitfields, is untested
   // and probably wrong on big-endian machines.
   IntervalList<FieldContents, int, 8> Layout;
-  const DataLayout &TD = getDataLayout();
+  const DataLayout &DL = getDataLayout();
   tree type = main_type(exp);
   Type *Ty = ConvertType(type);
-  uint64_t TypeSize = TD.getTypeAllocSizeInBits(Ty);
+  uint64_t TypeSize = DL.getTypeAllocSizeInBits(Ty);
 
   // Ensure that fields without an initial value are default initialized by
   // explicitly setting the starting value for all fields to be zero.  If an
@@ -1182,7 +1182,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
         if (!FieldTy->isSized())
           // An incomplete type - this field cannot be default initialized.
           continue;
-        BitWidth = TD.getTypeAllocSizeInBits(FieldTy);
+        BitWidth = DL.getTypeAllocSizeInBits(FieldTy);
         if (FirstBit + BitWidth > TypeSize)
           BitWidth = TypeSize - FirstBit;
       }
@@ -1225,7 +1225,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
     // size from the initial value.
     uint64_t BitWidth = isInt64(DECL_SIZE(field), true) ?
       getInt64(DECL_SIZE(field), true) :
-      TD.getTypeAllocSizeInBits(Init->getType());
+      DL.getTypeAllocSizeInBits(Init->getType());
     uint64_t LastBit = FirstBit + BitWidth;
 
     // Set the bits occupied by the field to the initial value.
@@ -1245,8 +1245,8 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   for (unsigned i = 0, e = Layout.getNumIntervals(); i != e; ++i) {
     FieldContents F = Layout.getInterval(i);
     unsigned First = F.getRange().getFirst();
-    Constant *Val = F.extractContents(TD);
-    unsigned Alignment = TD.getABITypeAlignment(Val->getType()) * 8;
+    Constant *Val = F.extractContents(DL);
+    unsigned Alignment = DL.getABITypeAlignment(Val->getType()) * 8;
     if (Alignment > MaxAlign || First % Alignment) {
       Pack = true;
       break;
@@ -1261,7 +1261,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
   for (unsigned i = 0, e = Layout.getNumIntervals(); i != e; ++i) {
     FieldContents F = Layout.getInterval(i);
     unsigned First = F.getRange().getFirst();
-    Constant *Val = F.extractContents(TD);
+    Constant *Val = F.extractContents(DL);
     assert(EndOfPrevious <= First && "Previous field too big!");
 
     // If there is a gap then we may need to fill it with padding.
@@ -1273,7 +1273,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
       if (!Pack) {
         // If the field's alignment will take care of the gap then there is no
         // need for padding.
-        unsigned Alignment = TD.getABITypeAlignment(Val->getType()) * 8;
+        unsigned Alignment = DL.getABITypeAlignment(Val->getType()) * 8;
         if (First == (EndOfPrevious + Alignment - 1) / Alignment * Alignment)
           NeedPadding = false;
       }
@@ -1288,7 +1288,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
 
     // Append the field.
     Elts.push_back(Val);
-    EndOfPrevious = First + TD.getTypeAllocSizeInBits(Val->getType());
+    EndOfPrevious = First + DL.getTypeAllocSizeInBits(Val->getType());
   }
 
   // We guarantee that initializers are always at least as big as the LLVM type

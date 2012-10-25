@@ -275,8 +275,8 @@ static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
   // TODO: Change getTypeSizeInBits for aggregate types so it is no longer
   // rounded up to the alignment.
   uint64_t gcc_size = getInt64(DECL_SIZE(decl), true);
-  const DataLayout *TD = TheTarget->getDataLayout();
-  unsigned Align = 8 * TD->getABITypeAlignment(Ty);
+  const DataLayout *DL = TheTarget->getDataLayout();
+  unsigned Align = 8 * DL->getABITypeAlignment(Ty);
   return TheTarget->getDataLayout()->getTypeAllocSizeInBits(Ty) ==
     ((gcc_size + Align - 1) / Align) * Align;
 }
