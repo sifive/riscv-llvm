@@ -1463,12 +1463,13 @@ static Type *ConvertTypeNonRecursive(tree type) {
     Type *Ty;
     // LLVM does not support vectors of pointers, so turn any pointers into
     // integers.
-    if (isa<ACCESS_TYPE>(TREE_TYPE(type)))
+    if (isa<ACCESS_TYPE>(TREE_TYPE(type))) {
       // FIXME: Need to get the Address space here.
       unsigned AS = 0;
       Ty = getDataLayout().getIntPtrType(Context, AS);
-    else
+    } else {
       Ty = ConvertTypeNonRecursive(main_type(type));
+    }
     Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));
     return RememberTypeConversion(type, Ty);
   }
