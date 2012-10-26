@@ -790,7 +790,7 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
     MDNode *Node = MDNode::get(Context, Builder.getInt32(1));
 
     // Convert the type of the pointer to a pointer to the stored type.
-    unsigned AS = cast<PointerType>(Ops[0]->getType())->getAddressSpace();
+    unsigned AS = Ops[0]->getType()->getPointerAddressSpace();
     Value *Ptr = Builder.CreateBitCast(Ops[0],
                                        PointerType::get(Ops[1]->getType(), AS),
                                        "cast");
