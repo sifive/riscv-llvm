@@ -295,7 +295,7 @@ static BitSlice ViewAsBits(Constant *C, SignedRange R, TargetFolder &Folder) {
     llvm_unreachable("Unsupported type!");
   case Type::PointerTyID: {
     // Cast to an integer with the same number of bits and return that.
-    IntegerType *IntTy = getDataLayout().getIntPtrType(Ty);
+    Type *IntTy = getDataLayout().getIntPtrType(Ty);
     return BitSlice(0, StoreSize, Folder.CreatePtrToInt(C, IntTy));
   }
   case Type::DoubleTyID:
@@ -445,7 +445,7 @@ static Constant *InterpretAsType(Constant *C, Type* Ty, int StartingBit,
   case Type::PointerTyID: {
     // Interpret as an integer with the same number of bits then cast back to
     // the original type.
-    IntegerType *IntTy = getDataLayout().getIntPtrType(Ty);
+    Type *IntTy = getDataLayout().getIntPtrType(Ty);
     C = InterpretAsType(C, IntTy, StartingBit, Folder);
     return Folder.CreateIntToPtr(C, Ty);
   }
