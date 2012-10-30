@@ -1821,9 +1821,7 @@ Value *TreeToLLVM::CastToAnyType(Value *V, bool VisSigned,
 /// the given scalar (resp. vector of scalar) type of the same bitwidth.
 Value *TreeToLLVM::CastFromSameSizeInteger(Value *V, Type *Ty) {
   Type *OrigTy = V->getType();
-  Type *OrigEltTy = OrigTy->getScalarType();
-  (void)OrigEltTy;
-  assert(OrigEltTy->isIntegerTy() && "Expected an integer type!");
+  assert(OrigTy->getScalarType()->isIntegerTy() && "Expected an integer type!");
   Type *EltTy = Ty->getScalarType();
   if (EltTy->isIntegerTy()) {
     // Already an integer/vector of integer - nothing to do.
@@ -1832,7 +1830,7 @@ Value *TreeToLLVM::CastFromSameSizeInteger(Value *V, Type *Ty) {
   }
   if (EltTy->isPointerTy()) {
     // A pointer/vector of pointer - use inttoptr.
-    assert(OrigEltTy->getPrimitiveSizeInBits() ==
+    assert(OrigTy->getScalarType()->getPrimitiveSizeInBits() ==
            DL.getPointerSizeInBits(cast<PointerType>(EltTy)->getAddressSpace())
            && "Pointer type not same size!");
     return Builder.CreateIntToPtr(V, Ty);
@@ -1850,22 +1848,23 @@ Value *TreeToLLVM::CastToSameSizeInteger(Value *V) {
   if (OrigEltTy->isIntegerTy())
     // Already an integer/vector of integer - nothing to do.
     return V;
-  if (OrigEltTy->isPointerTy()) {
+  if (OrigEltTy->isPointerTy())
     // A pointer/vector of pointer - form a (vector of) pointer sized integers.
-    Type *NewTy = DL.getIntPtrType(OrigTy);
-    return Builder.CreatePtrToInt(V, NewTy);
-  }
+    return Builder.CreatePtrToInt(V, DL.getIntPtrType(OrigTy));
   // Everything else.
-  assert(OrigTy->isFPOrFPVectorTy() && "Expected a floating point type!");
-  unsigned VecElts = isa<VectorType>(OrigTy) ?
-    cast<VectorType>(OrigTy)->getNumElements() : 0;
+  assert(OrigEltTy->isFloatingPointTy() && "Expected a floating point type!");
   unsigned BitWidth = OrigEltTy->getPrimitiveSizeInBits();
   Type *NewEltTy = IntegerType::get(Context, BitWidth);
-  Type *NewTy = VecElts ? VectorType::get(NewEltTy, VecElts) : NewEltTy;
-  return Builder.CreateBitCast(V, NewTy);
+  if (VectorType *VecTy = dyn_cast<VectorType>(OrigTy)) {
+    Type *NewTy = VectorType::get(NewEltTy, VecTy->getNumElements());
+    return Builder.CreateBitCast(V, NewTy);
+  }
+  return Builder.CreateBitCast(V, NewEltTy);
 }
 
-/// that the value and type are floating point.
+/// CastToFPType - Cast the specified value to the specified type assuming
+/// that V's type and Ty are floating point types. This arbitrates between
+/// BitCast, FPTrunc and FPExt.
 Value *TreeToLLVM::CastToFPType(Value *V, Type* Ty) {
   unsigned SrcBits = V->getType()->getPrimitiveSizeInBits();
   unsigned DstBits = Ty->getPrimitiveSizeInBits();
