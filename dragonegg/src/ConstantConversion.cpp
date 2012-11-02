@@ -1337,7 +1337,7 @@ static Constant *ConvertCONSTRUCTOR(tree exp, TargetFolder &Folder) {
 static Constant *ConvertMINUS_EXPR(tree exp, TargetFolder &Folder) {
   Constant *LHS = getAsRegister(TREE_OPERAND(exp, 0), Folder);
   Constant *RHS = getAsRegister(TREE_OPERAND(exp, 1), Folder);
-  if (LHS->getType()->getScalarType()->isPointerTy()) {
+  if (LHS->getType()->isPtrOrPtrVectorTy()) {
     Type *PtrIntTy = getDataLayout().getIntPtrType(LHS->getType());
     LHS = Folder.CreatePtrToInt(LHS, PtrIntTy);
     RHS = Folder.CreatePtrToInt(RHS, PtrIntTy);
