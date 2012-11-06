@@ -4494,6 +4494,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
                                   Result);
     return true;
   }
+#if (GCC_MINOR > 6)
+  case BUILT_IN_ICEIL:
+  case BUILT_IN_ICEILF:
+  case BUILT_IN_ICEILL:
+#endif
   case BUILT_IN_LCEIL:
   case BUILT_IN_LCEILF:
   case BUILT_IN_LCEILL:
@@ -4502,6 +4507,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_LLCEILL:
     Result = EmitBuiltinLCEIL(stmt);
     return true;
+#if (GCC_MINOR > 6)
+  case BUILT_IN_IFLOOR:
+  case BUILT_IN_IFLOORF:
+  case BUILT_IN_IFLOORL:
+#endif
   case BUILT_IN_LFLOOR:
   case BUILT_IN_LFLOORF:
   case BUILT_IN_LFLOORL:
