@@ -165,6 +165,29 @@ bool TreeToLLVM::TargetIntrinsicLower(gimple stmt,
   case addpd256:
     Result = Builder.CreateFAdd(Ops[0], Ops[1]);
     return true;
+  case copysignpd:
+  case copysignpd256:
+  case copysignps:
+  case copysignps256: {
+    if (Ops.size() != 2)
+      return false;
+    VectorType *VecTy = dyn_cast<VectorType>(Ops[0]->getType());
+    if (Ops[1]->getType() != VecTy)
+      return false;
+    Type *EltTy = VecTy->getElementType();
+    unsigned EltBitWidth = EltTy->getPrimitiveSizeInBits();
+    Type *IntEltTy = IntegerType::get(Context, EltBitWidth);
+    Type *IntVecTy = VectorType::get(IntEltTy, VecTy->getNumElements());
+    APInt SignBit = APInt::getSignBit(EltBitWidth);
+    Constant *SignMask = ConstantInt::get(IntVecTy, SignBit);
+    Value *IntLHS = Builder.CreateBitCast(Ops[0], IntVecTy);
+    Value *IntRHS = Builder.CreateBitCast(Ops[1], IntVecTy);
+    Value *Sign = Builder.CreateAnd(IntRHS, SignMask);
+    Value *Abs = Builder.CreateAnd(IntLHS, ConstantExpr::getNot(SignMask));
+    Value *IntRes = Builder.CreateOr(Abs, Sign);
+    Result = Builder.CreateBitCast(IntRes, VecTy);
+    return true;
+  }
   case paddb:
   case paddw:
   case paddd:
