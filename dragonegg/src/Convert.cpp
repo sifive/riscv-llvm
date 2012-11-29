@@ -6597,14 +6597,26 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
     return getDefaultValue(getRegType(TREE_TYPE(reg)));
 
   // Convert the elements.
+  VectorType *ResTy = cast<VectorType>(getRegType(TREE_TYPE(reg)));
+  Type *ResEltTy = ResTy->getElementType();
   SmallVector<Constant*, 16> Elts;
-  for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt))
-    Elts.push_back(EmitRegisterConstant(TREE_VALUE(elt)));
+  bool DstIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(reg)));
+  for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt)) {
+    Constant *Elt = EmitRegisterConstant(TREE_VALUE(elt));
+    // Make any implicit type conversions explicit.
+    if (Elt->getType() != ResEltTy) {
+      bool SrcIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_VALUE(elt)));
+      Instruction::CastOps opcode =
+        CastInst::getCastOpcode(Elt, SrcIsSigned, ResEltTy, DstIsSigned);
+      Elt = TheFolder->CreateCast(opcode, Elt, ResEltTy);
+    }
+    Elts.push_back(Elt);
+  }
 
   // If there weren't enough elements then set the rest of the vector to the
   // default value.
   if (Elts.size() < TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg))) {
-    Constant *Default = getDefaultValue(Elts[0]->getType());
+    Constant *Default = getDefaultValue(ResEltTy);
     Elts.append(TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg)) - Elts.size(), Default);
   }
 
