@@ -28,13 +28,13 @@
 #include "dragonegg/TypeConversion.h"
 
 // LLVM headers
+#include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/MDBuilder.h"
 #include "llvm/Module.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetLowering.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringExtras.h"
 
 // System headers
 #include <gmp.h>

@@ -23,11 +23,11 @@
 
 // Plugin headers
 #include "dragonegg/Aliasing.h"
+#include "llvm/ADT/SmallVector.h"
 
 // LLVM headers
-#include "llvm/MDBuilder.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/MDBuilder.h"
 
 // System headers
 #include <gmp.h>

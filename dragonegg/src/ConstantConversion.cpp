@@ -22,17 +22,17 @@
 
 // Plugin headers
 #include "dragonegg/Cache.h"
+#include "dragonegg/ADT/IntervalList.h"
+#include "dragonegg/ADT/Range.h"
 #include "dragonegg/ConstantConversion.h"
 #include "dragonegg/Internals.h"
 #include "dragonegg/TypeConversion.h"
-#include "dragonegg/ADT/IntervalList.h"
-#include "dragonegg/ADT/Range.h"
 
 // LLVM headers
+#include "llvm/DataLayout.h"
 #include "llvm/GlobalVariable.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Support/Host.h"
-#include "llvm/DataLayout.h"
 
 // System headers
 #include <gmp.h>

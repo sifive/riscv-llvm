@@ -25,8 +25,8 @@
 #include "dragonegg/Target.h"
 
 // LLVM headers
-#include "llvm/Module.h"
 #include "llvm/MC/SubtargetFeature.h"
+#include "llvm/Module.h"
 
 // System headers
 #include <gmp.h>

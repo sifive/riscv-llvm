@@ -23,6 +23,8 @@
 #ifndef DRAGONEGG_RANGE_H
 #define DRAGONEGG_RANGE_H
 
+#include <cassert>
+
 /// Range - Represents the interval [First, Last).
 template<typename T>
 class Range {

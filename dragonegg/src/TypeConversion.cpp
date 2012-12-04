@@ -22,10 +22,10 @@
 
 // Plugin headers
 #include "dragonegg/ABI.h"
-#include "dragonegg/Cache.h"
-#include "dragonegg/TypeConversion.h"
 #include "dragonegg/ADT/IntervalList.h"
 #include "dragonegg/ADT/Range.h"
+#include "dragonegg/Cache.h"
+#include "dragonegg/TypeConversion.h"
 
 // LLVM headers
 #include "llvm/ADT/SCCIterator.h"
