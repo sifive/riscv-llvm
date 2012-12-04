@@ -24,11 +24,11 @@
 #define DRAGONEGG_INTERNALS_H
 
 // LLVM headers
-#include "llvm/Intrinsics.h"
-#include "llvm/IRBuilder.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IRBuilder.h"
+#include "llvm/Intrinsics.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/TargetFolder.h"

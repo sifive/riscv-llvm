@@ -31,8 +31,8 @@
 #include "dragonegg/TypeConversion.h"
 
 // LLVM headers
-#include "llvm/LLVMContext.h"
 #include "llvm/DataLayout.h"
+#include "llvm/LLVMContext.h"
 
 namespace llvm {
   class BasicBlock;
