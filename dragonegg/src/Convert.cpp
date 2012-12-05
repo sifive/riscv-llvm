@@ -6048,8 +6048,9 @@ LValue TreeToLLVM::EmitLV_ARRAY_REF(tree exp) {
   Value *IndexVal = EmitRegister(Index);
   tree LowerBound = array_ref_low_bound(exp);
   if (!integer_zerop(LowerBound))
-    IndexVal = Builder.CreateSub(IndexVal, EmitRegister(LowerBound), "",
-                                 hasNUW(TREE_TYPE(Index)),
+    IndexVal = Builder.CreateSub(IndexVal,
+                                 EmitRegisterWithCast(LowerBound, IndexType),
+                                 "", hasNUW(TREE_TYPE(Index)),
                                  hasNSW(TREE_TYPE(Index)));
 
   LValue ArrayAddrLV = EmitLV(Array);
