@@ -1781,13 +1781,13 @@ LValue TreeToLLVM::EmitLV(tree exp) {
 
 /// CastToAnyType - Cast the specified value to the specified type making no
 /// assumptions about the types of the arguments. This creates an inferred cast.
-Value *TreeToLLVM::CastToAnyType(Value *V, bool VisSigned,
+Value *TreeToLLVM::CastToAnyType(Value *Src, bool SrcIsSigned,
                                  Type* DestTy, bool DestIsSigned) {
-  Type *SrcTy = V->getType();
+  Type *SrcTy = Src->getType();
 
   // Eliminate useless casts of a type to itself.
   if (SrcTy == DestTy)
-    return V;
+    return Src;
 
   // Check whether the cast needs to be done in two steps, for example a pointer
   // to float cast requires converting the pointer to an integer before casting
@@ -1797,13 +1797,13 @@ Value *TreeToLLVM::CastToAnyType(Value *V, bool VisSigned,
     unsigned DestBits = DestTy->getScalarSizeInBits();
     if (SrcBits && !isa<IntegerType>(SrcTy)) {
       Type *IntTy = IntegerType::get(Context, SrcBits);
-      V = Builder.CreateBitCast(V, IntTy);
-      return CastToAnyType(V, VisSigned, DestTy, DestIsSigned);
+      Src = Builder.CreateBitCast(Src, IntTy);
+      return CastToAnyType(Src, SrcIsSigned, DestTy, DestIsSigned);
     }
     if (DestBits && !isa<IntegerType>(DestTy)) {
       Type *IntTy = IntegerType::get(Context, DestBits);
-      V = CastToAnyType(V, VisSigned, IntTy, DestIsSigned);
-      return Builder.CreateBitCast(V, DestTy);
+      Src = CastToAnyType(Src, SrcIsSigned, IntTy, DestIsSigned);
+      return Builder.CreateBitCast(Src, DestTy);
     }
     llvm_unreachable("Unable to cast between these types!");
   }
@@ -1811,10 +1811,45 @@ Value *TreeToLLVM::CastToAnyType(Value *V, bool VisSigned,
   // The types are different so we must cast. Use getCastOpcode to create an
   // inferred cast opcode.
   Instruction::CastOps opc =
-    CastInst::getCastOpcode(V, VisSigned, DestTy, DestIsSigned);
+    CastInst::getCastOpcode(Src, SrcIsSigned, DestTy, DestIsSigned);
 
   // Generate the cast and return it.
-  return Builder.CreateCast(opc, V, DestTy);
+  return Builder.CreateCast(opc, Src, DestTy);
+}
+Constant *TreeToLLVM::CastToAnyType(Constant *Src, bool SrcIsSigned,
+                                    Type* DestTy, bool DestIsSigned) {
+  Type *SrcTy = Src->getType();
+
+  // Eliminate useless casts of a type to itself.
+  if (SrcTy == DestTy)
+    return Src;
+
+  // Check whether the cast needs to be done in two steps, for example a pointer
+  // to float cast requires converting the pointer to an integer before casting
+  // to the float.
+  if (!CastInst::isCastable(SrcTy, DestTy)) {
+    unsigned SrcBits = SrcTy->getScalarSizeInBits();
+    unsigned DestBits = DestTy->getScalarSizeInBits();
+    if (SrcBits && !isa<IntegerType>(SrcTy)) {
+      Type *IntTy = IntegerType::get(Context, SrcBits);
+      Src = TheFolder->CreateBitCast(Src, IntTy);
+      return CastToAnyType(Src, SrcIsSigned, DestTy, DestIsSigned);
+    }
+    if (DestBits && !isa<IntegerType>(DestTy)) {
+      Type *IntTy = IntegerType::get(Context, DestBits);
+      Src = CastToAnyType(Src, SrcIsSigned, IntTy, DestIsSigned);
+      return TheFolder->CreateBitCast(Src, DestTy);
+    }
+    llvm_unreachable("Unable to cast between these types!");
+  }
+
+  // The types are different so we must cast. Use getCastOpcode to create an
+  // inferred cast opcode.
+  Instruction::CastOps opc =
+    CastInst::getCastOpcode(Src, SrcIsSigned, DestTy, DestIsSigned);
+
+  // Generate the cast and return it.
+  return TheFolder->CreateCast(opc, Src, DestTy);
 }
 
 /// CastFromSameSizeInteger - Cast an integer (or vector of integer) value to
@@ -6493,6 +6528,18 @@ Constant *TreeToLLVM::EmitRegisterConstant(tree reg) {
   }
 }
 
+/// EmitRegisterConstantWithCast - Utility that casts the value returned by
+/// EmitRegisterConstant to the given register type.
+Constant *TreeToLLVM::EmitRegisterConstantWithCast(tree reg, tree type) {
+  Constant *C = EmitRegisterConstant(reg);
+  if (TREE_TYPE(reg) == type)
+    return C;
+  // For vector types, TYPE_UNSIGNED returns the unsignedness of the element.
+  bool SrcIsSigned = !TYPE_UNSIGNED(TREE_TYPE(reg));
+  bool DstIsSigned = !TYPE_UNSIGNED(type);
+  return CastToAnyType(C, SrcIsSigned, getRegType(type), DstIsSigned);
+}
+
 /// EncodeExpr - Write the given expression into Buffer as it would appear in
 /// memory on the target (the buffer is resized to contain exactly the bytes
 /// written).  Return the number of bytes written; this can also be obtained
@@ -6511,9 +6558,10 @@ static unsigned EncodeExpr(tree exp, SmallVectorImpl<unsigned char> &Buffer) {
 /// EmitComplexRegisterConstant - Turn the given COMPLEX_CST into an LLVM
 /// constant of the corresponding register type.
 Constant *TreeToLLVM::EmitComplexRegisterConstant(tree reg) {
+  tree elt_type = TREE_TYPE(TREE_TYPE(reg));
   Constant *Elts[2] = {
-    EmitRegisterConstant(TREE_REALPART(reg)),
-    EmitRegisterConstant(TREE_IMAGPART(reg))
+    EmitRegisterConstantWithCast(TREE_REALPART(reg), elt_type),
+    EmitRegisterConstantWithCast(TREE_IMAGPART(reg), elt_type)
   };
   return ConstantStruct::getAnon(Elts);
 }
@@ -6597,26 +6645,15 @@ Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
     return getDefaultValue(getRegType(TREE_TYPE(reg)));
 
   // Convert the elements.
-  VectorType *ResTy = cast<VectorType>(getRegType(TREE_TYPE(reg)));
-  Type *ResEltTy = ResTy->getElementType();
   SmallVector<Constant*, 16> Elts;
-  bool DstIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_TYPE(reg)));
-  for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt)) {
-    Constant *Elt = EmitRegisterConstant(TREE_VALUE(elt));
-    // Make any implicit type conversions explicit.
-    if (Elt->getType() != ResEltTy) {
-      bool SrcIsSigned = !TYPE_UNSIGNED(TREE_TYPE(TREE_VALUE(elt)));
-      Instruction::CastOps opcode =
-        CastInst::getCastOpcode(Elt, SrcIsSigned, ResEltTy, DstIsSigned);
-      Elt = TheFolder->CreateCast(opcode, Elt, ResEltTy);
-    }
-    Elts.push_back(Elt);
-  }
+  tree elt_type = TREE_TYPE(TREE_TYPE(reg));
+  for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt))
+    Elts.push_back(EmitRegisterConstantWithCast(TREE_VALUE(elt), elt_type));
 
   // If there weren't enough elements then set the rest of the vector to the
   // default value.
   if (Elts.size() < TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg))) {
-    Constant *Default = getDefaultValue(ResEltTy);
+    Constant *Default = getDefaultValue(getRegType(elt_type));
     Elts.append(TYPE_VECTOR_SUBPARTS(TREE_TYPE(reg)) - Elts.size(), Default);
   }
 
@@ -6667,6 +6704,18 @@ Value *TreeToLLVM::EmitMemory(tree reg) {
 Value *TreeToLLVM::EmitRegister(tree reg) {
   while (isa<OBJ_TYPE_REF>(reg)) reg = OBJ_TYPE_REF_EXPR(reg);
   return isa<SSA_NAME>(reg) ? EmitReg_SSA_NAME(reg) : EmitMinInvariant(reg);
+}
+
+/// EmitRegisterWithCast - Utility method that calls EmitRegister, then casts
+/// the returned value to the given register type.
+Value *TreeToLLVM::EmitRegisterWithCast(tree reg, tree type) {
+  Value *V = EmitRegister(reg);
+  if (TREE_TYPE(reg) == type)
+    return V;
+  // For vector types, TYPE_UNSIGNED returns the unsignedness of the element.
+  bool SrcIsSigned = !TYPE_UNSIGNED(TREE_TYPE(reg));
+  bool DstIsSigned = !TYPE_UNSIGNED(type);
+  return CastToAnyType(V, SrcIsSigned, getRegType(type), DstIsSigned);
 }
 
 /// EmitReg_SSA_NAME - Return the defining value of the given SSA_NAME.
@@ -6811,8 +6860,7 @@ Value *TreeToLLVM::EmitReg_CONJ_EXPR(tree op) {
 }
 
 Value *TreeToLLVM::EmitReg_CONVERT_EXPR(tree type, tree op) {
-  return CastToAnyType(EmitRegister(op), !TYPE_UNSIGNED(TREE_TYPE(op)),
-                       getRegType(type), !TYPE_UNSIGNED(type));
+  return EmitRegisterWithCast(op, type);
 }
 
 Value *TreeToLLVM::EmitReg_NEGATE_EXPR(tree op) {
@@ -7819,13 +7867,8 @@ Value *TreeToLLVM::EmitReg_VEC_WIDEN_MULT_LO_EXPR(tree type, tree op0,
 }
 
 Value *TreeToLLVM::EmitReg_WIDEN_MULT_EXPR(tree type, tree op0, tree op1) {
-  Value *LHS = EmitRegister(op0);
-  Value *RHS = EmitRegister(op1);
-  Type *DestTy = getRegType(type);
-  LHS = CastToAnyType(LHS, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
-                      !TYPE_UNSIGNED(type));
-  RHS = CastToAnyType(RHS, !TYPE_UNSIGNED(TREE_TYPE(op0)), DestTy,
-                      !TYPE_UNSIGNED(type));
+  Value *LHS = EmitRegisterWithCast(op0, type);
+  Value *RHS = EmitRegisterWithCast(op1, type);
   return Builder.CreateMul(LHS, RHS);
 }
 
@@ -8625,7 +8668,7 @@ void TreeToLLVM::RenderGIMPLE_RETURN(gimple stmt) {
 void TreeToLLVM::RenderGIMPLE_SWITCH(gimple stmt) {
   // Emit the condition.
   Value *Index = EmitRegister(gimple_switch_index(stmt));
-  bool IndexIsSigned = !TYPE_UNSIGNED(TREE_TYPE(gimple_switch_index(stmt)));
+  tree index_type = TREE_TYPE(gimple_switch_index(stmt));
 
   // Create the switch instruction.
   tree default_label = CASE_LABEL(gimple_switch_label(stmt, 0));
@@ -8639,9 +8682,7 @@ void TreeToLLVM::RenderGIMPLE_SWITCH(gimple stmt) {
     BasicBlock *Dest = getLabelDeclBlock(CASE_LABEL(label));
 
     // Convert the integer to the right type.
-    Value *Val = EmitRegister(CASE_LOW(label));
-    Val = CastToAnyType(Val, !TYPE_UNSIGNED(TREE_TYPE(CASE_LOW(label))),
-                        Index->getType(), IndexIsSigned);
+    Value *Val = EmitRegisterWithCast(CASE_LOW(label), index_type);
     ConstantInt *LowC = cast<ConstantInt>(Val);
 
     if (!CASE_HIGH(label)) {
@@ -8650,10 +8691,8 @@ void TreeToLLVM::RenderGIMPLE_SWITCH(gimple stmt) {
     }
 
     // Otherwise, we have a range, like 'case 1 ... 17'.
-    Val = EmitRegister(CASE_HIGH(label));
     // Make sure the case value is the same type as the switch expression
-    Val = CastToAnyType(Val, !TYPE_UNSIGNED(TREE_TYPE(CASE_HIGH(label))),
-                        Index->getType(), IndexIsSigned);
+    Val = EmitRegisterWithCast(CASE_HIGH(label), index_type);
     ConstantInt *HighC = cast<ConstantInt>(Val);
 
     APInt Range = HighC->getValue() - LowC->getValue();

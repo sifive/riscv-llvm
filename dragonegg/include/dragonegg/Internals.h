@@ -326,7 +326,10 @@ public:
 
   /// CastToAnyType - Cast the specified value to the specified type regardless
   /// of the types involved. This is an inferred cast.
-  Value *CastToAnyType (Value *V, bool VSigned, Type *Ty, bool TySigned);
+  Value *CastToAnyType (Value *Src, bool SrcIsSigned,
+                        Type *DstTy, bool DstIsSigned);
+  Constant *CastToAnyType (Constant *Src, bool SrcIsSigned,
+                           Type *DstTy, bool DstIsSigned);
 
   /// CastFromSameSizeInteger - Cast an integer (or vector of integer) value to
   /// the given scalar (resp. vector of scalar) type of the same bitwidth.
@@ -506,6 +509,10 @@ private:
   /// EmitRegister - Convert the specified gimple register or local constant of
   /// register type to an LLVM value.  Only creates code in the entry block.
   Value *EmitRegister(tree_node *reg);
+
+  /// EmitRegisterWithCast - Utility method that calls EmitRegister, then casts
+  /// the returned value to the given register type.
+  Value *EmitRegisterWithCast(tree_node *reg, tree_node *type);
 
   /// EmitReg_SSA_NAME - Return the defining value of the given SSA_NAME.
   /// Only creates code in the entry block.
@@ -692,6 +699,10 @@ private:
   /// EmitRegisterConstant - Convert the given global constant of register type
   /// to an LLVM constant.  Creates no code, only constants.
   Constant *EmitRegisterConstant(tree_node *reg);
+
+  /// EmitRegisterConstantWithCast - Utility that casts the value returned by
+  /// EmitRegisterConstant to the given register type.
+  Constant *EmitRegisterConstantWithCast(tree_node *reg, tree_node *type);
 
   /// EmitComplexRegisterConstant - Turn the given COMPLEX_CST into an LLVM
   /// constant of the corresponding register type.
