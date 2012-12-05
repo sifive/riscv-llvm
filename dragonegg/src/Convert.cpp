@@ -1735,7 +1735,9 @@ LValue TreeToLLVM::EmitLV(tree exp) {
     LV = LValue(AddressOfLABEL_DECL(exp), 1);
     break;
   }
+  case CONSTRUCTOR:
   case COMPLEX_CST:
+  case FIXED_CST:
   case INTEGER_CST:
   case REAL_CST:
   case STRING_CST:
