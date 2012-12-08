@@ -590,7 +590,7 @@ private:
   Value *EmitCondExpr(tree_node *exp);
 #endif
   Value *EmitCallOf(Value *Callee, gimple_statement_d *stmt,
-                    const MemRef *DestLoc, const AttrListPtr &PAL);
+                    const MemRef *DestLoc, const AttributeSet &PAL);
   CallInst *EmitSimpleCall(StringRef CalleeName, tree_node *ret_type,
                            /* arguments */ ...) END_WITH_NULL;
   Value *EmitFieldAnnotation(Value *FieldPtr, tree_node *FieldDecl);
