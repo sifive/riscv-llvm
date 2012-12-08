@@ -7740,7 +7740,8 @@ Value *TreeToLLVM::EmitReg_VEC_INTERLEAVE_LOW_EXPR(tree op0, tree op1) {
 #endif
 
 Value *TreeToLLVM::EmitReg_VEC_PACK_TRUNC_EXPR(tree type, tree op0, tree op1) {
-  // Eg: <4 x float> = VEC_PACK_TRUNC_EXPR(<2 x double>, <2 x double>).
+  // Eg: <4 x float> = VEC_PACK_TRUNC_EXPR(<2 x double>, <2 x double>)
+  // or <4 x i32> = VEC_PACK_FIX_TRUNC_EXPR(<2 x double>, <2 x double>).
   Value *LHS = EmitRegister(op0);
   Value *RHS = EmitRegister(op1);
 
@@ -8882,6 +8883,7 @@ Value *TreeToLLVM::EmitAssignRHS(gimple stmt) {
 #endif
   case VEC_LSHIFT_EXPR:
     RHS = EmitReg_VecShiftOp(rhs1, rhs2, /*isLeftShift*/true); break;
+  case VEC_PACK_FIX_TRUNC_EXPR:
   case VEC_PACK_TRUNC_EXPR:
     RHS = EmitReg_VEC_PACK_TRUNC_EXPR(type, rhs1, rhs2); break;
   case VEC_RSHIFT_EXPR:
