@@ -857,7 +857,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
       assert(PadBits % BITS_PER_UNIT == 0 && "Non-unit type size?");
       unsigned Units = PadBits / BITS_PER_UNIT;
       Constant *PaddedElt[] = {
-        Val, UndefValue::get(GetUnitType(Context, Units))
+        Val, getDefaultValue(GetUnitType(Context, Units))
       };
 
       Val = ConstantStruct::getAnon(PaddedElt);
@@ -935,7 +935,7 @@ static Constant *ConvertArrayCONSTRUCTOR(tree exp, TargetFolder &Folder) {
     unsigned PadBits = TypeSize - NumElts * EltSize;
     assert(PadBits % BITS_PER_UNIT == 0 && "Non-unit type size?");
     unsigned Units = PadBits / BITS_PER_UNIT;
-    Elts.push_back(UndefValue::get(GetUnitType(Context, Units)));
+    Elts.push_back(getDefaultValue(GetUnitType(Context, Units)));
     isHomogeneous = false;
   }
 
@@ -1263,11 +1263,11 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
           NeedPadding = false;
       }
       if (NeedPadding) {
-        // Fill the gap with undefined bytes.
+        // Fill the gap with padding.
         assert((First - EndOfPrevious) % BITS_PER_UNIT == 0 &&
                "Non-unit field boundaries!");
         unsigned Units = (First - EndOfPrevious) / BITS_PER_UNIT;
-        Elts.push_back(UndefValue::get(GetUnitType(Context, Units)));
+        Elts.push_back(getDefaultValue(GetUnitType(Context, Units)));
       }
     }
 
@@ -1282,7 +1282,7 @@ static Constant *ConvertRecordCONSTRUCTOR(tree exp, TargetFolder &Folder) {
     assert((TypeSize - EndOfPrevious) % BITS_PER_UNIT == 0 &&
            "Non-unit type size?");
     unsigned Units = (TypeSize - EndOfPrevious) / BITS_PER_UNIT;
-    Elts.push_back(UndefValue::get(GetUnitType(Context, Units)));
+    Elts.push_back(getDefaultValue(GetUnitType(Context, Units)));
   }
 
   // Okay, we're done.  Return the computed elements as a constant with the type
