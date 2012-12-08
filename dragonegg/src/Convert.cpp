@@ -915,7 +915,7 @@ void TreeToLLVM::StartFunctionBody() {
   tree static_chain = cfun->static_chain_decl;
   FunctionType *FTy;
   CallingConv::ID CallingConv;
-  AttrListPtr PAL;
+  AttributeSet PAL;
 
   // If this is a K&R-style function: with a type that takes no arguments but
   // with arguments none the less, then calculate the LLVM type from the list
@@ -3260,11 +3260,11 @@ namespace {
 /// in the GIMPLE_CALL 'stmt'. If the result of the call is a scalar, return the
 /// result, otherwise store it in DestLoc.
 Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
-                              const AttrListPtr &InPAL) {
+                              const AttributeSet &InPAL) {
   BasicBlock *LandingPad = 0; // Non-zero indicates an invoke.
   int LPadNo = 0;
 
-  AttrListPtr PAL = InPAL;
+  AttributeSet PAL = InPAL;
   if (PAL.isEmpty() && isa<Function>(Callee))
     PAL = cast<Function>(Callee)->getAttributes();
 
@@ -4265,7 +4265,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     }
 
     Result = EmitCallOf(TargetBuiltinCache[FnCode], stmt, DestLoc,
-                        AttrListPtr());
+                        AttributeSet());
     return true;
   }
 
@@ -8986,7 +8986,7 @@ Value *TreeToLLVM::OutputCallRHS(gimple stmt, const MemRef *DestLoc) {
   tree function_type = TREE_TYPE(TREE_TYPE (call_expr));
   Value *Callee = EmitRegister(call_expr);
   CallingConv::ID CallingConv;
-  AttrListPtr PAL;
+  AttributeSet PAL;
 
   Type *Ty;
   // If this is a K&R-style function: with a type that takes no arguments but

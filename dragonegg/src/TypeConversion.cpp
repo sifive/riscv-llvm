@@ -659,7 +659,7 @@ static void HandleArgumentExtension(tree ArgTy, AttrBuilder &AttrBuilder) {
 FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
                                      tree static_chain, bool KNRPromotion,
                                      CallingConv::ID &CallingConv,
-                                     AttrListPtr &PAL) {
+                                     AttributeSet &PAL) {
   tree ReturnType = TREE_TYPE(type);
   SmallVector<Type*, 8> ArgTys;
   Type *RetTy(Type::getVoidTy(Context));
@@ -730,13 +730,13 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
                                                               PAttrBuilder)));
   }
 
-  PAL = AttrListPtr::get(Context, Attrs);
+  PAL = AttributeSet::get(Context, Attrs);
   return FunctionType::get(RetTy, ArgTys, false);
 }
 
 FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
                                   CallingConv::ID &CallingConv,
-                                  AttrListPtr &PAL) {
+                                  AttributeSet &PAL) {
   Type *RetTy = Type::getVoidTy(Context);
   SmallVector<Type*, 8> ArgTypes;
   FunctionTypeConversion Client(RetTy, ArgTypes, CallingConv, false/*not K&R*/);
@@ -916,7 +916,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
                                                             FnAttrBuilder)));
 
   // Finally, make the function type and result attributes.
-  PAL = AttrListPtr::get(Context, Attrs);
+  PAL = AttributeSet::get(Context, Attrs);
   return FunctionType::get(RetTy, ArgTypes, Args == 0);
 }
 
@@ -1358,7 +1358,7 @@ static Type *ConvertTypeRecursive(tree type) {
   case FUNCTION_TYPE:
   case METHOD_TYPE: {
     CallingConv::ID CallingConv;
-    AttrListPtr PAL;
+    AttributeSet PAL;
     // No declaration to pass through, passing NULL.
     return RememberTypeConversion(type, ConvertFunctionType(type, NULL, NULL,
                                                             CallingConv, PAL));
