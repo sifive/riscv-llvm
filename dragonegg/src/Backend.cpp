@@ -904,7 +904,7 @@ static void emit_alias(tree decl, tree target) {
   GlobalValue *Aliasee = 0;
   if (isa<IDENTIFIER_NODE>(target)) {
     if (!lookup_attribute("weakref", DECL_ATTRIBUTES(decl))) {
-      Aliasee = TheModule->getNamedValue(IDENTIFIER_POINTER(target)); 
+      Aliasee = TheModule->getNamedValue(IDENTIFIER_POINTER(target));
       if (!Aliasee || Aliasee->hasLocalLinkage()) {
         error("%q+D aliased to undefined symbol %qs", decl,
               IDENTIFIER_POINTER(target));
