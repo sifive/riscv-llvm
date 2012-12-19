@@ -1024,28 +1024,28 @@ void TreeToLLVM::StartFunctionBody() {
 
   // Handle noinline Functions
   if (lookup_attribute ("noinline", DECL_ATTRIBUTES (FnDecl)))
-    Fn->addFnAttr(Attributes::NoInline);
+    Fn->addFnAttr(Attribute::NoInline);
 
   // Handle always_inline attribute
   if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (FnDecl)))
-    Fn->addFnAttr(Attributes::AlwaysInline);
+    Fn->addFnAttr(Attribute::AlwaysInline);
 
   // Pass inline keyword to optimizer.
   if (DECL_DECLARED_INLINE_P(FnDecl))
-    Fn->addFnAttr(Attributes::InlineHint);
+    Fn->addFnAttr(Attribute::InlineHint);
 
   if (optimize_size)
-    Fn->addFnAttr(Attributes::OptimizeForSize);
+    Fn->addFnAttr(Attribute::OptimizeForSize);
 
   // Handle stack smashing protection.
   if (flag_stack_protect == 1)
-    Fn->addFnAttr(Attributes::StackProtect);
+    Fn->addFnAttr(Attribute::StackProtect);
   else if (flag_stack_protect == 2)
-    Fn->addFnAttr(Attributes::StackProtectReq);
+    Fn->addFnAttr(Attribute::StackProtectReq);
 
   // Handle naked attribute
   if (lookup_attribute ("naked", DECL_ATTRIBUTES (FnDecl)))
-    Fn->addFnAttr(Attributes::Naked);
+    Fn->addFnAttr(Attribute::Naked);
 
   // Handle annotate attributes
   if (DECL_ATTRIBUTES(FnDecl))
@@ -3271,12 +3271,12 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   // Work out whether to use an invoke or an ordinary call.
   if (!stmt_could_throw_p(stmt)) {
     // This call does not throw - mark it 'nounwind'.
-    Attributes NoUnwind = Attributes::get(Callee->getContext(),
-                                          Attributes::NoUnwind);
+    Attribute NoUnwind = Attribute::get(Callee->getContext(),
+                                          Attribute::NoUnwind);
     PAL = PAL.addAttr(Callee->getContext(), ~0, NoUnwind);
   }
 
-  if (!PAL.getFnAttributes().hasAttribute(Attributes::NoUnwind)) {
+  if (!PAL.getFnAttributes().hasAttribute(Attribute::NoUnwind)) {
     // This call may throw.  Determine if we need to generate
     // an invoke rather than a simple call.
     LPadNo = lookup_stmt_eh_lp(stmt);
@@ -3373,7 +3373,7 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
       for (unsigned j = OldSize + 1; j <= CallOperands.size(); ++j)
-        PAL = PAL.addAttr(Context, j, Attributes::get(Context, AttrBuilder));
+        PAL = PAL.addAttr(Context, j, Attribute::get(Context, AttrBuilder));
     }
 
     Client.clear();

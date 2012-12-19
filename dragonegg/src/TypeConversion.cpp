@@ -640,13 +640,13 @@ namespace {
 static void HandleArgumentExtension(tree ArgTy, AttrBuilder &AttrBuilder) {
   if (isa<BOOLEAN_TYPE>(ArgTy)) {
     if (TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE)
-      AttrBuilder.addAttribute(Attributes::ZExt);
+      AttrBuilder.addAttribute(Attribute::ZExt);
   } else if (isa<INTEGER_TYPE>(ArgTy) &&
              TREE_INT_CST_LOW(TYPE_SIZE(ArgTy)) < INT_TYPE_SIZE) {
     if (TYPE_UNSIGNED(ArgTy))
-      AttrBuilder.addAttribute(Attributes::ZExt);
+      AttrBuilder.addAttribute(Attribute::ZExt);
     else
-      AttrBuilder.addAttribute(Attributes::SExt);
+      AttrBuilder.addAttribute(Attribute::SExt);
   }
 }
 
@@ -687,17 +687,17 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
 #endif
 
   if (RAttrBuilder.hasAttributes())
-    Attrs.push_back(AttributeWithIndex::get(0, Attributes::get(Context,
-                                                               RAttrBuilder)));
+    Attrs.push_back(AttributeWithIndex::get(0, Attribute::get(Context,
+                                                              RAttrBuilder)));
 
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
   if (ABIConverter.isShadowReturn()) {
     AttrBuilder B;
-    B.addAttribute(Attributes::StructRet)
-      .addAttribute(Attributes::NoAlias);
+    B.addAttribute(Attribute::StructRet)
+      .addAttribute(Attribute::NoAlias);
     Attrs.push_back(AttributeWithIndex::get(ArgTys.size(),
-                                            Attributes::get(Context, B)));
+                                            Attribute::get(Context, B)));
   }
 
   std::vector<Type*> ScalarArgs;
@@ -705,7 +705,7 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
     // Pass the static chain as the first parameter.
     ABIConverter.HandleArgument(TREE_TYPE(static_chain), ScalarArgs);
     // Mark it as the chain argument.
-    Attributes Nest = Attributes::get(Context, Attributes::Nest);
+    Attribute Nest = Attribute::get(Context, Attribute::Nest);
     Attrs.push_back(AttributeWithIndex::get(ArgTys.size(), Nest));
   }
 
@@ -722,12 +722,12 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
 
     // Compute noalias attributes.
     if (isa<ACCESS_TYPE>(ArgTy) && TYPE_RESTRICT(ArgTy))
-      PAttrBuilder.addAttribute(Attributes::NoAlias);
+      PAttrBuilder.addAttribute(Attribute::NoAlias);
 
     if (PAttrBuilder.hasAttributes())
       Attrs.push_back(AttributeWithIndex::get(ArgTys.size(),
-                                              Attributes::get(Context,
-                                                              PAttrBuilder)));
+                                              Attribute::get(Context,
+                                                             PAttrBuilder)));
   }
 
   PAL = AttributeSet::get(Context, Attrs);
@@ -758,36 +758,36 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // Check for 'readnone' and 'readonly' function attributes.
   if (flags & ECF_CONST)
-    FnAttrBuilder.addAttribute(Attributes::ReadNone);
+    FnAttrBuilder.addAttribute(Attribute::ReadNone);
   else if (flags & ECF_PURE)
-    FnAttrBuilder.addAttribute(Attributes::ReadOnly);
+    FnAttrBuilder.addAttribute(Attribute::ReadOnly);
 
   // TODO: Handle ECF_LOOPING_CONST_OR_PURE
 
   // Check for 'noreturn' function attribute.
   if (flags & ECF_NORETURN)
-    FnAttrBuilder.addAttribute(Attributes::NoReturn);
+    FnAttrBuilder.addAttribute(Attribute::NoReturn);
 
   // Check for 'nounwind' function attribute.
   if (flags & ECF_NOTHROW)
-    FnAttrBuilder.addAttribute(Attributes::NoUnwind);
+    FnAttrBuilder.addAttribute(Attribute::NoUnwind);
 
   // Check for 'returnstwice' function attribute.
   if (flags & ECF_RETURNS_TWICE)
-    FnAttrBuilder.addAttribute(Attributes::ReturnsTwice);
+    FnAttrBuilder.addAttribute(Attribute::ReturnsTwice);
 
   // Since they write the return value through a pointer,
   // 'sret' functions cannot be 'readnone' or 'readonly'.
   if (ABIConverter.isShadowReturn()) {
-    FnAttrBuilder.removeAttribute(Attributes::ReadNone)
-      .removeAttribute(Attributes::ReadOnly);
+    FnAttrBuilder.removeAttribute(Attribute::ReadNone)
+      .removeAttribute(Attribute::ReadOnly);
   }
 
   // Demote 'readnone' nested functions to 'readonly' since
   // they may need to read through the static chain.
-  if (static_chain && FnAttrBuilder.hasAttribute(Attributes::ReadNone)) {
-    FnAttrBuilder.removeAttribute(Attributes::ReadNone);
-    FnAttrBuilder.addAttribute(Attributes::ReadOnly);
+  if (static_chain && FnAttrBuilder.hasAttribute(Attribute::ReadNone)) {
+    FnAttrBuilder.removeAttribute(Attribute::ReadNone);
+    FnAttrBuilder.addAttribute(Attribute::ReadOnly);
   }
 
   // Compute whether the result needs to be zext or sext'd.
@@ -802,20 +802,20 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // The value returned by a 'malloc' function does not alias anything.
   if (flags & ECF_MALLOC)
-    RAttrBuilder.addAttribute(Attributes::NoAlias);
+    RAttrBuilder.addAttribute(Attribute::NoAlias);
 
   if (RAttrBuilder.hasAttributes())
-    Attrs.push_back(AttributeWithIndex::get(0, Attributes::get(Context,
-                                                               RAttrBuilder)));
+    Attrs.push_back(AttributeWithIndex::get(0, Attribute::get(Context,
+                                                              RAttrBuilder)));
 
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
   if (ABIConverter.isShadowReturn()) {
     AttrBuilder B;
-    B.addAttribute(Attributes::StructRet)
-      .addAttribute(Attributes::NoAlias);
+    B.addAttribute(Attribute::StructRet)
+      .addAttribute(Attribute::NoAlias);
     Attrs.push_back(AttributeWithIndex::get(ArgTypes.size(),
-                                            Attributes::get(Context, B)));
+                                            Attribute::get(Context, B)));
   }
 
   std::vector<Type*> ScalarArgs;
@@ -823,7 +823,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     // Pass the static chain as the first parameter.
     ABIConverter.HandleArgument(TREE_TYPE(static_chain), ScalarArgs);
     // Mark it as the chain argument.
-    Attributes Nest = Attributes::get(Context, Attributes::Nest);
+    Attribute Nest = Attribute::get(Context, Attribute::Nest);
     Attrs.push_back(AttributeWithIndex::get(ArgTypes.size(), Nest));
   }
 
@@ -874,7 +874,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     // types.
     tree RestrictArgTy = (DeclArgs) ? TREE_TYPE(DeclArgs) : ArgTy;
     if (isa<ACCESS_TYPE>(RestrictArgTy) && TYPE_RESTRICT(RestrictArgTy))
-      PAttrBuilder.addAttribute(Attributes::NoAlias);
+      PAttrBuilder.addAttribute(Attribute::NoAlias);
 
 #ifdef LLVM_TARGET_ENABLE_REGPARM
     // Allow the target to mark this as inreg.
@@ -886,13 +886,13 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 #endif // LLVM_TARGET_ENABLE_REGPARM
 
     if (PAttrBuilder.hasAttributes()) {
-      HasByVal |= PAttrBuilder.hasAttribute(Attributes::ByVal);
+      HasByVal |= PAttrBuilder.hasAttribute(Attribute::ByVal);
 
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
       for (unsigned i = OldSize + 1; i <= ArgTypes.size(); ++i)
         Attrs.push_back(AttributeWithIndex::get
-                          (i, Attributes::get(Context, PAttrBuilder)));
+                          (i, Attribute::get(Context, PAttrBuilder)));
     }
 
     if (DeclArgs)
@@ -905,15 +905,15 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   // write through the byval pointer argument, which LLVM does not allow for
   // readonly/readnone functions.
   if (HasByVal)
-    FnAttrBuilder.removeAttribute(Attributes::ReadNone)
-      .removeAttribute(Attributes::ReadOnly);
+    FnAttrBuilder.removeAttribute(Attribute::ReadNone)
+      .removeAttribute(Attribute::ReadOnly);
 
   assert(RetTy && "Return type not specified!");
 
   if (FnAttrBuilder.hasAttributes())
     Attrs.push_back(AttributeWithIndex::get(~0,
-                                            Attributes::get(Context,
-                                                            FnAttrBuilder)));
+                                            Attribute::get(Context,
+                                                           FnAttrBuilder)));
 
   // Finally, make the function type and result attributes.
   PAL = AttributeSet::get(Context, Attrs);

@@ -705,7 +705,7 @@ static void createPerModuleOptimizationPasses() {
     // TODO: Consider letting the GCC inliner do this.
     for (Module::iterator I = TheModule->begin(), E = TheModule->end();
          I != E; ++I)
-      if (I->getFnAttributes().hasAttribute(Attributes::AlwaysInline)) {
+      if (I->getFnAttributes().hasAttribute(Attribute::AlwaysInline)) {
         NeedAlwaysInliner = true;
         break;
       }
@@ -1826,9 +1826,9 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 //TODO       I != E; ++I)
 //TODO    if (!I->isDeclaration()) {
 //TODO      if (flag_disable_red_zone)
-//TODO        I->addFnAttr(Attributes::NoRedZone);
+//TODO        I->addFnAttr(Attribute::NoRedZone);
 //TODO      if (flag_no_implicit_float)
-//TODO        I->addFnAttr(Attributes::NoImplicitFloat);
+//TODO        I->addFnAttr(Attribute::NoImplicitFloat);
 //TODO    }
 
   // Add an llvm.global_ctors global if needed.
