@@ -1,6 +1,6 @@
 //===----- TargetInfo.cpp - Utility for getting info about the target -----===//
 //
-// Copyright (C) 2009, 2010, 2011  Duncan Sands.
+// Copyright (C) 2009 to 2013  Duncan Sands.
 //
 // This file is part of DragonEgg.
 //
