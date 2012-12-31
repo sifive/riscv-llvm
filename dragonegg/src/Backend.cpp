@@ -705,7 +705,8 @@ static void createPerModuleOptimizationPasses() {
     // TODO: Consider letting the GCC inliner do this.
     for (Module::iterator I = TheModule->begin(), E = TheModule->end();
          I != E; ++I)
-      if (I->getFnAttributes().hasAttribute(Attribute::AlwaysInline)) {
+      if (I->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
+                                          Attribute::AlwaysInline)) {
         NeedAlwaysInliner = true;
         break;
       }

@@ -886,7 +886,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 #endif // LLVM_TARGET_ENABLE_REGPARM
 
     if (PAttrBuilder.hasAttributes()) {
-      HasByVal |= PAttrBuilder.hasAttribute(Attribute::ByVal);
+      HasByVal |= PAttrBuilder.contains(Attribute::ByVal);
 
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
