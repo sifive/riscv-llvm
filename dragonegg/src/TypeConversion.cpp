@@ -785,7 +785,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
 
   // Demote 'readnone' nested functions to 'readonly' since
   // they may need to read through the static chain.
-  if (static_chain && FnAttrBuilder.hasAttribute(Attribute::ReadNone)) {
+  if (static_chain && FnAttrBuilder.contains(Attribute::ReadNone)) {
     FnAttrBuilder.removeAttribute(Attribute::ReadNone);
     FnAttrBuilder.addAttribute(Attribute::ReadOnly);
   }
