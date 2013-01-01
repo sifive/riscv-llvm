@@ -1,6 +1,6 @@
 //===------ Trees.cpp - Utility functions for working with GCC trees ------===//
 //
-// Copyright (C) 2010 to 2012  Duncan Sands.
+// Copyright (C) 2010 to 2013  Duncan Sands.
 //
 // This file is part of DragonEgg.
 //

@@ -1,6 +1,6 @@
 //===------- TypeConversion.cpp - Converting GCC types to LLVM types ------===//
 //
-// Copyright (C) 2005 to 2012  Chris Lattner, Duncan Sands et al.
+// Copyright (C) 2005 to 2013  Chris Lattner, Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //

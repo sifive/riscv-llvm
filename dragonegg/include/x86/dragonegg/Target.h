@@ -1,6 +1,6 @@
 //==----- Target.h - Target hooks for GCC to LLVM conversion -----*- C++ -*-==//
 //
-// Copyright (C) 2007 to 2012  Anton Korobeynikov, Duncan Sands et al.
+// Copyright (C) 2007 to 2013  Anton Korobeynikov, Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //

@@ -1,6 +1,6 @@
 //===--------------- Target.cpp - Implements the IA-32 ABI. ---------------===//
 //
-// Copyright (C) 2005 to 2012  Evan Cheng, Duncan Sands et al.
+// Copyright (C) 2005 to 2013  Evan Cheng, Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //

@@ -1,6 +1,6 @@
 //==----------- Cache.h - Caching values "in" GCC trees ----------*- C++ -*-==//
 //
-// Copyright (C) 2009 to 2012  Duncan Sands.
+// Copyright (C) 2009 to 2013  Duncan Sands.
 //
 // This file is part of DragonEgg.
 //

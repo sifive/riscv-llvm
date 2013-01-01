@@ -1,6 +1,6 @@
 //===-------------- Debug.cpp - Debug information gathering ---------------===//
 //
-// Copyright (C) 2005 to 2012  Jim Laskey, Duncan Sands et al.
+// Copyright (C) 2005 to 2013  Jim Laskey, Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //
