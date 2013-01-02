@@ -27,7 +27,7 @@
 
 // LLVM headers
 #include "llvm/ADT/Twine.h"
-#include "llvm/MDBuilder.h"
+#include "llvm/IR/MDBuilder.h"
 
 // System headers
 #include <gmp.h>

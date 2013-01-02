@@ -29,9 +29,9 @@
 #include "dragonegg/TypeConversion.h"
 
 // LLVM headers
-#include "llvm/DataLayout.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/Host.h"
 
 // System headers

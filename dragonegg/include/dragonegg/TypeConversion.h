@@ -25,7 +25,7 @@
 #define DRAGONEGG_TYPES_H
 
 // LLVM headers
-#include "llvm/CallingConv.h"
+#include "llvm/IR/CallingConv.h"
 
 // Forward declarations.
 namespace llvm {

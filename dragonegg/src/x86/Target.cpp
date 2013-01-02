@@ -26,7 +26,7 @@
 
 // LLVM headers
 #include "llvm/MC/SubtargetFeature.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 // System headers
 #include <gmp.h>

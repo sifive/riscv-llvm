@@ -26,7 +26,7 @@
 #include "dragonegg/Target.h"
 
 // LLVM headers
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 
 // System headers
 #include <gmp.h>
