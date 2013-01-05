@@ -4288,6 +4288,10 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_ALLOCA_WITH_ALIGN:
                                 return EmitBuiltinAllocaWithAlign(stmt, Result);
 #endif
+#if (GCC_MINOR > 6)
+  case BUILT_IN_ASSUME_ALIGNED:
+                                return EmitBuiltinAssumeAligned(stmt, Result);
+#endif
   case BUILT_IN_BZERO:          return EmitBuiltinBZero(stmt, Result);
   case BUILT_IN_CONSTANT_P:     return EmitBuiltinConstantP(stmt, Result);
   case BUILT_IN_EXPECT:         return EmitBuiltinExpect(stmt, Result);
@@ -5840,6 +5844,20 @@ bool TreeToLLVM::EmitBuiltinAllocaWithAlign(gimple stmt, Value *&Result) {
   Result = Alloca;
   return true;
 }
+
+#if (GCC_MINOR > 6)
+bool TreeToLLVM::EmitBuiltinAssumeAligned(gimple stmt, Value *&Result) {
+  if (!validate_gimple_arglist(stmt, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return false;
+  // Return the pointer argument.  TODO: Pass the alignment information on to
+  // the optimizers.
+  Value *Ptr = EmitRegister(gimple_call_arg(stmt, 0));
+  // Bitcast it to the return type.
+  Ptr = TriviallyTypeConvert(Ptr, getRegType(gimple_call_return_type(stmt)));
+  Result = Reg2Mem(Ptr, gimple_call_return_type(stmt), Builder);
+  return true;
+}
+#endif
 
 bool TreeToLLVM::EmitBuiltinExpect(gimple stmt, Value *&Result) {
   tree type = gimple_call_return_type(stmt);
