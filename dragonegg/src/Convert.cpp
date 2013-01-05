@@ -370,6 +370,9 @@ static bool isDirectMemoryAccessSafe(Type *RegTy, tree type) {
     assert(RegTy->isIntegerTy() && "Expected an integer type!");
     return true;
 
+#if (GCC_MINOR > 5)
+  case NULLPTR_TYPE:
+#endif
   case POINTER_TYPE:
   case REFERENCE_TYPE:
     assert(RegTy->isPointerTy() && "Expected a pointer type!");

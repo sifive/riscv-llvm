@@ -156,6 +156,9 @@ namespace {
       case ENUMERAL_TYPE:
       case FIXED_POINT_TYPE:
       case INTEGER_TYPE:
+#if (GCC_MINOR > 5)
+      case NULLPTR_TYPE:
+#endif
       case OFFSET_TYPE:
       case REAL_TYPE:
       case VOID_TYPE:
@@ -455,6 +458,11 @@ Type *getRegType(tree type) {
     Type *EltTy = getRegType(TREE_TYPE(type));
     return StructType::get(EltTy, EltTy, NULL);
   }
+
+#if (GCC_MINOR > 5)
+  case NULLPTR_TYPE:
+    return GetUnitPointerType(Context, TYPE_ADDR_SPACE(type));
+#endif
 
   case OFFSET_TYPE:
     return getDataLayout().getIntPtrType(Context, TYPE_ADDR_SPACE(type));
@@ -1269,6 +1277,9 @@ static bool mayRecurse(tree type) {
   case ENUMERAL_TYPE:
   case FIXED_POINT_TYPE:
   case INTEGER_TYPE:
+#if (GCC_MINOR > 5)
+  case NULLPTR_TYPE:
+#endif
   case OFFSET_TYPE:
   case REAL_TYPE:
   case VOID_TYPE:
@@ -1401,6 +1412,14 @@ static Type *ConvertTypeNonRecursive(tree type) {
     return CheckTypeConversion(type, Ty);
   }
 
+  case COMPLEX_TYPE: {
+    if (Type *Ty = getCachedType(type))
+      return CheckTypeConversion(type, Ty);
+    Type *Ty = ConvertTypeNonRecursive(main_type(type));
+    Ty = StructType::get(Ty, Ty, NULL);
+    return RememberTypeConversion(type, Ty);
+  }
+
   case ENUMERAL_TYPE:
     // If the enum is incomplete return a placeholder type.
     if (!TYPE_SIZE(type))
@@ -1413,13 +1432,15 @@ static Type *ConvertTypeNonRecursive(tree type) {
     return CheckTypeConversion(type, IntegerType::get(Context, Size));
   }
 
-  case COMPLEX_TYPE: {
-    if (Type *Ty = getCachedType(type))
-      return CheckTypeConversion(type, Ty);
-    Type *Ty = ConvertTypeNonRecursive(main_type(type));
-    Ty = StructType::get(Ty, Ty, NULL);
-    return RememberTypeConversion(type, Ty);
+#if (GCC_MINOR > 5)
+  case NULLPTR_TYPE: {
+    // As NULLPTR_TYPE has an alignment of 1, output it as an array of bytes.
+    // FIXME: Instead we should use a pointer, and have a general mechanism
+    // for using a bunch of bytes instead for any type which is underaligned.
+    uint64_t Units = getInt64(TYPE_SIZE_UNIT(type), true);
+    return CheckTypeConversion(type, GetUnitType(Context, Units));
   }
+#endif
 
   case OFFSET_TYPE: {
     // Handle OFFSET_TYPE specially.  This is used for pointers to members,
@@ -1429,6 +1450,7 @@ static Type *ConvertTypeNonRecursive(tree type) {
     unsigned AS = TYPE_ADDR_SPACE(type);
     return CheckTypeConversion(type, getDataLayout().getIntPtrType(Context, AS));
   }
+
   case REAL_TYPE:
     // Caching the type conversion is not worth it.
     switch (TYPE_PRECISION(type)) {

@@ -1025,6 +1025,9 @@ DIType DebugInfo::getOrCreateType(tree type) {
       return DIType();
     }
 
+#if (GCC_MINOR > 5)
+    case NULLPTR_TYPE:
+#endif
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       // Do not cache pointer type. The pointer may point to forward declared

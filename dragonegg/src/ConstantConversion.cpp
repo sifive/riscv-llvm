@@ -544,6 +544,9 @@ static Constant *ExtractRegisterFromConstantImpl(Constant *C, tree type,
     return ConstantStruct::getAnon(Vals);
   }
 
+#if (GCC_MINOR > 5)
+  case NULLPTR_TYPE:
+#endif
   case OFFSET_TYPE:
   case POINTER_TYPE:
   case REFERENCE_TYPE:
@@ -632,6 +635,9 @@ static Constant *RepresentAsMemory(Constant *C, tree type,
     break;
   }
 
+#if (GCC_MINOR > 5)
+  case NULLPTR_TYPE:
+#endif
   case OFFSET_TYPE:
   case POINTER_TYPE:
   case REFERENCE_TYPE:
