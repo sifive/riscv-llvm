@@ -2,12 +2,12 @@
 // PR1085
 // XFAIL: gcc-4.5, gcc-4.6
 
-// CHECK: define linkonce_odr void @_ZThn8_N
-// CHECK: define linkonce_odr void @_ZThn8_N
-// CHECK: define linkonce_odr void @_ZThn8_N
-// CHECK: define linkonce_odr void @_ZThn8_N
-// CHECK: define linkonce_odr void @_ZThn8_N
-// CHECK: define linkonce_odr void @_ZThn8_N
+// CHECK: define linkonce_odr void @_ZThn{{[48]}}_N
+// CHECK: define linkonce_odr void @_ZThn{{[48]}}_N
+// CHECK: define linkonce_odr void @_ZThn{{[48]}}_N
+// CHECK: define linkonce_odr void @_ZThn{{[48]}}_N
+// CHECK: define linkonce_odr void @_ZThn{{[48]}}_N
+// CHECK: define linkonce_odr void @_ZThn{{[48]}}_N
 
 class 
 __attribute__((visibility("default"))) QGenericArgument
