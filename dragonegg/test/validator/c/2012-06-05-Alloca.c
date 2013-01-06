@@ -7,6 +7,6 @@ void use(int*);
 void foo(int n, int i) {
 // CHECK: foo
   int a[n];
-// CHECK: alloca i8, i64 {{.*}}, align 4
+// CHECK: alloca i8, i{{.*}}, align 4
   use(&a[i]);
 }
