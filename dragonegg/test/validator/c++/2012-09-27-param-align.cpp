@@ -11,6 +11,6 @@ void bar(InReg);
 
 void foo(InReg x) {
   bar(x);
-// CHECK: store i64 {{.*}}, align
-// CHECK: load i64* {{.*}}, align
+// CHECK: store {{.*}}, align
+// CHECK: load {{.*}}, align
 }
