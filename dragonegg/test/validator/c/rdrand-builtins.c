@@ -16,10 +16,3 @@ int rdrand32(unsigned *p) {
 // CHECK: call { i32, i32 } @llvm.x86.rdrand.32
 // CHECK: store i32
 }
-
-int rdrand64(unsigned long long *p) {
-  return _rdrand64_step(p);
-// CHECK: @rdrand64
-// CHECK: call { i64, i32 } @llvm.x86.rdrand.64
-// CHECK: store i64
-}
