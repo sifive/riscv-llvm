@@ -44,7 +44,6 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetLibraryInfo.h"
-#include "llvm/TargetTransformInfo.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
@@ -684,8 +683,7 @@ static void createPerModuleOptimizationPasses() {
 
   PerModulePasses = new PassManager();
   PerModulePasses->add(new DataLayout(TheModule));
-  PerModulePasses->add(createNoTTIPass(TheTarget->getScalarTargetTransformInfo(),
-                                       TheTarget->getVectorTargetTransformInfo()));
+  TheTarget->addAnalysisPasses(*PerModulePasses);
 
   bool NeedAlwaysInliner = false;
   llvm::Pass *InliningPass = 0;
@@ -738,8 +736,7 @@ static void createPerModuleOptimizationPasses() {
       FunctionPassManager *PM = CodeGenPasses =
         new FunctionPassManager(TheModule);
       PM->add(new DataLayout(*TheTarget->getDataLayout()));
-      PM->add(createNoTTIPass(TheTarget->getScalarTargetTransformInfo(),
-                              TheTarget->getVectorTargetTransformInfo()));
+      TheTarget->addAnalysisPasses(*PM);
 
       // Request that addPassesToEmitFile run the Verifier after running
       // passes which modify the IR.
