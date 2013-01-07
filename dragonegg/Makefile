@@ -108,7 +108,7 @@ endif
 
 LIT_SITE_CONFIG=test/dragonegg-lit.site.cfg
 TEST_SRC_DIR=$(TOP_DIR)/test
-export PYTHONPATH:=$(TEST_SRC_DIR):$(LIT_DIR)/lit:$(PYTHONPATH)
+PYPATH=$(TEST_SRC_DIR):$(LIT_DIR)/lit:$(PYTHONPATH)
 
 default: gcc-sane llvm-config-sane $(PLUGIN)
 
@@ -162,13 +162,13 @@ $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/dragonegg-lit.site.cfg.in
 .PHONY: check-compilator
 check-compilator: $(PLUGIN) $(LIT_SITE_CONFIG)
 	@echo "Running test suite 'compilator'"
-	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
+	$(QUIET)PYTHONPATH=$(PYPATH) $(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
 	--config-prefix=compilator-lit $(TEST_SRC_DIR)/compilator
 
 .PHONY: check-validator
 check-validator: $(PLUGIN) $(LIT_SITE_CONFIG)
 	@echo "Running test suite 'validator'"
-	$(QUIET)$(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
+	$(QUIET)PYTHONPATH=$(PYPATH) $(LIT_DIR)/lit.py $(LIT_ARGS) --param site="$(LIT_SITE_CONFIG)" \
 	--config-prefix=validator-lit $(TEST_SRC_DIR)/validator
 
 .PHONY: check
