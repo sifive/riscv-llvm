@@ -39,7 +39,9 @@
   <!--=====================================================================-->
 
   <ul>
-  <li>Fortran works very well.  Ada, C and C++ also work well.</li>
+  <li>Works best with <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a>.</li>
+  <li>Fortran works very well.  Ada, C and C++ also work well.  Ada works poorly
+  with gcc-4.7.</li>
   <li>It can compile a reasonable amount of Obj-C, Obj-C++ and Go.</li>
   <li>It can compile simple Java programs, but they don't execute properly
   (this is a consequence of the java front-end not supporting GCC's LTO).</li>
@@ -51,9 +53,28 @@
   <!--=====================================================================-->
 
   <ul>
-  <li><p><a href="#gettingrelease">DragonEgg-3.1</a> is the most recent
+  <li><p><a href="#gettingrelease">DragonEgg-3.2</a> is the most recent
       DragonEgg release.  It requires
-      <a href="http://llvm.org/releases/download.html#3.0">LLVM-3.1</a> and
+      <a href="http://llvm.org/releases/download.html#3.2">LLVM-3.2</a> and
+      <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>,
+      <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a> or
+      <a href="http://gcc.gnu.org/gcc-4.7/">gcc-4.7</a> (gcc-4.7 is only
+      partially supported).
+      <p>The 3.2 release has the following notable changes:</p>
+      <ul>
+
+      <li>Able to load LLVM plugins such as Polly.</li>
+
+      <li>Supports thread-local storage models.</li>
+
+      <li>Passes knowledge of variable lifetimes to the LLVM optimizers.</li>
+
+      <li>No longer requires GCC to be built with LTO support.</li>
+
+      </ul>
+
+  <li><p>DragonEgg-3.1 was the fifth DragonEgg release.  It requires
+      <a href="http://llvm.org/releases/download.html#3.1">LLVM-3.1</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>,
       <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a> or
       <a href="http://gcc.gnu.org/gcc-4.7/">gcc-4.7</a> (gcc-4.7 is only
@@ -78,8 +99,7 @@
 
       </ul>
 
-  <li><p><a href="#gettingrelease">DragonEgg-3.0</a> was the fourth DragonEgg
-      release.  It requires
+  <li><p>DragonEgg-3.0 was the fourth DragonEgg release.  It requires
       <a href="http://llvm.org/releases/download.html#3.0">LLVM-3.0</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> or
       <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a>.
@@ -114,8 +134,7 @@
       </pre>
       </li>
       </ul>
-  <li><p><a href="#gettingrelease">DragonEgg-2.9</a> was the third
-      DragonEgg release.  It requires
+  <li><p>DragonEgg-2.9 was the third DragonEgg release.  It requires
       <a href="http://llvm.org/releases/download.html#2.9">LLVM-2.9</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
       <p>The 2.9 release has the following notable changes:</p>
@@ -145,8 +164,7 @@
       <a href="disambiguate.diff">this patch</a>.
       </li>
       </ul>
-  <li><p><a href="#gettingrelease">DragonEgg-2.8</a> was the second
-      DragonEgg release.  It requires
+  <li><p>DragonEgg-2.8 was the second DragonEgg release.  It requires
       <a href="http://llvm.org/releases/download.html#2.8">LLVM-2.8</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>.</p>
       <p>The 2.8 release had the following notable changes:</p>
@@ -197,8 +215,7 @@
           causing link failures.</li>
       <li>Programs using OpenMP directives crash the plugin.</li>
       </ul>
-      <p>These problems have been fixed in the
-      <a href="#gettingrelease">2.8 release</a> of DragonEgg.</p>
+      <p>These problems have been fixed in the 2.8 release of DragonEgg.</p>
       </li>
   </ul>
 
@@ -286,12 +303,12 @@ declare i32 @puts(i8* nocapture) nounwind
   <!--=====================================================================-->
 
   <p>Get the
-  <a href="http://llvm.org/releases/download.html#3.1">DragonEgg-3.1 source code</a>:
-     <pre>	wget http://llvm.org/releases/3.1/dragonegg-3.1.src.tar.gz</pre>
+  <a href="http://llvm.org/releases/download.html#3.2">DragonEgg-3.2 source code</a>:
+     <pre>	wget http://llvm.org/releases/3.2/dragonegg-3.2.src.tar.gz</pre>
   <p>Unpack it:</p>
-     <pre>	tar xzf dragonegg-3.1.src.tar.gz</pre>
-  <p>Install version 3.1 of LLVM, for example by downloading and installing the
-  <a href="http://llvm.org/releases/download.html#3.1">LLVM-3.1 binaries</a>
+     <pre>	tar xzf dragonegg-3.2.src.tar.gz</pre>
+  <p>Install version 3.2 of LLVM, for example by downloading and installing the
+  <a href="http://llvm.org/releases/download.html#3.2">LLVM-3.2 binaries</a>
   (mysteriously referred to as clang binaries) for your platform.</p>
   <p>Make sure you have <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>,
   <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a> or
@@ -302,7 +319,7 @@ declare i32 @puts(i8* nocapture) nounwind
   <p>Doing</p>
      <pre>	GCC=gcc-4.6 make</pre>
   <p>(if using gcc-4.6; otherwise replace gcc-4.6 with your gcc version)
-  in the <tt>dragonegg-3.1.src</tt> directory should then build
+  in the <tt>dragonegg-3.2.src</tt> directory should then build
   <tt>dragonegg.so</tt>.  If the LLVM binaries are not in your path then you
   can use</p>
      <pre>	GCC=gcc-4.6 LLVM_CONFIG=directory_where_llvm_installed/bin/llvm-config make</pre>
