@@ -782,7 +782,7 @@ namespace {
       TheTreeToLLVM->set_decl_local(ResultDecl, Tmp);
       if (TheDebugInfo && !DECL_IGNORED_P(FunctionDecl)) {
         TheDebugInfo->EmitDeclare(ResultDecl,
-                                  dwarf::DW_TAG_return_variable,
+                                  dwarf::DW_TAG_auto_variable,
                                   "agg.result", RetTy, Tmp,
                                   Builder);
       }
@@ -2446,11 +2446,8 @@ void TreeToLLVM::EmitAutomaticVariableDecl(tree decl) {
     }
 
   if (EmitDebugInfo()) {
-    if (DECL_NAME(decl)) {
+    if (DECL_NAME(decl) || isa<RESULT_DECL>(decl)) {
       TheDebugInfo->EmitDeclare(decl, dwarf::DW_TAG_auto_variable,
-                                AI->getName(), TREE_TYPE(decl), AI, Builder);
-    } else if (isa<RESULT_DECL>(decl)) {
-      TheDebugInfo->EmitDeclare(decl, dwarf::DW_TAG_return_variable,
                                 AI->getName(), TREE_TYPE(decl), AI, Builder);
     }
   }
