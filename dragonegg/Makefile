@@ -4,7 +4,7 @@
 #   GCC=gcc-4.7 make ...
 # If you don't specify anything, then by default the plugin targets the compiler
 # used to build it.
-GCC?=$(CXX)
+GCC?=$(CC)
 
 # Specify the copy of LLVM you will build the plugin against by giving its
 # llvm-config here or on the command line.  To use an installed copy of LLVM,
