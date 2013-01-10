@@ -1395,106 +1395,110 @@ static Type *ConvertTypeNonRecursive(tree type) {
   assert(type == TYPE_MAIN_VARIANT(type) && "Not converting the main variant!");
   assert(!mayRecurse(type) && "Expected a non-recursive type!");
 
+  // If we already converted the type, reuse the previous conversion.  Note that
+  // this fires for types which are really recursive, such as pointer types, but
+  // that we don't consider recursive any more because already converted.
+  if (Type *Ty = getCachedType(type))
+    return CheckTypeConversion(type, Ty);
+
+  // Handle the void type early to avoid confusion with incomplete types below.
+  if (isa<VOID_TYPE>(type))
+    return RememberTypeConversion(type, Type::getVoidTy(Context));
+
+  // Return a placeholder if the type is incomplete.
+  if (!TYPE_SIZE(type)) {
+    // Return a byte as the placeholder for incomplete enums.
+    if (isa<ENUMERAL_TYPE>(type))
+      return RememberTypeConversion(type, GetUnitType(Context));
+
+    // Return an opaque struct for an incomplete record type.
+    assert(isa<RECORD_OR_UNION_TYPE>(type) && "Unexpected incomplete type!");
+    return RememberTypeConversion(type,
+                                  StructType::create(Context,
+                                                     getDescriptiveName(type)));
+  }
+
+  // From here on we are only dealing with straightforward types.
+  assert(isSizeCompatible(type) && "Funkily sized types should not get here!");
+  uint64_t SizeInBits = getInt64(TYPE_SIZE(type), true);
+  unsigned AlignInBits = TYPE_ALIGN(type);
+
+  // Convert to the obvious LLVM type.
+  Type *Ty;
   switch (TREE_CODE(type)) {
   default:
     debug_tree(type);
     llvm_unreachable("Unknown or recursive type!");
 
-  case ARRAY_TYPE:
-  case FUNCTION_TYPE:
-  case METHOD_TYPE:
-  case POINTER_TYPE:
-  case REFERENCE_TYPE: {
-    // If these types are not recursive it can only be because they were already
-    // converted and we can safely return the result of the previous conversion.
-    Type *Ty = getCachedType(type);
-    assert(Ty && "Type not already converted!");
-    return CheckTypeConversion(type, Ty);
-  }
+  case BOOLEAN_TYPE:
+  case ENUMERAL_TYPE:
+  case INTEGER_TYPE:
+    Ty = IntegerType::get(Context, SizeInBits);
+    break;
 
   case COMPLEX_TYPE: {
-    if (Type *Ty = getCachedType(type))
-      return CheckTypeConversion(type, Ty);
-    Type *Ty = ConvertTypeNonRecursive(main_type(type));
+    Ty = ConvertTypeNonRecursive(main_type(type));
     Ty = StructType::get(Ty, Ty, NULL);
-    return RememberTypeConversion(type, Ty);
-  }
-
-  case ENUMERAL_TYPE:
-    // If the enum is incomplete return a placeholder type.
-    if (!TYPE_SIZE(type))
-      return CheckTypeConversion(type, GetUnitType(Context));
-    // Otherwise fall through.
-  case BOOLEAN_TYPE:
-  case INTEGER_TYPE: {
-    uint64_t Size = getInt64(TYPE_SIZE(type), true);
-    // Caching the type conversion is not worth it.
-    return CheckTypeConversion(type, IntegerType::get(Context, Size));
+    break;
   }
 
 #if (GCC_MINOR > 5)
-  case NULLPTR_TYPE: {
-    // As NULLPTR_TYPE has an alignment of 1, output it as an array of bytes.
-    // FIXME: Instead we should use a pointer, and have a general mechanism
-    // for using a bunch of bytes instead for any type which is underaligned.
-    uint64_t Units = getInt64(TYPE_SIZE_UNIT(type), true);
-    return CheckTypeConversion(type, GetUnitType(Context, Units));
-  }
+  case NULLPTR_TYPE:
+    Ty = GetUnitPointerType(Context, TYPE_ADDR_SPACE(type));
+    break;
 #endif
 
   case OFFSET_TYPE: {
     // Handle OFFSET_TYPE specially.  This is used for pointers to members,
     // which are really just integer offsets.  Return the appropriate integer
     // type directly.
-    // Caching the type conversion is not worth it.
     unsigned AS = TYPE_ADDR_SPACE(type);
-    return CheckTypeConversion(type, getDataLayout().getIntPtrType(Context, AS));
+    Ty = getDataLayout().getIntPtrType(Context, AS);
+    break;
   }
 
   case REAL_TYPE:
-    // Caching the type conversion is not worth it.
     switch (TYPE_PRECISION(type)) {
     default:
       debug_tree(type);
       llvm_unreachable("Unknown FP type!");
-    case 32: return CheckTypeConversion(type, Type::getFloatTy(Context));
-    case 64: return CheckTypeConversion(type, Type::getDoubleTy(Context));
-    case 80: return CheckTypeConversion(type, Type::getX86_FP80Ty(Context));
+    case 32:
+      Ty = Type::getFloatTy(Context);
+      break;
+    case 64:
+      Ty = Type::getDoubleTy(Context);
+      break;
+    case 80:
+      Ty = Type::getX86_FP80Ty(Context);
+      break;
     case 128:
 #ifdef TARGET_POWERPC
-      return CheckTypeConversion(type, Type::getPPC_FP128Ty(Context));
+      Ty = Type::getPPC_FP128Ty(Context);
 #else
       // IEEE quad precision.
-      return CheckTypeConversion(type, Type::getFP128Ty(Context));
+      Ty = Type::getFP128Ty(Context);
 #endif
+      break;
     }
-
-  case RECORD_TYPE:
-  case QUAL_UNION_TYPE:
-  case UNION_TYPE:
-    // If the type was already converted then return the already computed type.
-    if (Type *Ty = getCachedType(type))
-      return CheckTypeConversion(type, Ty);
-
-    // Otherwise this must be an incomplete type - return an opaque struct.
-    assert(!TYPE_SIZE(type) && "Expected an incomplete type!");
-    return RememberTypeConversion(type,
-                                  StructType::create(Context,
-                                                     getDescriptiveName(type)));
+    break;
 
   case VECTOR_TYPE: {
-    if (Type *Ty = getCachedType(type))
-      return CheckTypeConversion(type, Ty);
     assert(!isa<ACCESS_TYPE>(TREE_TYPE(type)) && "Type not already converted!");
-    Type *Ty = ConvertTypeNonRecursive(main_type(type));
+    Ty = ConvertTypeNonRecursive(main_type(type));
     Ty = VectorType::get(Ty, TYPE_VECTOR_SUBPARTS(type));
-    return RememberTypeConversion(type, Ty);
+    break;
+  }
   }
 
-  case VOID_TYPE:
-    // Caching the type conversion is not worth it.
-    return CheckTypeConversion(type, Type::getVoidTy(Context));
-  }
+  // If the LLVM type we chose has the wrong size or is overaligned then use a
+  // bunch of bytes instead.
+  assert(Ty->isSized() && "Must convert to a sized type!");
+  uint64_t LLVMSizeInBits = getDataLayout().getTypeAllocSizeInBits(Ty);
+  unsigned LLVMAlignInBits = getDataLayout().getABITypeAlignment(Ty) * 8;
+  if (LLVMSizeInBits != SizeInBits || LLVMAlignInBits > AlignInBits)
+    Ty = GetUnitType(Context, SizeInBits / BITS_PER_UNIT);
+
+  return RememberTypeConversion(type, Ty);
 }
 
 /// RecursiveTypeIterator - A convenience class that visits only those nodes
