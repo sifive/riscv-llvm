@@ -1795,7 +1795,8 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
 
 static void InlineAsmDiagnosticHandler(const SMDiagnostic &D, void * /*Data*/,
                                        location_t loc) {
-  const char *Message = D.getMessage().str().c_str();
+  std::string S = D.getMessage().str(); // Ensure Message is not dangling.
+  const char *Message = S.c_str();
   switch (D.getKind()) {
   case SourceMgr::DK_Error:
     error_at(loc, "%s", Message);
