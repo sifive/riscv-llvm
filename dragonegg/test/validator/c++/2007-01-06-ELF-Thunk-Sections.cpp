@@ -2,12 +2,12 @@
 // PR1085
 // XFAIL: gcc-4.7
 
-// CHECK: define weak void @_ZThn8_N
-// CHECK: define weak void @_ZThn8_N
-// CHECK: define weak void @_ZThn8_N
-// CHECK: define weak void @_ZThn8_N
-// CHECK: define weak void @_ZThn8_N
-// CHECK: define weak void @_ZThn8_N
+// CHECK: define weak void @_ZThn{{[48]}}_N
+// CHECK: define weak void @_ZThn{{[48]}}_N
+// CHECK: define weak void @_ZThn{{[48]}}_N
+// CHECK: define weak void @_ZThn{{[48]}}_N
+// CHECK: define weak void @_ZThn{{[48]}}_N
+// CHECK: define weak void @_ZThn{{[48]}}_N
 
 class 
 __attribute__((visibility("default"))) QGenericArgument
