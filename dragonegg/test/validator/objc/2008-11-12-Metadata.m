@@ -1,4 +1,4 @@
-// RUN: %dragonegg -x objective-c -m64 -S %s -o /dev/null
+// RUN: %dragonegg -x objective-c -S %s -o /dev/null
 
 @interface A
 @end
