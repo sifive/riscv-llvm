@@ -1,3 +1,6 @@
+// RUN: %dragonegg -S %s
+// NOTE: gcc-4.6 w/o dragonegg crashes on this on x86-32.
+
 #include <stdio.h>
 
 long double rfoof(double x) {
