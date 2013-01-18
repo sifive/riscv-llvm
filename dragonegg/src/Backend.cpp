@@ -378,7 +378,7 @@ static std::string ComputeTargetTriple() {
   // If the target wants to override the architecture, e.g. turning
   // powerpc-darwin-... into powerpc64-darwin-... when -m64 is enabled, do so
   // now.
-  std::string TargetTriple = Triple::normalize(TARGET_NAME);
+  std::string TargetTriple = Triple::normalize(TARGET_TRIPLE);
   std::string Components[4]; // Arch-Vendor-OS-Environment
 #ifdef LLVM_OVERRIDE_TARGET_ARCH
   Components[0] = LLVM_OVERRIDE_TARGET_ARCH();
