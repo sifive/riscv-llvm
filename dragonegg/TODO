@@ -1,12 +1,10 @@
+Items marked with * are high priority.
+
 Build system
 ------------
 
 Determination of the target triple should be moved from the Makefile to a
 configure script.
-
-The plugin revision is created from the subversion revision.  What if people
-are using git etc?  Maybe it should be calculated in a configure script, but
-since that might not get run often perhaps the Makefile is the best place.
 
 Target subdirectories should have their own Makefiles, instead of assuming
 that there's only one source file and that it's called llvm-target.cpp.
@@ -32,30 +30,14 @@ GCC now has per-function optimization levels.  Add support for this.
 Unify the code that determines which LLVM linkage type to use.  Need to do
 a bunch of experimenting to work out how the mapping should really be done.
 
-Stop hooking directly into target specific ABI code (which requires patching
+* Stop hooking directly into target specific ABI code (which requires patching
 gcc).  Instead, either try to get ABI info from the gcc hooks (which may mean
 translating RTL) or reuse the clang code.
 
 Testing
 -------
 
-Add nightly testers that build using dragonegg.
-
 Move the old FrontendXYZ tests from LLVM to dragonegg.
-
-Add a "compilator" lit test mode that compiles everything it is
-pointed at using gcc and dragonegg, and generates "fail" if gcc
-compiles something but dragonegg doesn't (and vice versa).  Point
-the compilator at the gcc and clang testsuites.  Have some buildbots
-that do this.
-
-Make the dragonegg testsuite public.  Have some buildbots run it.
-
-Have the dragonegg self-host script also check that "make check"
-is working fine after LLVM is built.
-
-Have the dragonegg buildbots use a proper buildbot script rather than
-just handing everything off to the dragonegg self-host script.
 
 Code quality
 ------------
@@ -74,10 +56,11 @@ Consider turning this directly into the corresponding vector operations.
 Work in terms of units rather than octets (i8).  For example, if the target
 has a 16 bit byte, then use i16 for byte addressing.
 
-Add language specific flags, for example that C++ uses the one-definition rule.
-
 Features
 --------
+
+* Move debug info generation over to the latest LLVM system, since we are now
+the only user of the old debug info system.
 
 Output proper debug info rather than throwing most of it away.  Provide column
 numbers in location info.
