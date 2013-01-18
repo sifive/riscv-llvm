@@ -30,6 +30,7 @@
 # Generated files
 /TargetInfo
 /dragonegg.so
+/test/*lit.site.cfg
 
 #==============================================================================#
 # Directories to ignore (do not add trailing '/'s, they skip symlinks).
