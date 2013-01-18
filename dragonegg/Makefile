@@ -80,6 +80,7 @@ CPP_OPTIONS+=$(CPPFLAGS) $(shell $(LLVM_CONFIG) --cppflags) \
 	     -fno-rtti \
 	     -MD -MP \
 	     -DIN_GCC -DLLVM_VERSION=\"$(LLVM_VERSION)\" \
+	     -DTARGET_TRIPLE=\"$(TARGET_TRIPLE)\" \
 	     -DGCC_MAJOR=$(GCC_MAJOR) -DGCC_MINOR=$(GCC_MINOR) \
 	     -DGCC_MICRO=$(GCC_MICRO) \
 	     -I$(INCLUDE_DIR) -isystem$(GCC_PLUGIN_DIR)/include
@@ -96,8 +97,7 @@ LLVM_COMPONENTS+=bitreader bitwriter asmparser instrumentation vectorize
 endif
 
 # NOTE: The following flags can only be used after TARGET_UTIL has been built.
-TARGET_HEADERS+=-DTARGET_NAME=\"$(shell $(TARGET_UTIL) -t)\" \
-		-I$(INCLUDE_DIR)/$(shell $(TARGET_UTIL) -p) \
+TARGET_HEADERS+=-I$(INCLUDE_DIR)/$(shell $(TARGET_UTIL) -p) \
 		-I$(INCLUDE_DIR)/$(shell $(TARGET_UTIL) -o)
 
 ifdef VERBOSE
@@ -122,7 +122,7 @@ llvm-config-sane:
 
 $(TARGET_UTIL_OBJECTS): %.o : $(TOP_DIR)/utils/%.cpp
 	@echo Compiling utils/$*.cpp
-	$(QUIET)$(CXX) -c -DTARGET_TRIPLE=\"$(TARGET_TRIPLE)\" \
+	$(QUIET)$(CXX) -c \
 	$(CPP_OPTIONS) $(CXXFLAGS) $<
 
 $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
