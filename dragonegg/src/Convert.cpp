@@ -3269,12 +3269,10 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
     PAL = cast<Function>(Callee)->getAttributes();
 
   // Work out whether to use an invoke or an ordinary call.
-  if (!stmt_could_throw_p(stmt)) {
+  if (!stmt_could_throw_p(stmt))
     // This call does not throw - mark it 'nounwind'.
-    Attribute NoUnwind = Attribute::get(Callee->getContext(),
-                                          Attribute::NoUnwind);
-    PAL = PAL.addAttr(Callee->getContext(), ~0, NoUnwind);
-  }
+    PAL = PAL.addAttribute(Callee->getContext(), AttributeSet::FunctionIndex,
+                           Attribute::NoUnwind);
 
   if (!PAL.hasAttribute(AttributeSet::FunctionIndex,
                         Attribute::NoUnwind)) {
@@ -3374,7 +3372,8 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
       for (unsigned j = OldSize + 1; j <= CallOperands.size(); ++j)
-        PAL = PAL.addAttr(Context, j, Attribute::get(Context, AttrBuilder));
+        PAL = PAL.addAttr(Context, j,
+                          AttributeSet::get(Context, j, AttrBuilder));
     }
 
     Client.clear();
