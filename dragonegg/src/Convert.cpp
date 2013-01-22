@@ -6634,8 +6634,8 @@ Constant *TreeToLLVM::EmitRealRegisterConstant(tree reg) {
   if (BYTES_BIG_ENDIAN)
     std::reverse(Parts, Parts + Words);
 
-  bool isPPC_FP128 = ConvertType(TREE_TYPE(reg))->isPPC_FP128Ty();
-  if (isPPC_FP128) {
+  Type *Ty = getRegType(TREE_TYPE(reg));
+  if (Ty->isPPC_FP128Ty()) {
     // This type is actually a pair of doubles in disguise.  They turn up the
     // wrong way round here, so flip them.
     assert(FLOAT_WORDS_BIG_ENDIAN && "PPC not big endian!");
@@ -6646,7 +6646,7 @@ Constant *TreeToLLVM::EmitRealRegisterConstant(tree reg) {
   // Form an APInt from the buffer, an APFloat from the APInt, and the desired
   // floating point constant from the APFloat, phew!
   const APInt &I = APInt(Precision, Words, Parts);
-  return ConstantFP::get(Context, APFloat(I, !isPPC_FP128));
+  return ConstantFP::get(Context, APFloat(Ty->getFltSemantics(), I));
 }
 
 /// EmitConstantVectorConstructor - Turn the given constant CONSTRUCTOR into
