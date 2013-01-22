@@ -1860,17 +1860,17 @@ Constant *TreeToLLVM::CastToAnyType(Constant *Src, bool SrcIsSigned,
 /// CastFromSameSizeInteger - Cast an integer (or vector of integer) value to
 /// the given scalar (resp. vector of scalar) type of the same bitwidth.
 Value *TreeToLLVM::CastFromSameSizeInteger(Value *V, Type *Ty) {
-  Type *OrigTy = V->getType();
-  assert(OrigTy->getScalarType()->isIntegerTy() && "Expected an integer type!");
+  assert(V->getType()->getScalarType()->isIntegerTy() &&
+         "Expected an integer type!");
   Type *EltTy = Ty->getScalarType();
   if (EltTy->isIntegerTy()) {
     // Already an integer/vector of integer - nothing to do.
-    assert(OrigTy == Ty && "Integer type not same size!");
+    assert(V->getType() == Ty && "Integer type not same size!");
     return V;
   }
   if (EltTy->isPointerTy()) {
     // A pointer/vector of pointer - use inttoptr.
-    assert(OrigTy->getScalarType()->getPrimitiveSizeInBits() ==
+    assert(V->getType()->getScalarType()->getPrimitiveSizeInBits() ==
            DL.getPointerSizeInBits(cast<PointerType>(EltTy)->getAddressSpace())
            && "Pointer type not same size!");
     return Builder.CreateIntToPtr(V, Ty);
