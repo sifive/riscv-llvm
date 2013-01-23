@@ -3372,8 +3372,8 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
       for (unsigned j = OldSize + 1; j <= CallOperands.size(); ++j)
-        PAL = PAL.addAttr(Context, j,
-                          AttributeSet::get(Context, j, AttrBuilder));
+        PAL = PAL.addAttributes(Context, j,
+                                AttributeSet::get(Context, j, AttrBuilder));
     }
 
     Client.clear();
