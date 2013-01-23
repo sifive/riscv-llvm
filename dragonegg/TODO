@@ -59,6 +59,7 @@ has a 16 bit byte, then use i16 for byte addressing.
 Convert GCC floating point register constants without "going through memory"
 (see TreeToLLVM::EmitRealRegisterConstant).
 
+Reduce the use of macros.
 
 Features
 --------
