@@ -26,8 +26,7 @@
 #include <cassert>
 
 /// Range - Represents the interval [First, Last).
-template<typename T>
-class Range {
+template <typename T> class Range {
   T First, Last;
 public:
   Range() : First(0), Last(0) {}
@@ -35,13 +34,11 @@ public:
 
   bool operator==(const Range &other) const {
     return (empty() && other.empty()) ||
-      (First == other.First && Last == other.Last);
+           (First == other.First && Last == other.Last);
   }
 
   /// empty - Return whether the range is empty.
-  bool empty() const {
-    return Last <= First;
-  }
+  bool empty() const { return Last <= First; }
 
   /// getFirst - Return the value defining the start of the range.
   T getFirst() const {
@@ -56,9 +53,7 @@ public:
   }
 
   /// getWidth - Return the number of values in the range.
-  T getWidth() const {
-    return empty() ? 0 : Last - First;
-  }
+  T getWidth() const { return empty() ? 0 : Last - First; }
 
   /// contains - Return true if the given range is contained in this one.
   bool contains(Range r) const {

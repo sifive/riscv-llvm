@@ -29,10 +29,10 @@
 
 // Forward declarations.
 namespace llvm {
-  class AttributeSet;
-  class FunctionType;
-  class LLVMContext;
-  class Type;
+class AttributeSet;
+class FunctionType;
+class LLVMContext;
+class Type;
 }
 union tree_node;
 
@@ -40,7 +40,7 @@ union tree_node;
 //                                 Utilities
 //===----------------------------------------------------------------------===//
 
-#define NO_LENGTH (~(uint64_t)0)
+#define NO_LENGTH (~(uint64_t) 0)
 
 /// ArrayLengthOf - Returns the length of the given gcc array type, or NO_LENGTH
 /// if the array has variable or unknown length.
@@ -88,19 +88,15 @@ extern llvm::Type *ConvertType(tree_node *type);
 /// ConvertFunctionType - Convert the specified FUNCTION_TYPE or METHOD_TYPE
 /// tree to an LLVM type.  This does the same thing that ConvertType does, but
 /// it also returns the function's LLVM calling convention and attributes.
-extern llvm::FunctionType *ConvertFunctionType(tree_node *type, tree_node *decl,
-                                               tree_node *static_chain,
-                                               llvm::CallingConv::ID &CC,
-                                               llvm::AttributeSet &PAL);
+extern llvm::FunctionType *ConvertFunctionType(
+    tree_node *type, tree_node *decl, tree_node *static_chain,
+    llvm::CallingConv::ID &CC, llvm::AttributeSet &PAL);
 
 /// ConvertArgListToFnType - Given a DECL_ARGUMENTS list on an GCC tree,
 /// return the LLVM type corresponding to the function.  This is useful for
 /// turning "T foo(...)" functions into "T foo(void)" functions.
-llvm::FunctionType *ConvertArgListToFnType(tree_node *type,
-                                           ArrayRef<tree_node *> arglist,
-                                           tree_node *static_chain,
-                                           bool KNRPromotion,
-                                           llvm::CallingConv::ID &CC,
-                                           llvm::AttributeSet &PAL);
+llvm::FunctionType *ConvertArgListToFnType(
+    tree_node *type, ArrayRef<tree_node *> arglist, tree_node *static_chain,
+    bool KNRPromotion, llvm::CallingConv::ID &CC, llvm::AttributeSet &PAL);
 
 #endif /* DRAGONEGG_TYPES_H */

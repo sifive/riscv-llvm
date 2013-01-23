@@ -26,8 +26,8 @@
 
 // Forward declarations.
 namespace llvm {
-  class Constant;
-  class Type;
+class Constant;
+class Type;
 }
 union tree_node;
 
@@ -55,8 +55,7 @@ extern llvm::Constant *ConvertInitializer(tree_node *exp);
 /// getRegType, and is what you would get by storing the constant to memory and
 /// using LoadRegisterFromMemory to load a register value back out starting from
 /// byte StartingByte.
-extern llvm::Constant *ExtractRegisterFromConstant(llvm::Constant *C,
-                                                   tree_node *type,
-                                                   int StartingByte = 0);
+extern llvm::Constant *ExtractRegisterFromConstant(
+    llvm::Constant *C, tree_node *type, int StartingByte = 0);
 
 #endif /* DRAGONEGG_CONSTANTS_H */

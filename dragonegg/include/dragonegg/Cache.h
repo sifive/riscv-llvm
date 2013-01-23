@@ -28,8 +28,8 @@
 
 // Forward declarations.
 namespace llvm {
-  class Type;
-  class Value;
+class Type;
+class Value;
 }
 union tree_node;
 

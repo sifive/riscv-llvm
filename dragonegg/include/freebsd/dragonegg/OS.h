@@ -24,10 +24,10 @@
 #define DRAGONEGG_OS_H
 
 /* Yes, we support PIC codegen for FreeBSD targets! */
-#define LLVM_SET_RELOC_MODEL(RelocModel)	\
-  if (flag_pic)					\
-    RelocModel = Reloc::PIC_;			\
-  else						\
+#define LLVM_SET_RELOC_MODEL(RelocModel)                                       \
+  if (flag_pic)                                                                \
+    RelocModel = Reloc::PIC_;                                                  \
+  else                                                                         \
     RelocModel = Reloc::Static;
 
 #endif /* DRAGONEGG_OS_H */

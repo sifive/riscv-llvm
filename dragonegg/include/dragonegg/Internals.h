@@ -38,22 +38,22 @@ union gimple_statement_d;
 union tree_node;
 
 namespace llvm {
-  class Module;
-  class GlobalVariable;
-  class Function;
-  class GlobalValue;
-  class BasicBlock;
-  class Instruction;
-  class AllocaInst;
-  class BranchInst;
-  class Value;
-  class Constant;
-  class ConstantInt;
-  class Type;
-  class TargetMachine;
-  class DataLayout;
-  template<typename> class AssertingVH;
-  template<typename> class TrackingVH;
+class Module;
+class GlobalVariable;
+class Function;
+class GlobalValue;
+class BasicBlock;
+class Instruction;
+class AllocaInst;
+class BranchInst;
+class Value;
+class Constant;
+class ConstantInt;
+class Type;
+class TargetMachine;
+class DataLayout;
+template <typename> class AssertingVH;
+template <typename> class TrackingVH;
 }
 class DebugInfo;
 using namespace llvm;
@@ -96,9 +96,9 @@ extern bool flag_odr;
 extern bool flag_functions_from_args;
 
 /// AttributeUsedGlobals - The list of globals that are marked attribute(used).
-extern SmallSetVector<Constant *,32> AttributeUsedGlobals;
+extern SmallSetVector<Constant *, 32> AttributeUsedGlobals;
 
-extern Constant* ConvertMetadataStringToGV(const char *str);
+extern Constant *ConvertMetadataStringToGV(const char *str);
 
 /// AddAnnotateAttrsToGlobal - Adds decls that have a
 /// annotate attribute to a vector to be emitted later.
@@ -140,14 +140,14 @@ std::string getLLVMAssemblerName(tree_node *);
 
 /// Return true if and only if field no. N from struct type T is a padding
 /// element added to match llvm struct type size and gcc struct type size.
-bool isPaddingElement(tree_node*, unsigned N);
+bool isPaddingElement(tree_node *, unsigned N);
 
 /// getDefaultValue - Return the default value to use for a constant or global
 /// that has no value specified.  For example in C like languages such variables
 /// are initialized to zero, while in Ada they hold an undefined value.
 inline Constant *getDefaultValue(Type *Ty) {
-  return flag_default_initialize_globals ?
-    Constant::getNullValue(Ty) : UndefValue::get(Ty);
+  return flag_default_initialize_globals ? Constant::getNullValue(Ty) :
+         UndefValue::get(Ty);
 }
 
 /// isPassedByInvisibleReference - Return true if the specified type should be
@@ -174,14 +174,12 @@ public:
     setAlignment(A);
   }
 
-  uint32_t getAlignment() const {
-    return 1U << LogAlign;
-  }
+  uint32_t getAlignment() const { return 1U << LogAlign; }
 
   void setAlignment(uint32_t A) {
     // Forbid alignment 0 along with non-power-of-2 alignment values.
     assert(isPowerOf2_32(A) && "Alignment not a power of 2!");
-    LogAlign = (unsigned char)Log2_32(A);
+    LogAlign = (unsigned char) Log2_32(A);
   }
 };
 
@@ -199,13 +197,13 @@ public:
 public:
   explicit LValue() : BitStart(255), BitSize(255) {}
   explicit LValue(MemRef &M) : MemRef(M), BitStart(255), BitSize(255) {}
-  LValue(Value *P, uint32_t A, bool V = false) :
-      MemRef(P, A, V), BitStart(255), BitSize(255) {}
-  LValue(Value *P, uint32_t A, unsigned BSt, unsigned BSi, bool V = false) :
-      MemRef(P, A, V), BitStart((unsigned char)BSt),
-      BitSize((unsigned char)BSi) {
-    assert(BitStart == BSt && BitSize == BSi &&
-           "Bit values larger than 256?");
+  LValue(Value *P, uint32_t A, bool V = false)
+      : MemRef(P, A, V), BitStart(255), BitSize(255) {
+  }
+  LValue(Value *P, uint32_t A, unsigned BSt, unsigned BSi, bool V = false)
+      : MemRef(P, A, V), BitStart((unsigned char) BSt),
+        BitSize((unsigned char) BSi) {
+    assert(BitStart == BSt && BitSize == BSi && "Bit values larger than 256?");
   }
 
   bool isBitfield() const { return BitStart != 255; }
@@ -243,7 +241,7 @@ class TreeToLLVM {
   Instruction *SSAInsertionPoint;
 
   /// BasicBlocks - Map from GCC to LLVM basic blocks.
-  DenseMap<basic_block_def *, BasicBlock*> BasicBlocks;
+  DenseMap<basic_block_def *, BasicBlock *> BasicBlocks;
 
   /// LocalDecls - Map from local declarations to their associated LLVM values.
   DenseMap<tree_node *, AssertingVH<Value> > LocalDecls;
@@ -262,28 +260,27 @@ public:
   /// function.  However DECL_LOCAL can be used with declarations local to the
   /// current function as well as with global declarations.
   Value *make_decl_local(tree_node *);
-  #define DECL_LOCAL(NODE) make_decl_local(NODE)
+#define DECL_LOCAL(NODE) make_decl_local(NODE)
 
   /// DEFINITION_LOCAL - Like DEFINITION_LLVM, ensures that the initial value or
   /// body of a variable or function will be output.  However DEFINITION_LOCAL
   /// can be used with declarations local to the current function as well as
   /// with global declarations.
   Value *make_definition_local(tree_node *);
-  #define DEFINITION_LOCAL(NODE) make_definition_local(NODE)
+#define DEFINITION_LOCAL(NODE) make_definition_local(NODE)
 
   /// SET_DECL_LOCAL - Set the DECL_LOCAL for NODE to LLVM.
   Value *set_decl_local(tree_node *, Value *);
-  #define SET_DECL_LOCAL(NODE, LLVM) set_decl_local(NODE, LLVM)
+#define SET_DECL_LOCAL(NODE, LLVM) set_decl_local(NODE, LLVM)
 
   /// DECL_LOCAL_IF_SET - The DECL_LOCAL for NODE, if it is set, or NULL, if it
   /// is not set.
   Value *get_decl_local(tree_node *);
-  #define DECL_LOCAL_IF_SET(NODE) (HAS_RTL_P(NODE) ? get_decl_local(NODE) : NULL)
+#define DECL_LOCAL_IF_SET(NODE) (HAS_RTL_P(NODE) ? get_decl_local(NODE) : NULL)
 
-  /// DECL_LOCAL_SET_P - Returns nonzero if the DECL_LOCAL for NODE has already
-  /// been set.
-  #define DECL_LOCAL_SET_P(NODE) (DECL_LOCAL_IF_SET(NODE) != NULL)
-
+/// DECL_LOCAL_SET_P - Returns nonzero if the DECL_LOCAL for NODE has already
+/// been set.
+#define DECL_LOCAL_SET_P(NODE) (DECL_LOCAL_IF_SET(NODE) != NULL)
 
 private:
 
@@ -326,10 +323,10 @@ public:
 
   /// CastToAnyType - Cast the specified value to the specified type regardless
   /// of the types involved. This is an inferred cast.
-  Value *CastToAnyType (Value *Src, bool SrcIsSigned,
-                        Type *DstTy, bool DstIsSigned);
-  Constant *CastToAnyType (Constant *Src, bool SrcIsSigned,
-                           Type *DstTy, bool DstIsSigned);
+  Value *CastToAnyType(Value *Src, bool SrcIsSigned, Type *DstTy,
+                       bool DstIsSigned);
+  Constant *CastToAnyType(Constant *Src, bool SrcIsSigned, Type *DstTy,
+                          bool DstIsSigned);
 
   /// CastFromSameSizeInteger - Cast an integer (or vector of integer) value to
   /// the given scalar (resp. vector of scalar) type of the same bitwidth.
@@ -363,7 +360,7 @@ public:
   /// CreateTemporary - Create a new alloca instruction of the specified type,
   /// inserting it into the entry block and returning it.  The resulting
   /// instruction's type is a pointer to the specified type.
-  AllocaInst *CreateTemporary(Type *Ty, unsigned align=0);
+  AllocaInst *CreateTemporary(Type *Ty, unsigned align = 0);
 
   /// CreateTempLoc - Like CreateTemporary, but returns a MemRef.
   MemRef CreateTempLoc(Type *Ty);
@@ -376,7 +373,7 @@ public:
   /// DestLoc.
   void EmitAggregate(tree_node *exp, const MemRef &DestLoc);
 
-private: // Helper functions.
+private : // Helper functions.
 
   /// StartFunctionBody - Start the emission of 'fndecl', outputing all
   /// declarations for parameters and setting things up.
@@ -423,7 +420,8 @@ private: // Helper functions.
   /// llvm.memset call with the specified operands.  Returns DestPtr bitcast
   /// to i8*.
   Value *EmitMemCpy(Value *DestPtr, Value *SrcPtr, Value *Size, unsigned Align);
-  Value *EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size, unsigned Align);
+  Value *EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size,
+                     unsigned Align);
   Value *EmitMemSet(Value *DestPtr, Value *SrcVal, Value *Size, unsigned Align);
 
   /// EmitLandingPads - Emit EH landing pads.
@@ -437,7 +435,7 @@ private: // Helper functions.
   /// function.
   bool EmitDebugInfo();
 
-private: // Helpers for exception handling.
+private : // Helpers for exception handling.
 
   /// getExceptionPtr - Return the local holding the exception pointer for the
   /// given exception handling region, creating it if necessary.
@@ -594,7 +592,8 @@ private:
   Value *EmitCallOf(Value *Callee, gimple_statement_d *stmt,
                     const MemRef *DestLoc, const AttributeSet &PAL);
   CallInst *EmitSimpleCall(StringRef CalleeName, tree_node *ret_type,
-                           /* arguments */ ...) END_WITH_NULL;
+                           /* arguments */ ...)
+      END_WITH_NULL;
   Value *EmitFieldAnnotation(Value *FieldPtr, tree_node *FieldDecl);
 
   // Inline Assembly and Register Variables.
@@ -602,7 +601,7 @@ private:
   void EmitModifyOfRegisterVariable(tree_node *vardecl, Value *RHS);
 
   // Helpers for Builtin Function Expansion.
-  Value *BuildVector(const std::vector<Value*> &Elts);
+  Value *BuildVector(const std::vector<Value *> &Elts);
   Value *BuildVector(Value *Elt, ...);
   Value *BuildVectorShuffle(Value *InVec1, Value *InVec2, ...);
   Value *BuildBinaryAtomic(gimple_statement_d *stmt, AtomicRMWInst::BinOp Kind,
@@ -690,7 +689,6 @@ private:
   Value *EmitREAL_CST(tree_node *exp);
   Value *EmitCONSTRUCTOR(tree_node *exp, const MemRef *DestLoc);
 
-
   // Emit helpers.
 
   /// EmitMinInvariant - The given value is constant in this function.  Return
@@ -744,12 +742,9 @@ private:
 
 private:
   // Optional target defined builtin intrinsic expanding function.
-  bool TargetIntrinsicLower(gimple_statement_d *stmt,
-                            tree_node *fndecl,
-                            const MemRef *DestLoc,
-                            Value *&Result,
-                            Type *ResultType,
-                            std::vector<Value*> &Ops);
+  bool TargetIntrinsicLower(gimple_statement_d *stmt, tree_node *fndecl,
+                            const MemRef *DestLoc, Value *&Result,
+                            Type *ResultType, std::vector<Value *> &Ops);
 
 public:
   // Helper for taking the address of a label.

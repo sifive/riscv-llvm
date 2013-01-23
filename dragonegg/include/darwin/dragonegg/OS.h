@@ -24,33 +24,33 @@
 #define DRAGONEGG_OS_H
 
 /* Darwin X86-64 only supports PIC code generation. */
-#if defined (TARGET_386)
-#define LLVM_SET_RELOC_MODEL(RelocModel)	\
-  if ((TARGET_64BIT) || flag_pic)		\
-    RelocModel = Reloc::PIC_;			\
-  else if (!MACHO_DYNAMIC_NO_PIC_P)		\
+#if defined(TARGET_386)
+#define LLVM_SET_RELOC_MODEL(RelocModel)                                       \
+  if ((TARGET_64BIT) || flag_pic)                                              \
+    RelocModel = Reloc::PIC_;                                                  \
+  else if (!MACHO_DYNAMIC_NO_PIC_P)                                            \
     RelocModel = Reloc::Static;
-#elif defined (TARGET_ARM)
-#define LLVM_SET_RELOC_MODEL(RelocModel)	\
-  if (flag_pic)					\
-    RelocModel = Reloc::PIC_;			\
-  else if (!MACHO_DYNAMIC_NO_PIC_P)		\
-    RelocModel = Reloc::Static;			\
-#else /* !TARGET_386 && !TARGET_ARM */
-#define LLVM_SET_RELOC_MODEL(RelocModel)	\
-  if (flag_pic)					\
-    RelocModel = Reloc::PIC_;			\
-  else if (!MACHO_DYNAMIC_NO_PIC_P)		\
+#elif defined(TARGET_ARM)
+#define LLVM_SET_RELOC_MODEL(RelocModel)                                       \
+  if (flag_pic)                                                                \
+    RelocModel = Reloc::PIC_;                                                  \
+  else if (!MACHO_DYNAMIC_NO_PIC_P)                                            \
+    RelocModel = Reloc::Static;                                                \
+  #else /* !TARGET_386 && !TARGET_ARM */
+#define LLVM_SET_RELOC_MODEL(RelocModel)                                       \
+  if (flag_pic)                                                                \
+    RelocModel = Reloc::PIC_;                                                  \
+  else if (!MACHO_DYNAMIC_NO_PIC_P)                                            \
     RelocModel = Reloc::Static;
 #endif /* !TARGET_386 && !TARGET_ARM */
 
 /* Give a constant string a sufficient alignment for the platform.  */
 /* radar 7291825 */
-#define TARGET_ADJUST_CSTRING_ALIGN(GV)                                 \
-  do {                                                                  \
-    if (GV->hasInternalLinkage()) {                                     \
-      GV->setAlignment(TARGET_64BIT ? 8 : 4);                           \
-    }                                                                   \
+#define TARGET_ADJUST_CSTRING_ALIGN(GV)                                        \
+  do {                                                                         \
+    if (GV->hasInternalLinkage()) {                                            \
+      GV->setAlignment(TARGET_64BIT ? 8 : 4);                                  \
+    }                                                                          \
   } while (0)
 
 #endif /* DRAGONEGG_OS_H */

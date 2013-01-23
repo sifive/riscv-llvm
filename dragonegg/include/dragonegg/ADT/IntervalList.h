@@ -36,8 +36,7 @@
 /// and otherwise changing the shape of the interval; and JoinWith for replacing
 /// the interval with the convex hull of its union with another interval (which
 /// is guaranteed to be disjoint from the original).
-template <class T, typename U, unsigned N>
-class IntervalList {
+template <class T, typename U, unsigned N> class IntervalList {
   typedef typename llvm::SmallVector<T, N> List;
   typedef typename List::iterator iterator;
 
@@ -57,13 +56,13 @@ class IntervalList {
   /// isSane - Return true if the intervals are non-empty, disjoint and
   /// sorted.
   bool isSane() const {
-    if (Intervals.size() != (unsigned)Intervals.size())
+    if (Intervals.size() != (unsigned) Intervals.size())
       return false; // Too many intervals.
-    for (unsigned i = 0, e = (unsigned)Intervals.size(); i < e; ++i) {
+    for (unsigned i = 0, e = (unsigned) Intervals.size(); i < e; ++i) {
       if (Intervals[i].getRange().empty())
         return false;
       if (i && Intervals[i].getRange().getFirst() <
-          Intervals[i-1].getRange().getLast())
+          Intervals[i - 1].getRange().getLast())
         return false;
     }
     return true;
@@ -78,14 +77,10 @@ public:
   void AddInterval(const T &S);
 
   /// getNumIntervals - Return the number of intervals in the list.
-  unsigned getNumIntervals() const {
-    return (unsigned)Intervals.size();
-  }
+  unsigned getNumIntervals() const { return (unsigned) Intervals.size(); }
 
   /// getInterval - Return the interval with the given index.
-  T getInterval(unsigned Idx) {
-    return Intervals[Idx];
-  }
+  T getInterval(unsigned Idx) { return Intervals[Idx]; }
 
   /// AlignBoundaries - Ensure that all intervals begin and end on a multiple of
   /// the given value.

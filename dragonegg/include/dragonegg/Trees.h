@@ -38,9 +38,8 @@
 
 // The following properties must hold if dragonegg is to work correctly.
 #if ((BITS_PER_UNIT & 7) != 0)
-#error	BITS_PER_UNIT must be a multiple of 8
+#error BITS_PER_UNIT must be a multiple of 8
 #endif
-
 
 /// dragonegg_tree_code - Fake helper tree codes.
 enum dragonegg_tree_code {
@@ -53,10 +52,10 @@ enum dragonegg_tree_code {
 };
 
 /// isa - Return true if the given tree has the specified code.
-template<enum tree_code code> bool isa(const_tree t) {
+template <enum tree_code code> bool isa(const_tree t) {
   return TREE_CODE(t) == code;
 }
-template<enum dragonegg_tree_code code> bool isa(const_tree t) {
+template <enum dragonegg_tree_code code> bool isa(const_tree t) {
   switch (code) {
   case ACCESS_TYPE:
     return POINTER_TYPE_P(t);
@@ -79,9 +78,7 @@ template<enum dragonegg_tree_code code> bool isa(const_tree t) {
 std::string getDescriptiveName(const_tree t);
 
 /// main_type - Return the main variant of the given tree's type.
-inline tree main_type(tree exp) {
-  return TYPE_MAIN_VARIANT(TREE_TYPE(exp));
-}
+inline tree main_type(tree exp) { return TYPE_MAIN_VARIANT(TREE_TYPE(exp)); }
 inline const_tree main_type(const_tree exp) {
   return TYPE_MAIN_VARIANT(TREE_TYPE(exp));
 }
