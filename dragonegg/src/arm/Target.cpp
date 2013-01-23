@@ -75,16 +75,13 @@ enum arm_fdts {
 
 // Classify type according to the number of fundamental data types contained
 // among its members.  Returns true if type is a homogeneous aggregate.
-static bool
-vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
-                                int *fdt_counts)
-{
+static bool vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
+                                            int *fdt_counts) {
   bool result = false;
-  HOST_WIDE_INT bytes =
-    (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
+  HOST_WIDE_INT bytes = (mode == BLKmode) ? int_size_in_bytes(type) :
+                        (int) GET_MODE_SIZE(mode);
 
-  if (type && isa<AGGREGATE_TYPE>(type))
-  {
+  if (type && isa<AGGREGATE_TYPE>(type)) {
     int i;
     int cnt = 0;
     tree field;
@@ -94,28 +91,27 @@ vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
       return 0;
 
     // Classify each field of records.
-    switch (TREE_CODE (type))
-    {
-      case RECORD_TYPE:
+    switch (TREE_CODE(type)) {
+    case RECORD_TYPE:
       // For classes first merge in the field of the subclasses.
-      if (TYPE_BINFO (type)) {
+      if (TYPE_BINFO(type)) {
         tree binfo, base_binfo;
         int basenum;
 
-        for (binfo = TYPE_BINFO (type), basenum = 0;
-             BINFO_BASE_ITERATE (binfo, basenum, base_binfo); basenum++) {
-          tree type = BINFO_TYPE (base_binfo);
+        for (binfo = TYPE_BINFO(type), basenum = 0;
+             BINFO_BASE_ITERATE(binfo, basenum, base_binfo); basenum++) {
+          tree type = BINFO_TYPE(base_binfo);
 
-          result = vfp_arg_homogeneous_aggregate_p(TYPE_MODE (type), type,
+          result = vfp_arg_homogeneous_aggregate_p(TYPE_MODE(type), type,
                                                    fdt_counts);
           if (!result)
             return false;
         }
       }
       // And now merge the fields of structure.
-      for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field)) {
+      for (field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
         if (isa<FIELD_DECL>(field)) {
-          if (TREE_TYPE (field) == error_mark_node)
+          if (TREE_TYPE(field) == error_mark_node)
             continue;
 
           result = vfp_arg_homogeneous_aggregate_p(TYPE_MODE(TREE_TYPE(field)),
@@ -127,74 +123,69 @@ vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
       }
       break;
 
-      case ARRAY_TYPE:
+    case ARRAY_TYPE:
         // Arrays are handled as small records.
         {
-          int array_fdt_counts[ARM_FDT_MAX] = { 0 };
+      int array_fdt_counts[ARM_FDT_MAX] = { 0 };
 
-          result = vfp_arg_homogeneous_aggregate_p(TYPE_MODE(TREE_TYPE(type)),
-                                                   TREE_TYPE(type),
-                                                   array_fdt_counts);
+      result = vfp_arg_homogeneous_aggregate_p(TYPE_MODE(TREE_TYPE(type)),
+                                               TREE_TYPE(type),
+                                               array_fdt_counts);
 
-          cnt = bytes / int_size_in_bytes(TREE_TYPE(type));
-          for (i = 0; i < ARM_FDT_MAX; ++i)
-            fdt_counts[i] += array_fdt_counts[i] * cnt;
+      cnt = bytes / int_size_in_bytes(TREE_TYPE(type));
+      for (i = 0; i < ARM_FDT_MAX; ++i)
+        fdt_counts[i] += array_fdt_counts[i] * cnt;
 
+      if (!result)
+        return false;
+    } break;
+
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE: {
+      // Unions are similar to RECORD_TYPE.
+      int union_fdt_counts[ARM_FDT_MAX] = { 0 };
+
+      // Unions are not derived.
+      gcc_assert(!TYPE_BINFO(type) || !BINFO_N_BASE_BINFOS(TYPE_BINFO(type)));
+      for (field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
+        int union_field_fdt_counts[ARM_FDT_MAX] = { 0 };
+
+        if (isa<FIELD_DECL>(field)) {
+          if (TREE_TYPE(field) == error_mark_node)
+            continue;
+
+          result = vfp_arg_homogeneous_aggregate_p(TYPE_MODE(TREE_TYPE(field)),
+                                                   TREE_TYPE(field),
+                                                   union_field_fdt_counts);
           if (!result)
             return false;
-        }
-      break;
 
-      case UNION_TYPE:
-      case QUAL_UNION_TYPE:
-        {
-          // Unions are similar to RECORD_TYPE.
-          int union_fdt_counts[ARM_FDT_MAX] = { 0 };
-
-          // Unions are not derived.
-          gcc_assert (!TYPE_BINFO (type)
-                      || !BINFO_N_BASE_BINFOS (TYPE_BINFO (type)));
-          for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field)) {
-            int union_field_fdt_counts[ARM_FDT_MAX] = { 0 };
-
-            if (isa<FIELD_DECL>(field)) {
-              if (TREE_TYPE (field) == error_mark_node)
-                continue;
-
-              result = vfp_arg_homogeneous_aggregate_p(
-                          TYPE_MODE(TREE_TYPE(field)),
-                          TREE_TYPE(field),
-                          union_field_fdt_counts);
-              if (!result)
-                return false;
-
-              // track largest union field
-              for (i = 0; i < ARM_FDT_MAX; ++i) {
-                if (union_field_fdt_counts[i] > 4)  // bail early if we can
-                  return false;
-
-                union_fdt_counts[i] = MAX(union_fdt_counts[i],
-                                          union_field_fdt_counts[i]);
-                union_field_fdt_counts[i] = 0;  // clear it out for next iter
-              }
-            }
-          }
-
-          // check for only one type across all union fields
-          cnt = 0;
+          // track largest union field
           for (i = 0; i < ARM_FDT_MAX; ++i) {
-            if (union_fdt_counts[i])
-              ++cnt;
-
-            if (cnt > 1)
+            if (union_field_fdt_counts[i] > 4) // bail early if we can
               return false;
 
-            fdt_counts[i] += union_fdt_counts[i];
+            union_fdt_counts[i] = MAX(union_fdt_counts[i],
+                                      union_field_fdt_counts[i]);
+            union_field_fdt_counts[i] = 0; // clear it out for next iter
           }
         }
-      break;
+      }
 
-      default:
+      // check for only one type across all union fields
+      cnt = 0;
+      for (i = 0; i < ARM_FDT_MAX; ++i) {
+        if (union_fdt_counts[i])
+          ++cnt;
+
+        if (cnt > 1)
+          return false;
+
+        fdt_counts[i] += union_fdt_counts[i];
+      }
+    } break;
+
+    default:
       llvm_unreachable("What type is this?");
     }
 
@@ -219,40 +210,28 @@ vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
     return true;
   }
 
-  if (type)
-  {
+  if (type) {
     int idx = 0;
     int cnt = 0;
 
-    switch (TREE_CODE(type))
-    {
+    switch (TREE_CODE(type)) {
     case REAL_TYPE:
-      idx = (TYPE_PRECISION(type) == 32) ?
-              ARM_FDT_FLOAT :
-              ((TYPE_PRECISION(type) == 64) ?
-                ARM_FDT_DOUBLE :
-                ARM_FDT_INVALID);
+      idx = (TYPE_PRECISION(type) == 32) ? ARM_FDT_FLOAT :
+            ((TYPE_PRECISION(type) == 64) ? ARM_FDT_DOUBLE : ARM_FDT_INVALID);
       cnt = 1;
       break;
 
-    case COMPLEX_TYPE:
-      {
-        tree subtype = TREE_TYPE(type);
-        idx = (TYPE_PRECISION(subtype) == 32) ?
-                ARM_FDT_FLOAT :
-                ((TYPE_PRECISION(subtype) == 64) ?
-                  ARM_FDT_DOUBLE :
-                  ARM_FDT_INVALID);
-        cnt = 2;
-      }
-      break;
+    case COMPLEX_TYPE: {
+      tree subtype = TREE_TYPE(type);
+      idx = (TYPE_PRECISION(subtype) == 32) ? ARM_FDT_FLOAT :
+            ((TYPE_PRECISION(subtype) == 64) ? ARM_FDT_DOUBLE :
+                 ARM_FDT_INVALID);
+      cnt = 2;
+    } break;
 
     case VECTOR_TYPE:
-      idx = (bytes == 8) ?
-              ARM_FDT_VECTOR_64 :
-              (bytes == 16) ?
-                ARM_FDT_VECTOR_128 :
-                ARM_FDT_INVALID;
+      idx = (bytes == 8) ? ARM_FDT_VECTOR_64 : (bytes == 16) ?
+            ARM_FDT_VECTOR_128 : ARM_FDT_INVALID;
       cnt = 1;
       break;
 
@@ -264,13 +243,12 @@ vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
     case FUNCTION_TYPE:
     case METHOD_TYPE:
     default:
-      return false;     // All of these disqualify.
+      return false; // All of these disqualify.
     }
 
     fdt_counts[idx] += cnt;
     return true;
-  }
-  else
+  } else
     llvm_unreachable("what type was this?");
 
   return false;
@@ -279,22 +257,20 @@ vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
 // Walk over an LLVM Type that we know is a homogeneous aggregate and
 // push the proper LLVM Types that represent the register types to pass
 // that struct member in.
-static void push_elts(Type *Ty, std::vector<Type*> &Elts)
-{
+static void push_elts(Type *Ty, std::vector<Type *> &Elts) {
   for (Type::subtype_iterator I = Ty->subtype_begin(), E = Ty->subtype_end();
        I != E; ++I) {
     Type *STy = *I;
     if (const VectorType *VTy = dyn_cast<VectorType>(STy)) {
-      switch (VTy->getBitWidth())
-      {
-        case 64:  // v2f32
-          Elts.push_back(VectorType::get(Type::getFloatTy(Context), 2));
-          break;
-        case 128: // v2f64
-          Elts.push_back(VectorType::get(Type::getDoubleTy(Context), 2));
-          break;
-        default:
-          assert (0 && "invalid vector type");
+      switch (VTy->getBitWidth()) {
+      case 64: // v2f32
+        Elts.push_back(VectorType::get(Type::getFloatTy(Context), 2));
+        break;
+      case 128: // v2f64
+        Elts.push_back(VectorType::get(Type::getDoubleTy(Context), 2));
+        break;
+      default:
+        assert(0 && "invalid vector type");
       }
     } else if (ArrayType *ATy = dyn_cast<ArrayType>(STy)) {
       Type *ETy = ATy->getElementType();
@@ -308,7 +284,7 @@ static void push_elts(Type *Ty, std::vector<Type*> &Elts)
   }
 }
 
-static unsigned count_num_words(std::vector<Type*> &ScalarElts) {
+static unsigned count_num_words(std::vector<Type *> &ScalarElts) {
   unsigned NumWords = 0;
   for (unsigned i = 0, e = ScalarElts.size(); i != e; ++i) {
     Type *Ty = ScalarElts[i];
@@ -320,7 +296,7 @@ static unsigned count_num_words(std::vector<Type*> &ScalarElts) {
 
       NumWords += NumWordsForType;
     } else {
-      assert (0 && "Unexpected type.");
+      assert(0 && "Unexpected type.");
     }
   }
   return NumWords;
@@ -330,11 +306,9 @@ static unsigned count_num_words(std::vector<Type*> &ScalarElts) {
 // handling of arguments is that arguments larger than 32 bits are split
 // and padding arguments are added as necessary for alignment. This makes
 // the IL a bit more explicit about how arguments are handled.
-extern bool
-llvm_arm_try_pass_aggregate_custom(tree type,
-                                   std::vector<Type*>& ScalarElts,
-           CallingConv::ID CC,
-           struct DefaultABIClient* C) {
+extern bool llvm_arm_try_pass_aggregate_custom(
+    tree type, std::vector<Type *> &ScalarElts, CallingConv::ID CC,
+    struct DefaultABIClient *C) {
   if (CC != CallingConv::ARM_AAPCS && CC != CallingConv::C)
     return false;
 
@@ -347,22 +321,22 @@ llvm_arm_try_pass_aggregate_custom(tree type,
   if (Ty->isPointerTy())
     return false;
 
-  const unsigned Size = TREE_INT_CST_LOW(TYPE_SIZE(type))/8;
-  const unsigned Alignment = TYPE_ALIGN(type)/8;
+  const unsigned Size = TREE_INT_CST_LOW(TYPE_SIZE(type)) / 8;
+  const unsigned Alignment = TYPE_ALIGN(type) / 8;
   const unsigned NumWords = count_num_words(ScalarElts);
   const bool AddPad = Alignment >= 8 && (NumWords % 2);
 
   // First, build a type that will be bitcast to the original one and
   // from where elements will be extracted.
-  std::vector<Type*> Elts;
-  Type* Int32Ty = Type::getInt32Ty(getGlobalContext());
+  std::vector<Type *> Elts;
+  Type *Int32Ty = Type::getInt32Ty(getGlobalContext());
   const unsigned NumRegularArgs = Size / 4;
   for (unsigned i = 0; i < NumRegularArgs; ++i) {
     Elts.push_back(Int32Ty);
   }
   const unsigned RestSize = Size % 4;
   llvm::Type *RestType = NULL;
-  if (RestSize> 2) {
+  if (RestSize > 2) {
     RestType = Type::getInt32Ty(getGlobalContext());
   } else if (RestSize > 1) {
     RestType = Type::getInt16Ty(getGlobalContext());
@@ -398,10 +372,8 @@ llvm_arm_try_pass_aggregate_custom(tree type,
 // It also returns a vector of types that correspond to the registers used
 // for parameter passing. This only applies to AAPCS-VFP "homogeneous
 // aggregates" as specified in 4.3.5 of the AAPCS spec.
-bool
-llvm_arm_should_pass_aggregate_in_mixed_regs(tree TreeType, Type *Ty,
-                                             CallingConv::ID CC,
-                                             std::vector<Type*> &Elts) {
+bool llvm_arm_should_pass_aggregate_in_mixed_regs(
+    tree TreeType, Type *Ty, CallingConv::ID CC, std::vector<Type *> &Elts) {
   if (!llvm_arm_should_pass_or_return_aggregate_in_regs(TreeType, CC))
     return false;
 
@@ -412,8 +384,7 @@ llvm_arm_should_pass_aggregate_in_mixed_regs(tree TreeType, Type *Ty,
   return true;
 }
 
-static bool alloc_next_spr(bool *SPRs)
-{
+static bool alloc_next_spr(bool *SPRs) {
   for (int i = 0; i < 16; ++i)
     if (!SPRs[i]) {
       SPRs[i] = true;
@@ -422,11 +393,10 @@ static bool alloc_next_spr(bool *SPRs)
   return false;
 }
 
-static bool alloc_next_dpr(bool *SPRs)
-{
+static bool alloc_next_dpr(bool *SPRs) {
   for (int i = 0; i < 16; i += 2)
     if (!SPRs[i]) {
-      SPRs[i] = SPRs[i+1] = true;
+      SPRs[i] = SPRs[i + 1] = true;
       return true;
     }
   return false;
@@ -435,7 +405,7 @@ static bool alloc_next_dpr(bool *SPRs)
 static bool alloc_next_qpr(bool *SPRs) {
   for (int i = 0; i < 16; i += 4)
     if (!SPRs[i]) {
-      SPRs[i] = SPRs[i+1] = SPRs[i+2] = SPRs[i+3] = true;
+      SPRs[i] = SPRs[i + 1] = SPRs[i + 2] = SPRs[i + 3] = true;
       return true;
     }
   return false;
@@ -444,43 +414,41 @@ static bool alloc_next_qpr(bool *SPRs) {
 // count_num_registers_uses - Simulate argument passing reg allocation in SPRs.
 // Caller is expected to zero out SPRs.  Returns true if all of ScalarElts fit
 // in registers.
-static bool count_num_registers_uses(std::vector<Type*> &ScalarElts,
+static bool count_num_registers_uses(std::vector<Type *> &ScalarElts,
                                      bool *SPRs) {
   for (unsigned i = 0, e = ScalarElts.size(); i != e; ++i) {
     Type *Ty = ScalarElts[i];
     if (const VectorType *VTy = dyn_cast<VectorType>(Ty)) {
-      switch (VTy->getBitWidth())
-      {
-        case 64:
-          if (!alloc_next_dpr(SPRs))
-            return false;
-          break;
-        case 128:
-          if (!alloc_next_qpr(SPRs))
-            return false;
-          break;
-        default:
-          assert(0);
+      switch (VTy->getBitWidth()) {
+      case 64:
+        if (!alloc_next_dpr(SPRs))
+          return false;
+        break;
+      case 128:
+        if (!alloc_next_qpr(SPRs))
+          return false;
+        break;
+      default:
+        assert(0);
       }
     } else if (Ty->isIntegerTy() || Ty->isPointerTy() ||
-               Ty==Type::getVoidTy(Context)) {
+               Ty == Type::getVoidTy(Context)) {
       ;
     } else {
       // Floating point scalar argument.
       assert(Ty->isFloatingPointTy() && Ty->isPrimitiveType() &&
              "Expecting a floating point primitive type!");
-      switch (Ty->getTypeID())
-      {
-        case Type::FloatTyID:
-          if (!alloc_next_spr(SPRs))
-            return false;
-          break;
-        case Type::DoubleTyID:
-          if (!alloc_next_spr(SPRs))
-            return false;
-          break;
-        default:
-          assert(0);
+      switch (Ty->getTypeID()) {
+      case Type::FloatTyID:
+        if (!alloc_next_spr(SPRs))
+          return false;
+        break;
+      case Type::DoubleTyID:
+        if (!alloc_next_spr(SPRs))
+          return false;
+        break;
+      default:
+        assert(0);
       }
     }
   }
@@ -491,16 +459,15 @@ static bool count_num_registers_uses(std::vector<Type*> &ScalarElts,
 // in registers. If there are only enough available parameter registers to pass
 // part of the aggregate, return true. That means the aggregate should instead
 // be passed in memory.
-bool
-llvm_arm_aggregate_partially_passed_in_regs(std::vector<Type*> &Elts,
-                                            std::vector<Type*> &ScalarElts,
-                                            CallingConv::ID CC) {
+bool llvm_arm_aggregate_partially_passed_in_regs(
+    std::vector<Type *> &Elts, std::vector<Type *> &ScalarElts,
+    CallingConv::ID CC) {
   // Homogeneous aggregates are an AAPCS-VFP feature.
   if ((CC != CallingConv::ARM_AAPCS_VFP) ||
       !(TARGET_AAPCS_BASED && TARGET_VFP && TARGET_HARD_FLOAT_ABI))
     return true;
 
-  bool SPRs[16] = { 0 };                    // represents S0-S16
+  bool SPRs[16] = { 0 }; // represents S0-S16
 
   // Figure out which SPRs are available.
   if (!count_num_registers_uses(ScalarElts, SPRs))
@@ -509,19 +476,18 @@ llvm_arm_aggregate_partially_passed_in_regs(std::vector<Type*> &Elts,
   if (!count_num_registers_uses(Elts, SPRs))
     return true;
 
-  return false;                            // it all fit in registers!
+  return false; // it all fit in registers!
 }
 
 // Return LLVM Type if TYPE can be returned as an aggregate,
 // otherwise return NULL.
-Type *llvm_arm_aggr_type_for_struct_return(tree TreeType,
-                                           CallingConv::ID CC) {
+Type *llvm_arm_aggr_type_for_struct_return(tree TreeType, CallingConv::ID CC) {
   if (!llvm_arm_should_pass_or_return_aggregate_in_regs(TreeType, CC))
     return NULL;
 
   // Walk Ty and push LLVM types corresponding to register types onto
   // Elts.
-  std::vector<Type*> Elts;
+  std::vector<Type *> Elts;
   Type *Ty = ConvertType(TreeType);
   push_elts(Ty, Elts);
 
@@ -535,13 +501,10 @@ Type *llvm_arm_aggr_type_for_struct_return(tree TreeType,
 // Extract SRCFIELDNO's ELEMENO value and store it in DEST's FIELDNO field's
 // ELEMENTNO.
 //
-static void llvm_arm_extract_mrv_array_element(Value *Src, Value *Dest,
-                                               unsigned SrcFieldNo,
-                                               unsigned SrcElemNo,
-                                               unsigned DestFieldNo,
-                                               unsigned DestElemNo,
-                                               LLVMBuilder &Builder,
-                                               bool isVolatile) {
+static void llvm_arm_extract_mrv_array_element(
+    Value *Src, Value *Dest, unsigned SrcFieldNo, unsigned SrcElemNo,
+    unsigned DestFieldNo, unsigned DestElemNo, LLVMBuilder &Builder,
+    bool isVolatile) {
   Value *EVI = Builder.CreateExtractValue(Src, SrcFieldNo, "mrv_gr");
   const StructType *STy = cast<StructType>(Src->getType());
   llvm::Value *Idxs[3];
@@ -561,9 +524,8 @@ static void llvm_arm_extract_mrv_array_element(Value *Src, Value *Dest,
 // llvm_arm_extract_multiple_return_value - Extract multiple values returned
 // by SRC and store them in DEST. It is expected that SRC and
 // DEST types are StructType, but they may not match.
-void llvm_arm_extract_multiple_return_value(Value *Src, Value *Dest,
-                                            bool isVolatile,
-                                            LLVMBuilder &Builder) {
+void llvm_arm_extract_multiple_return_value(
+    Value *Src, Value *Dest, bool isVolatile, LLVMBuilder &Builder) {
   const StructType *STy = cast<StructType>(Src->getType());
   unsigned NumElements = STy->getNumElements();
 
@@ -582,7 +544,8 @@ void llvm_arm_extract_multiple_return_value(Value *Src, Value *Dest,
       Value *GEP = Builder.CreateStructGEP(Dest, DNO, "mrv_gep");
       Value *EVI = Builder.CreateExtractValue(Src, SNO, "mrv_gr");
       Builder.CreateAlignedStore(EVI, GEP, 1, isVolatile);
-      ++DNO; ++SNO;
+      ++DNO;
+      ++SNO;
       continue;
     }
 
@@ -595,13 +558,12 @@ void llvm_arm_extract_multiple_return_value(Value *Src, Value *Dest,
       unsigned i = 0;
       unsigned Size = 1;
 
-      if (const VectorType *SElemTy =
-          dyn_cast<VectorType>(STy->getElementType(SNO))) {
+      if (const VectorType *SElemTy = dyn_cast<VectorType>(
+                                          STy->getElementType(SNO))) {
         Size = SElemTy->getNumElements();
       }
       while (i < Size) {
-        llvm_arm_extract_mrv_array_element(Src, Dest, SNO, i++,
-                                           DNO, DElemNo++,
+        llvm_arm_extract_mrv_array_element(Src, Dest, SNO, i++, DNO, DElemNo++,
                                            Builder, isVolatile);
       }
       // Consumed this src field. Try next one.

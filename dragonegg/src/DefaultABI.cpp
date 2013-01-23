@@ -51,7 +51,7 @@ void DefaultABIClient::anchor() {}
 // doNotUseShadowReturn - Return true if the specified GCC type
 // should not be returned using a pointer to struct parameter.
 bool doNotUseShadowReturn(tree type, tree fndecl, CallingConv::ID CC) {
-  (void)CC; // Not used by all ABI macros.
+  (void) CC; // Not used by all ABI macros.
   if (!TYPE_SIZE(type))
     return false;
   if (!isa<INTEGER_CST>(TYPE_SIZE(type)))
@@ -75,15 +75,17 @@ bool doNotUseShadowReturn(tree type, tree fndecl, CallingConv::ID CC) {
 tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
                                   bool rejectFatBitfield) {
   // Complex numbers have two fields.
-  if (isa<COMPLEX_TYPE>(type)) return 0;
+  if (isa<COMPLEX_TYPE>(type))
+    return 0;
   // All other scalars are good.
-  if (!isa<AGGREGATE_TYPE>(type)) return type;
+  if (!isa<AGGREGATE_TYPE>(type))
+    return type;
 
   tree FoundField = 0;
   switch (TREE_CODE(type)) {
   case QUAL_UNION_TYPE:
-  case UNION_TYPE:     // Single element unions don't count.
-  case COMPLEX_TYPE:   // Complex values are like 2-element records.
+  case UNION_TYPE:   // Single element unions don't count.
+  case COMPLEX_TYPE: // Complex values are like 2-element records.
   default:
     return 0;
   case RECORD_TYPE:
@@ -99,19 +101,18 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
             continue;
         }
         if (!FoundField) {
-          if (rejectFatBitfield &&
-              isa<INTEGER_CST>(TYPE_SIZE(type)) &&
+          if (rejectFatBitfield && isa<INTEGER_CST>(TYPE_SIZE(type)) &&
               TREE_INT_CST_LOW(TYPE_SIZE(TREE_TYPE(Field))) >
               TREE_INT_CST_LOW(TYPE_SIZE(type)))
             return 0;
           FoundField = TREE_TYPE(Field);
         } else {
-          return 0;   // More than one field.
+          return 0; // More than one field.
         }
       }
-    return FoundField ? isSingleElementStructOrArray(FoundField,
-                                                     ignoreZeroLength, false)
-                      : 0;
+    return FoundField ?
+           isSingleElementStructOrArray(FoundField, ignoreZeroLength, false) :
+           0;
   case ARRAY_TYPE:
     ArrayType *Ty = dyn_cast<ArrayType>(ConvertType(type));
     if (!Ty || Ty->getNumElements() != 1)
@@ -137,7 +138,7 @@ bool DefaultABI::isShadowReturn() const { return C.isShadowReturn(); }
 /// on the client that indicate how its pieces should be handled.  This
 /// handles things like returning structures via hidden parameters.
 void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
-  (void)isBuiltin; // Not used by all ABI macros.
+  (void) isBuiltin; // Not used by all ABI macros.
   unsigned Offset = 0;
   Type *Ty = ConvertType(type);
   if (Ty->isVectorTy()) {
@@ -165,10 +166,10 @@ void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
       // Otherwise return as an integer value large enough to hold the entire
       // aggregate.
       if (Type *AggrTy = LLVM_AGGR_TYPE_FOR_STRUCT_RETURN(type,
-                                  C.getCallingConv()))
+                                                          C.getCallingConv()))
         C.HandleAggregateResultAsAggregate(AggrTy);
-      else if (Type* ScalarTy =
-               LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN(type, &Offset))
+      else if (Type *ScalarTy = LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN(type,
+                                                                   &Offset))
         C.HandleAggregateResultAsScalar(ScalarTy, Offset);
       else
         llvm_unreachable("Unable to determine how to return this aggregate!");
@@ -191,14 +192,14 @@ void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
 /// argument and invokes methods on the client that indicate how its pieces
 /// should be handled.  This handles things like decimating structures into
 /// their fields.
-void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
+void DefaultABI::HandleArgument(tree type, std::vector<Type *> &ScalarElts,
                                 AttrBuilder *AttrBuilder) {
   unsigned Size = 0;
   bool DontCheckAlignment = false;
   Type *Ty = ConvertType(type);
   // Figure out if this field is zero bits wide, e.g. {} or [0 x int].  Do
   // not include variable sized fields here.
-  std::vector<Type*> Elts;
+  std::vector<Type *> Elts;
   if (Ty->isVoidTy()) {
     // Handle void explicitly as a {} type.
     Type *OpTy = StructType::get(getGlobalContext());
@@ -229,12 +230,10 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
     ScalarElts.push_back(Ty);
   } else if (LLVM_SHOULD_PASS_AGGREGATE_AS_FCA(type, Ty)) {
     C.HandleFCAArgument(Ty, type);
-  } else if (LLVM_SHOULD_PASS_AGGREGATE_IN_MIXED_REGS(type, Ty,
-                                                      C.getCallingConv(),
-                                                      Elts)) {
-    if (!LLVM_AGGREGATE_PARTIALLY_PASSED_IN_REGS(Elts, ScalarElts,
-                                                 C.isShadowReturn(),
-                                                 C.getCallingConv()))
+  } else if (LLVM_SHOULD_PASS_AGGREGATE_IN_MIXED_REGS(
+      type, Ty, C.getCallingConv(), Elts)) {
+    if (!LLVM_AGGREGATE_PARTIALLY_PASSED_IN_REGS(
+        Elts, ScalarElts, C.isShadowReturn(), C.getCallingConv()))
       PassInMixedRegisters(Ty, Elts, ScalarElts);
     else {
       C.HandleByValArgument(Ty, type);
@@ -269,7 +268,7 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
         // they would hit the assert in FunctionPrologArgumentConversion::
         // HandleByValArgument.)
         Type *FTy = ConvertType(Ftype);
-        (void)FTy; // Not used by all ABI macros.
+        (void) FTy; // Not used by all ABI macros.
         if (!LLVM_SHOULD_PASS_AGGREGATE_USING_BYVAL_ATTR(Ftype, FTy)) {
           C.EnterField(FNo, Ty);
           HandleArgument(TREE_TYPE(Field), ScalarElts);
@@ -283,8 +282,7 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
     C.EnterField(1, Ty);
     HandleArgument(TREE_TYPE(type), ScalarElts);
     C.ExitField();
-  } else if ((isa<UNION_TYPE>(type)) ||
-             (isa<QUAL_UNION_TYPE>(type))) {
+  } else if ((isa<UNION_TYPE>(type)) || (isa<QUAL_UNION_TYPE>(type))) {
     HandleUnion(type, ScalarElts);
   } else if (isa<ARRAY_TYPE>(type)) {
     // Array with padding?
@@ -302,7 +300,7 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type*> &ScalarElts,
 }
 
 /// HandleUnion - Handle a UNION_TYPE or QUAL_UNION_TYPE tree.
-void DefaultABI::HandleUnion(tree type, std::vector<Type*> &ScalarElts) {
+void DefaultABI::HandleUnion(tree type, std::vector<Type *> &ScalarElts) {
   if (TYPE_TRANSPARENT_AGGR(type)) {
     tree Field = TYPE_FIELDS(type);
     assert(Field && "Transparent union must have some elements!");
@@ -319,7 +317,7 @@ void DefaultABI::HandleUnion(tree type, std::vector<Type*> &ScalarElts) {
     for (tree Field = TYPE_FIELDS(type); Field; Field = TREE_CHAIN(Field)) {
       if (isa<FIELD_DECL>(Field)) {
         tree SizeTree = TYPE_SIZE(TREE_TYPE(Field));
-        unsigned Size = ((unsigned)TREE_INT_CST_LOW(SizeTree)+7)/8;
+        unsigned Size = ((unsigned) TREE_INT_CST_LOW(SizeTree) + 7) / 8;
         if (Size > MaxSize) {
           MaxSize = Size;
           MaxElt = Field;
@@ -335,26 +333,25 @@ void DefaultABI::HandleUnion(tree type, std::vector<Type*> &ScalarElts) {
 /// PassInIntegerRegisters - Given an aggregate value that should be passed in
 /// integer registers, convert it to a structure containing ints and pass all
 /// of the struct elements in.  If Size is set we pass only that many bytes.
-void DefaultABI::PassInIntegerRegisters(tree type,
-                                        std::vector<Type*> &ScalarElts,
-                                        unsigned origSize,
-                                        bool DontCheckAlignment) {
+void DefaultABI::PassInIntegerRegisters(
+    tree type, std::vector<Type *> &ScalarElts, unsigned origSize,
+    bool DontCheckAlignment) {
   unsigned Size;
   if (origSize)
     Size = origSize;
   else
-    Size = TREE_INT_CST_LOW(TYPE_SIZE(type))/8;
+    Size = TREE_INT_CST_LOW(TYPE_SIZE(type)) / 8;
 
   // FIXME: We should preserve all aggregate value alignment information.
   // Work around to preserve some aggregate value alignment information:
   // don't bitcast aggregate value to Int64 if its alignment is different
   // from Int64 alignment. ARM backend needs this.
-  unsigned Align = TYPE_ALIGN(type)/8;
-  unsigned Int64Align =
-    getDataLayout().getABITypeAlignment(Type::getInt64Ty(getGlobalContext()));
+  unsigned Align = TYPE_ALIGN(type) / 8;
+  unsigned Int64Align = getDataLayout().getABITypeAlignment(
+                            Type::getInt64Ty(getGlobalContext()));
   bool UseInt64 = (DontCheckAlignment || Align >= Int64Align);
 
-  unsigned ElementSize = UseInt64 ? 8:4;
+  unsigned ElementSize = UseInt64 ? 8 : 4;
   unsigned ArraySize = Size / ElementSize;
 
   // Put as much of the aggregate as possible into an array.
@@ -362,9 +359,8 @@ void DefaultABI::PassInIntegerRegisters(tree type,
   Type *ArrayElementType = NULL;
   if (ArraySize) {
     Size = Size % ElementSize;
-    ArrayElementType = (UseInt64 ?
-                        Type::getInt64Ty(getGlobalContext()) :
-                        Type::getInt32Ty(getGlobalContext()));
+    ArrayElementType = (UseInt64 ? Type::getInt64Ty(getGlobalContext()) :
+                            Type::getInt32Ty(getGlobalContext()));
     ATy = ArrayType::get(ArrayElementType, ArraySize);
   }
 
@@ -385,7 +381,7 @@ void DefaultABI::PassInIntegerRegisters(tree type,
       LastEltRealSize = Size;
   }
 
-  std::vector<Type*> Elts;
+  std::vector<Type *> Elts;
   if (ATy)
     Elts.push_back(ATy);
   if (LastEltTy)
@@ -415,16 +411,16 @@ void DefaultABI::PassInIntegerRegisters(tree type,
 /// PassInMixedRegisters - Given an aggregate value that should be passed in
 /// mixed integer, floating point, and vector registers, convert it to a
 /// structure containing the specified struct elements in.
-void DefaultABI::PassInMixedRegisters(Type *Ty,
-                                      std::vector<Type*> &OrigElts,
-                                      std::vector<Type*> &ScalarElts) {
+void DefaultABI::PassInMixedRegisters(Type *Ty, std::vector<Type *> &OrigElts,
+                                      std::vector<Type *> &ScalarElts) {
   // We use VoidTy in OrigElts to mean "this is a word in the aggregate
   // that occupies storage but has no useful information, and is not passed
   // anywhere".  Happens on x86-64.
-  std::vector<Type*> Elts(OrigElts);
-  Type* wordType = getDataLayout().getPointerSize(0) == 4 ?
-    Type::getInt32Ty(getGlobalContext()) : Type::getInt64Ty(getGlobalContext());
-  for (unsigned i=0, e=Elts.size(); i!=e; ++i)
+  std::vector<Type *> Elts(OrigElts);
+  Type *wordType = getDataLayout().getPointerSize(0) == 4 ?
+                   Type::getInt32Ty(getGlobalContext()) :
+                   Type::getInt64Ty(getGlobalContext());
+  for (unsigned i = 0, e = Elts.size(); i != e; ++i)
     if (OrigElts[i]->isVoidTy())
       Elts[i] = wordType;
 
@@ -439,10 +435,10 @@ void DefaultABI::PassInMixedRegisters(Type *Ty,
     InSize = getDataLayout().getTypeAllocSize(Ty);
     if (InSize < Size) {
       unsigned N = STy->getNumElements();
-      llvm::Type *LastEltTy = STy->getElementType(N-1);
+      llvm::Type *LastEltTy = STy->getElementType(N - 1);
       if (LastEltTy->isIntegerTy())
-        LastEltSizeDiff =
-          getDataLayout().getTypeAllocSize(LastEltTy) - (Size - InSize);
+        LastEltSizeDiff = getDataLayout().getTypeAllocSize(LastEltTy) -
+                          (Size - InSize);
     }
   }
   for (unsigned i = 0, e = Elts.size(); i != e; ++i) {

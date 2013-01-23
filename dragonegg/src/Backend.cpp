@@ -87,7 +87,7 @@ extern "C" {
 #include "version.h"
 
 // TODO: In GCC, add targhooks.h to the list of plugin headers and remove this.
-tree default_mangle_decl_assembler_name (tree, tree);
+tree default_mangle_decl_assembler_name(tree, tree);
 #ifndef ENABLE_BUILD_WITH_CXX
 } // extern "C"
 #endif
@@ -131,10 +131,10 @@ static bool SaveGCCOutput;
 static int LLVMCodeGenOptimizeArg = -1;
 static int LLVMIROptimizeArg = -1;
 
-std::vector<std::pair<Constant*, int> > StaticCtors, StaticDtors;
-SmallSetVector<Constant*, 32> AttributeUsedGlobals;
-SmallSetVector<Constant*, 32> AttributeCompilerUsedGlobals;
-std::vector<Constant*> AttributeAnnotateGlobals;
+std::vector<std::pair<Constant *, int> > StaticCtors, StaticDtors;
+SmallSetVector<Constant *, 32> AttributeUsedGlobals;
+SmallSetVector<Constant *, 32> AttributeCompilerUsedGlobals;
+std::vector<Constant *> AttributeAnnotateGlobals;
 
 /// PerFunctionPasses - This is the list of cleanup passes run per-function
 /// as each is compiled.  In cases where we are not doing IPO, it includes the
@@ -214,8 +214,8 @@ void handleVisibility(tree decl, GlobalValue *GV) {
 
 /// CodeGenOptLevel - The optimization level to be used by the code generators.
 static CodeGenOpt::Level CodeGenOptLevel() {
-  int OptLevel = LLVMCodeGenOptimizeArg >= 0 ?
-    LLVMCodeGenOptimizeArg : optimize;
+  int OptLevel = LLVMCodeGenOptimizeArg >= 0 ? LLVMCodeGenOptimizeArg :
+                 optimize;
   if (OptLevel <= 0)
     return CodeGenOpt::None;
   if (OptLevel == 1)
@@ -278,7 +278,7 @@ static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
   const DataLayout *DL = TheTarget->getDataLayout();
   unsigned Align = 8 * DL->getABITypeAlignment(Ty);
   return TheTarget->getDataLayout()->getTypeAllocSizeInBits(Ty) ==
-    ((gcc_size + Align - 1) / Align) * Align;
+         ((gcc_size + Align - 1) / Align) * Align;
 }
 #endif
 
@@ -287,20 +287,20 @@ static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
 #endif
 
 namespace llvm {
-#define Declare2(TARG, MOD)   extern "C" void LLVMInitialize ## TARG ## MOD()
+#define Declare2(TARG, MOD) extern "C" void LLVMInitialize##TARG##MOD()
 #define Declare(T, M) Declare2(T, M)
-  Declare(LLVM_TARGET_NAME, TargetInfo);
-  Declare(LLVM_TARGET_NAME, Target);
-  Declare(LLVM_TARGET_NAME, TargetMC);
-  Declare(LLVM_TARGET_NAME, AsmPrinter);
+Declare(LLVM_TARGET_NAME, TargetInfo);
+Declare(LLVM_TARGET_NAME, Target);
+Declare(LLVM_TARGET_NAME, TargetMC);
+Declare(LLVM_TARGET_NAME, AsmPrinter);
 #undef Declare
 #undef Declare2
 }
 
 /// ConfigureLLVM - Initialized and configure LLVM.
 static void ConfigureLLVM(void) {
-  // Initialize the LLVM backend.
-#define DoInit2(TARG, MOD)  LLVMInitialize ## TARG ## MOD()
+// Initialize the LLVM backend.
+#define DoInit2(TARG, MOD) LLVMInitialize##TARG##MOD()
 #define DoInit(T, M) DoInit2(T, M)
   DoInit(LLVM_TARGET_NAME, TargetInfo);
   DoInit(LLVM_TARGET_NAME, Target);
@@ -310,7 +310,7 @@ static void ConfigureLLVM(void) {
 #undef DoInit2
 
   // Initialize LLVM command line options.
-  std::vector<const char*> Args;
+  std::vector<const char *> Args;
   Args.push_back(progname); // program name
 
 //TODO  // Allow targets to specify PIC options and other stuff to the corresponding
@@ -324,13 +324,13 @@ static void ConfigureLLVM(void) {
 #ifdef LLVM_SET_MACHINE_OPTIONS
   LLVM_SET_MACHINE_OPTIONS(Args);
 #endif
-//TODO#ifdef LLVM_SET_IMPLICIT_FLOAT
-//TODO  LLVM_SET_IMPLICIT_FLOAT(flag_no_implicit_float)
-//TODO#endif
+  //TODO#ifdef LLVM_SET_IMPLICIT_FLOAT
+  //TODO  LLVM_SET_IMPLICIT_FLOAT(flag_no_implicit_float)
+  //TODO#endif
 
-  if (time_report || !quiet_flag  || flag_detailed_statistics)
+  if (time_report || !quiet_flag || flag_detailed_statistics)
     Args.push_back("--time-passes");
-  if (!quiet_flag  || flag_detailed_statistics)
+  if (!quiet_flag || flag_detailed_statistics)
     Args.push_back("--stats");
   if (flag_verbose_asm)
     Args.push_back("--asm-verbose");
@@ -349,27 +349,27 @@ static void ConfigureLLVM(void) {
   // directly from the command line, do so now.  This is mainly for debugging
   // purposes, and shouldn't really be for general use.
 
-//TODO  if (flag_limited_precision > 0) {
-//TODO    std::string Arg("--limit-float-precision="+utostr(flag_limited_precision));
-//TODO    ArgStrings.push_back(Arg);
-//TODO  }
+  //TODO  if (flag_limited_precision > 0) {
+  //TODO    std::string Arg("--limit-float-precision="+utostr(flag_limited_precision));
+  //TODO    ArgStrings.push_back(Arg);
+  //TODO  }
 
   for (unsigned i = 0, e = ArgStrings.size(); i != e; ++i)
     Args.push_back(ArgStrings[i].c_str());
 
-//TODO  std::vector<std::string> LLVM_Optns; // Avoid deallocation before opts parsed!
-//TODO  if (llvm_optns) {
-//TODO    llvm::SmallVector<llvm::StringRef, 16> Buf;
-//TODO    SplitString(llvm_optns, Buf);
-//TODO    for(unsigned i = 0, e = Buf.size(); i != e; ++i) {
-//TODO      LLVM_Optns.push_back(Buf[i]);
-//TODO      Args.push_back(LLVM_Optns.back().c_str());
-//TODO    }
-//TODO  }
+  //TODO  std::vector<std::string> LLVM_Optns; // Avoid deallocation before opts parsed!
+  //TODO  if (llvm_optns) {
+  //TODO    llvm::SmallVector<llvm::StringRef, 16> Buf;
+  //TODO    SplitString(llvm_optns, Buf);
+  //TODO    for(unsigned i = 0, e = Buf.size(); i != e; ++i) {
+  //TODO      LLVM_Optns.push_back(Buf[i]);
+  //TODO      Args.push_back(LLVM_Optns.back().c_str());
+  //TODO    }
+  //TODO  }
 
-  Args.push_back(0);  // Null terminator.
-  int pseudo_argc = Args.size()-1;
-  llvm::cl::ParseCommandLineOptions(pseudo_argc, const_cast<char**>(&Args[0]));
+  Args.push_back(0); // Null terminator.
+  int pseudo_argc = Args.size() - 1;
+  llvm::cl::ParseCommandLineOptions(pseudo_argc, const_cast<char **>(&Args[0]));
   ArgStrings.clear();
 }
 
@@ -422,8 +422,7 @@ static std::string ComputeTargetTriple() {
 static void CreateTargetMachine(const std::string &TargetTriple) {
   // FIXME: Figure out how to select the target and pass down subtarget info.
   std::string Err;
-  const Target *TME =
-    TargetRegistry::lookupTarget(TargetTriple, Err);
+  const Target *TME = TargetRegistry::lookupTarget(TargetTriple, Err);
   if (!TME)
     report_fatal_error(Err);
 
@@ -471,7 +470,7 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 #if (GCC_MINOR > 5)
       fast_math_flags_set_p(&global_options);
 #else
-      fast_math_flags_set_p();
+  fast_math_flags_set_p();
 #endif
   Options.NoInfsFPMath = flag_finite_math_only;
   Options.NoNaNsFPMath = flag_finite_math_only;
@@ -505,14 +504,14 @@ static void CreateModule(const std::string &TargetTriple) {
   StringRef ModuleID = main_input_filename ? main_input_filename : "";
   TheModule = new Module(ModuleID, getGlobalContext());
 
-  // Insert a special .ident directive to identify the version of the plugin
-  // which compiled this code.  The format of the .ident string is patterned
-  // after the ones produced by GCC.
+// Insert a special .ident directive to identify the version of the plugin
+// which compiled this code.  The format of the .ident string is patterned
+// after the ones produced by GCC.
 #ifdef IDENT_ASM_OP
   if (!flag_no_ident) {
     const char *pkg_version = "(GNU) ";
 
-    if (strcmp ("(GCC) ", pkgversion_string))
+    if (strcmp("(GCC) ", pkgversion_string))
       pkg_version = pkgversion_string;
 
     std::string IdentString = IDENT_ASM_OP;
@@ -529,8 +528,8 @@ static void CreateModule(const std::string &TargetTriple) {
   // Install information about the target triple and data layout into the module
   // for optimizer use.
   TheModule->setTargetTriple(TargetTriple);
-  TheModule->setDataLayout(TheTarget->getDataLayout()->
-                           getStringRepresentation());
+  TheModule->setDataLayout(
+      TheTarget->getDataLayout()->getStringRepresentation());
 }
 
 /// flag_default_initialize_globals - Whether global variables with no explicit
@@ -609,8 +608,8 @@ static void InitializeBackend(void) {
   // vectorizer using -fplugin-arg-dragonegg-llvm-option=-vectorize
   PassBuilder.Vectorize = PassManagerBuilder().Vectorize;
 
-  PassBuilder.LibraryInfo =
-    new TargetLibraryInfo((Triple)TheModule->getTargetTriple());
+  PassBuilder.LibraryInfo = new TargetLibraryInfo((Triple)
+                                                  TheModule->getTargetTriple());
   if (flag_no_simplify_libcalls)
     PassBuilder.LibraryInfo->disableAllFunctions();
 
@@ -657,8 +656,8 @@ static void createPerFunctionOptimizationPasses() {
   if (!EmitIR && 0) {
     FunctionPassManager *PM = PerFunctionPasses;
 
-    // Request that addPassesToEmitFile run the Verifier after running
-    // passes which modify the IR.
+// Request that addPassesToEmitFile run the Verifier after running
+// passes which modify the IR.
 #ifndef NDEBUG
     bool DisableVerify = false;
 #else
@@ -704,8 +703,8 @@ static void createPerModuleOptimizationPasses() {
     // If full inliner is not run, check if always-inline is needed to handle
     // functions that are  marked as always_inline.
     // TODO: Consider letting the GCC inliner do this.
-    for (Module::iterator I = TheModule->begin(), E = TheModule->end();
-         I != E; ++I)
+    for (Module::iterator I = TheModule->begin(), E = TheModule->end(); I != E;
+         ++I)
       if (I->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
                                           Attribute::AlwaysInline)) {
         NeedAlwaysInliner = true;
@@ -713,7 +712,7 @@ static void createPerModuleOptimizationPasses() {
       }
 
     if (NeedAlwaysInliner)
-      InliningPass = createAlwaysInlinerPass();  // Inline always_inline funcs
+      InliningPass = createAlwaysInlinerPass(); // Inline always_inline funcs
   }
 
   PassBuilder.OptLevel = ModuleOptLevel();
@@ -733,13 +732,13 @@ static void createPerModuleOptimizationPasses() {
     // FIXME: This is disabled right now until bugs can be worked out.  Reenable
     // this for fast -O0 compiles!
     if (PerModulePasses || 1) {
-      FunctionPassManager *PM = CodeGenPasses =
-        new FunctionPassManager(TheModule);
+      FunctionPassManager *PM = CodeGenPasses = new FunctionPassManager(
+                                                    TheModule);
       PM->add(new DataLayout(*TheTarget->getDataLayout()));
       TheTarget->addAnalysisPasses(*PM);
 
-      // Request that addPassesToEmitFile run the Verifier after running
-      // passes which modify the IR.
+// Request that addPassesToEmitFile run the Verifier after running
+// passes which modify the IR.
 #ifndef NDEBUG
       bool DisableVerify = false;
 #else
@@ -759,17 +758,16 @@ static void createPerModuleOptimizationPasses() {
 
 /// ConvertStructorsList - Convert a list of static ctors/dtors to an
 /// initializer suitable for the llvm.global_[cd]tors globals.
-static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
+static void CreateStructorsList(std::vector<std::pair<Constant *, int> > &Tors,
                                 const char *Name) {
-  std::vector<Constant*> InitList;
-  std::vector<Constant*> StructInit;
+  std::vector<Constant *> InitList;
+  std::vector<Constant *> StructInit;
   StructInit.resize(2);
 
   LLVMContext &Context = getGlobalContext();
 
-  Type *FPTy =
-    FunctionType::get(Type::getVoidTy(Context),
-                      std::vector<Type*>(), false);
+  Type *FPTy = FunctionType::get(Type::getVoidTy(Context),
+                                 std::vector<Type *>(), false);
   FPTy = FPTy->getPointerTo();
 
   for (unsigned i = 0, e = Tors.size(); i != e; ++i) {
@@ -780,28 +778,29 @@ static void CreateStructorsList(std::vector<std::pair<Constant*, int> > &Tors,
     StructInit[1] = TheFolder->CreateBitCast(Tors[i].first, FPTy);
     InitList.push_back(ConstantStruct::getAnon(Context, StructInit));
   }
-  Constant *Array = ConstantArray::get(
-    ArrayType::get(InitList[0]->getType(), InitList.size()), InitList);
+  Constant *Array = ConstantArray::get(ArrayType::get(InitList[0]->getType(),
+                                                      InitList.size()),
+                                       InitList);
   new GlobalVariable(*TheModule, Array->getType(), false,
-                     GlobalValue::AppendingLinkage,
-                     Array, Name);
+                     GlobalValue::AppendingLinkage, Array, Name);
 }
 
 /// ConvertMetadataStringToGV - Convert string to global value. Use existing
 /// global if possible.
-Constant* ConvertMetadataStringToGV(const char *str) {
+Constant *ConvertMetadataStringToGV(const char *str) {
 
   Constant *Init = ConstantDataArray::getString(getGlobalContext(), str);
 
   // Use cached string if it exists.
-  static std::map<Constant*, GlobalVariable*> StringCSTCache;
+  static std::map<Constant *, GlobalVariable *> StringCSTCache;
   GlobalVariable *&Slot = StringCSTCache[Init];
-  if (Slot) return Slot;
+  if (Slot)
+    return Slot;
 
   // Create a new string global.
   GlobalVariable *GV = new GlobalVariable(*TheModule, Init->getType(), true,
-                                          GlobalVariable::PrivateLinkage,
-                                          Init, ".str");
+                                          GlobalVariable::PrivateLinkage, Init,
+                                          ".str");
   GV->setSection("llvm.metadata");
   Slot = GV;
   return GV;
@@ -814,7 +813,7 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
   LLVMContext &Context = getGlobalContext();
 
   // Handle annotate attribute on global.
-  tree annotateAttr = lookup_attribute("annotate", DECL_ATTRIBUTES (decl));
+  tree annotateAttr = lookup_attribute("annotate", DECL_ATTRIBUTES(decl));
   if (annotateAttr == 0)
     return;
 
@@ -843,12 +842,9 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
       assert(isa<STRING_CST>(val) &&
              "Annotate attribute arg should always be a string");
       Constant *strGV = AddressOf(val);
-      Constant *Element[4] = {
-        TheFolder->CreateBitCast(GV,SBP),
-        TheFolder->CreateBitCast(strGV,SBP),
-        file,
-        lineNo
-      };
+      Constant *Element[4] = { TheFolder->CreateBitCast(GV, SBP),
+                               TheFolder->CreateBitCast(strGV, SBP), file,
+                               lineNo };
 
       AttributeAnnotateGlobals.push_back(ConstantStruct::getAnon(Element));
     }
@@ -916,16 +912,14 @@ static void emit_alias(tree decl, tree target) {
     } else {
       // weakref to external symbol.
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-        Aliasee = new GlobalVariable(*TheModule,
-                                     GV->getType()->getElementType(),
-                                     GV->isConstant(),
-                                     GlobalVariable::ExternalWeakLinkage, NULL,
-                                     IDENTIFIER_POINTER(target));
+        Aliasee = new GlobalVariable(
+                      *TheModule, GV->getType()->getElementType(),
+                      GV->isConstant(), GlobalVariable::ExternalWeakLinkage,
+                      NULL, IDENTIFIER_POINTER(target));
       else if (Function *F = dyn_cast<Function>(V))
         Aliasee = Function::Create(F->getFunctionType(),
                                    Function::ExternalWeakLinkage,
-                                   IDENTIFIER_POINTER(target),
-                                   TheModule);
+                                   IDENTIFIER_POINTER(target), TheModule);
       else
         llvm_unreachable("Unsuported global value");
     }
@@ -937,8 +931,8 @@ static void emit_alias(tree decl, tree target) {
 
   if (Linkage != GlobalValue::InternalLinkage) {
     // Create the LLVM alias.
-    GlobalAlias* GA = new GlobalAlias(Aliasee->getType(), Linkage, "",
-                                      Aliasee, TheModule);
+    GlobalAlias *GA = new GlobalAlias(Aliasee->getType(), Linkage, "", Aliasee,
+                                      TheModule);
     handleVisibility(decl, GA);
 
     // Associate it with decl instead of V.
@@ -988,7 +982,7 @@ static void emit_global(tree decl) {
   if (!TYPE_SIZE(TREE_TYPE(decl)))
     return;
 
-//TODO  timevar_push(TV_LLVM_GLOBALS);
+  //TODO  timevar_push(TV_LLVM_GLOBALS);
 
   // Get or create the global variable now.
   GlobalVariable *GV = cast<GlobalVariable>(DECL_LLVM(decl));
@@ -1023,10 +1017,9 @@ static void emit_global(tree decl) {
     // global union, and the LLVM type followed a union initializer that is
     // different from the union element used for the type.
     GV->removeFromParent();
-    GlobalVariable *NGV = new GlobalVariable(*TheModule, Init->getType(),
-                                             GV->isConstant(),
-                                             GlobalValue::ExternalLinkage, 0,
-                                             GV->getName());
+    GlobalVariable *NGV = new GlobalVariable(
+                              *TheModule, Init->getType(), GV->isConstant(),
+                              GlobalValue::ExternalLinkage, 0, GV->getName());
     NGV->setInitializer(Init);
     GV->replaceAllUsesWith(TheFolder->CreateBitCast(NGV, GV->getType()));
     changeLLVMConstant(GV, NGV);
@@ -1062,9 +1055,9 @@ static void emit_global(tree decl) {
   // Set the linkage.
   GlobalValue::LinkageTypes Linkage;
 
-  if (false) {// FIXME DECL_LLVM_PRIVATE(decl)) {
+  if (false) { // FIXME DECL_LLVM_PRIVATE(decl)) {
     Linkage = GlobalValue::PrivateLinkage;
-  } else if (false) {//FIXME DECL_LLVM_LINKER_PRIVATE(decl)) {
+  } else if (false) { //FIXME DECL_LLVM_LINKER_PRIVATE(decl)) {
     Linkage = GlobalValue::LinkerPrivateLinkage;
   } else if (!TREE_PUBLIC(decl)) {
     Linkage = GlobalValue::InternalLinkage;
@@ -1073,7 +1066,7 @@ static void emit_global(tree decl) {
     Linkage = GlobalValue::WeakAnyLinkage;
   } else if (DECL_ONE_ONLY(decl)) {
     Linkage = GlobalValue::getWeakLinkage(flag_odr);
-  } else if (DECL_COMMON(decl) &&  // DECL_COMMON is only meaningful if no init
+  } else if (DECL_COMMON(decl) && // DECL_COMMON is only meaningful if no init
              (!DECL_INITIAL(decl) || DECL_INITIAL(decl) == error_mark_node)) {
     // llvm-gcc also includes DECL_VIRTUAL_P here.
     Linkage = GlobalValue::CommonLinkage;
@@ -1115,8 +1108,8 @@ static void emit_global(tree decl) {
     if (DECL_SECTION_NAME(decl)) {
       GV->setSection(TREE_STRING_POINTER(DECL_SECTION_NAME(decl)));
 #ifdef LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION
-    } else if (const char *Section =
-                LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION(decl)) {
+    } else if (
+        const char *Section = LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION(decl)) {
       GV->setSection(Section);
 #endif
     }
@@ -1136,8 +1129,8 @@ static void emit_global(tree decl) {
       GV->setAlignment(0);
 
     // Handle used decls
-    if (DECL_PRESERVE_P (decl)) {
-      if (false)//FIXME DECL_LLVM_LINKER_PRIVATE (decl))
+    if (DECL_PRESERVE_P(decl)) {
+      if (false) //FIXME DECL_LLVM_LINKER_PRIVATE (decl))
         AttributeCompilerUsedGlobals.insert(GV);
       else
         AttributeUsedGlobals.insert(GV);
@@ -1149,11 +1142,10 @@ static void emit_global(tree decl) {
 
 #ifdef LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION
   } else if (isa<CONST_DECL>(decl)) {
-    if (const char *Section =
-        LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION(decl)) {
+    if (const char *Section = LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION(decl)) {
       GV->setSection(Section);
 
-      /* LLVM LOCAL - begin radar 6389998 */
+/* LLVM LOCAL - begin radar 6389998 */
 #ifdef TARGET_ADJUST_CFSTRING_NAME
       TARGET_ADJUST_CFSTRING_NAME(GV, Section);
 #endif
@@ -1175,16 +1167,15 @@ static void emit_global(tree decl) {
   if (isa<VAR_DECL>(decl))
     if (struct varpool_node *vnode =
 #if (GCC_MINOR < 6)
-        varpool_node(decl)
+            varpool_node(decl)
 #else
         varpool_get_node(decl)
 #endif
         )
       emit_varpool_aliases(vnode);
 
-//TODO  timevar_pop(TV_LLVM_GLOBALS);
+  //TODO  timevar_pop(TV_LLVM_GLOBALS);
 }
-
 
 /// ValidateRegisterVariable - Check that a static "asm" variable is
 /// well-formed.  If not, emit error messages and return true.  If so, return
@@ -1194,7 +1185,7 @@ bool ValidateRegisterVariable(tree decl) {
   int RegNumber = decode_reg_name(RegName);
 
   if (errorcount || sorrycount)
-    return true;  // Do not process broken code.
+    return true; // Do not process broken code.
 
   /* Detect errors in declaring global registers.  */
   if (RegNumber == -1)
@@ -1211,18 +1202,16 @@ bool ValidateRegisterVariable(tree decl) {
   else if (DECL_INITIAL(decl) != 0 && TREE_STATIC(decl))
     error("global register variable has initial value");
   else if (isa<AGGREGATE_TYPE>(TREE_TYPE(decl)))
-    sorry("LLVM cannot handle register variable %<%s%>, report a bug",
-          RegName);
+    sorry("LLVM cannot handle register variable %<%s%>, report a bug", RegName);
   else {
     if (TREE_THIS_VOLATILE(decl))
       warning(0, "volatile register variables don%'t work as you might wish");
 
-    return false;  // Everything ok.
+    return false; // Everything ok.
   }
 
   return true;
 }
-
 
 /// make_decl_llvm - Create the DECL_RTL for a VAR_DECL or FUNCTION_DECL.  DECL
 /// should have static storage duration.  In other words, it should not be an
@@ -1241,17 +1230,17 @@ Value *make_decl_llvm(tree decl) {
 #ifndef NDEBUG
   // Check that we are not being given an automatic variable or a type or label.
   // A weak alias has TREE_PUBLIC set but not the other bits.
-  if (isa<PARM_DECL>(decl) || isa<RESULT_DECL>(decl) ||
-      isa<TYPE_DECL>(decl) || isa<LABEL_DECL>(decl) ||
-      (isa<VAR_DECL>(decl) && !TREE_STATIC(decl) &&
-       !TREE_PUBLIC(decl) && !DECL_EXTERNAL(decl) && !DECL_REGISTER(decl))) {
+  if (isa<PARM_DECL>(decl) || isa<RESULT_DECL>(decl) || isa<TYPE_DECL>(decl) ||
+      isa<LABEL_DECL>(decl) ||
+      (isa<VAR_DECL>(decl) && !TREE_STATIC(decl) && !TREE_PUBLIC(decl) &&
+       !DECL_EXTERNAL(decl) && !DECL_REGISTER(decl))) {
     debug_tree(decl);
     llvm_unreachable("Cannot make a global for this kind of declaration!");
   }
 #endif
 
   if (errorcount || sorrycount)
-    return NULL;  // Do not process broken code.
+    return NULL; // Do not process broken code.
 
   LLVMContext &Context = getGlobalContext();
 
@@ -1265,7 +1254,7 @@ Value *make_decl_llvm(tree decl) {
     return NULL;
   }
 
-//TODO  timevar_push(TV_LLVM_GLOBALS);
+  //TODO  timevar_push(TV_LLVM_GLOBALS);
 
   std::string Name;
   if (!isa<CONST_DECL>(decl)) // CONST_DECLs do not have assembler names.
@@ -1275,7 +1264,7 @@ Value *make_decl_llvm(tree decl) {
   // Also handle vars declared register invalidly.
   if (!Name.empty() && Name[0] == 1) {
 #ifdef REGISTER_PREFIX
-    if (strlen (REGISTER_PREFIX) != 0) {
+    if (strlen(REGISTER_PREFIX) != 0) {
       int reg_number = decode_reg_name(Name.c_str());
       if (reg_number >= 0 || reg_number == -3)
         error("register name given for non-register variable %q+D", decl);
@@ -1306,7 +1295,8 @@ Value *make_decl_llvm(tree decl) {
       AttributeSet PAL;
       FunctionType *Ty = ConvertFunctionType(TREE_TYPE(decl), decl, NULL, CC,
                                              PAL);
-      FnEntry = Function::Create(Ty, Function::ExternalLinkage, Name, TheModule);
+      FnEntry = Function::Create(Ty, Function::ExternalLinkage, Name,
+                                 TheModule);
       FnEntry->setCallingConv(CC);
       FnEntry->setAttributes(PAL);
 
@@ -1315,7 +1305,7 @@ Value *make_decl_llvm(tree decl) {
         FnEntry->setLinkage(Function::ExternalWeakLinkage);
 
 #ifdef TARGET_ADJUST_LLVM_LINKAGE
-      TARGET_ADJUST_LLVM_LINKAGE(FnEntry,decl);
+      TARGET_ADJUST_LLVM_LINKAGE(FnEntry, decl);
 #endif /* TARGET_ADJUST_LLVM_LINKAGE */
 
       handleVisibility(decl, FnEntry);
@@ -1344,17 +1334,17 @@ Value *make_decl_llvm(tree decl) {
     }
     return SET_DECL_LLVM(decl, FnEntry);
   } else {
-    assert((isa<VAR_DECL>(decl) ||
-            isa<CONST_DECL>(decl)) && "Not a function or var decl?");
+    assert((isa<VAR_DECL>(decl) || isa<CONST_DECL>(decl)) &&
+           "Not a function or var decl?");
     Type *Ty = ConvertType(TREE_TYPE(decl));
-    GlobalVariable *GV ;
+    GlobalVariable *GV;
 
     // If we have "extern void foo", make the global have type {} instead of
     // type void.
     if (Ty->isVoidTy())
       Ty = StructType::get(Context);
 
-    if (Name.empty()) {   // Global has no name.
+    if (Name.empty()) { // Global has no name.
       GV = new GlobalVariable(*TheModule, Ty, false,
                               GlobalValue::ExternalLinkage, 0, "");
 
@@ -1363,7 +1353,7 @@ Value *make_decl_llvm(tree decl) {
         GV->setLinkage(GlobalValue::ExternalWeakLinkage);
 
 #ifdef TARGET_ADJUST_LLVM_LINKAGE
-      TARGET_ADJUST_LLVM_LINKAGE(GV,decl);
+      TARGET_ADJUST_LLVM_LINKAGE(GV, decl);
 #endif /* TARGET_ADJUST_LLVM_LINKAGE */
 
       handleVisibility(decl, GV);
@@ -1381,7 +1371,7 @@ Value *make_decl_llvm(tree decl) {
           GV->setLinkage(GlobalValue::ExternalWeakLinkage);
 
 #ifdef TARGET_ADJUST_LLVM_LINKAGE
-        TARGET_ADJUST_LLVM_LINKAGE(GV,decl);
+        TARGET_ADJUST_LLVM_LINKAGE(GV, decl);
 #endif /* TARGET_ADJUST_LLVM_LINKAGE */
 
         handleVisibility(decl, GV);
@@ -1408,7 +1398,7 @@ Value *make_decl_llvm(tree decl) {
         }
 
       } else {
-        GV = GVE;  // Global already created, reuse it.
+        GV = GVE; // Global already created, reuse it.
       }
     }
 
@@ -1427,9 +1417,8 @@ Value *make_decl_llvm(tree decl) {
       } else {
         // Mark readonly globals with constant initializers constant.
         if (DECL_INITIAL(decl) != error_mark_node && // uninitialized?
-            DECL_INITIAL(decl) &&
-            (TREE_CONSTANT(DECL_INITIAL(decl)) ||
-             isa<STRING_CST>(DECL_INITIAL(decl))))
+            DECL_INITIAL(decl) && (TREE_CONSTANT(DECL_INITIAL(decl)) ||
+                                   isa<STRING_CST>(DECL_INITIAL(decl))))
           GV->setConstant(true);
       }
     }
@@ -1443,7 +1432,7 @@ Value *make_decl_llvm(tree decl) {
 
     return SET_DECL_LLVM(decl, GV);
   }
-//TODO  timevar_pop(TV_LLVM_GLOBALS);
+  //TODO  timevar_pop(TV_LLVM_GLOBALS);
 }
 
 /// make_definition_llvm - Ensures that the body or initial value of the given
@@ -1472,7 +1461,8 @@ Value *make_definition_llvm(tree decl) {
 /// Fn is a 'void()' ctor/dtor function to be run, initprio is the init
 /// priority, and isCtor indicates whether this is a ctor or dtor.
 void register_ctor_dtor(Function *Fn, int InitPrio, bool isCtor) {
-  (isCtor ? &StaticCtors:&StaticDtors)->push_back(std::make_pair(Fn, InitPrio));
+  (isCtor ? &StaticCtors : &StaticDtors)->push_back(std::make_pair(Fn,
+                                                                   InitPrio));
 }
 
 /// extractRegisterName - Get a register name given its decl. In 4.2 unlike 4.0
@@ -1554,7 +1544,6 @@ static bool no_target_thunks(const_tree, HOST_WIDE_INT, HOST_WIDE_INT,
   return false;
 }
 
-
 //===----------------------------------------------------------------------===//
 //                             Plugin interface
 //===----------------------------------------------------------------------===//
@@ -1562,14 +1551,13 @@ static bool no_target_thunks(const_tree, HOST_WIDE_INT, HOST_WIDE_INT,
 // This plugin's code is licensed under the GPLv2 or later.  The LLVM libraries
 // use the GPL compatible University of Illinois/NCSA Open Source License.  The
 // plugin is GPL compatible.
-int plugin_is_GPL_compatible __attribute__ ((visibility("default")));
-
+int plugin_is_GPL_compatible __attribute__((visibility("default")));
 
 /// llvm_start_unit - Perform late initialization.  This is called by GCC just
 /// before processing the compilation unit.
 /// NOTE: called even when only doing syntax checking, so do not initialize the
 /// module etc here.
-static void llvm_start_unit(void * /*gcc_data*/, void * /*user_data*/) {
+static void llvm_start_unit(void */*gcc_data*/, void */*user_data*/) {
   if (!quiet_flag)
     errs() << "Starting compilation unit\n";
 
@@ -1579,9 +1567,9 @@ static void llvm_start_unit(void * /*gcc_data*/, void * /*user_data*/) {
   // We have the same needs as GCC's LTO.  Always claim to be doing LTO.
   flag_lto =
 #if (GCC_MINOR > 5)
-    "";
+      "";
 #else
-    1;
+  1;
 #endif
   flag_generate_lto = 1;
   flag_whole_program = 0;
@@ -1607,7 +1595,8 @@ static void llvm_start_unit(void * /*gcc_data*/, void * /*user_data*/) {
 static void emit_cgraph_aliases(struct cgraph_node *node) {
 #if (GCC_MINOR < 7)
   struct cgraph_node *alias, *next;
-  for (alias = node->same_body; alias && alias->next; alias = alias->next) ;
+  for (alias = node->same_body; alias && alias->next; alias = alias->next)
+    ;
   for (; alias; alias = next) {
     next = alias->previous;
     if (!alias->thunk.thunk_p)
@@ -1657,7 +1646,7 @@ static void emit_current_function() {
 /// rtl_emit_function - Turn a gimple function into LLVM IR.  This is called
 /// once for each function in the compilation unit if GCC optimizations are
 /// enabled.
-static unsigned int rtl_emit_function (void) {
+static unsigned int rtl_emit_function(void) {
   if (!errorcount && !sorrycount) {
     InitializeBackend();
     // Convert the function.
@@ -1673,27 +1662,20 @@ static unsigned int rtl_emit_function (void) {
 }
 
 /// pass_rtl_emit_function - RTL pass that converts a function to LLVM IR.
-static struct rtl_opt_pass pass_rtl_emit_function =
-{
-    {
-      RTL_PASS,
-      "rtl_emit_function",	/* name */
-      NULL,			/* gate */
-      rtl_emit_function,	/* execute */
-      NULL,			/* sub */
-      NULL,			/* next */
-      0,			/* static_pass_number */
-      TV_NONE,			/* tv_id */
-      PROP_ssa | PROP_gimple_leh | PROP_cfg,
-				/* properties_required */
-      0,			/* properties_provided */
-      PROP_ssa | PROP_trees,	/* properties_destroyed */
-      TODO_verify_ssa | TODO_verify_flow
-        | TODO_verify_stmts,	/* todo_flags_start */
-      TODO_ggc_collect		/* todo_flags_finish */
-    }
-};
-
+static struct rtl_opt_pass pass_rtl_emit_function = { {
+  RTL_PASS, "rtl_emit_function", /* name */
+  NULL, /* gate */
+  rtl_emit_function, /* execute */
+  NULL, /* sub */
+  NULL, /* next */
+  0, /* static_pass_number */
+  TV_NONE, /* tv_id */
+  PROP_ssa | PROP_gimple_leh | PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  PROP_ssa | PROP_trees, /* properties_destroyed */
+  TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts, /* todo_flags_start */
+  TODO_ggc_collect /* todo_flags_finish */
+} };
 
 /// emit_file_scope_asms - Output any file-scope assembly.
 static void emit_file_scope_asms() {
@@ -1701,7 +1683,7 @@ static void emit_file_scope_asms() {
     tree string = can->asm_str;
     if (isa<ADDR_EXPR>(string))
       string = TREE_OPERAND(string, 0);
-    TheModule->appendModuleInlineAsm(TREE_STRING_POINTER (string));
+    TheModule->appendModuleInlineAsm(TREE_STRING_POINTER(string));
   }
   // Remove the asms so gcc doesn't waste time outputting them.
   cgraph_asm_nodes = NULL;
@@ -1720,8 +1702,8 @@ static void emit_cgraph_weakrefs() {
   for (struct cgraph_node *node = cgraph_nodes; node; node = node->next)
     if (node->alias && DECL_EXTERNAL(node->decl) &&
         lookup_attribute("weakref", DECL_ATTRIBUTES(node->decl)))
-      emit_alias(node->decl, node->thunk.alias ?
-        node->thunk.alias : get_alias_symbol(node->decl));
+      emit_alias(node->decl, node->thunk.alias ? node->thunk.alias :
+                     get_alias_symbol(node->decl));
 }
 
 /// emit_varpool_weakrefs - Output any varpool weak references to external
@@ -1730,14 +1712,14 @@ static void emit_varpool_weakrefs() {
   for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next)
     if (vnode->alias && DECL_EXTERNAL(vnode->decl) &&
         lookup_attribute("weakref", DECL_ATTRIBUTES(vnode->decl)))
-      emit_alias(vnode->decl, vnode->alias_of ?
-        vnode->alias_of : get_alias_symbol(vnode->decl));
+      emit_alias(vnode->decl, vnode->alias_of ? vnode->alias_of :
+                     get_alias_symbol(vnode->decl));
 }
 #endif
 
 /// llvm_emit_globals - Output GCC global variables, aliases and asm's to the
 /// LLVM IR.
-static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
+static void llvm_emit_globals(void */*gcc_data*/, void */*user_data*/) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
@@ -1759,15 +1741,16 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
 
     // If this variable must be output even if unused then output it.
     tree decl = vnode->decl;
-    if (vnode->analyzed && (
+    if (vnode->analyzed &&
+        (
 #if (GCC_MINOR > 5)
-        !varpool_can_remove_if_no_refs(vnode)
+            !varpool_can_remove_if_no_refs(vnode)
 #else
-        vnode->force_output || (!DECL_COMDAT(decl) &&
-                                 (!DECL_ARTIFICIAL(decl) ||
-                                  vnode->externally_visible))
+            vnode->force_output ||
+            (!DECL_COMDAT(decl) &&
+             (!DECL_ARTIFICIAL(decl) || vnode->externally_visible))
 #endif
-       ))
+            ))
       // TODO: Remove the check on the following lines.  It only exists to avoid
       // outputting block addresses when not compiling the function containing
       // the block.  We need to support outputting block addresses at odd times
@@ -1775,7 +1758,7 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
       if (isa<VAR_DECL>(decl) && !DECL_EXTERNAL(decl) &&
           (TREE_PUBLIC(decl) || DECL_PRESERVE_P(decl) ||
            TREE_THIS_VOLATILE(decl)))
-      emit_global(decl);
+        emit_global(decl);
   }
 
 #if (GCC_MINOR > 6)
@@ -1793,7 +1776,7 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
     emit_alias(p->decl, p->target);
 }
 
-static void InlineAsmDiagnosticHandler(const SMDiagnostic &D, void * /*Data*/,
+static void InlineAsmDiagnosticHandler(const SMDiagnostic &D, void */*Data*/,
                                        location_t loc) {
   std::string S = D.getMessage().str(); // Ensure Message is not dangling.
   const char *Message = S.c_str();
@@ -1812,11 +1795,11 @@ static void InlineAsmDiagnosticHandler(const SMDiagnostic &D, void * /*Data*/,
 
 /// llvm_finish_unit - Finish the .s file.  This is called by GCC once the
 /// compilation unit has been completely processed.
-static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
+static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
-//TODO  timevar_push(TV_LLVM_PERFILE);
+  //TODO  timevar_push(TV_LLVM_PERFILE);
   if (!quiet_flag)
     errs() << "Finishing compilation unit\n";
 
@@ -1826,14 +1809,14 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 
   createPerFunctionOptimizationPasses();
 
-//TODO  for (Module::iterator I = TheModule->begin(), E = TheModule->end();
-//TODO       I != E; ++I)
-//TODO    if (!I->isDeclaration()) {
-//TODO      if (flag_disable_red_zone)
-//TODO        I->addFnAttr(Attribute::NoRedZone);
-//TODO      if (flag_no_implicit_float)
-//TODO        I->addFnAttr(Attribute::NoImplicitFloat);
-//TODO    }
+  //TODO  for (Module::iterator I = TheModule->begin(), E = TheModule->end();
+  //TODO       I != E; ++I)
+  //TODO    if (!I->isDeclaration()) {
+  //TODO      if (flag_disable_red_zone)
+  //TODO        I->addFnAttr(Attribute::NoRedZone);
+  //TODO      if (flag_no_implicit_float)
+  //TODO        I->addFnAttr(Attribute::NoImplicitFloat);
+  //TODO    }
 
   // Add an llvm.global_ctors global if needed.
   if (!StaticCtors.empty())
@@ -1845,9 +1828,9 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
   if (!AttributeUsedGlobals.empty()) {
     std::vector<Constant *> AUGs;
     Type *SBP = Type::getInt8PtrTy(Context);
-    for (SmallSetVector<Constant *,32>::iterator
-           AI = AttributeUsedGlobals.begin(),
-           AE = AttributeUsedGlobals.end(); AI != AE; ++AI) {
+    for (SmallSetVector<Constant *, 32>::iterator AI = AttributeUsedGlobals
+             .begin(), AE = AttributeUsedGlobals.end();
+         AI != AE; ++AI) {
       Constant *C = *AI;
       AUGs.push_back(TheFolder->CreateBitCast(C, SBP));
     }
@@ -1864,9 +1847,10 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
   if (!AttributeCompilerUsedGlobals.empty()) {
     std::vector<Constant *> ACUGs;
     Type *SBP = Type::getInt8PtrTy(Context);
-    for (SmallSetVector<Constant *,32>::iterator
-           AI = AttributeCompilerUsedGlobals.begin(),
-           AE = AttributeCompilerUsedGlobals.end(); AI != AE; ++AI) {
+    for (SmallSetVector<Constant *, 32>::iterator AI =
+             AttributeCompilerUsedGlobals.begin(), AE =
+             AttributeCompilerUsedGlobals.end();
+         AI != AE; ++AI) {
       Constant *C = *AI;
       ACUGs.push_back(TheFolder->CreateBitCast(C, SBP));
     }
@@ -1883,9 +1867,9 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
   // Add llvm.global.annotations
   if (!AttributeAnnotateGlobals.empty()) {
     Constant *Array = ConstantArray::get(
-      ArrayType::get(AttributeAnnotateGlobals[0]->getType(),
-                                      AttributeAnnotateGlobals.size()),
-                       AttributeAnnotateGlobals);
+                          ArrayType::get(AttributeAnnotateGlobals[0]->getType(),
+                                         AttributeAnnotateGlobals.size()),
+                          AttributeAnnotateGlobals);
     GlobalValue *gv = new GlobalVariable(*TheModule, Array->getType(), false,
                                          GlobalValue::AppendingLinkage, Array,
                                          "llvm.global.annotations");
@@ -1906,13 +1890,13 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
   if (CodeGenPasses) {
     // Arrange for inline asm problems to be printed nicely.
     LLVMContext::InlineAsmDiagHandlerTy OldHandler =
-      Context.getInlineAsmDiagnosticHandler();
+        Context.getInlineAsmDiagnosticHandler();
     void *OldHandlerData = Context.getInlineAsmDiagnosticContext();
     Context.setInlineAsmDiagnosticHandler(InlineAsmDiagnosticHandler, 0);
 
     CodeGenPasses->doInitialization();
-    for (Module::iterator I = TheModule->begin(), E = TheModule->end();
-         I != E; ++I)
+    for (Module::iterator I = TheModule->begin(), E = TheModule->end(); I != E;
+         ++I)
       if (!I->isDeclaration())
         CodeGenPasses->run(*I);
     CodeGenPasses->doFinalization();
@@ -1922,7 +1906,7 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 
   FormattedOutStream.flush();
   OutStream->flush();
-//TODO  timevar_pop(TV_LLVM_PERFILE);
+  //TODO  timevar_pop(TV_LLVM_PERFILE);
 
   // We have finished - shutdown the plugin.  Doing this here ensures that timer
   // info and other statistics are not intermingled with those produced by GCC.
@@ -1930,146 +1914,122 @@ static void llvm_finish_unit(void * /*gcc_data*/, void * /*user_data*/) {
 }
 
 /// llvm_finish - Run shutdown code when GCC exits.
-static void llvm_finish(void * /*gcc_data*/, void * /*user_data*/) {
+static void llvm_finish(void */*gcc_data*/, void */*user_data*/) {
   FinalizePlugin();
 }
 
-
 /// gate_null - Gate method for a pass that does nothing.
-static bool gate_null (void) {
-  return false;
-}
+static bool gate_null(void) { return false; }
 
 /// pass_gimple_null - Gimple pass that does nothing.
-static struct gimple_opt_pass pass_gimple_null =
-{
-    {
-      GIMPLE_PASS,
-      "*gimple_null",	/* name */
-      gate_null,	/* gate */
-      NULL,		/* execute */
-      NULL,		/* sub */
-      NULL,		/* next */
-      0,		/* static_pass_number */
-      TV_NONE,		/* tv_id */
-      0,		/* properties_required */
-      0,		/* properties_provided */
-      0,		/* properties_destroyed */
-      0,		/* todo_flags_start */
-      0			/* todo_flags_finish */
-    }
+static struct gimple_opt_pass pass_gimple_null = {
+  { GIMPLE_PASS, "*gimple_null", /* name */
+    gate_null, /* gate */
+    NULL, /* execute */
+    NULL, /* sub */
+    NULL, /* next */
+    0, /* static_pass_number */
+    TV_NONE, /* tv_id */
+    0, /* properties_required */
+    0, /* properties_provided */
+    0, /* properties_destroyed */
+    0, /* todo_flags_start */
+    0 /* todo_flags_finish */
+}
 };
 
 /// execute_correct_state - Correct the cgraph state to ensure that newly
 /// inserted functions are processed before being converted to LLVM IR.
-static unsigned int execute_correct_state (void) {
+static unsigned int execute_correct_state(void) {
   if (cgraph_state < CGRAPH_STATE_IPA_SSA)
     cgraph_state = CGRAPH_STATE_IPA_SSA;
   return 0;
 }
 
 /// gate_correct_state - Gate method for pass_gimple_correct_state.
-static bool gate_correct_state (void) {
-  return true;
-}
+static bool gate_correct_state(void) { return true; }
 
 /// pass_gimple_correct_state - Gimple pass that corrects the cgraph state so
 /// newly inserted functions are processed before being converted to LLVM IR.
-static struct gimple_opt_pass pass_gimple_correct_state =
-{
-    {
-      GIMPLE_PASS,
-      "*gimple_correct_state",	/* name */
-      gate_correct_state,	/* gate */
-      execute_correct_state,	/* execute */
-      NULL,			/* sub */
-      NULL,			/* next */
-      0,			/* static_pass_number */
-      TV_NONE,			/* tv_id */
-      0,			/* properties_required */
-      0,			/* properties_provided */
-      0,			/* properties_destroyed */
-      0,			/* todo_flags_start */
-      0				/* todo_flags_finish */
-    }
+static struct gimple_opt_pass pass_gimple_correct_state = {
+  { GIMPLE_PASS, "*gimple_correct_state", /* name */
+    gate_correct_state, /* gate */
+    execute_correct_state, /* execute */
+    NULL, /* sub */
+    NULL, /* next */
+    0, /* static_pass_number */
+    TV_NONE, /* tv_id */
+    0, /* properties_required */
+    0, /* properties_provided */
+    0, /* properties_destroyed */
+    0, /* todo_flags_start */
+    0 /* todo_flags_finish */
+}
 };
 
 /// pass_ipa_null - IPA pass that does nothing.
 static struct ipa_opt_pass_d pass_ipa_null = {
-    {
-      IPA_PASS,
-      "*ipa_null",	/* name */
-      gate_null,	/* gate */
-      NULL,		/* execute */
-      NULL,		/* sub */
-      NULL,		/* next */
-      0,		/* static_pass_number */
-      TV_NONE,		/* tv_id */
-      0,		/* properties_required */
-      0,		/* properties_provided */
-      0,		/* properties_destroyed */
-      0,		/* todo_flags_start */
-      0			/* todo_flags_finish */
-    },
-    NULL,	/* generate_summary */
-    NULL,	/* write_summary */
-    NULL,	/* read_summary */
+  { IPA_PASS, "*ipa_null", /* name */
+    gate_null, /* gate */
+    NULL, /* execute */
+    NULL, /* sub */
+    NULL, /* next */
+    0, /* static_pass_number */
+    TV_NONE, /* tv_id */
+    0, /* properties_required */
+    0, /* properties_provided */
+    0, /* properties_destroyed */
+    0, /* todo_flags_start */
+    0 /* todo_flags_finish */
+}, NULL, /* generate_summary */
+  NULL, /* write_summary */
+  NULL, /* read_summary */
 #if (GCC_MINOR > 5)
-    NULL,		/* write_optimization_summary */
-    NULL,		/* read_optimization_summary */
+  NULL, /* write_optimization_summary */
+  NULL, /* read_optimization_summary */
 #else
-    NULL,		/* function_read_summary */
+  NULL, /* function_read_summary */
 #endif
-    NULL,		/* stmt_fixup */
-    0,			/* function_transform_todo_flags_start */
-    NULL,		/* function_transform */
-    NULL		/* variable_transform */
+  NULL, /* stmt_fixup */
+  0, /* function_transform_todo_flags_start */
+  NULL, /* function_transform */
+  NULL /* variable_transform */
 };
 
 /// pass_rtl_null - RTL pass that does nothing.
-static struct rtl_opt_pass pass_rtl_null =
-{
-    {
-      RTL_PASS,
-      "*rtl_null",	/* name */
-      gate_null,	/* gate */
-      NULL,		/* execute */
-      NULL,		/* sub */
-      NULL,		/* next */
-      0,		/* static_pass_number */
-      TV_NONE,		/* tv_id */
-      0,		/* properties_required */
-      0,		/* properties_provided */
-      0,		/* properties_destroyed */
-      0,		/* todo_flags_start */
-      0			/* todo_flags_finish */
-    }
-};
+static struct rtl_opt_pass pass_rtl_null = { { RTL_PASS, "*rtl_null", /* name */
+                                               gate_null, /* gate */
+                                               NULL, /* execute */
+                                               NULL, /* sub */
+                                               NULL, /* next */
+                                               0, /* static_pass_number */
+                                               TV_NONE, /* tv_id */
+                                               0, /* properties_required */
+                                               0, /* properties_provided */
+                                               0, /* properties_destroyed */
+                                               0, /* todo_flags_start */
+                                               0 /* todo_flags_finish */
+} };
 
 /// pass_simple_ipa_null - Simple IPA pass that does nothing.
-static struct simple_ipa_opt_pass pass_simple_ipa_null =
-{
-    {
-      SIMPLE_IPA_PASS,
-      "*simple_ipa_null",	/* name */
-      gate_null,		/* gate */
-      NULL,			/* execute */
-      NULL,			/* sub */
-      NULL,			/* next */
-      0,			/* static_pass_number */
-      TV_NONE,			/* tv_id */
-      0,			/* properties_required */
-      0,			/* properties_provided */
-      0,			/* properties_destroyed */
-      0,			/* todo_flags_start */
-      0				/* todo_flags_finish */
-    }
+static struct simple_ipa_opt_pass pass_simple_ipa_null = {
+  { SIMPLE_IPA_PASS, "*simple_ipa_null", /* name */
+    gate_null, /* gate */
+    NULL, /* execute */
+    NULL, /* sub */
+    NULL, /* next */
+    0, /* static_pass_number */
+    TV_NONE, /* tv_id */
+    0, /* properties_required */
+    0, /* properties_provided */
+    0, /* properties_destroyed */
+    0, /* todo_flags_start */
+    0 /* todo_flags_finish */
+}
 };
-
 
 // Garbage collector roots.
 extern const struct ggc_cache_tab gt_ggc_rc__gt_cache_h[];
-
 
 /// PluginFlags - Flag arguments for the plugin.
 
@@ -2079,21 +2039,18 @@ struct FlagDescriptor {
 };
 
 static FlagDescriptor PluginFlags[] = {
-    { "debug-pass-structure", &DebugPassStructure},
-    { "debug-pass-arguments", &DebugPassArguments},
-    { "enable-gcc-optzns", &EnableGCCOptimizations },
-    { "emit-ir", &EmitIR },
-    { "save-gcc-output", &SaveGCCOutput },
-    { NULL, NULL } // Terminator.
+  { "debug-pass-structure", &DebugPassStructure },
+  { "debug-pass-arguments", &DebugPassArguments },
+  { "enable-gcc-optzns", &EnableGCCOptimizations }, { "emit-ir", &EmitIR },
+  { "save-gcc-output", &SaveGCCOutput }, { NULL, NULL } // Terminator.
 };
-
 
 /// llvm_plugin_info - Information about this plugin.  Users can access this
 /// using "gcc --help -v".
 static struct plugin_info llvm_plugin_info = {
-  LLVM_VERSION,	// version
+  LLVM_VERSION,             // version
   // TODO provide something useful here
-  NULL		// help
+  NULL                      // help
 };
 
 #ifndef DISABLE_VERSION_CHECK
@@ -2101,27 +2058,25 @@ static bool version_check(struct plugin_gcc_version *plugged_in_version) {
   // Check that the running gcc has exactly the same version as the gcc we were
   // built against.  This strict check seems wise when developing against a fast
   // moving gcc tree.  TODO: Use a milder check if doing a "release build".
-  return plugin_default_version_check (&gcc_version, plugged_in_version);
+  return plugin_default_version_check(&gcc_version, plugged_in_version);
 }
 #endif
-
 
 /// plugin_init - Plugin initialization routine, called by GCC.  This is the
 /// first code executed in the plugin (except for constructors).  Configure
 /// the plugin and setup GCC, taking over optimization and code generation.
-int __attribute__ ((visibility("default")))
-plugin_init(struct plugin_name_args *plugin_info,
-            struct plugin_gcc_version *
+int __attribute__((visibility("default"))) plugin_init(
+    struct plugin_name_args *plugin_info, struct plugin_gcc_version *
 #ifndef DISABLE_VERSION_CHECK
-            version
+    version
 #endif
-            ) {
+    ) {
   const char *plugin_name = plugin_info->base_name;
   struct register_pass_info pass_info;
 
 #ifndef DISABLE_VERSION_CHECK
   // Check that the plugin is compatible with the running gcc.
-  if (!version_check (version)) {
+  if (!version_check(version)) {
     errs() << "Incompatible plugin version\n";
     return 1;
   }
@@ -2143,7 +2098,8 @@ plugin_init(struct plugin_name_args *plugin_info,
                 plugin_name, argv[i].key);
           continue;
         }
-        if (argv[i].value[0] < '0' || argv[i].value[0] > '9' || argv[i].value[1]) {
+        if (argv[i].value[0] < '0' || argv[i].value[0] > '9' ||
+            argv[i].value[1]) {
           error(G_("invalid option argument '-fplugin-arg-%s-%s=%s'"),
                 plugin_name, argv[i].key, argv[i].value);
           continue;
@@ -2201,15 +2157,15 @@ plugin_init(struct plugin_name_args *plugin_info,
       // Look for a matching flag.
       bool Found = false;
       for (FlagDescriptor *F = PluginFlags; F->Key; ++F)
-        if (!strcmp (argv[i].key, F->Key)) {
+        if (!strcmp(argv[i].key, F->Key)) {
           Found = true;
           *F->Flag = true;
           break;
         }
 
       if (!Found)
-        warning(0, G_("unrecognised option '-fplugin-arg-%s-%s'"),
-              plugin_name, argv[i].key);
+        warning(0, G_("unrecognised option '-fplugin-arg-%s-%s'"), plugin_name,
+                argv[i].key);
     }
   }
 
@@ -2219,20 +2175,20 @@ plugin_init(struct plugin_name_args *plugin_info,
 
   // Register our garbage collector roots.
   register_callback(plugin_name, PLUGIN_REGISTER_GGC_CACHES, NULL,
-                    const_cast<ggc_cache_tab*>(gt_ggc_rc__gt_cache_h));
+                    const_cast<ggc_cache_tab *>(gt_ggc_rc__gt_cache_h));
 
   // Perform late initialization just before processing the compilation unit.
   register_callback(plugin_name, PLUGIN_START_UNIT, llvm_start_unit, NULL);
 
   // Turn off all gcc optimization passes.
   if (!EnableGCCOptimizations) {
-    // TODO: figure out a good way of turning off ipa optimization passes.
-    // Could just set optimize to zero (after taking a copy), but this would
-    // also impact front-end optimizations.
+// TODO: figure out a good way of turning off ipa optimization passes.
+// Could just set optimize to zero (after taking a copy), but this would
+// also impact front-end optimizations.
 
-    // Leave pass_ipa_free_lang_data.
+// Leave pass_ipa_free_lang_data.
 
-    // Leave pass_ipa_function_and_variable_visibility.  Needed for correctness.
+// Leave pass_ipa_function_and_variable_visibility.  Needed for correctness.
 
 #if (GCC_MINOR < 6)
     // Turn off pass_ipa_early_inline.

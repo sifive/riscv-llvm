@@ -65,10 +65,8 @@ struct GTY(()) tree2int {
 #define tree2int_hash tree_map_base_hash
 #define tree2int_marked_p tree_map_base_marked_p
 
-static GTY((if_marked("tree2int_marked_p"),
-            param_is(struct tree2int)))
-  htab_t intCache;
-
+static GTY((if_marked("tree2int_marked_p"), param_is(struct tree2int)))
+    htab_t intCache;
 
 // Hash table mapping trees to Type*.
 
@@ -81,17 +79,15 @@ struct GTY(()) tree2Type {
 #ifndef IN_GCC
   struct
 #endif
-  Type *GTY((skip)) Ty;
+      Type *GTY((skip)) Ty;
 };
 
 #define tree2Type_eq tree_map_base_eq
 #define tree2Type_hash tree_map_base_hash
 #define tree2Type_marked_p tree_map_base_marked_p
 
-static GTY((if_marked("tree2Type_marked_p"),
-            param_is(struct tree2Type)))
-  htab_t TypeCache;
-
+static GTY((if_marked("tree2Type_marked_p"), param_is(struct tree2Type)))
+    htab_t TypeCache;
 
 // Hash table mapping trees to WeakVH.
 
@@ -104,17 +100,15 @@ struct GTY(()) tree2WeakVH {
 #ifndef IN_GCC
   struct
 #endif
-  WeakVH GTY((skip)) V;
+      WeakVH GTY((skip)) V;
 };
 
 #define tree2WeakVH_eq tree_map_base_eq
 #define tree2WeakVH_hash tree_map_base_hash
 #define tree2WeakVH_marked_p tree_map_base_marked_p
 
-static GTY((if_marked("tree2WeakVH_marked_p"),
-            param_is(struct tree2WeakVH)))
-  htab_t WeakVHCache;
-
+static GTY((if_marked("tree2WeakVH_marked_p"), param_is(struct tree2WeakVH)))
+    htab_t WeakVHCache;
 
 // Include the garbage collector header.
 #ifndef ENABLE_BUILD_WITH_CXX
@@ -145,15 +139,15 @@ void setCachedInteger(tree t, int Val) {
     intCache = htab_create_ggc(1024, tree2int_hash, tree2int_eq, 0);
 
   tree_map_base in = { t };
-  tree2int **slot = (tree2int **)htab_find_slot(intCache, &in, INSERT);
+  tree2int **slot = (tree2int * *) htab_find_slot(intCache, &in, INSERT);
   assert(slot && "Failed to create hash table slot!");
 
   if (!*slot) {
     *slot =
 #if (GCC_MINOR > 5)
-      ggc_alloc_tree2int();
+        ggc_alloc_tree2int();
 #else
-      GGC_NEW(struct tree2int);
+    GGC_NEW(struct tree2int);
 #endif
     (*slot)->base.from = t;
   }
@@ -182,15 +176,15 @@ void setCachedType(tree t, Type *Ty) {
   if (!TypeCache)
     TypeCache = htab_create_ggc(1024, tree2Type_hash, tree2Type_eq, 0);
 
-  tree2Type **slot = (tree2Type **)htab_find_slot(TypeCache, &in, INSERT);
+  tree2Type **slot = (tree2Type * *) htab_find_slot(TypeCache, &in, INSERT);
   assert(slot && "Failed to create hash table slot!");
 
   if (!*slot) {
     *slot =
 #if (GCC_MINOR > 5)
-      ggc_alloc_tree2Type();
+        ggc_alloc_tree2Type();
 #else
-      GGC_NEW(struct tree2Type);
+    GGC_NEW(struct tree2Type);
 #endif
     (*slot)->base.from = t;
   }
@@ -209,7 +203,7 @@ Value *getCachedValue(tree t) {
 }
 
 static void DestructWeakVH(void *p) {
-  ((WeakVH*)&((tree2WeakVH*)p)->V)->~WeakVH();
+  ((WeakVH *)&((tree2WeakVH *)p)->V)->~WeakVH();
 }
 
 /// setCachedValue - Associates the given value (which may be null) with the
@@ -229,7 +223,8 @@ void setCachedValue(tree t, Value *V) {
     WeakVHCache = htab_create_ggc(1024, tree2WeakVH_hash, tree2WeakVH_eq,
                                   DestructWeakVH);
 
-  tree2WeakVH **slot = (tree2WeakVH **)htab_find_slot(WeakVHCache, &in, INSERT);
+  tree2WeakVH **slot = (tree2WeakVH * *)
+                       htab_find_slot(WeakVHCache, &in, INSERT);
   assert(slot && "Failed to create hash table slot!");
 
   if (*slot) {
@@ -239,12 +234,12 @@ void setCachedValue(tree t, Value *V) {
 
   *slot =
 #if (GCC_MINOR > 5)
-    ggc_alloc_tree2WeakVH();
+      ggc_alloc_tree2WeakVH();
 #else
-    GGC_NEW(struct tree2WeakVH);
+  GGC_NEW(struct tree2WeakVH);
 #endif
   (*slot)->base.from = t;
-  WeakVH *W = new(&(*slot)->V) WeakVH(V);
+  WeakVH *W = new (&(*slot)->V) WeakVH(V);
   assert(W == &(*slot)->V && "Pointer was displaced!");
-  (void)W;
+  (void) W;
 }

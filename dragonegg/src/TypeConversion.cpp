@@ -59,7 +59,7 @@ extern "C" {
 static LLVMContext &Context = getGlobalContext();
 
 /// SCCInProgress - Set of mutually dependent types currently being converted.
-static const std::vector<tree_node*> *SCCInProgress;
+static const std::vector<tree_node *> *SCCInProgress;
 
 //===----------------------------------------------------------------------===//
 //                       ... ContainedTypeIterator ...
@@ -73,137 +73,135 @@ static const std::vector<tree_node*> *SCCInProgress;
 /// over all of the types contained in a given type.
 namespace {
 
-  class ContainedTypeIterator {
-    /// type_ref - Either a TREE_LIST node, in which case TREE_VALUE gives the
-    /// contained type, or some other kind of tree node and TREE_TYPE gives the
-    /// contained type.  A null value indicates the end iterator.
-    tree type_ref;
+class ContainedTypeIterator {
+  /// type_ref - Either a TREE_LIST node, in which case TREE_VALUE gives the
+  /// contained type, or some other kind of tree node and TREE_TYPE gives the
+  /// contained type.  A null value indicates the end iterator.
+  tree type_ref;
 
-    /// ContainedTypeIterator - Convenience constructor for internal use.
-    explicit ContainedTypeIterator(const tree& t) : type_ref(t) {}
+  /// ContainedTypeIterator - Convenience constructor for internal use.
+  explicit ContainedTypeIterator(const tree &t) : type_ref(t) {}
 
-  public:
-    /// Dereference operator.
-    tree operator*() {
-      return isa<TREE_LIST>(type_ref) ?
-        TREE_VALUE(type_ref) : TREE_TYPE(type_ref);
-    };
+public:
+  /// Dereference operator.
+  tree operator*() {
+    return isa<TREE_LIST>(type_ref) ? TREE_VALUE(type_ref) :
+           TREE_TYPE(type_ref);
+  }
+  ;
 
-    /// Comparison operators.
-    bool operator==(const ContainedTypeIterator &other) const {
-      return other.type_ref == this->type_ref;
-    }
-    bool operator!=(const ContainedTypeIterator &other) const {
-      return !(*this == other);
-    }
+  /// Comparison operators.
+  bool operator==(const ContainedTypeIterator &other) const {
+    return other.type_ref == this->type_ref;
+  }
+  bool operator!=(const ContainedTypeIterator &other) const {
+    return !(*this == other);
+  }
 
-    /// Prefix increment operator.
-    ContainedTypeIterator& operator++() {
-      assert(type_ref && "Incrementing end iterator!");
+  /// Prefix increment operator.
+  ContainedTypeIterator &operator++() {
+    assert(type_ref && "Incrementing end iterator!");
 
-      switch (TREE_CODE(type_ref)) {
-      default:
-        debug_tree(type_ref);
-        llvm_unreachable("Unexpected tree kind!");
-      case ARRAY_TYPE:
-      case COMPLEX_TYPE:
-      case POINTER_TYPE:
-      case REFERENCE_TYPE:
-      case VECTOR_TYPE:
-        // Here type_ref is the type being iterated over.  These types all have
-        // only one contained type, so incrementing returns the end iterator.
-        type_ref = 0;
-        break;
+    switch (TREE_CODE(type_ref)) {
+    default:
+      debug_tree(type_ref);
+      llvm_unreachable("Unexpected tree kind!");
+    case ARRAY_TYPE:
+    case COMPLEX_TYPE:
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+    case VECTOR_TYPE:
+      // Here type_ref is the type being iterated over.  These types all have
+      // only one contained type, so incrementing returns the end iterator.
+      type_ref = 0;
+      break;
 
-      case FIELD_DECL:
-        // Here type_ref is a field of the record or union type being iterated
-        // over.  Move on to the next field.
-        do
-          type_ref = TREE_CHAIN(type_ref);
-        while (type_ref && !isa<FIELD_DECL>(type_ref));
-        break;
-
-      case FUNCTION_TYPE:
-      case METHOD_TYPE:
-        // Here type_ref is the type being iterated over and the iterator refers
-        // to the function return type.  Move on to the first function argument
-        // (a TREE_LIST node).
-        type_ref = TYPE_ARG_TYPES(type_ref);
-        break;
-
-      case TREE_LIST:
-        // Here type_ref belongs to the argument list of the function or method
-        // being iterated over.  Move on to the next function argument.
+    case FIELD_DECL:
+      // Here type_ref is a field of the record or union type being iterated
+      // over.  Move on to the next field.
+      do
         type_ref = TREE_CHAIN(type_ref);
-        // If the function takes a fixed number of arguments then the argument
-        // list is terminated by void_list_node.  This is not a real argument.
-        if (type_ref == void_list_node)
-          type_ref = 0;
-        break;
-      }
+      while (type_ref && !isa<FIELD_DECL>(type_ref));
+      break;
 
-      return *this;
+    case FUNCTION_TYPE:
+    case METHOD_TYPE:
+      // Here type_ref is the type being iterated over and the iterator refers
+      // to the function return type.  Move on to the first function argument
+      // (a TREE_LIST node).
+      type_ref = TYPE_ARG_TYPES(type_ref);
+      break;
+
+    case TREE_LIST:
+      // Here type_ref belongs to the argument list of the function or method
+      // being iterated over.  Move on to the next function argument.
+      type_ref = TREE_CHAIN(type_ref);
+      // If the function takes a fixed number of arguments then the argument
+      // list is terminated by void_list_node.  This is not a real argument.
+      if (type_ref == void_list_node)
+        type_ref = 0;
+      break;
     }
 
-    /// begin - Return an iterator referring to the first type contained in the
-    /// given type.
-    static ContainedTypeIterator begin(tree type) {
-      switch (TREE_CODE(type)) {
-      default:
-        llvm_unreachable("Unknown type!");
+    return *this;
+  }
 
-      case BOOLEAN_TYPE:
-      case ENUMERAL_TYPE:
-      case FIXED_POINT_TYPE:
-      case INTEGER_TYPE:
+  /// begin - Return an iterator referring to the first type contained in the
+  /// given type.
+  static ContainedTypeIterator begin(tree type) {
+    switch (TREE_CODE(type)) {
+    default:
+      llvm_unreachable("Unknown type!");
+
+    case BOOLEAN_TYPE:
+    case ENUMERAL_TYPE:
+    case FIXED_POINT_TYPE:
+    case INTEGER_TYPE:
 #if (GCC_MINOR > 5)
-      case NULLPTR_TYPE:
+    case NULLPTR_TYPE:
 #endif
-      case OFFSET_TYPE:
-      case REAL_TYPE:
-      case VOID_TYPE:
-        // No contained types.
-        return end();
+    case OFFSET_TYPE:
+    case REAL_TYPE:
+    case VOID_TYPE:
+      // No contained types.
+      return end();
 
-      case ARRAY_TYPE:
-      case COMPLEX_TYPE:
-      case POINTER_TYPE:
-      case REFERENCE_TYPE:
-      case VECTOR_TYPE:
-        // Use the type itself as the "pointer" to the contained type.
-        return ContainedTypeIterator(type);
+    case ARRAY_TYPE:
+    case COMPLEX_TYPE:
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+    case VECTOR_TYPE:
+      // Use the type itself as the "pointer" to the contained type.
+      return ContainedTypeIterator(type);
 
-      case QUAL_UNION_TYPE:
-      case RECORD_TYPE:
-      case UNION_TYPE:
-        // The contained types are the types of the record's fields.  Use the
-        // first FIELD_DECL as the "pointer" to the first contained type.
-        for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field))
-          if (isa<FIELD_DECL>(field))
-            return ContainedTypeIterator(field);
-        return end();
+    case QUAL_UNION_TYPE:
+    case RECORD_TYPE:
+    case UNION_TYPE:
+      // The contained types are the types of the record's fields.  Use the
+      // first FIELD_DECL as the "pointer" to the first contained type.
+      for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field))
+        if (isa<FIELD_DECL>(field))
+          return ContainedTypeIterator(field);
+      return end();
 
-      case FUNCTION_TYPE:
-      case METHOD_TYPE:
-        // The contained types are the return type and the argument types (in
-        // the case of METHOD_TYPE nothing special needs to be done for 'this'
-        // since it occurs explicitly in the argument list).  Return the type
-        // itself as the "pointer" to the return type; incrementing will move
-        // the iterator on to the argument types.
-        // Note that static chains for nested functions cannot be obtained from
-        // the function type which is why there is no attempt to handle them.
-        return ContainedTypeIterator(type);
-      }
+    case FUNCTION_TYPE:
+    case METHOD_TYPE:
+      // The contained types are the return type and the argument types (in
+      // the case of METHOD_TYPE nothing special needs to be done for 'this'
+      // since it occurs explicitly in the argument list).  Return the type
+      // itself as the "pointer" to the return type; incrementing will move
+      // the iterator on to the argument types.
+      // Note that static chains for nested functions cannot be obtained from
+      // the function type which is why there is no attempt to handle them.
+      return ContainedTypeIterator(type);
     }
+  }
 
-    /// end - Return the end iterator for contained type iteration.
-    static ContainedTypeIterator end() {
-      return ContainedTypeIterator(0);
-    }
-  };
+  /// end - Return the end iterator for contained type iteration.
+  static ContainedTypeIterator end() { return ContainedTypeIterator(0); }
+};
 
 } // Unnamed namespace.
-
 
 //===----------------------------------------------------------------------===//
 //                                 Utilities
@@ -221,8 +219,8 @@ uint64_t ArrayLengthOf(tree type) {
   // Bail out if the array has variable or unknown length.
   if (!isInt64(range, false))
     return NO_LENGTH;
-  int64_t Range = (int64_t)getInt64(range, false);
-  return Range < 0 ? 0 : 1 + (uint64_t)Range;
+  int64_t Range = (int64_t) getInt64(range, false);
+  return Range < 0 ? 0 : 1 + (uint64_t) Range;
 }
 
 /// set_decl_index - Associate a non-negative number with the given GCC
@@ -251,10 +249,10 @@ int GetFieldIndex(tree decl, Type *Ty) {
   assert(isa<FIELD_DECL>(decl) && "Expected a FIELD_DECL!");
   // FIXME: The following test sometimes fails when compiling Fortran90 because
   // DECL_CONTEXT does not point to the containing type, but some other type!
-//  assert(Ty == ConvertType(DECL_CONTEXT(decl)) && "Field not for this type!");
+  //  assert(Ty == ConvertType(DECL_CONTEXT(decl)) && "Field not for this type!");
 
   // If we previously cached the field index, return the cached value.
-  unsigned Index = (unsigned)get_decl_index(decl);
+  unsigned Index = (unsigned) get_decl_index(decl);
   if (Index <= INT_MAX)
     return Index;
 
@@ -342,7 +340,6 @@ bool isSizeCompatible(tree type) {
   return isInt64(TYPE_SIZE(type), true);
 }
 
-
 //===----------------------------------------------------------------------===//
 //                   Matching LLVM types with GCC trees
 //===----------------------------------------------------------------------===//
@@ -364,8 +361,7 @@ static Type *CheckTypeConversion(tree type, Type *Ty) {
     uint64_t LLVMSize = getDataLayout().getTypeAllocSizeInBits(Ty);
     if (LLVMSize != GCCSize) {
       Mismatch = true;
-      errs() << "GCC size: " << GCCSize << "; LLVM size: " << LLVMSize
-        << "!\n";
+      errs() << "GCC size: " << GCCSize << "; LLVM size: " << LLVMSize << "!\n";
     }
   }
   // Check that the LLVM type has the same alignment or less than the GCC type.
@@ -375,7 +371,7 @@ static Type *CheckTypeConversion(tree type, Type *Ty) {
     if (LLVMAlign > GCCAlign) {
       Mismatch = true;
       errs() << "GCC align: " << GCCAlign << "; LLVM align: " << LLVMAlign
-        << "\n";
+             << "\n";
     }
   }
   if (Mismatch) {
@@ -387,7 +383,7 @@ static Type *CheckTypeConversion(tree type, Type *Ty) {
   }
 #endif
 
-  (void)type;
+  (void) type;
   return Ty;
 }
 
@@ -398,7 +394,6 @@ static Type *RememberTypeConversion(tree type, Type *Ty) {
   setCachedType(type, Ty);
   return Ty;
 }
-
 
 //===----------------------------------------------------------------------===//
 //                       Type Conversion Utilities
@@ -418,7 +413,6 @@ bool isPassedByInvisibleReference(tree Type) {
          !isa<INTEGER_CST>(TYPE_SIZE(Type));
 }
 
-
 //===----------------------------------------------------------------------===//
 //                             ... getRegType ...
 //===----------------------------------------------------------------------===//
@@ -429,8 +423,8 @@ bool isPassedByInvisibleReference(tree Type) {
 Type *getRegType(tree type) {
   // Check that the type mode doesn't depend on the type variant (various bits
   // of the plugin rely on this).
-  assert(TYPE_MODE(type) == TYPE_MODE(TYPE_MAIN_VARIANT(type))
-         && "Type mode differs between variants!");
+  assert(TYPE_MODE(type) == TYPE_MODE(TYPE_MAIN_VARIANT(type)) &&
+         "Type mode differs between variants!");
 
   // LLVM doesn't care about variants such as const, volatile, or restrict.
   type = TYPE_MAIN_VARIANT(type);
@@ -471,8 +465,8 @@ Type *getRegType(tree type) {
   case REFERENCE_TYPE: {
     // void* -> byte*
     unsigned AS = TYPE_ADDR_SPACE(type);
-    return isa<VOID_TYPE>(TREE_TYPE(type)) ?  GetUnitPointerType(Context, AS) :
-      ConvertType(TREE_TYPE(type))->getPointerTo(AS);
+    return isa<VOID_TYPE>(TREE_TYPE(type)) ? GetUnitPointerType(Context, AS) :
+           ConvertType(TREE_TYPE(type))->getPointerTo(AS);
   }
 
   case REAL_TYPE:
@@ -486,18 +480,18 @@ Type *getRegType(tree type) {
 #ifdef TARGET_POWERPC
       return Type::getPPC_FP128Ty(Context);
 #else
-      // IEEE quad precision.
-      return Type::getFP128Ty(Context);
+    // IEEE quad precision.
+    return Type::getFP128Ty(Context);
 #endif
     debug_tree(type);
     llvm_unreachable("Unknown FP type!");
 
   case VECTOR_TYPE:
-    return VectorType::get(getRegType(TREE_TYPE(type)), TYPE_VECTOR_SUBPARTS(type));
+    return VectorType::get(getRegType(TREE_TYPE(type)),
+                           TYPE_VECTOR_SUBPARTS(type));
 
   }
 }
-
 
 //===----------------------------------------------------------------------===//
 //                            ... ConvertType ...
@@ -525,7 +519,7 @@ static Type *ConvertArrayTypeRecursive(tree type) {
   // gives a constant size.
   if (isInt64(TYPE_SIZE(type), true)) {
     uint64_t PadBits = getInt64(TYPE_SIZE(type), true) -
-      getDataLayout().getTypeAllocSizeInBits(Ty);
+                       getDataLayout().getTypeAllocSizeInBits(Ty);
     if (PadBits) {
       Type *Padding = ArrayType::get(Type::getInt8Ty(Context), PadBits / 8);
       Ty = StructType::get(Ty, Padding, NULL);
@@ -536,113 +530,105 @@ static Type *ConvertArrayTypeRecursive(tree type) {
 }
 
 namespace {
-  class FunctionTypeConversion : public DefaultABIClient {
-    Type *&RetTy;
-    SmallVectorImpl<Type*> &ArgTypes;
-    CallingConv::ID &CallingConv;
-    unsigned Offset;
-    bool isShadowRet;
-    bool KNRPromotion;
-  public:
-    FunctionTypeConversion(Type *&retty, SmallVectorImpl<Type*> &AT,
-                           CallingConv::ID &CC, bool KNR)
+class FunctionTypeConversion : public DefaultABIClient {
+  Type *&RetTy;
+  SmallVectorImpl<Type *> &ArgTypes;
+  CallingConv::ID &CallingConv;
+  unsigned Offset;
+  bool isShadowRet;
+  bool KNRPromotion;
+public:
+  FunctionTypeConversion(Type *&retty, SmallVectorImpl<Type *> &AT,
+                         CallingConv::ID &CC, bool KNR)
       : RetTy(retty), ArgTypes(AT), CallingConv(CC), Offset(0),
         KNRPromotion(KNR) {
-      CallingConv = CallingConv::C;
-      isShadowRet = false;
+    CallingConv = CallingConv::C;
+    isShadowRet = false;
+  }
+
+  /// getCallingConv - This provides the desired CallingConv for the function.
+  CallingConv::ID getCallingConv(void) { return CallingConv; }
+
+  bool isShadowReturn() const { return isShadowRet; }
+
+  /// HandleScalarResult - This callback is invoked if the function returns a
+  /// simple scalar result value.
+  void HandleScalarResult(Type *RTy) { this->RetTy = RTy; }
+
+  /// HandleAggregateResultAsScalar - This callback is invoked if the function
+  /// returns an aggregate value by bit converting it to the specified scalar
+  /// type and returning that.
+  void HandleAggregateResultAsScalar(Type *ScalarTy, unsigned Off = 0) {
+    RetTy = ScalarTy;
+    this->Offset = Off;
+  }
+
+  /// HandleAggregateResultAsAggregate - This callback is invoked if the function
+  /// returns an aggregate value using multiple return values.
+  void HandleAggregateResultAsAggregate(Type *AggrTy) { RetTy = AggrTy; }
+
+  /// HandleShadowResult - Handle an aggregate or scalar shadow argument.
+  void HandleShadowResult(PointerType *PtrArgTy, bool RetPtr) {
+    // This function either returns void or the shadow argument,
+    // depending on the target.
+    RetTy = RetPtr ? PtrArgTy : Type::getVoidTy(Context);
+
+    // In any case, there is a dummy shadow argument though!
+    ArgTypes.push_back(PtrArgTy);
+
+    // Also, note the use of a shadow argument.
+    isShadowRet = true;
+  }
+
+  /// HandleAggregateShadowResult - This callback is invoked if the function
+  /// returns an aggregate value by using a "shadow" first parameter, which is
+  /// a pointer to the aggregate, of type PtrArgTy.  If RetPtr is set to true,
+  /// the pointer argument itself is returned from the function.
+  void HandleAggregateShadowResult(PointerType *PtrArgTy, bool RetPtr) {
+    HandleShadowResult(PtrArgTy, RetPtr);
+  }
+
+  /// HandleScalarShadowResult - This callback is invoked if the function
+  /// returns a scalar value by using a "shadow" first parameter, which is a
+  /// pointer to the scalar, of type PtrArgTy.  If RetPtr is set to true,
+  /// the pointer argument itself is returned from the function.
+  void HandleScalarShadowResult(PointerType *PtrArgTy, bool RetPtr) {
+    HandleShadowResult(PtrArgTy, RetPtr);
+  }
+
+  void HandlePad(llvm::Type *LLVMTy) { HandleScalarArgument(LLVMTy, 0, 0); }
+
+  void HandleScalarArgument(llvm::Type *LLVMTy, tree type,
+                            unsigned /*RealSize*/ = 0) {
+    if (KNRPromotion) {
+      if (type == float_type_node)
+        LLVMTy = ConvertType(double_type_node);
+      else if (LLVMTy->isIntegerTy(16) || LLVMTy->isIntegerTy(8) ||
+               LLVMTy->isIntegerTy(1))
+        LLVMTy = Type::getInt32Ty(Context);
     }
+    ArgTypes.push_back(LLVMTy);
+  }
 
-    /// getCallingConv - This provides the desired CallingConv for the function.
-    CallingConv::ID getCallingConv(void) { return CallingConv; }
+  /// HandleByInvisibleReferenceArgument - This callback is invoked if a pointer
+  /// (of type PtrTy) to the argument is passed rather than the argument itself.
+  void HandleByInvisibleReferenceArgument(llvm::Type *PtrTy, tree /*type*/) {
+    ArgTypes.push_back(PtrTy);
+  }
 
-    bool isShadowReturn() const { return isShadowRet; }
+  /// HandleByValArgument - This callback is invoked if the aggregate function
+  /// argument is passed by value. It is lowered to a parameter passed by
+  /// reference with an additional parameter attribute "ByVal".
+  void HandleByValArgument(llvm::Type *LLVMTy, tree type) {
+    HandleScalarArgument(LLVMTy->getPointerTo(), type);
+  }
 
-    /// HandleScalarResult - This callback is invoked if the function returns a
-    /// simple scalar result value.
-    void HandleScalarResult(Type *RTy) {
-      this->RetTy = RTy;
-    }
-
-    /// HandleAggregateResultAsScalar - This callback is invoked if the function
-    /// returns an aggregate value by bit converting it to the specified scalar
-    /// type and returning that.
-    void HandleAggregateResultAsScalar(Type *ScalarTy, unsigned Off=0) {
-      RetTy = ScalarTy;
-      this->Offset = Off;
-    }
-
-    /// HandleAggregateResultAsAggregate - This callback is invoked if the function
-    /// returns an aggregate value using multiple return values.
-    void HandleAggregateResultAsAggregate(Type *AggrTy) {
-      RetTy = AggrTy;
-    }
-
-    /// HandleShadowResult - Handle an aggregate or scalar shadow argument.
-    void HandleShadowResult(PointerType *PtrArgTy, bool RetPtr) {
-      // This function either returns void or the shadow argument,
-      // depending on the target.
-      RetTy = RetPtr ? PtrArgTy : Type::getVoidTy(Context);
-
-      // In any case, there is a dummy shadow argument though!
-      ArgTypes.push_back(PtrArgTy);
-
-      // Also, note the use of a shadow argument.
-      isShadowRet = true;
-    }
-
-    /// HandleAggregateShadowResult - This callback is invoked if the function
-    /// returns an aggregate value by using a "shadow" first parameter, which is
-    /// a pointer to the aggregate, of type PtrArgTy.  If RetPtr is set to true,
-    /// the pointer argument itself is returned from the function.
-    void HandleAggregateShadowResult(PointerType *PtrArgTy,
-                                       bool RetPtr) {
-      HandleShadowResult(PtrArgTy, RetPtr);
-    }
-
-    /// HandleScalarShadowResult - This callback is invoked if the function
-    /// returns a scalar value by using a "shadow" first parameter, which is a
-    /// pointer to the scalar, of type PtrArgTy.  If RetPtr is set to true,
-    /// the pointer argument itself is returned from the function.
-    void HandleScalarShadowResult(PointerType *PtrArgTy, bool RetPtr) {
-      HandleShadowResult(PtrArgTy, RetPtr);
-    }
-
-    void HandlePad(llvm::Type *LLVMTy) {
-      HandleScalarArgument(LLVMTy, 0, 0);
-    }
-
-    void HandleScalarArgument(llvm::Type *LLVMTy, tree type,
-                              unsigned /*RealSize*/ = 0) {
-      if (KNRPromotion) {
-        if (type == float_type_node)
-          LLVMTy = ConvertType(double_type_node);
-        else if (LLVMTy->isIntegerTy(16) || LLVMTy->isIntegerTy(8) ||
-                 LLVMTy->isIntegerTy(1))
-          LLVMTy = Type::getInt32Ty(Context);
-      }
-      ArgTypes.push_back(LLVMTy);
-    }
-
-    /// HandleByInvisibleReferenceArgument - This callback is invoked if a pointer
-    /// (of type PtrTy) to the argument is passed rather than the argument itself.
-    void HandleByInvisibleReferenceArgument(llvm::Type *PtrTy,
-                                            tree /*type*/) {
-      ArgTypes.push_back(PtrTy);
-    }
-
-    /// HandleByValArgument - This callback is invoked if the aggregate function
-    /// argument is passed by value. It is lowered to a parameter passed by
-    /// reference with an additional parameter attribute "ByVal".
-    void HandleByValArgument(llvm::Type *LLVMTy, tree type) {
-      HandleScalarArgument(LLVMTy->getPointerTo(), type);
-    }
-
-    /// HandleFCAArgument - This callback is invoked if the aggregate function
-    /// argument is a first class aggregate passed by value.
-    void HandleFCAArgument(llvm::Type *LLVMTy, tree /*type*/) {
-      ArgTypes.push_back(LLVMTy);
-    }
-  };
+  /// HandleFCAArgument - This callback is invoked if the aggregate function
+  /// argument is a first class aggregate passed by value.
+  void HandleFCAArgument(llvm::Type *LLVMTy, tree /*type*/) {
+    ArgTypes.push_back(LLVMTy);
+  }
+};
 }
 
 static void HandleArgumentExtension(tree ArgTy, AttrBuilder &AttrBuilder) {
@@ -664,12 +650,11 @@ static void HandleArgumentExtension(tree ArgTy, AttrBuilder &AttrBuilder) {
 /// for the function.  This method takes the DECL_ARGUMENTS list (Args), and
 /// fills in Result with the argument types for the function.  It returns the
 /// specified result type for the function.
-FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
-                                     tree static_chain, bool KNRPromotion,
-                                     CallingConv::ID &CallingConv,
-                                     AttributeSet &PAL) {
+FunctionType *ConvertArgListToFnType(
+    tree type, ArrayRef<tree> Args, tree static_chain, bool KNRPromotion,
+    CallingConv::ID &CallingConv, AttributeSet &PAL) {
   tree ReturnType = TREE_TYPE(type);
-  SmallVector<Type*, 8> ArgTys;
+  SmallVector<Type *, 8> ArgTys;
   Type *RetTy(Type::getVoidTy(Context));
 
   FunctionTypeConversion Client(RetTy, ArgTys, CallingConv, KNRPromotion);
@@ -689,26 +674,25 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
   AttrBuilder RAttrBuilder;
   HandleArgumentExtension(ReturnType, RAttrBuilder);
 
-  // Allow the target to change the attributes.
+// Allow the target to change the attributes.
 #ifdef TARGET_ADJUST_LLVM_RETATTR
   TARGET_ADJUST_LLVM_RETATTR(type, RAttrBuilder);
 #endif
 
   if (RAttrBuilder.hasAttributes())
-    Attrs.push_back(AttributeWithIndex::get(0, Attribute::get(Context,
-                                                              RAttrBuilder)));
+    Attrs.push_back(
+        AttributeWithIndex::get(0, Attribute::get(Context, RAttrBuilder)));
 
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
   if (ABIConverter.isShadowReturn()) {
     AttrBuilder B;
-    B.addAttribute(Attribute::StructRet)
-      .addAttribute(Attribute::NoAlias);
+    B.addAttribute(Attribute::StructRet).addAttribute(Attribute::NoAlias);
     Attrs.push_back(AttributeWithIndex::get(ArgTys.size(),
                                             Attribute::get(Context, B)));
   }
 
-  std::vector<Type*> ScalarArgs;
+  std::vector<Type *> ScalarArgs;
   if (static_chain) {
     // Pass the static chain as the first parameter.
     ABIConverter.HandleArgument(TREE_TYPE(static_chain), ScalarArgs);
@@ -733,9 +717,8 @@ FunctionType *ConvertArgListToFnType(tree type, ArrayRef<tree> Args,
       PAttrBuilder.addAttribute(Attribute::NoAlias);
 
     if (PAttrBuilder.hasAttributes())
-      Attrs.push_back(AttributeWithIndex::get(ArgTys.size(),
-                                              Attribute::get(Context,
-                                                             PAttrBuilder)));
+      Attrs.push_back(AttributeWithIndex::get(
+          ArgTys.size(), Attribute::get(Context, PAttrBuilder)));
   }
 
   PAL = AttributeSet::get(Context, Attrs);
@@ -746,11 +729,12 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
                                   CallingConv::ID &CallingConv,
                                   AttributeSet &PAL) {
   Type *RetTy = Type::getVoidTy(Context);
-  SmallVector<Type*, 8> ArgTypes;
-  FunctionTypeConversion Client(RetTy, ArgTypes, CallingConv, false/*not K&R*/);
+  SmallVector<Type *, 8> ArgTypes;
+  FunctionTypeConversion Client(RetTy, ArgTypes, CallingConv,
+                                false /*not K&R*/);
   DefaultABI ABIConverter(Client);
 
-  // Allow the target to set the CC for things like fastcall etc.
+// Allow the target to set the CC for things like fastcall etc.
 #ifdef TARGET_ADJUST_LLVM_CC
   TARGET_ADJUST_LLVM_CC(CallingConv, type);
 #endif
@@ -788,7 +772,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   // 'sret' functions cannot be 'readnone' or 'readonly'.
   if (ABIConverter.isShadowReturn()) {
     FnAttrBuilder.removeAttribute(Attribute::ReadNone)
-      .removeAttribute(Attribute::ReadOnly);
+        .removeAttribute(Attribute::ReadOnly);
   }
 
   // Demote 'readnone' nested functions to 'readonly' since
@@ -803,7 +787,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   AttrBuilder RAttrBuilder;
   HandleArgumentExtension(TREE_TYPE(type), RAttrBuilder);
 
-  // Allow the target to change the attributes.
+// Allow the target to change the attributes.
 #ifdef TARGET_ADJUST_LLVM_RETATTR
   TARGET_ADJUST_LLVM_RETATTR(type, RAttrBuilder);
 #endif
@@ -813,20 +797,19 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     RAttrBuilder.addAttribute(Attribute::NoAlias);
 
   if (RAttrBuilder.hasAttributes())
-    Attrs.push_back(AttributeWithIndex::get(0, Attribute::get(Context,
-                                                              RAttrBuilder)));
+    Attrs.push_back(
+        AttributeWithIndex::get(0, Attribute::get(Context, RAttrBuilder)));
 
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
   if (ABIConverter.isShadowReturn()) {
     AttrBuilder B;
-    B.addAttribute(Attribute::StructRet)
-      .addAttribute(Attribute::NoAlias);
+    B.addAttribute(Attribute::StructRet).addAttribute(Attribute::NoAlias);
     Attrs.push_back(AttributeWithIndex::get(ArgTypes.size(),
                                             Attribute::get(Context, B)));
   }
 
-  std::vector<Type*> ScalarArgs;
+  std::vector<Type *> ScalarArgs;
   if (static_chain) {
     // Pass the static chain as the first parameter.
     ABIConverter.HandleArgument(TREE_TYPE(static_chain), ScalarArgs);
@@ -850,7 +833,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   tree DeclArgs = (decl) ? DECL_ARGUMENTS(decl) : NULL;
   // Loop over all of the arguments, adding them as we go.
   tree Args = TYPE_ARG_TYPES(type);
-  for (; Args && TREE_VALUE(Args) != void_type_node; Args = TREE_CHAIN(Args)){
+  for (; Args && TREE_VALUE(Args) != void_type_node; Args = TREE_CHAIN(Args)) {
     tree ArgTy = TREE_VALUE(Args);
     if (!isPassedByInvisibleReference(ArgTy))
       if (const StructType *STy = dyn_cast<StructType>(ConvertType(ArgTy)))
@@ -862,7 +845,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
             ArgTypes.clear();
           else
             // Don't nuke last argument.
-            ArgTypes.erase(ArgTypes.begin()+1, ArgTypes.end());
+            ArgTypes.erase(ArgTypes.begin() + 1, ArgTypes.end());
           Args = 0;
           break;
         }
@@ -899,8 +882,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
       for (unsigned i = OldSize + 1; i <= ArgTypes.size(); ++i)
-        Attrs.push_back(AttributeWithIndex::get
-                          (i, Attribute::get(Context, PAttrBuilder)));
+        Attrs.push_back(
+            AttributeWithIndex::get(i, Attribute::get(Context, PAttrBuilder)));
     }
 
     if (DeclArgs)
@@ -914,14 +897,13 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   // readonly/readnone functions.
   if (HasByVal)
     FnAttrBuilder.removeAttribute(Attribute::ReadNone)
-      .removeAttribute(Attribute::ReadOnly);
+        .removeAttribute(Attribute::ReadOnly);
 
   assert(RetTy && "Return type not specified!");
 
   if (FnAttrBuilder.hasAttributes())
-    Attrs.push_back(AttributeWithIndex::get(~0,
-                                            Attribute::get(Context,
-                                                           FnAttrBuilder)));
+    Attrs.push_back(
+        AttributeWithIndex::get(~0, Attribute::get(Context, FnAttrBuilder)));
 
   // Finally, make the function type and result attributes.
   PAL = AttributeSet::get(Context, Attrs);
@@ -992,8 +974,8 @@ class TypedRange {
   Type *Ty;        // The type.  May be null if the range is empty.
   uint64_t Starts; // The first bit of the type is positioned at this offset.
 
-  TypedRange(BitRange r, Type *t, uint64_t starts) :
-    R(r), Ty(t), Starts(starts) {
+  TypedRange(BitRange r, Type *t, uint64_t starts)
+      : R(r), Ty(t), Starts(starts) {
     assert((R.empty() || Ty) && "Need type when range not empty!");
   }
 
@@ -1026,8 +1008,10 @@ public:
   }
 
   // Copy assignment operator.
-  TypedRange &operator=(const TypedRange &other) {
-    R = other.R; Ty = other.Ty; Starts = other.Starts;
+  TypedRange &operator=(const TypedRange & other) {
+    R = other.R;
+    Ty = other.Ty;
+    Starts = other.Starts;
     return *this;
   }
 
@@ -1114,12 +1098,13 @@ static Type *ConvertRecordTypeRecursive(tree type) {
   // Get the size of the type in bits.  If the type has variable or ginormous
   // size then it is convenient to pretend it is "infinitely" big.
   uint64_t TypeSize = isInt64(TYPE_SIZE(type), true) ?
-    getInt64(TYPE_SIZE(type), true) : ~0UL;
+                      getInt64(TYPE_SIZE(type), true) : ~0UL;
 
   // Record all interesting fields so they can easily be visited backwards.
   SmallVector<tree, 16> Fields;
   for (tree field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
-    if (!isa<FIELD_DECL>(field)) continue;
+    if (!isa<FIELD_DECL>(field))
+      continue;
     // Ignore fields with variable or unknown position since they cannot be
     // represented by the LLVM type system.
     if (!OffsetIsLLVMCompatible(field))
@@ -1132,7 +1117,8 @@ static Type *ConvertRecordTypeRecursive(tree type) {
   // initialize the first union member, which is needed if the zero constant
   // is to be used as the default value for the union type.
   for (SmallVector<tree, 16>::reverse_iterator I = Fields.rbegin(),
-       E = Fields.rend(); I != E; ++I) {
+                                               E = Fields.rend();
+       I != E; ++I) {
     tree field = *I;
     uint64_t FirstBit = getFieldOffsetInBits(field);
     assert(FirstBit <= TypeSize && "Field off end of type!");
@@ -1194,7 +1180,7 @@ static Type *ConvertRecordTypeRecursive(tree type) {
 
   // Create the elements that will make up the struct type.  As well as the
   // fields themselves there may also be padding elements.
-  std::vector<Type*> Elts;
+  std::vector<Type *> Elts;
   Elts.reserve(Layout.getNumIntervals());
   uint64_t EndOfPrevious = 0; // Offset of first bit after previous element.
   for (unsigned i = 0, e = Layout.getNumIntervals(); i != e; ++i) {
@@ -1413,9 +1399,8 @@ static Type *ConvertTypeNonRecursive(tree type) {
 
     // Return an opaque struct for an incomplete record type.
     assert(isa<RECORD_OR_UNION_TYPE>(type) && "Unexpected incomplete type!");
-    return RememberTypeConversion(type,
-                                  StructType::create(Context,
-                                                     getDescriptiveName(type)));
+    return RememberTypeConversion(
+        type, StructType::create(Context, getDescriptiveName(type)));
   }
 
   // From here on we are only dealing with straightforward types.
@@ -1508,94 +1493,94 @@ static Type *ConvertTypeNonRecursive(tree type) {
 /// for more information about the type graph and self-referential types.
 namespace {
 
-  class RecursiveTypeIterator {
-    // This class wraps an iterator that visits all contained types, and just
-    // increments the iterator over any contained types that will not recurse.
-    ContainedTypeIterator I;
+class RecursiveTypeIterator {
+  // This class wraps an iterator that visits all contained types, and just
+  // increments the iterator over any contained types that will not recurse.
+  ContainedTypeIterator I;
 
-    /// SkipNonRecursiveTypes - Increment the wrapped iterator over any types
-    /// that mayRecurse says can be converted directly without having to worry
-    /// about self-recursion.
-    void SkipNonRecursiveTypes() {
-      while (I != ContainedTypeIterator::end() &&
-             !(isa<TYPE>(*I) && mayRecurse(TYPE_MAIN_VARIANT(*I))))
-        ++I;
-    }
-
-    /// RecursiveTypeIterator - Convenience constructor for internal use.
-    explicit RecursiveTypeIterator(const ContainedTypeIterator& i) : I(i) {}
-
-  public:
-
-    /// Dereference operator returning the main variant of the contained type.
-    tree operator*() {
-      return TYPE_MAIN_VARIANT(*I);
-    };
-
-    /// Comparison operators.
-    bool operator==(const RecursiveTypeIterator &other) const {
-      return other.I == this->I;
-    }
-    bool operator!=(const RecursiveTypeIterator &other) const {
-      return !(*this == other);
-    }
-
-    /// Postfix increment operator.
-    RecursiveTypeIterator operator++(int) {
-      RecursiveTypeIterator Result(*this);
-      ++(*this);
-      return Result;
-    }
-
-    /// Prefix increment operator.
-    RecursiveTypeIterator& operator++() {
+  /// SkipNonRecursiveTypes - Increment the wrapped iterator over any types
+  /// that mayRecurse says can be converted directly without having to worry
+  /// about self-recursion.
+  void SkipNonRecursiveTypes() {
+    while (I != ContainedTypeIterator::end() &&
+           !(isa<TYPE>(*I) && mayRecurse(TYPE_MAIN_VARIANT(*I))))
       ++I;
-      SkipNonRecursiveTypes();
-      return *this;
-    }
+  }
 
-    /// begin - Return an iterator referring to the first type contained in the
-    /// given type.
-    static RecursiveTypeIterator begin(tree type) {
-      RecursiveTypeIterator R(ContainedTypeIterator::begin(type));
-      R.SkipNonRecursiveTypes();
-      return R;
-    }
+  /// RecursiveTypeIterator - Convenience constructor for internal use.
+  explicit RecursiveTypeIterator(const ContainedTypeIterator &i) : I(i) {}
 
-    /// end - Return the end iterator for contained type iteration.
-    static RecursiveTypeIterator end() {
-      return RecursiveTypeIterator(ContainedTypeIterator::end());
-    }
-  };
+public:
+
+  /// Dereference operator returning the main variant of the contained type.
+  tree operator*() { return TYPE_MAIN_VARIANT(*I); }
+  ;
+
+  /// Comparison operators.
+  bool operator==(const RecursiveTypeIterator &other) const {
+    return other.I == this->I;
+  }
+  bool operator!=(const RecursiveTypeIterator &other) const {
+    return !(*this == other);
+  }
+
+  /// Postfix increment operator.
+  RecursiveTypeIterator operator++(int) {
+    RecursiveTypeIterator Result(*this);
+    ++(*this);
+    return Result;
+  }
+
+  /// Prefix increment operator.
+  RecursiveTypeIterator &operator++() {
+    ++I;
+    SkipNonRecursiveTypes();
+    return *this;
+  }
+
+  /// begin - Return an iterator referring to the first type contained in the
+  /// given type.
+  static RecursiveTypeIterator begin(tree type) {
+    RecursiveTypeIterator R(ContainedTypeIterator::begin(type));
+    R.SkipNonRecursiveTypes();
+    return R;
+  }
+
+  /// end - Return the end iterator for contained type iteration.
+  static RecursiveTypeIterator end() {
+    return RecursiveTypeIterator(ContainedTypeIterator::end());
+  }
+};
 
 } // Unnamed namespace.
 
 // Traits for working with the graph of possibly self-referential type nodes,
 // see RecursiveTypeIterator.
 namespace llvm {
-  template <> struct GraphTraits<tree> {
-    typedef tree_node NodeType;
-    typedef RecursiveTypeIterator ChildIteratorType;
-    static inline NodeType *getEntryNode(tree t) {
-      assert(TYPE_P(t) && "Expected a type!");
-      return t;
-    }
-    static inline ChildIteratorType child_begin(tree type) {
-      return ChildIteratorType::begin(type);
-    }
-    static inline ChildIteratorType child_end(tree) {
-      return ChildIteratorType::end();
-    }
-  };
+template <> struct GraphTraits<tree> {
+  typedef tree_node NodeType;
+  typedef RecursiveTypeIterator ChildIteratorType;
+  static inline NodeType *getEntryNode(tree t) {
+    assert(TYPE_P(t) && "Expected a type!");
+    return t;
+  }
+  static inline ChildIteratorType child_begin(tree type) {
+    return ChildIteratorType::begin(type);
+  }
+  static inline ChildIteratorType child_end(tree) {
+    return ChildIteratorType::end();
+  }
+};
 }
 
 Type *ConvertType(tree type) {
-  if (type == error_mark_node) return Type::getInt32Ty(Context);
+  if (type == error_mark_node)
+    return Type::getInt32Ty(Context);
 
   // Check that the type mode doesn't depend on the type variant (various bits
   // of the plugin rely on this).
-  assert(TYPE_MODE(type) == TYPE_MODE(TYPE_MAIN_VARIANT(type))
-         && "Type mode differs between variants!");
+  assert(TYPE_MODE(type) == TYPE_MODE(TYPE_MAIN_VARIANT(type)) &&
+         "Type mode differs between variants!");
 
   // LLVM doesn't care about variants such as const, volatile, or restrict.
   type = TYPE_MAIN_VARIANT(type);

@@ -102,10 +102,10 @@ MDNode *describeAliasSet(tree t) {
   // For the moment we take a very simple approach: we only use the leaf nodes
   // of GCC's DAG.  This means that we do a good job for scalars and a poor job
   // for record types, including complex types.
-  static std::map<alias_set_type, MDNode*> NodeTags; // Node -> metadata map.
-  static SmallVector<alias_set_type, 8> LeafNodes;   // Current set of leaves.
+  static std::map<alias_set_type, MDNode *> NodeTags; // Node -> metadata map.
+  static SmallVector<alias_set_type, 8> LeafNodes;    // Current set of leaves.
 
-  std::map<alias_set_type, MDNode*>::iterator I = NodeTags.find(alias_set);
+  std::map<alias_set_type, MDNode *>::iterator I = NodeTags.find(alias_set);
   if (I != NodeTags.end())
     return I->second;
 
@@ -129,7 +129,7 @@ MDNode *describeAliasSet(tree t) {
 
   // If there is a path from any leaf node to this one then no longer consider
   // that node to be a leaf.
-  for (unsigned i = LeafNodes.size(); i; ) {
+  for (unsigned i = LeafNodes.size(); i;) {
     alias_set_type leaf_set = LeafNodes[--i];
     if (alias_set_subset_of(alias_set, leaf_set)) {
       LeafNodes.erase(LeafNodes.begin() + i);
@@ -143,10 +143,10 @@ MDNode *describeAliasSet(tree t) {
 
   // Create metadata describing the new node hanging off root.  The name doesn't
   // matter much but needs to be unique for the compilation unit.
-  tree type =
-    TYPE_CANONICAL(TYPE_MAIN_VARIANT(isa<TYPE>(t) ? t : TREE_TYPE(t)));
-  std::string TreeName = ("alias set " + Twine(alias_set) + ": " +
-    getDescriptiveName(type)).str();
+  tree type = TYPE_CANONICAL(
+                  TYPE_MAIN_VARIANT(isa<TYPE>(t) ? t : TREE_TYPE(t)));
+  std::string TreeName =
+      ("alias set " + Twine(alias_set) + ": " + getDescriptiveName(type)).str();
   MDBuilder MDHelper(Context);
 
   MDNode *AliasTag = MDHelper.createTBAANode(TreeName, getTBAARoot());

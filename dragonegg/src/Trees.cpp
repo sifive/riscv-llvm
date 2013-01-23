@@ -64,7 +64,8 @@ static std::string concatIfNotEmpty(const std::string &Left,
 /// string if no sensible name was found.  These names are used to make the IR
 /// more readable, and have no official status.
 std::string getDescriptiveName(const_tree t) {
-  if (!t) return std::string(); // Occurs when recursing.
+  if (!t)
+    return std::string(); // Occurs when recursing.
 
   // Name identifier nodes after their contents.  This gives the desired effect
   // when called recursively.
@@ -151,13 +152,14 @@ APInt getAPIntValue(const_tree exp, unsigned Bitwidth) {
 
   APInt DefaultValue;
   if (integerPartWidth == HOST_BITS_PER_WIDE_INT) {
-    DefaultValue = APInt(DefaultWidth, /*numWords*/2, (integerPart*)&val);
+    DefaultValue = APInt(DefaultWidth, /*numWords*/ 2, (integerPart *)&val);
   } else {
     assert(integerPartWidth == 2 * HOST_BITS_PER_WIDE_INT &&
            "Unsupported host integer width!");
     unsigned ShiftAmt = HOST_BITS_PER_WIDE_INT;
-    integerPart Part = integerPart((unsigned HOST_WIDE_INT)val.low) +
-      (integerPart((unsigned HOST_WIDE_INT)val.high) << ShiftAmt);
+    integerPart Part = integerPart((unsigned HOST_WIDE_INT) val.low) +
+                       (integerPart((unsigned HOST_WIDE_INT) val.high)
+                        << ShiftAmt);
     DefaultValue = APInt(DefaultWidth, Part);
   }
 
@@ -165,8 +167,8 @@ APInt getAPIntValue(const_tree exp, unsigned Bitwidth) {
     return DefaultValue;
 
   if (Bitwidth > DefaultWidth)
-    return TYPE_UNSIGNED(TREE_TYPE(exp)) ?
-      DefaultValue.zext(Bitwidth) : DefaultValue.sext(Bitwidth);
+    return TYPE_UNSIGNED(TREE_TYPE(exp)) ? DefaultValue.zext(Bitwidth) :
+           DefaultValue.sext(Bitwidth);
 
   assert((TYPE_UNSIGNED(TREE_TYPE(exp)) ||
           DefaultValue.trunc(Bitwidth).sext(DefaultWidth) == DefaultValue) &&
@@ -185,16 +187,15 @@ bool isInt64(const_tree t, bool Unsigned) {
   if (!t)
     return false;
   if (HOST_BITS_PER_WIDE_INT == 64)
-    return host_integerp(t, Unsigned) && !TREE_OVERFLOW (t);
+    return host_integerp(t, Unsigned) && !TREE_OVERFLOW(t);
   assert(HOST_BITS_PER_WIDE_INT == 32 &&
          "Only 32- and 64-bit hosts supported!");
-  return
-    (isa<INTEGER_CST>(t) && !TREE_OVERFLOW (t))
-    && ((TYPE_UNSIGNED(TREE_TYPE(t)) == Unsigned) ||
-        // If the constant is signed and we want an unsigned result, check
-        // that the value is non-negative.  If the constant is unsigned and
-        // we want a signed result, check it fits in 63 bits.
-        (HOST_WIDE_INT)TREE_INT_CST_HIGH(t) >= 0);
+  return (isa<INTEGER_CST>(t) && !TREE_OVERFLOW(t)) &&
+         ((TYPE_UNSIGNED(TREE_TYPE(t)) == Unsigned) ||
+          // If the constant is signed and we want an unsigned result, check
+          // that the value is non-negative.  If the constant is unsigned and
+          // we want a signed result, check it fits in 63 bits.
+          (HOST_WIDE_INT) TREE_INT_CST_HIGH(t) >= 0);
 }
 
 /// getInt64 - Extract the value of an INTEGER_CST as a 64 bit integer.  If
@@ -203,15 +204,15 @@ bool isInt64(const_tree t, bool Unsigned) {
 /// overflowed constants.  These conditions can be checked by calling isInt64.
 uint64_t getInt64(const_tree t, bool Unsigned) {
   assert(isInt64(t, Unsigned) && "invalid constant!");
-  (void)Unsigned; // Otherwise unused if asserts off - avoid compiler warning.
-  unsigned HOST_WIDE_INT LO = (unsigned HOST_WIDE_INT)TREE_INT_CST_LOW(t);
+  (void) Unsigned; // Otherwise unused if asserts off - avoid compiler warning.
+  unsigned HOST_WIDE_INT LO = (unsigned HOST_WIDE_INT) TREE_INT_CST_LOW(t);
   if (HOST_BITS_PER_WIDE_INT == 64) {
-    return (uint64_t)LO;
+    return (uint64_t) LO;
   } else {
     assert(HOST_BITS_PER_WIDE_INT == 32 &&
            "Only 32- and 64-bit hosts supported!");
-    unsigned HOST_WIDE_INT HI = (unsigned HOST_WIDE_INT)TREE_INT_CST_HIGH(t);
-    return ((uint64_t)HI << 32) | (uint64_t)LO;
+    unsigned HOST_WIDE_INT HI = (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH(t);
+    return ((uint64_t) HI << 32) | (uint64_t) LO;
   }
 }
 
@@ -247,11 +248,11 @@ bool isBitfield(const_tree field_decl) {
     // Does not start on a byte boundary - must treat as a bitfield.
     return true;
 
-  if (!isInt64(TYPE_SIZE (TREE_TYPE(field_decl)), true))
+  if (!isInt64(TYPE_SIZE(TREE_TYPE(field_decl)), true))
     // No size or variable sized - play safe, treat as a bitfield.
     return true;
 
-  uint64_t TypeSizeInBits = getInt64(TYPE_SIZE (TREE_TYPE(field_decl)), true);
+  uint64_t TypeSizeInBits = getInt64(TYPE_SIZE(TREE_TYPE(field_decl)), true);
   assert(!(TypeSizeInBits & 7) && "A type with a non-byte size!");
 
   assert(DECL_SIZE(field_decl) && "Bitfield with no bit size!");
