@@ -115,9 +115,9 @@ static GTY((if_marked("tree2WeakVH_marked_p"), param_is(struct tree2WeakVH)))
 extern "C" {
 #endif
 #if (GCC_MINOR > 5)
-#include "dragonegg/gt-cache-4.6.h"
+#include "dragonegg/gt-cache-4.6.inc"
 #else
-#include "dragonegg/gt-cache-4.5.h"
+#include "dragonegg/gt-cache-4.5.inc"
 #endif
 #ifndef ENABLE_BUILD_WITH_CXX
 } // extern "C"
