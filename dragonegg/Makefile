@@ -185,9 +185,9 @@ clean:
 # is not used in a normal build.  You need to specify the path to the GCC build
 # directory in GCC_BUILD_DIR.
 GENGTYPE_INPUT=$(SRC_DIR)/Cache.cpp
-GENGTYPE_OUTPUT=$(INCLUDE_DIR)/dragonegg/gt-cache-$(GCC_MAJOR).$(GCC_MINOR).h
-.PHONY: gt-cache.h
-gt-cache.h:
+GENGTYPE_OUTPUT=$(INCLUDE_DIR)/dragonegg/gt-cache-$(GCC_MAJOR).$(GCC_MINOR).inc
+.PHONY: gt-cache.inc
+gt-cache.inc:
 	$(QUIET)$(GCC_BUILD_DIR)/gcc/build/gengtype \
 	-r $(GCC_BUILD_DIR)/gcc/gtype.state \
 	-P $(GENGTYPE_OUTPUT) $(GENGTYPE_INPUT)
