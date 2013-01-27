@@ -667,7 +667,7 @@ FunctionType *ConvertArgListToFnType(
   // Builtins are always prototyped, so this isn't one.
   ABIConverter.HandleReturnType(ReturnType, current_function_decl, false);
 
-  SmallVector<AttributeWithIndex, 8> Attrs;
+  SmallVector<AttributeSet, 8> Attrs;
   LLVMContext &Context = RetTy->getContext();
 
   // Compute whether the result needs to be zext or sext'd.
@@ -680,16 +680,15 @@ FunctionType *ConvertArgListToFnType(
 #endif
 
   if (RAttrBuilder.hasAttributes())
-    Attrs.push_back(
-        AttributeWithIndex::get(0, Attribute::get(Context, RAttrBuilder)));
+    Attrs.push_back(AttributeSet::get(Context, AttributeSet::ReturnIndex,
+                                      RAttrBuilder));
 
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
   if (ABIConverter.isShadowReturn()) {
     AttrBuilder B;
     B.addAttribute(Attribute::StructRet).addAttribute(Attribute::NoAlias);
-    Attrs.push_back(AttributeWithIndex::get(ArgTys.size(),
-                                            Attribute::get(Context, B)));
+    Attrs.push_back(AttributeSet::get(Context, ArgTys.size(), B));
   }
 
   std::vector<Type *> ScalarArgs;
@@ -697,8 +696,7 @@ FunctionType *ConvertArgListToFnType(
     // Pass the static chain as the first parameter.
     ABIConverter.HandleArgument(TREE_TYPE(static_chain), ScalarArgs);
     // Mark it as the chain argument.
-    Attribute Nest = Attribute::get(Context, Attribute::Nest);
-    Attrs.push_back(AttributeWithIndex::get(ArgTys.size(), Nest));
+    Attrs.push_back(AttributeSet::get(Context, ArgTys.size(), Attribute::Nest));
   }
 
   for (ArrayRef<tree>::iterator I = Args.begin(), E = Args.end(); I != E; ++I) {
@@ -717,8 +715,8 @@ FunctionType *ConvertArgListToFnType(
       PAttrBuilder.addAttribute(Attribute::NoAlias);
 
     if (PAttrBuilder.hasAttributes())
-      Attrs.push_back(AttributeWithIndex::get(
-          ArgTys.size(), Attribute::get(Context, PAttrBuilder)));
+      Attrs.push_back(AttributeSet::get(Context, ArgTys.size(),
+                                        PAttrBuilder));
   }
 
   PAL = AttributeSet::get(Context, Attrs);
@@ -743,7 +741,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
                                 decl ? DECL_BUILT_IN(decl) : false);
 
   // Compute attributes for return type (and function attributes).
-  SmallVector<AttributeWithIndex, 8> Attrs;
+  SmallVector<AttributeSet, 8> Attrs;
   AttrBuilder FnAttrBuilder;
 
   int flags = flags_from_decl_or_type(decl ? decl : type);
@@ -797,16 +795,15 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     RAttrBuilder.addAttribute(Attribute::NoAlias);
 
   if (RAttrBuilder.hasAttributes())
-    Attrs.push_back(
-        AttributeWithIndex::get(0, Attribute::get(Context, RAttrBuilder)));
+    Attrs.push_back(AttributeSet::get(Context, AttributeSet::ReturnIndex,
+                                      RAttrBuilder));
 
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
   if (ABIConverter.isShadowReturn()) {
     AttrBuilder B;
     B.addAttribute(Attribute::StructRet).addAttribute(Attribute::NoAlias);
-    Attrs.push_back(AttributeWithIndex::get(ArgTypes.size(),
-                                            Attribute::get(Context, B)));
+    Attrs.push_back(AttributeSet::get(Context, ArgTypes.size(), B));
   }
 
   std::vector<Type *> ScalarArgs;
@@ -814,8 +811,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     // Pass the static chain as the first parameter.
     ABIConverter.HandleArgument(TREE_TYPE(static_chain), ScalarArgs);
     // Mark it as the chain argument.
-    Attribute Nest = Attribute::get(Context, Attribute::Nest);
-    Attrs.push_back(AttributeWithIndex::get(ArgTypes.size(), Nest));
+    Attrs.push_back(AttributeSet::get(Context, ArgTypes.size(),
+                                      Attribute::Nest));
   }
 
 #ifdef LLVM_TARGET_ENABLE_REGPARM
@@ -882,8 +879,7 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
       // If the argument is split into multiple scalars, assign the
       // attributes to all scalars of the aggregate.
       for (unsigned i = OldSize + 1; i <= ArgTypes.size(); ++i)
-        Attrs.push_back(
-            AttributeWithIndex::get(i, Attribute::get(Context, PAttrBuilder)));
+        Attrs.push_back(AttributeSet::get(Context, i, PAttrBuilder));
     }
 
     if (DeclArgs)
@@ -902,8 +898,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   assert(RetTy && "Return type not specified!");
 
   if (FnAttrBuilder.hasAttributes())
-    Attrs.push_back(
-        AttributeWithIndex::get(~0, Attribute::get(Context, FnAttrBuilder)));
+    Attrs.push_back(AttributeSet::get(Context, AttributeSet::FunctionIndex,
+                                      FnAttrBuilder));
 
   // Finally, make the function type and result attributes.
   PAL = AttributeSet::get(Context, Attrs);
