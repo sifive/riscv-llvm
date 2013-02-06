@@ -1,7 +1,5 @@
 // RUN: %dragonegg -S %s -o - | FileCheck %s
-// XTARGET: x86
-// PR4242
-// (PR 4242 bug is on 64-bit only, test passes on x86-32 as well)
+// XFAIL: i386, i486, i586, i686
 
 struct S {
     void* data[3];
