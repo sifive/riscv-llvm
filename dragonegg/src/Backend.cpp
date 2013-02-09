@@ -902,11 +902,12 @@ static void emit_alias(tree decl, tree target) {
 
   GlobalValue *Aliasee = 0;
   if (isa<IDENTIFIER_NODE>(target)) {
+    StringRef AliaseeName(IDENTIFIER_POINTER(target), IDENTIFIER_LENGTH(target));
     if (!lookup_attribute("weakref", DECL_ATTRIBUTES(decl))) {
-      Aliasee = TheModule->getNamedValue(IDENTIFIER_POINTER(target));
+      Aliasee = TheModule->getNamedValue(AliaseeName);
       if (!Aliasee || Aliasee->hasLocalLinkage()) {
         error("%q+D aliased to undefined symbol %qs", decl,
-              IDENTIFIER_POINTER(target));
+              AliaseeName.str().c_str());
         return;
       }
     } else {
@@ -915,11 +916,11 @@ static void emit_alias(tree decl, tree target) {
         Aliasee = new GlobalVariable(
                       *TheModule, GV->getType()->getElementType(),
                       GV->isConstant(), GlobalVariable::ExternalWeakLinkage,
-                      NULL, IDENTIFIER_POINTER(target));
+                      NULL, AliaseeName);
       else if (Function *F = dyn_cast<Function>(V))
         Aliasee = Function::Create(F->getFunctionType(),
                                    Function::ExternalWeakLinkage,
-                                   IDENTIFIER_POINTER(target), TheModule);
+                                   AliaseeName, TheModule);
       else
         llvm_unreachable("Unsuported global value");
     }
