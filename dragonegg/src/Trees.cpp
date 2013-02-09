@@ -76,8 +76,7 @@ std::string getDescriptiveName(const_tree t) {
   if (DECL_P(t)) {
     // If the declaration comes with a name then use it.
     if (DECL_NAME(t)) // Always an identifier node.
-      return std::string(IDENTIFIER_POINTER(DECL_NAME(t)),
-                         IDENTIFIER_LENGTH(DECL_NAME(t)));
+      return getDescriptiveName(DECL_NAME(t));
     // Use a generic name for function results.
     if (isa<RESULT_DECL>(t))
       return "<retval>";
