@@ -1475,16 +1475,16 @@ const char *extractRegisterName(tree decl) {
 
 /// getLLVMAssemblerName - Get the assembler name (DECL_ASSEMBLER_NAME) for the
 /// declaration, with any leading star replaced by '\1'.
-std::string getLLVMAssemblerName(union tree_node *decl) {
+std::string getLLVMAssemblerName(tree decl) {
   tree Ident = DECL_ASSEMBLER_NAME(decl);
   if (!Ident)
     return std::string();
 
   const char *Name = IDENTIFIER_POINTER(Ident);
   if (*Name != '*')
-    return std::string(Name);
+    return std::string(Name, IDENTIFIER_LENGTH(Ident));
 
-  return "\1" + std::string(Name + 1);
+  return "\1" + std::string(Name + 1, IDENTIFIER_LENGTH(Ident) - 1);
 }
 
 /// FinalizePlugin - Shutdown the plugin.
