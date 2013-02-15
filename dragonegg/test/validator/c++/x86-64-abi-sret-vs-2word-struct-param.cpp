@@ -10,7 +10,7 @@ struct T {
 };
 
 extern "C" S fail(int, int, int, int, T t, void* p) {
-// CHECK: %struct.T* align 8 byval
+// CHECK: %struct.T* byval align 8
     S s;
     s.data[0] = t.data[0];
     s.data[1] = t.data[1];
@@ -19,7 +19,7 @@ extern "C" S fail(int, int, int, int, T t, void* p) {
 }
 
 extern "C" S* succeed(S* sret, int, int, int, int, T t, void* p) {
-// CHECK: %struct.T* align 8 byval
+// CHECK: %struct.T* byval align 8
     sret->data[0] = t.data[0];
     sret->data[1] = t.data[1];
     sret->data[2] = p;
