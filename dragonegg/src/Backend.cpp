@@ -905,6 +905,8 @@ static void emit_alias(tree decl, tree target) {
     StringRef AliaseeName(IDENTIFIER_POINTER(target), IDENTIFIER_LENGTH(target));
     if (!lookup_attribute("weakref", DECL_ATTRIBUTES(decl))) {
       Aliasee = TheModule->getNamedValue(AliaseeName);
+      if (!Aliasee)
+        Aliasee = TheModule->getNamedValue(("\1" + AliaseeName).str());
       if (!Aliasee || Aliasee->hasLocalLinkage()) {
         error("%q+D aliased to undefined symbol %qs", decl,
               AliaseeName.str().c_str());
