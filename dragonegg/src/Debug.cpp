@@ -57,12 +57,6 @@ extern "C" {
 using namespace llvm;
 using namespace llvm::dwarf;
 
-#ifndef LLVMTESTDEBUG
-#define DEBUGASSERT(S) ((void) 0)
-#else
-#define DEBUGASSERT(S) assert(S)
-#endif
-
 /// DirectoryAndFile - Extract the directory and file name from a path.  If no
 /// directory is specified, then use the source working directory.
 static void DirectoryAndFile(const std::string &FullPath,
@@ -470,13 +464,8 @@ DIType DebugInfo::createBasicType(tree type) {
   case BOOLEAN_TYPE:
     Encoding = DW_ATE_boolean;
     break;
-  default : {
-    DEBUGASSERT(0 && "Basic type case missing");
-    Encoding = DW_ATE_signed;
-    Size = BITS_PER_WORD;
-    Align = BITS_PER_WORD;
-    break;
-  }
+  default:
+    llvm_unreachable("Basic type case missing");
   }
 
   return DebugFactory.CreateBasicType(
@@ -589,14 +578,6 @@ DIType DebugInfo::createPointerType(tree type) {
 
 /// createArrayType - Create ArrayType.
 DIType DebugInfo::createArrayType(tree type) {
-
-  // type[n][m]...[p]
-  if (isa<ARRAY_TYPE>(type) && TYPE_STRING_FLAG(type) &&
-      isa<INTEGER_TYPE>(TREE_TYPE(type))) {
-    DEBUGASSERT(0 && "Don't support pascal strings");
-    return DIType();
-  }
-
   // Add the dimensions of the array.  FIXME: This loses CV qualifiers from
   // interior arrays, do we care?  Why aren't nested arrays represented the
   // obvious/recursive way?
@@ -933,9 +914,8 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
 /// getOrCreateType - Get the type from the cache or create a new type if
 /// necessary.
 DIType DebugInfo::getOrCreateType(tree type) {
-  DEBUGASSERT(type != NULL_TREE && type != error_mark_node && "Not a type.");
   if (type == NULL_TREE || type == error_mark_node)
-    return DIType();
+    llvm_unreachable("Not a type.");
 
   // Should only be void if a pointer/reference/return type.  Returning NULL
   // allows the caller to produce a non-derived type.
@@ -961,10 +941,8 @@ DIType DebugInfo::getOrCreateType(tree type) {
   case ERROR_MARK:
   case LANG_TYPE:
   case TRANSLATION_UNIT_DECL:
-  default : {
-    DEBUGASSERT(0 && "Unsupported type");
-    return DIType();
-  }
+  default:
+    llvm_unreachable("Unsupported type");
 
 #if (GCC_MINOR > 5)
   case NULLPTR_TYPE:
