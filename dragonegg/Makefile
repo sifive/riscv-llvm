@@ -178,6 +178,8 @@ check: check-validator check-compilator
 clean:
 	$(QUIET)rm -f *.o *.d $(PLUGIN) $(TARGET_UTIL) $(LIT_SITE_CONFIG)
 
+.DELETE_ON_ERROR:
+
 
 -include $(ALL_OBJECTS:.o=.d)
 
