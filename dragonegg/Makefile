@@ -59,7 +59,7 @@ GCC_VERSION=$(shell $(GCC) -dumpversion).0
 GCC_MAJOR=$(word 1, $(subst ., ,$(GCC_VERSION)))
 GCC_MINOR=$(word 2, $(subst ., ,$(GCC_VERSION)))
 GCC_MICRO=$(word 3, $(subst ., ,$(GCC_VERSION)))
-GCC_LANGUAGES=$(shell $(GCC) -v 2>&1 | grep '^Configured with:' | sed 's/^.*--enable-languages=\([^ ]*\).*/\1/')
+GCC_LANGUAGES=c,$(shell $(GCC) -v 2>&1 | grep -o -- '--enable-languages=[^ ]*' | sed 's/--enable-languages=//')
 TARGET_TRIPLE=$(shell $(GCC) -dumpmachine)
 
 LLVM_VERSION=$(shell $(LLVM_CONFIG) --version)
