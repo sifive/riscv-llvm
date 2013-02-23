@@ -59,7 +59,6 @@ GCC_VERSION=$(shell $(GCC) -dumpversion).0
 GCC_MAJOR=$(word 1, $(subst ., ,$(GCC_VERSION)))
 GCC_MINOR=$(word 2, $(subst ., ,$(GCC_VERSION)))
 GCC_MICRO=$(word 3, $(subst ., ,$(GCC_VERSION)))
-GCC_LANGUAGES=c,$(shell $(GCC) -v 2>&1 | grep -o -- '--enable-languages=[^ ]*' | sed 's/--enable-languages=//')
 TARGET_TRIPLE=$(shell $(GCC) -dumpmachine)
 
 LLVM_VERSION=$(shell $(LLVM_CONFIG) --version)
@@ -152,7 +151,6 @@ $(LIT_SITE_CONFIG): $(TEST_SRC_DIR)/dragonegg-lit.site.cfg.in
 	$(QUIET)mkdir -p test
 	$(QUIET)echo s=@DRAGONEGG_PLUGIN@=$(CURDIR)/$(PLUGIN)=g > lit.tmp
 	$(QUIET)echo s=@GCC@=$(GCC)=g >> lit.tmp
-	$(QUIET)echo s=@GCC_LANGUAGES@=$(GCC_LANGUAGES)=g >> lit.tmp
 	$(QUIET)echo s=@LLVM_TOOLS_DIR@=$(LLVM_TOOLS_DIR)=g >> lit.tmp
 	$(QUIET)echo s=@TARGET_TRIPLE@=$(TARGET_TRIPLE)-gcc-$(GCC_MAJOR).$(GCC_MINOR)=g >> lit.tmp
 	$(QUIET)echo s=@TEST_OUTPUT_DIR@=$(CURDIR)/test/Output=g >> lit.tmp
