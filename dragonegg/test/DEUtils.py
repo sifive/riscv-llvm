@@ -58,6 +58,7 @@ def isLanguageSupported(language, compiler):
   # The language is supported if the file compiles without error.
   out,err,exitCode = TestRunner.executeCommand([compiler, '-S', '-x',
                           language, source.name])
+  print language,out,err,exitCode,compiler
   return exitCode == 0
 
 def getSupportedLanguages(compiler):
