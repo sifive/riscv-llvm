@@ -38,27 +38,39 @@ def getSuffixesForLanguage(language):
   return suffixes
 
 def isLanguageSupported(language, compiler):
-  # For most languages it suffices to try compiling an empty file.
-  source = tempfile.NamedTemporaryFile(mode='w+t')
+  if language == 'ada':
+    suffix='.ads'
+  elif language == 'c':
+    suffix='.c'
+  elif language == 'c++':
+    suffix='.cpp'
+  elif language == 'fortran':
+    suffix='.f'
+  elif language == 'go':
+    suffix='.go'
+  elif language == 'objective-c':
+    suffix='.m'
+  elif language == 'objective-c++':
+    suffix='.mm'
+  else:
+    return False
 
-  # However for Ada and Go an empty file is not a valid compilation unit.
+  # For most languages it suffices to try compiling an empty file however for
+  # Ada and Go an empty file is not a valid compilation unit.
+  source = tempfile.NamedTemporaryFile(mode='w+t', suffix=suffix)
+
   if language == 'ada':
     # Use an obscure package name, as if the package is called XYZ and a file
     # called XYZ.adb exists then the test will fail.
     source.write('package U5TE4J886W is end;\n')
   elif language == 'go':
     source.write('package main\n')
-  # GCC doesn't recognize "-x fortran" so use "-x f77" instead.
-  elif language == 'fortran':
-    language = 'f77'
 
   # If something was written then ensure it is visible to the compiler process.
   source.flush()
 
   # The language is supported if the file compiles without error.
-  out,err,exitCode = TestRunner.executeCommand([compiler, '-S', '-x',
-                          language, source.name])
-  print language,out,err,exitCode,compiler
+  out,err,exitCode = TestRunner.executeCommand([compiler, '-S', source.name])
   return exitCode == 0
 
 def getSupportedLanguages(compiler):
