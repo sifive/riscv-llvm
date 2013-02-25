@@ -28,6 +28,7 @@
 
 // LLVM headers
 #include "llvm/DebugInfo.h"
+#include "llvm/DIBuilder.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/ValueHandle.h"
 
@@ -48,6 +49,7 @@ class Module;
 class DIFactory {
   Module &M;
   LLVMContext &VMContext;
+  DIBuilder Builder;
 
   Function *DeclareFn; // llvm.dbg.declare
   Function *ValueFn;   // llvm.dbg.value
@@ -59,6 +61,8 @@ public:
     OpPlus = 1,
     OpDeref
   };
+
+  ~DIFactory() { Builder.finalize(); }
 
   explicit DIFactory(Module &m);
 
@@ -76,13 +80,13 @@ public:
 
   /// CreateCompileUnit - Create a new descriptor for the specified compile
   /// unit.
-  DICompileUnit CreateCompileUnit(
+  void CreateCompileUnit(
       unsigned LangID, StringRef Filename, StringRef Directory,
       StringRef Producer, bool isMain = false, bool isOptimized = false,
       StringRef Flags = "", unsigned RunTimeVer = 0);
 
   /// CreateFile -  Create a new descriptor for the specified file.
-  DIFile CreateFile(StringRef Filename, StringRef Directory, DICompileUnit CU);
+  DIFile CreateFile(StringRef Filename, StringRef Directory);
 
   /// CreateEnumerator - Create a single enumerator value.
   DIEnumerator CreateEnumerator(StringRef Name, uint64_t Val);
@@ -106,13 +110,6 @@ public:
       unsigned LineNumber, uint64_t SizeInBits, uint64_t AlignInBits,
       uint64_t OffsetInBits, unsigned Flags, DIType DerivedFrom);
 
-  /// CreateDerivedType - Create a derived type like const qualified type,
-  /// pointer, typedef, etc.
-  DIDerivedType CreateDerivedTypeEx(
-      unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
-      unsigned LineNumber, Constant *SizeInBits, Constant *AlignInBits,
-      Constant *OffsetInBits, unsigned Flags, DIType DerivedFrom);
-
   /// CreateCompositeType - Create a composite type like array, struct, etc.
   DICompositeType CreateCompositeType(
       unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
@@ -127,13 +124,6 @@ public:
   /// CreateArtificialType - Create a new DIType with "artificial" flag set.
   DIType CreateArtificialType(DIType Ty);
 
-  /// CreateCompositeType - Create a composite type like array, struct, etc.
-  DICompositeType CreateCompositeTypeEx(
-      unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
-      unsigned LineNumber, Constant *SizeInBits, Constant *AlignInBits,
-      Constant *OffsetInBits, unsigned Flags, DIType DerivedFrom,
-      DIArray Elements, unsigned RunTimeLang = 0, MDNode * ContainingType = 0);
-
   /// CreateSubprogram - Create a new descriptor for the specified subprogram.
   /// See comments in DISubprogram for descriptions of these fields.
   DISubprogram CreateSubprogram(
@@ -145,7 +135,8 @@ public:
 
   /// CreateSubprogramDefinition - Create new subprogram descriptor for the
   /// given declaration.
-  DISubprogram CreateSubprogramDefinition(DISubprogram &SPDeclaration);
+  DISubprogram CreateSubprogramDefinition(DISubprogram& SPDeclaration,
+                                          unsigned LineNo, Function* Fn);
 
   /// CreateGlobalVariable - Create a new descriptor for the specified global.
   DIGlobalVariable CreateGlobalVariable(
@@ -228,8 +219,6 @@ private:
   int PrevLineNo;           // Previous location line# encountered.
   BasicBlock *PrevBB;       // Last basic block encountered.
 
-  DICompileUnit TheCU; // The compile unit.
-
   std::map<tree_node *, WeakVH> TypeCache;
   // Cache of previously constructed
   // Types.
@@ -303,8 +292,7 @@ public:
   DIType createVariantType(tree_node *type, DIType MainTy);
 
   /// getOrCreateCompileUnit - Create a new compile unit.
-  DICompileUnit getOrCreateCompileUnit(const char *FullPath,
-                                       bool isMain = false);
+  void getOrCreateCompileUnit(const char *FullPath, bool isMain = false);
 
   /// getOrCreateFile - Get DIFile descriptor.
   DIFile getOrCreateFile(const char *FullPath);

@@ -590,10 +590,10 @@ static void InitializeBackend(void) {
 
   TheFolder = new TargetFolder(TheTarget->getDataLayout());
 
-  if (debug_info_level > DINFO_LEVEL_NONE)
+  if (debug_info_level > DINFO_LEVEL_NONE) {
     TheDebugInfo = new DebugInfo(TheModule);
-  if (TheDebugInfo)
     TheDebugInfo->Initialize();
+  }
 
   // Perform language specific configuration.
   InstallLanguageSettings();
@@ -1807,6 +1807,10 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
     errs() << "Finishing compilation unit\n";
 
   InitializeBackend();
+  if (TheDebugInfo) {
+    delete TheDebugInfo;
+    TheDebugInfo = 0;
+  }
 
   LLVMContext &Context = getGlobalContext();
 
