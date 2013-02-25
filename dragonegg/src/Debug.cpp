@@ -122,8 +122,8 @@ static uint64_t NodeAlignInBits(tree Node) {
 static tree FieldType(tree Field) {
   if (isa<ERROR_MARK>(Field))
     return integer_type_node;
-  return DECL_BIT_FIELD_TYPE(Field) ? DECL_BIT_FIELD_TYPE(Field) :
-         TREE_TYPE(Field);
+  return DECL_BIT_FIELD_TYPE(Field) ? DECL_BIT_FIELD_TYPE(Field)
+                                    : TREE_TYPE(Field);
 }
 
 /// GetNodeName - Returns the name stored in a node regardless of whether the
@@ -238,7 +238,8 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn) {
   std::map<tree_node *, WeakVH>::iterator I = SPCache.find(FnDecl);
   if (I != SPCache.end()) {
     DISubprogram SPDecl(cast<MDNode>(I->second));
-    DISubprogram SP = DebugFactory.CreateSubprogramDefinition(SPDecl, lineno, Fn);
+    DISubprogram SP =
+        DebugFactory.CreateSubprogramDefinition(SPDecl, lineno, Fn);
     SPDecl->replaceAllUsesWith(SP);
 
     // Push function on region stack.
@@ -254,16 +255,17 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn) {
       DECL_ABSTRACT_ORIGIN(FnDecl) != FnDecl)
     ArtificialFnWithAbstractOrigin = true;
 
-  DIDescriptor SPContext = ArtificialFnWithAbstractOrigin ?
-                           getOrCreateFile(main_input_filename) :
-                           findRegion(DECL_CONTEXT(FnDecl));
+  DIDescriptor SPContext =
+      ArtificialFnWithAbstractOrigin ? getOrCreateFile(main_input_filename)
+                                     : findRegion(DECL_CONTEXT(FnDecl));
 
   // Creating context may have triggered creation of this SP descriptor. So
   // check the cache again.
   I = SPCache.find(FnDecl);
   if (I != SPCache.end()) {
     DISubprogram SPDecl(cast<MDNode>(I->second));
-    DISubprogram SP = DebugFactory.CreateSubprogramDefinition(SPDecl, lineno, Fn);
+    DISubprogram SP =
+        DebugFactory.CreateSubprogramDefinition(SPDecl, lineno, Fn);
     SPDecl->replaceAllUsesWith(SP);
 
     // Push function on region stack.
@@ -290,11 +292,9 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn) {
   StringRef FnName = getFunctionName(FnDecl);
 
   DISubprogram SP = DebugFactory.CreateSubprogram(
-                        SPContext, FnName, FnName, LinkageName,
-                        getOrCreateFile(Loc.file), lineno, FNType,
-                        Fn->hasInternalLinkage(), true /*definition*/,
-                        Virtuality, VIndex, ContainingType,
-                        DECL_ARTIFICIAL(FnDecl), optimize, Fn);
+      SPContext, FnName, FnName, LinkageName, getOrCreateFile(Loc.file), lineno,
+      FNType, Fn->hasInternalLinkage(), true /*definition*/, Virtuality, VIndex,
+      ContainingType, DECL_ARTIFICIAL(FnDecl), optimize, Fn);
 
   SPCache[FnDecl] = WeakVH(SP);
 
@@ -310,9 +310,8 @@ DINameSpace DebugInfo::getOrCreateNameSpace(tree Node, DIDescriptor Context) {
     return DINameSpace(cast<MDNode>(I->second));
 
   expanded_location Loc = GetNodeLocation(Node, false);
-  DINameSpace DNS = DebugFactory.CreateNameSpace(Context, GetNodeName(Node),
-                                                 getOrCreateFile(Loc.file),
-                                                 Loc.line);
+  DINameSpace DNS = DebugFactory.CreateNameSpace(
+      Context, GetNodeName(Node), getOrCreateFile(Loc.file), Loc.line);
 
   NameSpaceCache[Node] = WeakVH(DNS);
   return DNS;
@@ -379,12 +378,11 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name, tree type,
   // If type info is not available then do not emit debug info for this var.
   if (!Ty)
     return;
-  llvm::DIVariable D = DebugFactory.CreateVariable(Tag, VarScope, Name,
-                                                   getOrCreateFile(Loc.file),
-                                                   Loc.line, Ty, optimize);
+  llvm::DIVariable D = DebugFactory.CreateVariable(
+      Tag, VarScope, Name, getOrCreateFile(Loc.file), Loc.line, Ty, optimize);
 
-  Instruction *Call = DebugFactory.InsertDeclare(AI, D,
-                                                 Builder.GetInsertBlock());
+  Instruction *Call =
+      DebugFactory.InsertDeclare(AI, D, Builder.GetInsertBlock());
 
   Call->setDebugLoc(DebugLoc::get(Loc.line, 0, VarScope));
 }
@@ -458,8 +456,8 @@ DIType DebugInfo::createBasicType(tree type) {
     Encoding = DW_ATE_float;
     break;
   case COMPLEX_TYPE:
-    Encoding = isa<REAL_TYPE>(TREE_TYPE(type)) ? DW_ATE_complex_float :
-               DW_ATE_lo_user;
+    Encoding =
+        isa<REAL_TYPE>(TREE_TYPE(type)) ? DW_ATE_complex_float : DW_ATE_lo_user;
     break;
   case BOOLEAN_TYPE:
     Encoding = DW_ATE_boolean;
@@ -522,8 +520,8 @@ DIType DebugInfo::createMethodType(tree type) {
       ProcessedFirstArg = true;
   }
 
-  llvm::DIArray EltTypeArray = DebugFactory.GetOrCreateArray(EltTys.data(),
-                                                             EltTys.size());
+  llvm::DIArray EltTypeArray =
+      DebugFactory.GetOrCreateArray(EltTys.data(), EltTys.size());
 
   RegionStack.pop_back();
   std::map<tree_node *, WeakVH>::iterator RI = RegionMap.find(type);
@@ -531,10 +529,9 @@ DIType DebugInfo::createMethodType(tree type) {
     RegionMap.erase(RI);
 
   llvm::DIType RealType = DebugFactory.CreateCompositeType(
-                              llvm::dwarf::DW_TAG_subroutine_type,
-                              findRegion(TYPE_CONTEXT(type)), StringRef(),
-                              getOrCreateFile(main_input_filename), 0, 0, 0, 0,
-                              0, llvm::DIType(), EltTypeArray);
+      llvm::dwarf::DW_TAG_subroutine_type, findRegion(TYPE_CONTEXT(type)),
+      StringRef(), getOrCreateFile(main_input_filename), 0, 0, 0, 0, 0,
+      llvm::DIType(), EltTypeArray);
 
   // Now that we have a real decl for the struct, replace anything using the
   // old decl with the new one.  This will recursively update the debug info.
@@ -549,8 +546,8 @@ DIType DebugInfo::createPointerType(tree type) {
   DIType FromTy = getOrCreateType(TREE_TYPE(type));
   // type* and type&
   // FIXME: Should BLOCK_POINTER_TYP have its own DW_TAG?
-  unsigned Tag = isa<REFERENCE_TYPE>(type) ? DW_TAG_reference_type :
-                 DW_TAG_pointer_type;
+  unsigned Tag =
+      isa<REFERENCE_TYPE>(type) ? DW_TAG_reference_type : DW_TAG_pointer_type;
   unsigned Flags = 0;
 
   // Check if this pointer type has a name.
@@ -558,21 +555,19 @@ DIType DebugInfo::createPointerType(tree type) {
     if (isa<TYPE_DECL>(TyName) && !DECL_ORIGINAL_TYPE(TyName)) {
       expanded_location TypeNameLoc = GetNodeLocation(TyName);
       DIType Ty = DebugFactory.CreateDerivedType(
-                      Tag, findRegion(DECL_CONTEXT(TyName)),
-                      GetNodeName(TyName), getOrCreateFile(TypeNameLoc.file),
-                      TypeNameLoc.line, 0 /*size*/, 0 /*align*/, 0 /*offset */,
-                      0 /*flags*/, FromTy);
+          Tag, findRegion(DECL_CONTEXT(TyName)), GetNodeName(TyName),
+          getOrCreateFile(TypeNameLoc.file), TypeNameLoc.line, 0 /*size*/,
+          0 /*align*/, 0 /*offset */, 0 /*flags*/, FromTy);
       TypeCache[TyName] = WeakVH(Ty);
       return Ty;
     }
 
   StringRef PName = FromTy.getName();
   DIType PTy = DebugFactory.CreateDerivedType(
-                   Tag, findRegion(TYPE_CONTEXT(type)),
-                   Tag == DW_TAG_pointer_type ? StringRef() : PName,
-                   getOrCreateFile(main_input_filename), 0 /*line no*/,
-                   NodeSizeInBits(type), NodeAlignInBits(type), 0 /*offset */,
-                   Flags, FromTy);
+      Tag, findRegion(TYPE_CONTEXT(type)),
+      Tag == DW_TAG_pointer_type ? StringRef() : PName,
+      getOrCreateFile(main_input_filename), 0 /*line no*/, NodeSizeInBits(type),
+      NodeAlignInBits(type), 0 /*offset */, Flags, FromTy);
   return PTy;
 }
 
@@ -610,8 +605,8 @@ DIType DebugInfo::createArrayType(tree type) {
     Subscripts.push_back(DebugFactory.GetOrCreateSubrange(0, Length));
   }
 
-  llvm::DIArray SubscriptArray = DebugFactory.GetOrCreateArray(
-                                     Subscripts.data(), Subscripts.size());
+  llvm::DIArray SubscriptArray =
+      DebugFactory.GetOrCreateArray(Subscripts.data(), Subscripts.size());
   expanded_location Loc = GetNodeLocation(type);
   return DebugFactory.CreateCompositeType(
       llvm::dwarf::DW_TAG_array_type, findRegion(TYPE_CONTEXT(type)),
@@ -635,8 +630,8 @@ DIType DebugInfo::createEnumType(tree type) {
     }
   }
 
-  llvm::DIArray EltArray = DebugFactory.GetOrCreateArray(Elements.data(),
-                                                         Elements.size());
+  llvm::DIArray EltArray =
+      DebugFactory.GetOrCreateArray(Elements.data(), Elements.size());
 
   expanded_location Loc = { NULL, 0, 0, false };
   if (TYPE_SIZE(type))
@@ -654,8 +649,8 @@ DIType DebugInfo::createEnumType(tree type) {
 DIType DebugInfo::createStructType(tree type) {
 
   // struct { a; b; ... z; }; | union { a; b; ... z; };
-  unsigned Tag = isa<RECORD_TYPE>(type) ? DW_TAG_structure_type :
-                 DW_TAG_union_type;
+  unsigned Tag =
+      isa<RECORD_TYPE>(type) ? DW_TAG_structure_type : DW_TAG_union_type;
 
   unsigned RunTimeLang = 0;
   //TODO  if (TYPE_LANG_SPECIFIC (type)
@@ -699,11 +694,10 @@ DIType DebugInfo::createStructType(tree type) {
 
   // forward declaration,
   if (TYPE_SIZE(type) == 0) {
-    llvm::DICompositeType FwdDecl =
-        DebugFactory.CreateCompositeType(
-            Tag, TyContext, GetNodeName(type), getOrCreateFile(Loc.file),
-            Loc.line, 0, 0, 0, SFlags | llvm::DIType::FlagFwdDecl,
-            llvm::DIType(), llvm::DIArray(), RunTimeLang);
+    llvm::DICompositeType FwdDecl = DebugFactory.CreateCompositeType(
+        Tag, TyContext, GetNodeName(type), getOrCreateFile(Loc.file), Loc.line,
+        0, 0, 0, SFlags | llvm::DIType::FlagFwdDecl, llvm::DIType(),
+        llvm::DIArray(), RunTimeLang);
     return FwdDecl;
   }
 
@@ -722,7 +716,7 @@ DIType DebugInfo::createStructType(tree type) {
   llvm::SmallVector<llvm::DIDescriptor, 16> EltTys;
 
   if (tree binfo = TYPE_BINFO(type)) {
-    VEC(tree, gc) * accesses = BINFO_BASE_ACCESSES(binfo);
+    VEC(tree, gc) *accesses = BINFO_BASE_ACCESSES(binfo);
 
     for (unsigned i = 0, e = BINFO_N_BASE_BINFOS(binfo); i != e; ++i) {
       tree BInfo = BINFO_BASE_BINFO(binfo, i);
@@ -741,16 +735,15 @@ DIType DebugInfo::createStructType(tree type) {
 
       // Check for zero BINFO_OFFSET.
       // FIXME : Is this correct ?
-      unsigned Offset = BINFO_OFFSET(BInfo) ?
-                        getInt64(BINFO_OFFSET(BInfo), true) * 8 : 0;
+      unsigned Offset =
+          BINFO_OFFSET(BInfo) ? getInt64(BINFO_OFFSET(BInfo), true) * 8 : 0;
 
       if (BINFO_VIRTUAL_P(BInfo))
         Offset = 0 - getInt64(BINFO_VPTR_FIELD(BInfo), false);
       // FIXME : name, size, align etc...
       DIType DTy = DebugFactory.CreateDerivedType(
-                       DW_TAG_inheritance, findRegion(type),
-                       StringRef(), llvm::DIFile(), 0, 0, 0, Offset, BFlags,
-                       BaseClass);
+          DW_TAG_inheritance, findRegion(type), StringRef(), llvm::DIFile(), 0,
+          0, 0, Offset, BFlags, BaseClass);
       EltTys.push_back(DTy);
     }
   }
@@ -790,10 +783,10 @@ DIType DebugInfo::createStructType(tree type) {
       MFlags = llvm::DIType::FlagPrivate;
 
     DIType DTy = DebugFactory.CreateDerivedType(
-                     DW_TAG_member, findRegion(DECL_CONTEXT(Member)),
-                     MemberName, getOrCreateFile(MemLoc.file), MemLoc.line,
-                     NodeSizeInBits(Member), NodeAlignInBits(FieldNodeType),
-                     int_bit_position(Member), MFlags, MemberType);
+        DW_TAG_member, findRegion(DECL_CONTEXT(Member)), MemberName,
+        getOrCreateFile(MemLoc.file), MemLoc.line, NodeSizeInBits(Member),
+        NodeAlignInBits(FieldNodeType), int_bit_position(Member), MFlags,
+        MemberType);
     EltTys.push_back(DTy);
   }
 
@@ -827,18 +820,17 @@ DIType DebugInfo::createStructType(tree type) {
         ContainingType = getOrCreateType(DECL_CONTEXT(Member));
       }
       DISubprogram SP = DebugFactory.CreateSubprogram(
-                            findRegion(DECL_CONTEXT(Member)), MemberName,
-                            MemberName, LinkageName,
-                            getOrCreateFile(MemLoc.file), MemLoc.line, SPTy,
-                            false, false, Virtuality, VIndex, ContainingType,
-                            DECL_ARTIFICIAL(Member), optimize);
+          findRegion(DECL_CONTEXT(Member)), MemberName, MemberName, LinkageName,
+          getOrCreateFile(MemLoc.file), MemLoc.line, SPTy, false, false,
+          Virtuality, VIndex, ContainingType, DECL_ARTIFICIAL(Member),
+          optimize);
       EltTys.push_back(SP);
       SPCache[Member] = WeakVH(SP);
     }
   }
 
-  llvm::DIArray Elements = DebugFactory.GetOrCreateArray(EltTys.data(),
-                                                         EltTys.size());
+  llvm::DIArray Elements =
+      DebugFactory.GetOrCreateArray(EltTys.data(), EltTys.size());
 
   RegionStack.pop_back();
   std::map<tree_node *, WeakVH>::iterator RI = RegionMap.find(type);
@@ -850,12 +842,11 @@ DIType DebugInfo::createStructType(tree type) {
     tree vtype = DECL_FCONTEXT(TYPE_VFIELD(type));
     ContainingType = getOrCreateType(vtype);
   }
-  llvm::DICompositeType RealDecl =
-      DebugFactory.CreateCompositeType(
-          Tag, findRegion(TYPE_CONTEXT(type)), GetNodeName(type),
-          getOrCreateFile(Loc.file), Loc.line, NodeSizeInBits(type),
-          NodeAlignInBits(type), 0, SFlags, llvm::DIType(), Elements,
-          RunTimeLang, ContainingType);
+  llvm::DICompositeType RealDecl = DebugFactory.CreateCompositeType(
+      Tag, findRegion(TYPE_CONTEXT(type)), GetNodeName(type),
+      getOrCreateFile(Loc.file), Loc.line, NodeSizeInBits(type),
+      NodeAlignInBits(type), 0, SFlags, llvm::DIType(), Elements, RunTimeLang,
+      ContainingType);
   RegionMap[type] = WeakVH(RealDecl);
 
   // Now that we have a real decl for the struct, replace anything using the
@@ -877,10 +868,9 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
     if (isa<TYPE_DECL>(TyDef) && DECL_ORIGINAL_TYPE(TyDef)) {
       expanded_location TypeDefLoc = GetNodeLocation(TyDef);
       Ty = DebugFactory.CreateDerivedType(
-               DW_TAG_typedef, findRegion(DECL_CONTEXT(TyDef)),
-               GetNodeName(TyDef), getOrCreateFile(TypeDefLoc.file),
-               TypeDefLoc.line, 0 /*size*/, 0 /*align*/, 0 /*offset */,
-               0 /*flags*/, MainTy);
+          DW_TAG_typedef, findRegion(DECL_CONTEXT(TyDef)), GetNodeName(TyDef),
+          getOrCreateFile(TypeDefLoc.file), TypeDefLoc.line, 0 /*size*/,
+          0 /*align*/, 0 /*offset */, 0 /*flags*/, MainTy);
       TypeCache[TyDef] = WeakVH(Ty);
       return Ty;
     }
@@ -888,19 +878,19 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
 
   if (TYPE_VOLATILE(type)) {
     Ty = DebugFactory.CreateDerivedType(
-             DW_TAG_volatile_type, findRegion(TYPE_CONTEXT(type)), StringRef(),
-             getOrCreateFile(main_input_filename), 0 /*line no*/,
-             NodeSizeInBits(type), NodeAlignInBits(type), 0 /*offset */,
-             0 /* flags */, MainTy);
+        DW_TAG_volatile_type, findRegion(TYPE_CONTEXT(type)), StringRef(),
+        getOrCreateFile(main_input_filename), 0 /*line no*/,
+        NodeSizeInBits(type), NodeAlignInBits(type), 0 /*offset */,
+        0 /* flags */, MainTy);
     MainTy = Ty;
   }
 
   if (TYPE_READONLY(type))
     Ty = DebugFactory.CreateDerivedType(
-             DW_TAG_const_type, findRegion(TYPE_CONTEXT(type)), StringRef(),
-             getOrCreateFile(main_input_filename), 0 /*line no*/,
-             NodeSizeInBits(type), NodeAlignInBits(type), 0 /*offset */,
-             0 /* flags */, MainTy);
+        DW_TAG_const_type, findRegion(TYPE_CONTEXT(type)), StringRef(),
+        getOrCreateFile(main_input_filename), 0 /*line no*/,
+        NodeSizeInBits(type), NodeAlignInBits(type), 0 /*offset */,
+        0 /* flags */, MainTy);
 
   if (TYPE_VOLATILE(type) || TYPE_READONLY(type)) {
     TypeCache[type] = WeakVH(Ty);
@@ -1012,8 +1002,7 @@ void DebugInfo::Initialize() {
 
 /// getOrCreateCompileUnit - Get the compile unit from the cache or
 /// create a new one if necessary.
-void DebugInfo::getOrCreateCompileUnit(const char *FullPath,
-                                                bool isMain) {
+void DebugInfo::getOrCreateCompileUnit(const char *FullPath, bool isMain) {
   if (!FullPath) {
     if (!strcmp(main_input_filename, ""))
       FullPath = "<stdin>";
@@ -1084,12 +1073,11 @@ DIFactory::DIFactory(Module &m)
 }
 
 Constant *DIFactory::GetTagConstant(unsigned TAG) {
-  assert((TAG &LLVMDebugVersionMask) == 0 &&
+  assert((TAG & LLVMDebugVersionMask) == 0 &&
          "Tag too large for debug encoding!");
   // llvm has moved forward. DIFactory does not emit debug info in updated form.
   // Use LLVMDebugVersion10 directly here.
-  return ConstantInt::get(Type::getInt32Ty(VMContext),
-                          TAG | LLVMDebugVersion);
+  return ConstantInt::get(Type::getInt32Ty(VMContext), TAG | LLVMDebugVersion);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1119,11 +1107,12 @@ DIDescriptor DIFactory::CreateUnspecifiedParameter() {
 
 /// CreateCompileUnit - Create a new descriptor for the specified compile
 /// unit.  Note that this does not unique compile units within the module.
-void DIFactory::CreateCompileUnit(
-    unsigned LangID, StringRef Filename, StringRef Directory,
-    StringRef Producer, bool isMain, bool isOptimized, StringRef Flags,
-    unsigned RunTimeVer) {
-  Builder.createCompileUnit(LangID, Filename, Directory, Producer, isOptimized, Flags, RunTimeVer);
+void DIFactory::CreateCompileUnit(unsigned LangID, StringRef Filename,
+                                  StringRef Directory, StringRef Producer,
+                                  bool isMain, bool isOptimized,
+                                  StringRef Flags, unsigned RunTimeVer) {
+  Builder.createCompileUnit(LangID, Filename, Directory, Producer, isOptimized,
+                            Flags, RunTimeVer);
 }
 
 /// CreateFile -  Create a new descriptor for the specified file.
@@ -1172,21 +1161,22 @@ DIDerivedType DIFactory::CreateDerivedType(
     // an invalid typedef that is a typedef of no other type. (hence the null
     // value as the last parameter in Elts, below)
     if (!DerivedFrom.isValid()) {
-      Value* Elts[] = {
-        GetTagConstant(dwarf::DW_TAG_typedef),
-        Context, MDString::get(VMContext, Name), F,
+      Value *Elts[] = {
+        GetTagConstant(dwarf::DW_TAG_typedef), Context,
+        MDString::get(VMContext, Name), F,
         ConstantInt::get(Type::getInt32Ty(VMContext), LineNumber),
-        ConstantInt::get(Type::getInt64Ty(VMContext), 0),  // Size
-        ConstantInt::get(Type::getInt64Ty(VMContext), 0),  // Align
-        ConstantInt::get(Type::getInt64Ty(VMContext), 0),  // Offset
-        ConstantInt::get(Type::getInt32Ty(VMContext), 0),  // Flags
+        ConstantInt::get(Type::getInt64Ty(VMContext), 0), // Size
+        ConstantInt::get(Type::getInt64Ty(VMContext), 0), // Align
+        ConstantInt::get(Type::getInt64Ty(VMContext), 0), // Offset
+        ConstantInt::get(Type::getInt32Ty(VMContext), 0), // Flags
         NULL
       };
       return DIDerivedType(MDNode::get(VMContext, Elts));
     }
     return Builder.createTypedef(DerivedFrom, Name, F, LineNumber, Context);
   case dwarf::DW_TAG_pointer_type:
-    return Builder.createPointerType(DerivedFrom, SizeInBits, AlignInBits, Name);
+    return Builder.createPointerType(DerivedFrom, SizeInBits, AlignInBits,
+                                     Name);
   case dwarf::DW_TAG_reference_type:
   case dwarf::DW_TAG_rvalue_reference_type:
     return Builder.createReferenceType(Tag, DerivedFrom);
@@ -1199,7 +1189,8 @@ DIDerivedType DIFactory::CreateDerivedType(
                                     AlignInBits, OffsetInBits, Flags,
                                     DerivedFrom);
   case dwarf::DW_TAG_inheritance:
-    return Builder.createInheritance(DIType(Context), DerivedFrom, OffsetInBits, Flags);
+    return Builder.createInheritance(DIType(Context), DerivedFrom, OffsetInBits,
+                                     Flags);
   case dwarf::DW_TAG_friend:
   case dwarf::DW_TAG_ptr_to_member_type:
     break;
@@ -1259,8 +1250,8 @@ DISubprogram DIFactory::CreateSubprogram(
                                 isLocalToUnit, isDefinition, VK, VIndex, NULL,
                                 Flags, isOptimized, Fn, NULL);
   return Builder.createFunction(Context, Name, LinkageName, F, LineNo, Ty,
-                                isLocalToUnit, isDefinition,
-                                LineNo, Flags, isOptimized, Fn, NULL, NULL);
+                                isLocalToUnit, isDefinition, LineNo, Flags,
+                                isOptimized, Fn, NULL, NULL);
 }
 
 /// CreateSubprogramDefinition - Create new subprogram descriptor for the
@@ -1270,12 +1261,10 @@ DISubprogram DIFactory::CreateSubprogramDefinition(
   if (SP.isDefinition())
     return DISubprogram(SP);
 
-  return Builder.createFunction(SP.getContext(), SP.getName(),
-                                SP.getLinkageName(), SP.getFile(),
-                                SP.getLineNumber(), SP.getType(),
-                                SP.isLocalToUnit(), true, LineNo, SP.getFlags(),
-                                SP.isOptimized(), Fn, SP.getTemplateParams(),
-                                SP);
+  return Builder.createFunction(
+      SP.getContext(), SP.getName(), SP.getLinkageName(), SP.getFile(),
+      SP.getLineNumber(), SP.getType(), SP.isLocalToUnit(), true, LineNo,
+      SP.getFlags(), SP.isOptimized(), Fn, SP.getTemplateParams(), SP);
 }
 
 /// CreateGlobalVariable - Create a new descriptor for the specified global.
@@ -1283,7 +1272,8 @@ DIGlobalVariable DIFactory::CreateGlobalVariable(
     DIDescriptor Context, StringRef Name, StringRef DisplayName,
     StringRef LinkageName, DIFile F, unsigned LineNo, DIType Ty,
     bool isLocalToUnit, bool isDefinition, llvm::GlobalVariable *Val) {
-  return Builder.createStaticVariable(Context, Name, LinkageName, F, LineNo, Ty, isLocalToUnit, Val);
+  return Builder.createStaticVariable(Context, Name, LinkageName, F, LineNo, Ty,
+                                      isLocalToUnit, Val);
 }
 
 /// CreateGlobalVariable - Create a new descriptor for the specified constant.
@@ -1298,7 +1288,8 @@ DIGlobalVariable DIFactory::CreateGlobalVariable(
 DIVariable DIFactory::CreateVariable(
     unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
     unsigned LineNo, DIType Ty, bool AlwaysPreserve, unsigned Flags) {
-  return Builder.createLocalVariable(Tag, Context, Name, F, LineNo, Ty, AlwaysPreserve, Flags);
+  return Builder.createLocalVariable(Tag, Context, Name, F, LineNo, Ty,
+                                     AlwaysPreserve, Flags);
 }
 
 /// CreateComplexVariable - Create a new descriptor for the specified variable
@@ -1306,7 +1297,8 @@ DIVariable DIFactory::CreateVariable(
 DIVariable DIFactory::CreateComplexVariable(
     unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
     unsigned LineNo, DIType Ty, Value *const *Addr, unsigned NumAddr) {
-  return Builder.createComplexVariable(Tag, Context, Name, F, LineNo, Ty, ArrayRef<Value *>(Addr, NumAddr));
+  return Builder.createComplexVariable(Tag, Context, Name, F, LineNo, Ty,
+                                       ArrayRef<Value *>(Addr, NumAddr));
 }
 
 /// CreateBlock - This creates a descriptor for a lexical block with the
@@ -1396,6 +1388,4 @@ Instruction *DIFactory::InsertDbgValueIntrinsic(
 
 // RecordType - Record DIType in a module such that it is not lost even if
 // it is not referenced through debug info anchors.
-void DIFactory::RecordType(DIType T) {
-  Builder.retainType(T);
-}
+void DIFactory::RecordType(DIType T) { Builder.retainType(T); }

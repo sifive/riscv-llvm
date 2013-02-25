@@ -214,8 +214,8 @@ void handleVisibility(tree decl, GlobalValue *GV) {
 
 /// CodeGenOptLevel - The optimization level to be used by the code generators.
 static CodeGenOpt::Level CodeGenOptLevel() {
-  int OptLevel = LLVMCodeGenOptimizeArg >= 0 ? LLVMCodeGenOptimizeArg :
-                 optimize;
+  int OptLevel =
+      LLVMCodeGenOptimizeArg >= 0 ? LLVMCodeGenOptimizeArg : optimize;
   if (OptLevel <= 0)
     return CodeGenOpt::None;
   if (OptLevel == 1)
@@ -608,8 +608,8 @@ static void InitializeBackend(void) {
   // vectorizer using -fplugin-arg-dragonegg-llvm-option=-vectorize
   PassBuilder.Vectorize = PassManagerBuilder().Vectorize;
 
-  PassBuilder.LibraryInfo = new TargetLibraryInfo((Triple)
-                                                  TheModule->getTargetTriple());
+  PassBuilder.LibraryInfo =
+      new TargetLibraryInfo((Triple) TheModule->getTargetTriple());
   if (flag_no_simplify_libcalls)
     PassBuilder.LibraryInfo->disableAllFunctions();
 
@@ -732,8 +732,8 @@ static void createPerModuleOptimizationPasses() {
     // FIXME: This is disabled right now until bugs can be worked out.  Reenable
     // this for fast -O0 compiles!
     if (PerModulePasses || 1) {
-      FunctionPassManager *PM = CodeGenPasses = new FunctionPassManager(
-                                                    TheModule);
+      FunctionPassManager *PM = CodeGenPasses =
+          new FunctionPassManager(TheModule);
       PM->add(new DataLayout(*TheTarget->getDataLayout()));
       TheTarget->addAnalysisPasses(*PM);
 
@@ -766,8 +766,8 @@ static void CreateStructorsList(std::vector<std::pair<Constant *, int> > &Tors,
 
   LLVMContext &Context = getGlobalContext();
 
-  Type *FPTy = FunctionType::get(Type::getVoidTy(Context),
-                                 std::vector<Type *>(), false);
+  Type *FPTy =
+      FunctionType::get(Type::getVoidTy(Context), std::vector<Type *>(), false);
   FPTy = FPTy->getPointerTo();
 
   for (unsigned i = 0, e = Tors.size(); i != e; ++i) {
@@ -778,9 +778,8 @@ static void CreateStructorsList(std::vector<std::pair<Constant *, int> > &Tors,
     StructInit[1] = TheFolder->CreateBitCast(Tors[i].first, FPTy);
     InitList.push_back(ConstantStruct::getAnon(Context, StructInit));
   }
-  Constant *Array = ConstantArray::get(ArrayType::get(InitList[0]->getType(),
-                                                      InitList.size()),
-                                       InitList);
+  Constant *Array = ConstantArray::get(
+      ArrayType::get(InitList[0]->getType(), InitList.size()), InitList);
   new GlobalVariable(*TheModule, Array->getType(), false,
                      GlobalValue::AppendingLinkage, Array, Name);
 }
@@ -798,9 +797,9 @@ Constant *ConvertMetadataStringToGV(const char *str) {
     return Slot;
 
   // Create a new string global.
-  GlobalVariable *GV = new GlobalVariable(*TheModule, Init->getType(), true,
-                                          GlobalVariable::PrivateLinkage, Init,
-                                          ".str");
+  GlobalVariable *GV =
+      new GlobalVariable(*TheModule, Init->getType(), true,
+                         GlobalVariable::PrivateLinkage, Init, ".str");
   GV->setSection("llvm.metadata");
   Slot = GV;
   return GV;
@@ -818,8 +817,8 @@ void AddAnnotateAttrsToGlobal(GlobalValue *GV, tree decl) {
     return;
 
   // Get file and line number
-  Constant *lineNo = ConstantInt::get(Type::getInt32Ty(Context),
-                                      DECL_SOURCE_LINE(decl));
+  Constant *lineNo =
+      ConstantInt::get(Type::getInt32Ty(Context), DECL_SOURCE_LINE(decl));
   Constant *file = ConvertMetadataStringToGV(DECL_SOURCE_FILE(decl));
   Type *SBP = Type::getInt8PtrTy(Context);
   file = TheFolder->CreateBitCast(file, SBP);
@@ -902,7 +901,8 @@ static void emit_alias(tree decl, tree target) {
 
   GlobalValue *Aliasee = 0;
   if (isa<IDENTIFIER_NODE>(target)) {
-    StringRef AliaseeName(IDENTIFIER_POINTER(target), IDENTIFIER_LENGTH(target));
+    StringRef AliaseeName(IDENTIFIER_POINTER(target),
+                          IDENTIFIER_LENGTH(target));
     if (!lookup_attribute("weakref", DECL_ATTRIBUTES(decl))) {
       Aliasee = TheModule->getNamedValue(AliaseeName);
       if (!Aliasee)
@@ -916,13 +916,12 @@ static void emit_alias(tree decl, tree target) {
       // weakref to external symbol.
       if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
         Aliasee = new GlobalVariable(
-                      *TheModule, GV->getType()->getElementType(),
-                      GV->isConstant(), GlobalVariable::ExternalWeakLinkage,
-                      NULL, AliaseeName);
+            *TheModule, GV->getType()->getElementType(), GV->isConstant(),
+            GlobalVariable::ExternalWeakLinkage, NULL, AliaseeName);
       else if (Function *F = dyn_cast<Function>(V))
         Aliasee = Function::Create(F->getFunctionType(),
-                                   Function::ExternalWeakLinkage,
-                                   AliaseeName, TheModule);
+                                   Function::ExternalWeakLinkage, AliaseeName,
+                                   TheModule);
       else
         llvm_unreachable("Unsuported global value");
     }
@@ -934,8 +933,8 @@ static void emit_alias(tree decl, tree target) {
 
   if (Linkage != GlobalValue::InternalLinkage) {
     // Create the LLVM alias.
-    GlobalAlias *GA = new GlobalAlias(Aliasee->getType(), Linkage, "", Aliasee,
-                                      TheModule);
+    GlobalAlias *GA =
+        new GlobalAlias(Aliasee->getType(), Linkage, "", Aliasee, TheModule);
     handleVisibility(decl, GA);
 
     // Associate it with decl instead of V.
@@ -1020,9 +1019,9 @@ static void emit_global(tree decl) {
     // global union, and the LLVM type followed a union initializer that is
     // different from the union element used for the type.
     GV->removeFromParent();
-    GlobalVariable *NGV = new GlobalVariable(
-                              *TheModule, Init->getType(), GV->isConstant(),
-                              GlobalValue::ExternalLinkage, 0, GV->getName());
+    GlobalVariable *NGV =
+        new GlobalVariable(*TheModule, Init->getType(), GV->isConstant(),
+                           GlobalValue::ExternalLinkage, 0, GV->getName());
     NGV->setInitializer(Init);
     GV->replaceAllUsesWith(TheFolder->CreateBitCast(NGV, GV->getType()));
     changeLLVMConstant(GV, NGV);
@@ -1111,8 +1110,8 @@ static void emit_global(tree decl) {
     if (DECL_SECTION_NAME(decl)) {
       GV->setSection(TREE_STRING_POINTER(DECL_SECTION_NAME(decl)));
 #ifdef LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION
-    } else if (
-        const char *Section = LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION(decl)) {
+    } else if (const char *Section =
+                   LLVM_IMPLICIT_TARGET_GLOBAL_VAR_SECTION(decl)) {
       GV->setSection(Section);
 #endif
     }
@@ -1296,10 +1295,10 @@ Value *make_decl_llvm(tree decl) {
     if (FnEntry == 0) {
       CallingConv::ID CC;
       AttributeSet PAL;
-      FunctionType *Ty = ConvertFunctionType(TREE_TYPE(decl), decl, NULL, CC,
-                                             PAL);
-      FnEntry = Function::Create(Ty, Function::ExternalLinkage, Name,
-                                 TheModule);
+      FunctionType *Ty =
+          ConvertFunctionType(TREE_TYPE(decl), decl, NULL, CC, PAL);
+      FnEntry =
+          Function::Create(Ty, Function::ExternalLinkage, Name, TheModule);
       FnEntry->setCallingConv(CC);
       FnEntry->setAttributes(PAL);
 
@@ -1464,8 +1463,8 @@ Value *make_definition_llvm(tree decl) {
 /// Fn is a 'void()' ctor/dtor function to be run, initprio is the init
 /// priority, and isCtor indicates whether this is a ctor or dtor.
 void register_ctor_dtor(Function *Fn, int InitPrio, bool isCtor) {
-  (isCtor ? &StaticCtors : &StaticDtors)->push_back(std::make_pair(Fn,
-                                                                   InitPrio));
+  (isCtor ? &StaticCtors : &StaticDtors)
+      ->push_back(std::make_pair(Fn, InitPrio));
 }
 
 /// extractRegisterName - Get a register name given its decl. In 4.2 unlike 4.0
@@ -1666,16 +1665,16 @@ static unsigned int rtl_emit_function(void) {
 
 /// pass_rtl_emit_function - RTL pass that converts a function to LLVM IR.
 static struct rtl_opt_pass pass_rtl_emit_function = { {
-  RTL_PASS, "rtl_emit_function", /* name */
-  NULL, /* gate */
-  rtl_emit_function, /* execute */
-  NULL, /* sub */
-  NULL, /* next */
-  0, /* static_pass_number */
-  TV_NONE, /* tv_id */
+  RTL_PASS, "rtl_emit_function",         /* name */
+  NULL,                                  /* gate */
+  rtl_emit_function,                     /* execute */
+  NULL,                                  /* sub */
+  NULL,                                  /* next */
+  0,                                     /* static_pass_number */
+  TV_NONE,                               /* tv_id */
   PROP_ssa | PROP_gimple_leh | PROP_cfg, /* properties_required */
-  0, /* properties_provided */
-  PROP_ssa | PROP_trees, /* properties_destroyed */
+  0,                                     /* properties_provided */
+  PROP_ssa | PROP_trees,                 /* properties_destroyed */
   TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts, /* todo_flags_start */
   TODO_ggc_collect /* todo_flags_finish */
 } };
@@ -1705,8 +1704,8 @@ static void emit_cgraph_weakrefs() {
   for (struct cgraph_node *node = cgraph_nodes; node; node = node->next)
     if (node->alias && DECL_EXTERNAL(node->decl) &&
         lookup_attribute("weakref", DECL_ATTRIBUTES(node->decl)))
-      emit_alias(node->decl, node->thunk.alias ? node->thunk.alias :
-                     get_alias_symbol(node->decl));
+      emit_alias(node->decl, node->thunk.alias ? node->thunk.alias
+                                               : get_alias_symbol(node->decl));
 }
 
 /// emit_varpool_weakrefs - Output any varpool weak references to external
@@ -1715,8 +1714,8 @@ static void emit_varpool_weakrefs() {
   for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next)
     if (vnode->alias && DECL_EXTERNAL(vnode->decl) &&
         lookup_attribute("weakref", DECL_ATTRIBUTES(vnode->decl)))
-      emit_alias(vnode->decl, vnode->alias_of ? vnode->alias_of :
-                     get_alias_symbol(vnode->decl));
+      emit_alias(vnode->decl, vnode->alias_of ? vnode->alias_of
+                                              : get_alias_symbol(vnode->decl));
 }
 #endif
 
@@ -1835,8 +1834,8 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
   if (!AttributeUsedGlobals.empty()) {
     std::vector<Constant *> AUGs;
     Type *SBP = Type::getInt8PtrTy(Context);
-    for (SmallSetVector<Constant *, 32>::iterator AI = AttributeUsedGlobals
-             .begin(), AE = AttributeUsedGlobals.end();
+    for (SmallSetVector<Constant *, 32>::iterator AI =
+             AttributeUsedGlobals.begin(), AE = AttributeUsedGlobals.end();
          AI != AE; ++AI) {
       Constant *C = *AI;
       AUGs.push_back(TheFolder->CreateBitCast(C, SBP));
@@ -1844,9 +1843,9 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
 
     ArrayType *AT = ArrayType::get(SBP, AUGs.size());
     Constant *Init = ConstantArray::get(AT, AUGs);
-    GlobalValue *gv = new GlobalVariable(*TheModule, AT, false,
-                                         GlobalValue::AppendingLinkage, Init,
-                                         "llvm.used");
+    GlobalValue *gv =
+        new GlobalVariable(*TheModule, AT, false, GlobalValue::AppendingLinkage,
+                           Init, "llvm.used");
     gv->setSection("llvm.metadata");
     AttributeUsedGlobals.clear();
   }
@@ -1855,8 +1854,8 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
     std::vector<Constant *> ACUGs;
     Type *SBP = Type::getInt8PtrTy(Context);
     for (SmallSetVector<Constant *, 32>::iterator AI =
-             AttributeCompilerUsedGlobals.begin(), AE =
-             AttributeCompilerUsedGlobals.end();
+             AttributeCompilerUsedGlobals
+                 .begin(), AE = AttributeCompilerUsedGlobals.end();
          AI != AE; ++AI) {
       Constant *C = *AI;
       ACUGs.push_back(TheFolder->CreateBitCast(C, SBP));
@@ -1864,9 +1863,9 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
 
     ArrayType *AT = ArrayType::get(SBP, ACUGs.size());
     Constant *Init = ConstantArray::get(AT, ACUGs);
-    GlobalValue *gv = new GlobalVariable(*TheModule, AT, false,
-                                         GlobalValue::AppendingLinkage, Init,
-                                         "llvm.compiler.used");
+    GlobalValue *gv =
+        new GlobalVariable(*TheModule, AT, false, GlobalValue::AppendingLinkage,
+                           Init, "llvm.compiler.used");
     gv->setSection("llvm.metadata");
     AttributeCompilerUsedGlobals.clear();
   }
@@ -1874,9 +1873,9 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
   // Add llvm.global.annotations
   if (!AttributeAnnotateGlobals.empty()) {
     Constant *Array = ConstantArray::get(
-                          ArrayType::get(AttributeAnnotateGlobals[0]->getType(),
-                                         AttributeAnnotateGlobals.size()),
-                          AttributeAnnotateGlobals);
+        ArrayType::get(AttributeAnnotateGlobals[0]->getType(),
+                       AttributeAnnotateGlobals.size()),
+        AttributeAnnotateGlobals);
     GlobalValue *gv = new GlobalVariable(*TheModule, Array->getType(), false,
                                          GlobalValue::AppendingLinkage, Array,
                                          "llvm.global.annotations");
@@ -1931,17 +1930,17 @@ static bool gate_null(void) { return false; }
 /// pass_gimple_null - Gimple pass that does nothing.
 static struct gimple_opt_pass pass_gimple_null = {
   { GIMPLE_PASS, "*gimple_null", /* name */
-    gate_null, /* gate */
-    NULL, /* execute */
-    NULL, /* sub */
-    NULL, /* next */
-    0, /* static_pass_number */
-    TV_NONE, /* tv_id */
-    0, /* properties_required */
-    0, /* properties_provided */
-    0, /* properties_destroyed */
-    0, /* todo_flags_start */
-    0 /* todo_flags_finish */
+    gate_null,                   /* gate */
+    NULL,                        /* execute */
+    NULL,                        /* sub */
+    NULL,                        /* next */
+    0,                           /* static_pass_number */
+    TV_NONE,                     /* tv_id */
+    0,                           /* properties_required */
+    0,                           /* properties_provided */
+    0,                           /* properties_destroyed */
+    0,                           /* todo_flags_start */
+    0                            /* todo_flags_finish */
 }
 };
 
@@ -1960,78 +1959,78 @@ static bool gate_correct_state(void) { return true; }
 /// newly inserted functions are processed before being converted to LLVM IR.
 static struct gimple_opt_pass pass_gimple_correct_state = {
   { GIMPLE_PASS, "*gimple_correct_state", /* name */
-    gate_correct_state, /* gate */
-    execute_correct_state, /* execute */
-    NULL, /* sub */
-    NULL, /* next */
-    0, /* static_pass_number */
-    TV_NONE, /* tv_id */
-    0, /* properties_required */
-    0, /* properties_provided */
-    0, /* properties_destroyed */
-    0, /* todo_flags_start */
-    0 /* todo_flags_finish */
+    gate_correct_state,                   /* gate */
+    execute_correct_state,                /* execute */
+    NULL,                                 /* sub */
+    NULL,                                 /* next */
+    0,                                    /* static_pass_number */
+    TV_NONE,                              /* tv_id */
+    0,                                    /* properties_required */
+    0,                                    /* properties_provided */
+    0,                                    /* properties_destroyed */
+    0,                                    /* todo_flags_start */
+    0                                     /* todo_flags_finish */
 }
 };
 
 /// pass_ipa_null - IPA pass that does nothing.
 static struct ipa_opt_pass_d pass_ipa_null = {
   { IPA_PASS, "*ipa_null", /* name */
-    gate_null, /* gate */
-    NULL, /* execute */
-    NULL, /* sub */
-    NULL, /* next */
-    0, /* static_pass_number */
-    TV_NONE, /* tv_id */
-    0, /* properties_required */
-    0, /* properties_provided */
-    0, /* properties_destroyed */
-    0, /* todo_flags_start */
-    0 /* todo_flags_finish */
-}, NULL, /* generate_summary */
-  NULL, /* write_summary */
-  NULL, /* read_summary */
+    gate_null,             /* gate */
+    NULL,                  /* execute */
+    NULL,                  /* sub */
+    NULL,                  /* next */
+    0,                     /* static_pass_number */
+    TV_NONE,               /* tv_id */
+    0,                     /* properties_required */
+    0,                     /* properties_provided */
+    0,                     /* properties_destroyed */
+    0,                     /* todo_flags_start */
+    0                      /* todo_flags_finish */
+}, NULL,                   /* generate_summary */
+  NULL,                    /* write_summary */
+  NULL,                    /* read_summary */
 #if (GCC_MINOR > 5)
-  NULL, /* write_optimization_summary */
-  NULL, /* read_optimization_summary */
+  NULL,                    /* write_optimization_summary */
+  NULL,                    /* read_optimization_summary */
 #else
-  NULL, /* function_read_summary */
+  NULL,                    /* function_read_summary */
 #endif
-  NULL, /* stmt_fixup */
-  0, /* function_transform_todo_flags_start */
-  NULL, /* function_transform */
-  NULL /* variable_transform */
+  NULL,                    /* stmt_fixup */
+  0,                       /* function_transform_todo_flags_start */
+  NULL,                    /* function_transform */
+  NULL                     /* variable_transform */
 };
 
 /// pass_rtl_null - RTL pass that does nothing.
 static struct rtl_opt_pass pass_rtl_null = { { RTL_PASS, "*rtl_null", /* name */
-                                               gate_null, /* gate */
-                                               NULL, /* execute */
-                                               NULL, /* sub */
-                                               NULL, /* next */
-                                               0, /* static_pass_number */
+                                               gate_null,             /* gate */
+                                               NULL,    /* execute */
+                                               NULL,    /* sub */
+                                               NULL,    /* next */
+                                               0,       /* static_pass_number */
                                                TV_NONE, /* tv_id */
                                                0, /* properties_required */
                                                0, /* properties_provided */
                                                0, /* properties_destroyed */
                                                0, /* todo_flags_start */
-                                               0 /* todo_flags_finish */
+                                               0  /* todo_flags_finish */
 } };
 
 /// pass_simple_ipa_null - Simple IPA pass that does nothing.
 static struct simple_ipa_opt_pass pass_simple_ipa_null = {
   { SIMPLE_IPA_PASS, "*simple_ipa_null", /* name */
-    gate_null, /* gate */
-    NULL, /* execute */
-    NULL, /* sub */
-    NULL, /* next */
-    0, /* static_pass_number */
-    TV_NONE, /* tv_id */
-    0, /* properties_required */
-    0, /* properties_provided */
-    0, /* properties_destroyed */
-    0, /* todo_flags_start */
-    0 /* todo_flags_finish */
+    gate_null,                           /* gate */
+    NULL,                                /* execute */
+    NULL,                                /* sub */
+    NULL,                                /* next */
+    0,                                   /* static_pass_number */
+    TV_NONE,                             /* tv_id */
+    0,                                   /* properties_required */
+    0,                                   /* properties_provided */
+    0,                                   /* properties_destroyed */
+    0,                                   /* todo_flags_start */
+    0                                    /* todo_flags_finish */
 }
 };
 
@@ -2055,9 +2054,9 @@ static FlagDescriptor PluginFlags[] = {
 /// llvm_plugin_info - Information about this plugin.  Users can access this
 /// using "gcc --help -v".
 static struct plugin_info llvm_plugin_info = {
-  LLVM_VERSION,             // version
-  // TODO provide something useful here
-  NULL                      // help
+  LLVM_VERSION, // version
+                // TODO provide something useful here
+  NULL          // help
 };
 
 #ifndef DISABLE_VERSION_CHECK

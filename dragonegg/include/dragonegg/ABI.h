@@ -143,8 +143,8 @@ extern bool isZeroSizedStructOrUnion(tree_node *type);
 // getLLVMScalarTypeForStructReturn - Return LLVM Type if TY can be
 // returned as a scalar, otherwise return NULL. This is the default
 // target independent implementation.
-inline Type *getLLVMScalarTypeForStructReturn(tree_node *type,
-                                              unsigned *Offset) {
+inline Type *
+getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) {
   Type *Ty = ConvertType(type);
   uint64_t Size = getDataLayout().getTypeAllocSize(Ty);
   *Offset = 0;

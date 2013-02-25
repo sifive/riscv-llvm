@@ -53,8 +53,8 @@ using namespace llvm;
 
 /// concatIfNotEmpty - Concatenate the given strings if they are both non-empty.
 /// Otherwise return the empty string.
-static std::string concatIfNotEmpty(const std::string &Left,
-                                    const std::string &Right) {
+static std::string
+concatIfNotEmpty(const std::string &Left, const std::string &Right) {
   if (Left.empty() || Right.empty())
     return std::string();
   return Left + Right;
@@ -156,9 +156,9 @@ APInt getAPIntValue(const_tree exp, unsigned Bitwidth) {
     assert(integerPartWidth == 2 * HOST_BITS_PER_WIDE_INT &&
            "Unsupported host integer width!");
     unsigned ShiftAmt = HOST_BITS_PER_WIDE_INT;
-    integerPart Part = integerPart((unsigned HOST_WIDE_INT) val.low) +
-                       (integerPart((unsigned HOST_WIDE_INT) val.high)
-                        << ShiftAmt);
+    integerPart Part =
+        integerPart((unsigned HOST_WIDE_INT) val.low) +
+        (integerPart((unsigned HOST_WIDE_INT) val.high) << ShiftAmt);
     DefaultValue = APInt(DefaultWidth, Part);
   }
 
@@ -166,8 +166,8 @@ APInt getAPIntValue(const_tree exp, unsigned Bitwidth) {
     return DefaultValue;
 
   if (Bitwidth > DefaultWidth)
-    return TYPE_UNSIGNED(TREE_TYPE(exp)) ? DefaultValue.zext(Bitwidth) :
-           DefaultValue.sext(Bitwidth);
+    return TYPE_UNSIGNED(TREE_TYPE(exp)) ? DefaultValue.zext(Bitwidth)
+                                         : DefaultValue.sext(Bitwidth);
 
   assert((TYPE_UNSIGNED(TREE_TYPE(exp)) ||
           DefaultValue.trunc(Bitwidth).sext(DefaultWidth) == DefaultValue) &&

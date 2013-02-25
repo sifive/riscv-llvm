@@ -110,9 +110,9 @@ tree isSingleElementStructOrArray(tree type, bool ignoreZeroLength,
           return 0; // More than one field.
         }
       }
-    return FoundField ?
-           isSingleElementStructOrArray(FoundField, ignoreZeroLength, false) :
-           0;
+    return FoundField
+           ? isSingleElementStructOrArray(FoundField, ignoreZeroLength, false)
+           : 0;
   case ARRAY_TYPE:
     ArrayType *Ty = dyn_cast<ArrayType>(ConvertType(type));
     if (!Ty || Ty->getNumElements() != 1)
@@ -165,11 +165,11 @@ void DefaultABI::HandleReturnType(tree type, tree fn, bool isBuiltin) {
     } else {
       // Otherwise return as an integer value large enough to hold the entire
       // aggregate.
-      if (Type *AggrTy = LLVM_AGGR_TYPE_FOR_STRUCT_RETURN(type,
-                                                          C.getCallingConv()))
+      if (Type *AggrTy =
+              LLVM_AGGR_TYPE_FOR_STRUCT_RETURN(type, C.getCallingConv()))
         C.HandleAggregateResultAsAggregate(AggrTy);
-      else if (Type *ScalarTy = LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN(type,
-                                                                   &Offset))
+      else if (Type *ScalarTy =
+                   LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN(type, &Offset))
         C.HandleAggregateResultAsScalar(ScalarTy, Offset);
       else
         llvm_unreachable("Unable to determine how to return this aggregate!");
@@ -231,9 +231,9 @@ void DefaultABI::HandleArgument(tree type, std::vector<Type *> &ScalarElts,
   } else if (LLVM_SHOULD_PASS_AGGREGATE_AS_FCA(type, Ty)) {
     C.HandleFCAArgument(Ty, type);
   } else if (LLVM_SHOULD_PASS_AGGREGATE_IN_MIXED_REGS(
-      type, Ty, C.getCallingConv(), Elts)) {
+                 type, Ty, C.getCallingConv(), Elts)) {
     if (!LLVM_AGGREGATE_PARTIALLY_PASSED_IN_REGS(
-        Elts, ScalarElts, C.isShadowReturn(), C.getCallingConv()))
+            Elts, ScalarElts, C.isShadowReturn(), C.getCallingConv()))
       PassInMixedRegisters(Ty, Elts, ScalarElts);
     else {
       C.HandleByValArgument(Ty, type);
@@ -347,8 +347,8 @@ void DefaultABI::PassInIntegerRegisters(
   // don't bitcast aggregate value to Int64 if its alignment is different
   // from Int64 alignment. ARM backend needs this.
   unsigned Align = TYPE_ALIGN(type) / 8;
-  unsigned Int64Align = getDataLayout().getABITypeAlignment(
-                            Type::getInt64Ty(getGlobalContext()));
+  unsigned Int64Align =
+      getDataLayout().getABITypeAlignment(Type::getInt64Ty(getGlobalContext()));
   bool UseInt64 = (DontCheckAlignment || Align >= Int64Align);
 
   unsigned ElementSize = UseInt64 ? 8 : 4;
@@ -359,8 +359,8 @@ void DefaultABI::PassInIntegerRegisters(
   Type *ArrayElementType = NULL;
   if (ArraySize) {
     Size = Size % ElementSize;
-    ArrayElementType = (UseInt64 ? Type::getInt64Ty(getGlobalContext()) :
-                            Type::getInt32Ty(getGlobalContext()));
+    ArrayElementType = (UseInt64 ? Type::getInt64Ty(getGlobalContext())
+                                 : Type::getInt32Ty(getGlobalContext()));
     ATy = ArrayType::get(ArrayElementType, ArraySize);
   }
 
@@ -417,9 +417,9 @@ void DefaultABI::PassInMixedRegisters(Type *Ty, std::vector<Type *> &OrigElts,
   // that occupies storage but has no useful information, and is not passed
   // anywhere".  Happens on x86-64.
   std::vector<Type *> Elts(OrigElts);
-  Type *wordType = getDataLayout().getPointerSize(0) == 4 ?
-                   Type::getInt32Ty(getGlobalContext()) :
-                   Type::getInt64Ty(getGlobalContext());
+  Type *wordType = getDataLayout().getPointerSize(0) == 4
+                   ? Type::getInt32Ty(getGlobalContext())
+                   : Type::getInt64Ty(getGlobalContext());
   for (unsigned i = 0, e = Elts.size(); i != e; ++i)
     if (OrigElts[i]->isVoidTy())
       Elts[i] = wordType;
@@ -437,8 +437,8 @@ void DefaultABI::PassInMixedRegisters(Type *Ty, std::vector<Type *> &OrigElts,
       unsigned N = STy->getNumElements();
       llvm::Type *LastEltTy = STy->getElementType(N - 1);
       if (LastEltTy->isIntegerTy())
-        LastEltSizeDiff = getDataLayout().getTypeAllocSize(LastEltTy) -
-                          (Size - InSize);
+        LastEltSizeDiff =
+            getDataLayout().getTypeAllocSize(LastEltTy) - (Size - InSize);
     }
   }
   for (unsigned i = 0, e = Elts.size(); i != e; ++i) {

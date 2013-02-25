@@ -62,8 +62,8 @@ extern llvm::Type *GetUnitType(llvm::LLVMContext &C, unsigned NumUnits = 1);
 /// GetUnitPointerType - Returns an LLVM pointer type which points to memory one
 /// address unit wide.  For example, on a machine which has 16 bit bytes returns
 /// an i16*.
-extern llvm::Type *GetUnitPointerType(llvm::LLVMContext &C,
-                                      unsigned AddrSpace = 0);
+extern llvm::Type *
+GetUnitPointerType(llvm::LLVMContext &C, unsigned AddrSpace = 0);
 
 /// isSizeCompatible - Return true if the specified gcc type is guaranteed to be
 /// turned by ConvertType into an LLVM type of the same size (i.e. TYPE_SIZE the
@@ -88,9 +88,9 @@ extern llvm::Type *ConvertType(tree_node *type);
 /// ConvertFunctionType - Convert the specified FUNCTION_TYPE or METHOD_TYPE
 /// tree to an LLVM type.  This does the same thing that ConvertType does, but
 /// it also returns the function's LLVM calling convention and attributes.
-extern llvm::FunctionType *ConvertFunctionType(
-    tree_node *type, tree_node *decl, tree_node *static_chain,
-    llvm::CallingConv::ID &CC, llvm::AttributeSet &PAL);
+extern llvm::FunctionType *
+ConvertFunctionType(tree_node *type, tree_node *decl, tree_node *static_chain,
+                    llvm::CallingConv::ID &CC, llvm::AttributeSet &PAL);
 
 /// ConvertArgListToFnType - Given a DECL_ARGUMENTS list on an GCC tree,
 /// return the LLVM type corresponding to the function.  This is useful for

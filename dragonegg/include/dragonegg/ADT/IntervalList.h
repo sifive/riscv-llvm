@@ -61,8 +61,8 @@ template <class T, typename U, unsigned N> class IntervalList {
     for (unsigned i = 0, e = (unsigned) Intervals.size(); i < e; ++i) {
       if (Intervals[i].getRange().empty())
         return false;
-      if (i && Intervals[i].getRange().getFirst() <
-          Intervals[i - 1].getRange().getLast())
+      if (i && Intervals[i].getRange().getFirst() < Intervals[i - 1]
+                                                        .getRange().getLast())
         return false;
     }
     return true;
@@ -106,10 +106,10 @@ void IntervalList<T, U, N>::AddInterval(const T &Interval) {
   }
 
   // Check for overlap with existing intervals.
-  iterator Lo = std::lower_bound(Intervals.begin(), Intervals.end(), Interval,
-                                 CmpFirst);
-  iterator Hi = std::upper_bound(Intervals.begin(), Intervals.end(), Interval,
-                                 CmpLast);
+  iterator Lo =
+      std::lower_bound(Intervals.begin(), Intervals.end(), Interval, CmpFirst);
+  iterator Hi =
+      std::upper_bound(Intervals.begin(), Intervals.end(), Interval, CmpLast);
   if (Lo < Hi) {
     // Intervals with index in [Lo, Hi) are those completely covered by the new
     // interval.  Throw them away.

@@ -125,8 +125,8 @@ extern bool llvm_x86_should_pass_aggregate_in_integer_regs(tree_node *,
 #define LLVM_SHOULD_PASS_AGGREGATE_IN_INTEGER_REGS(X, Y, Z)                    \
   llvm_x86_should_pass_aggregate_in_integer_regs((X), (Y), (Z))
 
-extern Type *llvm_x86_scalar_type_for_struct_return(tree_node *type,
-                                                    unsigned *Offset);
+extern Type *
+llvm_x86_scalar_type_for_struct_return(tree_node *type, unsigned *Offset);
 
 /* LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be
    returned as a scalar, otherwise return NULL. */
@@ -205,9 +205,9 @@ extern bool llvm_x86_32_should_pass_aggregate_in_mixed_regs(
     tree_node *, Type *Ty, std::vector<Type *> &);
 
 #define LLVM_SHOULD_PASS_AGGREGATE_IN_MIXED_REGS(T, TY, CC, E)                 \
-  (TARGET_64BIT ?                                                              \
-       llvm_x86_64_should_pass_aggregate_in_mixed_regs((T), (TY), (E)) :       \
-       llvm_x86_32_should_pass_aggregate_in_mixed_regs((T), (TY), (E)))
+  (TARGET_64BIT                                                                \
+       ? llvm_x86_64_should_pass_aggregate_in_mixed_regs((T), (TY), (E))       \
+       : llvm_x86_32_should_pass_aggregate_in_mixed_regs((T), (TY), (E)))
 
 extern bool llvm_x86_64_aggregate_partially_passed_in_regs(
     std::vector<Type *> &, std::vector<Type *> &, bool);

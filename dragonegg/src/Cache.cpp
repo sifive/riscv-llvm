@@ -139,7 +139,7 @@ void setCachedInteger(tree t, int Val) {
     intCache = htab_create_ggc(1024, tree2int_hash, tree2int_eq, 0);
 
   tree_map_base in = { t };
-  tree2int **slot = (tree2int * *) htab_find_slot(intCache, &in, INSERT);
+  tree2int **slot = (tree2int **)htab_find_slot(intCache, &in, INSERT);
   assert(slot && "Failed to create hash table slot!");
 
   if (!*slot) {
@@ -176,7 +176,7 @@ void setCachedType(tree t, Type *Ty) {
   if (!TypeCache)
     TypeCache = htab_create_ggc(1024, tree2Type_hash, tree2Type_eq, 0);
 
-  tree2Type **slot = (tree2Type * *) htab_find_slot(TypeCache, &in, INSERT);
+  tree2Type **slot = (tree2Type **)htab_find_slot(TypeCache, &in, INSERT);
   assert(slot && "Failed to create hash table slot!");
 
   if (!*slot) {
@@ -220,11 +220,10 @@ void setCachedValue(tree t, Value *V) {
   }
 
   if (!WeakVHCache)
-    WeakVHCache = htab_create_ggc(1024, tree2WeakVH_hash, tree2WeakVH_eq,
-                                  DestructWeakVH);
+    WeakVHCache =
+        htab_create_ggc(1024, tree2WeakVH_hash, tree2WeakVH_eq, DestructWeakVH);
 
-  tree2WeakVH **slot = (tree2WeakVH * *)
-                       htab_find_slot(WeakVHCache, &in, INSERT);
+  tree2WeakVH **slot = (tree2WeakVH **)htab_find_slot(WeakVHCache, &in, INSERT);
   assert(slot && "Failed to create hash table slot!");
 
   if (*slot) {

@@ -78,8 +78,8 @@ enum arm_fdts {
 static bool vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
                                             int *fdt_counts) {
   bool result = false;
-  HOST_WIDE_INT bytes = (mode == BLKmode) ? int_size_in_bytes(type) :
-                        (int) GET_MODE_SIZE(mode);
+  HOST_WIDE_INT bytes =
+      (mode == BLKmode) ? int_size_in_bytes(type) : (int) GET_MODE_SIZE(mode);
 
   if (type && isa<AGGREGATE_TYPE>(type)) {
     int i;
@@ -114,9 +114,8 @@ static bool vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
           if (TREE_TYPE(field) == error_mark_node)
             continue;
 
-          result = vfp_arg_homogeneous_aggregate_p(TYPE_MODE(TREE_TYPE(field)),
-                                                   TREE_TYPE(field),
-                                                   fdt_counts);
+          result = vfp_arg_homogeneous_aggregate_p(
+              TYPE_MODE(TREE_TYPE(field)), TREE_TYPE(field), fdt_counts);
           if (!result)
             return false;
         }
@@ -128,9 +127,8 @@ static bool vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
         {
       int array_fdt_counts[ARM_FDT_MAX] = { 0 };
 
-      result = vfp_arg_homogeneous_aggregate_p(TYPE_MODE(TREE_TYPE(type)),
-                                               TREE_TYPE(type),
-                                               array_fdt_counts);
+      result = vfp_arg_homogeneous_aggregate_p(
+          TYPE_MODE(TREE_TYPE(type)), TREE_TYPE(type), array_fdt_counts);
 
       cnt = bytes / int_size_in_bytes(TREE_TYPE(type));
       for (i = 0; i < ARM_FDT_MAX; ++i)
@@ -165,8 +163,8 @@ static bool vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
             if (union_field_fdt_counts[i] > 4) // bail early if we can
               return false;
 
-            union_fdt_counts[i] = MAX(union_fdt_counts[i],
-                                      union_field_fdt_counts[i]);
+            union_fdt_counts[i] =
+                MAX(union_fdt_counts[i], union_field_fdt_counts[i]);
             union_field_fdt_counts[i] = 0; // clear it out for next iter
           }
         }
@@ -216,22 +214,24 @@ static bool vfp_arg_homogeneous_aggregate_p(enum machine_mode mode, tree type,
 
     switch (TREE_CODE(type)) {
     case REAL_TYPE:
-      idx = (TYPE_PRECISION(type) == 32) ? ARM_FDT_FLOAT :
-            ((TYPE_PRECISION(type) == 64) ? ARM_FDT_DOUBLE : ARM_FDT_INVALID);
+      idx = (TYPE_PRECISION(type) == 32)
+            ? ARM_FDT_FLOAT
+            : ((TYPE_PRECISION(type) == 64) ? ARM_FDT_DOUBLE : ARM_FDT_INVALID);
       cnt = 1;
       break;
 
     case COMPLEX_TYPE: {
       tree subtype = TREE_TYPE(type);
-      idx = (TYPE_PRECISION(subtype) == 32) ? ARM_FDT_FLOAT :
-            ((TYPE_PRECISION(subtype) == 64) ? ARM_FDT_DOUBLE :
-                 ARM_FDT_INVALID);
+      idx = (TYPE_PRECISION(subtype) == 32)
+            ? ARM_FDT_FLOAT
+            : ((TYPE_PRECISION(subtype) == 64) ? ARM_FDT_DOUBLE
+                                               : ARM_FDT_INVALID);
       cnt = 2;
     } break;
 
     case VECTOR_TYPE:
-      idx = (bytes == 8) ? ARM_FDT_VECTOR_64 : (bytes == 16) ?
-            ARM_FDT_VECTOR_128 : ARM_FDT_INVALID;
+      idx = (bytes == 8) ? ARM_FDT_VECTOR_64
+                         : (bytes == 16) ? ARM_FDT_VECTOR_128 : ARM_FDT_INVALID;
       cnt = 1;
       break;
 
@@ -558,8 +558,8 @@ void llvm_arm_extract_multiple_return_value(
       unsigned i = 0;
       unsigned Size = 1;
 
-      if (const VectorType *SElemTy = dyn_cast<VectorType>(
-                                          STy->getElementType(SNO))) {
+      if (const VectorType *SElemTy =
+              dyn_cast<VectorType>(STy->getElementType(SNO))) {
         Size = SElemTy->getNumElements();
       }
       while (i < Size) {

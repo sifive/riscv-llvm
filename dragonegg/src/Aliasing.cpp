@@ -120,7 +120,7 @@ MDNode *describeAliasSet(tree t) {
 
   // If there is a path from this node to any leaf node then it is not a leaf
   // node and can be discarded.
-  for (unsigned i = 0, e = (unsigned)LeafNodes.size(); i != e; ++i)
+  for (unsigned i = 0, e = (unsigned) LeafNodes.size(); i != e; ++i)
     if (alias_set_subset_of(LeafNodes[i], alias_set)) {
       NodeTags[alias_set] = 0;
       return 0;
@@ -129,7 +129,7 @@ MDNode *describeAliasSet(tree t) {
 
   // If there is a path from any leaf node to this one then no longer consider
   // that node to be a leaf.
-  for (unsigned i = (unsigned)LeafNodes.size(); i;) {
+  for (unsigned i = (unsigned) LeafNodes.size(); i;) {
     alias_set_type leaf_set = LeafNodes[--i];
     if (alias_set_subset_of(alias_set, leaf_set)) {
       LeafNodes.erase(LeafNodes.begin() + i);
@@ -143,8 +143,8 @@ MDNode *describeAliasSet(tree t) {
 
   // Create metadata describing the new node hanging off root.  The name doesn't
   // matter much but needs to be unique for the compilation unit.
-  tree type = TYPE_CANONICAL(
-                  TYPE_MAIN_VARIANT(isa<TYPE>(t) ? t : TREE_TYPE(t)));
+  tree type =
+      TYPE_CANONICAL(TYPE_MAIN_VARIANT(isa<TYPE>(t) ? t : TREE_TYPE(t)));
   std::string TreeName =
       ("alias set " + Twine(alias_set) + ": " + getDescriptiveName(type)).str();
   MDBuilder MDHelper(Context);

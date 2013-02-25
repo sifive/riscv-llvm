@@ -85,8 +85,8 @@ class ContainedTypeIterator {
 public:
   /// Dereference operator.
   tree operator*() {
-    return isa<TREE_LIST>(type_ref) ? TREE_VALUE(type_ref) :
-           TREE_TYPE(type_ref);
+    return isa<TREE_LIST>(type_ref) ? TREE_VALUE(type_ref)
+                                    : TREE_TYPE(type_ref);
   }
   ;
 
@@ -465,8 +465,9 @@ Type *getRegType(tree type) {
   case REFERENCE_TYPE: {
     // void* -> byte*
     unsigned AS = TYPE_ADDR_SPACE(type);
-    return isa<VOID_TYPE>(TREE_TYPE(type)) ? GetUnitPointerType(Context, AS) :
-           ConvertType(TREE_TYPE(type))->getPointerTo(AS);
+    return isa<VOID_TYPE>(TREE_TYPE(type))
+           ? GetUnitPointerType(Context, AS)
+           : ConvertType(TREE_TYPE(type))->getPointerTo(AS);
   }
 
   case REAL_TYPE:
@@ -680,8 +681,8 @@ FunctionType *ConvertArgListToFnType(
 #endif
 
   if (RAttrBuilder.hasAttributes())
-    Attrs.push_back(AttributeSet::get(Context, AttributeSet::ReturnIndex,
-                                      RAttrBuilder));
+    Attrs.push_back(
+        AttributeSet::get(Context, AttributeSet::ReturnIndex, RAttrBuilder));
 
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
@@ -715,17 +716,16 @@ FunctionType *ConvertArgListToFnType(
       PAttrBuilder.addAttribute(Attribute::NoAlias);
 
     if (PAttrBuilder.hasAttributes())
-      Attrs.push_back(AttributeSet::get(Context, ArgTys.size(),
-                                        PAttrBuilder));
+      Attrs.push_back(AttributeSet::get(Context, ArgTys.size(), PAttrBuilder));
   }
 
   PAL = AttributeSet::get(Context, Attrs);
   return FunctionType::get(RetTy, ArgTys, false);
 }
 
-FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
-                                  CallingConv::ID &CallingConv,
-                                  AttributeSet &PAL) {
+FunctionType *
+ConvertFunctionType(tree type, tree decl, tree static_chain,
+                    CallingConv::ID &CallingConv, AttributeSet &PAL) {
   Type *RetTy = Type::getVoidTy(Context);
   SmallVector<Type *, 8> ArgTypes;
   FunctionTypeConversion Client(RetTy, ArgTypes, CallingConv,
@@ -795,8 +795,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     RAttrBuilder.addAttribute(Attribute::NoAlias);
 
   if (RAttrBuilder.hasAttributes())
-    Attrs.push_back(AttributeSet::get(Context, AttributeSet::ReturnIndex,
-                                      RAttrBuilder));
+    Attrs.push_back(
+        AttributeSet::get(Context, AttributeSet::ReturnIndex, RAttrBuilder));
 
   // If this function returns via a shadow argument, the dest loc is passed
   // in as a pointer.  Mark that pointer as struct-ret and noalias.
@@ -811,8 +811,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
     // Pass the static chain as the first parameter.
     ABIConverter.HandleArgument(TREE_TYPE(static_chain), ScalarArgs);
     // Mark it as the chain argument.
-    Attrs.push_back(AttributeSet::get(Context, ArgTypes.size(),
-                                      Attribute::Nest));
+    Attrs.push_back(
+        AttributeSet::get(Context, ArgTypes.size(), Attribute::Nest));
   }
 
 #ifdef LLVM_TARGET_ENABLE_REGPARM
@@ -898,8 +898,8 @@ FunctionType *ConvertFunctionType(tree type, tree decl, tree static_chain,
   assert(RetTy && "Return type not specified!");
 
   if (FnAttrBuilder.hasAttributes())
-    Attrs.push_back(AttributeSet::get(Context, AttributeSet::FunctionIndex,
-                                      FnAttrBuilder));
+    Attrs.push_back(
+        AttributeSet::get(Context, AttributeSet::FunctionIndex, FnAttrBuilder));
 
   // Finally, make the function type and result attributes.
   PAL = AttributeSet::get(Context, Attrs);
@@ -1044,8 +1044,8 @@ public:
     // If the type is something like i17 then round it up to a multiple of a
     // byte.  This is not needed for correctness, but helps the optimizers.
     if ((Ty->getPrimitiveSizeInBits() % BITS_PER_UNIT) != 0) {
-      unsigned BitWidth = RoundUpToAlignment(Ty->getPrimitiveSizeInBits(),
-                                             BITS_PER_UNIT);
+      unsigned BitWidth =
+          RoundUpToAlignment(Ty->getPrimitiveSizeInBits(), BITS_PER_UNIT);
       Ty = IntegerType::get(Context, BitWidth);
       if (isSafeToReturnContentsDirectly(DL))
         return Ty;
@@ -1093,8 +1093,8 @@ static Type *ConvertRecordTypeRecursive(tree type) {
 
   // Get the size of the type in bits.  If the type has variable or ginormous
   // size then it is convenient to pretend it is "infinitely" big.
-  uint64_t TypeSize = isInt64(TYPE_SIZE(type), true) ?
-                      getInt64(TYPE_SIZE(type), true) : ~0UL;
+  uint64_t TypeSize =
+      isInt64(TYPE_SIZE(type), true) ? getInt64(TYPE_SIZE(type), true) : ~0UL;
 
   // Record all interesting fields so they can easily be visited backwards.
   SmallVector<tree, 16> Fields;
@@ -1353,8 +1353,8 @@ static Type *ConvertTypeRecursive(tree type) {
     CallingConv::ID CallingConv;
     AttributeSet PAL;
     // No declaration to pass through, passing NULL.
-    return RememberTypeConversion(type, ConvertFunctionType(type, NULL, NULL,
-                                                            CallingConv, PAL));
+    return RememberTypeConversion(
+        type, ConvertFunctionType(type, NULL, NULL, CallingConv, PAL));
   }
 
   case POINTER_TYPE:

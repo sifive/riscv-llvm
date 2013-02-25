@@ -146,8 +146,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     Handler = UnsupportedBuiltin;
     const char *Identifier = IDENTIFIER_POINTER(DECL_NAME(fndecl));
     HandlerEntry ToFind = { Identifier, SearchForHandler };
-    const HandlerEntry *E = std::lower_bound(Handlers, Handlers + N, ToFind,
-                                             HandlerLT);
+    const HandlerEntry *E =
+        std::lower_bound(Handlers, Handlers + N, ToFind, HandlerLT);
     if ((E < Handlers + N) && !strcmp(E->Name, ToFind.Name))
       Handler = E->Handler;
   }
@@ -290,9 +290,9 @@ bool TreeToLLVM::TargetIntrinsicLower(
   case shufps:
     if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[2])) {
       int EV = Elt->getZExtValue();
-      Result = BuildVectorShuffle(Ops[0], Ops[1], ((EV & 0x03) >> 0),
-                                  ((EV & 0x0c) >> 2), ((EV & 0x30) >> 4) +
-                                  4, ((EV & 0xc0) >> 6) + 4);
+      Result = BuildVectorShuffle(
+          Ops[0], Ops[1], ((EV & 0x03) >> 0), ((EV & 0x0c) >> 2),
+          ((EV & 0x30) >> 4) + 4, ((EV & 0xc0) >> 6) + 4);
     } else {
       error_at(gimple_location(stmt), "mask must be an immediate");
       Result = Ops[0];
@@ -324,9 +324,9 @@ bool TreeToLLVM::TargetIntrinsicLower(
     if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[1])) {
       int EV = Elt->getZExtValue();
       Result = BuildVectorShuffle(
-                   Ops[0], Ops[0], 0, 1, 2, 3, ((EV & 0x03) >> 0) + 4,
-                   ((EV & 0x0c) >> 2) + 4, ((EV & 0x30) >> 4) + 4,
-                   ((EV & 0xc0) >> 6) + 4);
+          Ops[0], Ops[0], 0, 1, 2, 3, ((EV & 0x03) >> 0) + 4,
+          ((EV & 0x0c) >> 2) + 4, ((EV & 0x30) >> 4) + 4,
+          ((EV & 0xc0) >> 6) + 4);
       return true;
     }
     return false;
@@ -472,8 +472,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     PointerType *f64Ptr = Type::getDoublePtrTy(Context);
     Ops[1] = Builder.CreateBitCast(Ops[1], f64Ptr);
     Value *Load = Builder.CreateLoad(Ops[1]);
-    Ops[1] = BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)),
-                         NULL);
+    Ops[1] =
+        BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)), NULL);
     Ops[1] = Builder.CreateBitCast(Ops[1], ResultType);
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0, 1, 4, 5);
     Result = Builder.CreateBitCast(Result, ResultType);
@@ -483,8 +483,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     PointerType *f64Ptr = Type::getDoublePtrTy(Context);
     Ops[1] = Builder.CreateBitCast(Ops[1], f64Ptr);
     Value *Load = Builder.CreateLoad(Ops[1]);
-    Ops[1] = BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)),
-                         NULL);
+    Ops[1] =
+        BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)), NULL);
     Ops[1] = Builder.CreateBitCast(Ops[1], ResultType);
     Result = BuildVectorShuffle(Ops[0], Ops[1], 4, 5, 2, 3);
     Result = Builder.CreateBitCast(Result, ResultType);
@@ -494,8 +494,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     PointerType *f64Ptr = Type::getDoublePtrTy(Context);
     Ops[1] = Builder.CreateBitCast(Ops[1], f64Ptr);
     Value *Load = Builder.CreateLoad(Ops[1]);
-    Ops[1] = BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)),
-                         NULL);
+    Ops[1] =
+        BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)), NULL);
     Ops[1] = Builder.CreateBitCast(Ops[1], ResultType);
     Result = BuildVectorShuffle(Ops[0], Ops[1], 0, 2);
     Result = Builder.CreateBitCast(Result, ResultType);
@@ -505,8 +505,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     PointerType *f64Ptr = Type::getDoublePtrTy(Context);
     Ops[1] = Builder.CreateBitCast(Ops[1], f64Ptr);
     Value *Load = Builder.CreateLoad(Ops[1]);
-    Ops[1] = BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)),
-                         NULL);
+    Ops[1] =
+        BuildVector(Load, UndefValue::get(Type::getDoubleTy(Context)), NULL);
     Ops[1] = Builder.CreateBitCast(Ops[1], ResultType);
     Result = BuildVectorShuffle(Ops[0], Ops[1], 2, 1);
     Result = Builder.CreateBitCast(Result, ResultType);
@@ -627,8 +627,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     PredCode = 7;
     goto CMPXXPS;
   CMPXXPS : {
-    Function *cmpps = Intrinsic::getDeclaration(TheModule,
-                                                Intrinsic::x86_sse_cmp_ps);
+    Function *cmpps =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_cmp_ps);
     Value *Pred = ConstantInt::get(Type::getInt8Ty(Context), PredCode);
     Value *Arg0 = Ops[0];
     Value *Arg1 = Ops[1];
@@ -664,8 +664,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     PredCode = 7;
     goto CMPXXSS;
   CMPXXSS : {
-    Function *cmpss = Intrinsic::getDeclaration(TheModule,
-                                                Intrinsic::x86_sse_cmp_ss);
+    Function *cmpss =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_cmp_ss);
     Value *Pred = ConstantInt::get(Type::getInt8Ty(Context), PredCode);
     Value *CallOps[3] = { Ops[0], Ops[1], Pred };
     Result = Builder.CreateCall(cmpss, CallOps);
@@ -713,8 +713,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     PredCode = 7;
     goto CMPXXPD;
   CMPXXPD : {
-    Function *cmppd = Intrinsic::getDeclaration(TheModule,
-                                                Intrinsic::x86_sse2_cmp_pd);
+    Function *cmppd =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse2_cmp_pd);
     Value *Pred = ConstantInt::get(Type::getInt8Ty(Context), PredCode);
     Value *Arg0 = Ops[0];
     Value *Arg1 = Ops[1];
@@ -751,8 +751,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     PredCode = 7;
     goto CMPXXSD;
   CMPXXSD : {
-    Function *cmpsd = Intrinsic::getDeclaration(TheModule,
-                                                Intrinsic::x86_sse2_cmp_sd);
+    Function *cmpsd =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse2_cmp_sd);
     Value *Pred = ConstantInt::get(Type::getInt8Ty(Context), PredCode);
     Value *CallOps[3] = { Ops[0], Ops[1], Pred };
     Result = Builder.CreateCall(cmpsd, CallOps);
@@ -760,8 +760,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     return true;
   }
   case ldmxcsr: {
-    Function *ldmxcsr = Intrinsic::getDeclaration(TheModule,
-                                                  Intrinsic::x86_sse_ldmxcsr);
+    Function *ldmxcsr =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_ldmxcsr);
     Value *Ptr = CreateTemporary(Type::getInt32Ty(Context));
     Builder.CreateStore(Ops[0], Ptr);
     Ptr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
@@ -769,8 +769,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     return true;
   }
   case stmxcsr: {
-    Function *stmxcsr = Intrinsic::getDeclaration(TheModule,
-                                                  Intrinsic::x86_sse_stmxcsr);
+    Function *stmxcsr =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_stmxcsr);
     Value *Ptr = CreateTemporary(Type::getInt32Ty(Context));
     Value *BPtr = Builder.CreateBitCast(Ptr, Type::getInt8PtrTy(Context));
     Builder.CreateCall(stmxcsr, BPtr);
@@ -817,10 +817,10 @@ bool TreeToLLVM::TargetIntrinsicLower(
         Ops[1] = Builder.CreateBitCast(Ops[1], MMXTy);
 
         // create i32 constant
-        Function *F = Intrinsic::getDeclaration(TheModule,
-                                                Intrinsic::x86_mmx_psrl_q);
-        Result = Builder.CreateCall(F, ArrayRef<Value *>(&Ops[0], 2),
-                                    "palignr");
+        Function *F =
+            Intrinsic::getDeclaration(TheModule, Intrinsic::x86_mmx_psrl_q);
+        Result =
+            Builder.CreateCall(F, ArrayRef<Value *>(&Ops[0], 2), "palignr");
         Result = Builder.CreateBitCast(Result, ResultType);
         return true;
       }
@@ -872,10 +872,10 @@ bool TreeToLLVM::TargetIntrinsicLower(
         Ops[1] = ConstantInt::get(IntTy, (shiftVal - 16) * 8);
 
         // create i32 constant
-        Function *F = Intrinsic::getDeclaration(TheModule,
-                                                Intrinsic::x86_sse2_psrl_dq);
-        Result = Builder.CreateCall(F, ArrayRef<Value *>(&Ops[0], 2),
-                                    "palignr");
+        Function *F =
+            Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse2_psrl_dq);
+        Result =
+            Builder.CreateCall(F, ArrayRef<Value *>(&Ops[0], 2), "palignr");
         Result = Builder.CreateBitCast(Result, ResultType);
         return true;
       }
@@ -904,7 +904,7 @@ bool TreeToLLVM::TargetIntrinsicLower(
     // Convert the type of the pointer to a pointer to the stored type.
     unsigned AS = Ops[0]->getType()->getPointerAddressSpace();
     Value *Ptr = Builder.CreateBitCast(
-                     Ops[0], PointerType::get(Ops[1]->getType(), AS), "cast");
+        Ops[0], PointerType::get(Ops[1]->getType(), AS), "cast");
 
     StoreInst *SI = Builder.CreateAlignedStore(Ops[1], Ptr, 16);
     SI->setMetadata(TheModule->getMDKindID("nontemporal"), Node);
@@ -913,8 +913,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
   case rsqrtf: {
     // rsqrtss with a Newton-Raphson step to improve accuracy:
     //   rsqrtf(x) = rsqrtss(x) * -0.5 * (rsqrtss(x) * x * rsqrtss(x) - 3.0)
-    Function *rsqrtss = Intrinsic::getDeclaration(TheModule,
-                                                  Intrinsic::x86_sse_rsqrt_ss);
+    Function *rsqrtss =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_rsqrt_ss);
     // As rsqrtss is declared as taking a <4 x float> operand, mulch the operand
     // into a vector.
     Value *X = Ops[0];
@@ -930,9 +930,9 @@ bool TreeToLLVM::TargetIntrinsicLower(
     R = Builder.CreateFPExt(R, X->getType()); // rsqrtss(x)
 
     // Perform the Newton-Raphson step.
-    Value *RHS = Builder.CreateFAdd(Builder.CreateFMul(Builder.CreateFMul(R, X),
-                                                       R),
-                                    ConstantFP::get(X->getType(), -3.0));
+    Value *RHS =
+        Builder.CreateFAdd(Builder.CreateFMul(Builder.CreateFMul(R, X), R),
+                           ConstantFP::get(X->getType(), -3.0));
     Value *LHS = Builder.CreateFMul(R, ConstantFP::get(X->getType(), -0.5));
     Result = Builder.CreateFMul(LHS, RHS);
     return true;
@@ -940,13 +940,13 @@ bool TreeToLLVM::TargetIntrinsicLower(
   case rsqrtps_nr: {
     // rsqrtps with a Newton-Raphson step to improve accuracy:
     //   rsqrtps_nr(x) = rsqrtps(x) * -0.5 * (rsqrtps(x) * x * rsqrtps(x) - 3.0)
-    Function *rsqrtps = Intrinsic::getDeclaration(TheModule,
-                                                  Intrinsic::x86_sse_rsqrt_ps);
+    Function *rsqrtps =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_rsqrt_ps);
     Value *X = Ops[0];                         // x
     Value *R = Builder.CreateCall(rsqrtps, X); // rsqrtps(x)
-    Value *RHS = Builder.CreateFAdd(Builder.CreateFMul(Builder.CreateFMul(R, X),
-                                                       R),
-                                    ConstantFP::get(X->getType(), -3.0));
+    Value *RHS =
+        Builder.CreateFAdd(Builder.CreateFMul(Builder.CreateFMul(R, X), R),
+                           ConstantFP::get(X->getType(), -3.0));
     Value *LHS = Builder.CreateFMul(R, ConstantFP::get(X->getType(), -0.5));
     Result = Builder.CreateFMul(LHS, RHS);
     return true;
@@ -954,8 +954,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
   case sqrtps_nr: {
     // Turn this into sqrtps without a Newton-Raphson step - sqrtps is already
     // accurate enough.
-    Function *sqrtps = Intrinsic::getDeclaration(TheModule,
-                                                 Intrinsic::x86_sse_sqrt_ps);
+    Function *sqrtps =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::x86_sse_sqrt_ps);
     Result = Builder.CreateCall(sqrtps, Ops[0]);
     return true;
   }
@@ -984,7 +984,7 @@ bool TreeToLLVM::TargetIntrinsicLower(
       return false;
     if (!MaskTy->getElementType()->isIntegerTy(32))
       Mask = ConstantExpr::getIntegerCast(
-                 Mask, VectorType::get(Builder.getInt32Ty(), NElts), false);
+          Mask, VectorType::get(Builder.getInt32Ty(), NElts), false);
     Result = Builder.CreateShuffleVector(Ops[0], Ops[1], Mask);
     return true;
   }
@@ -1016,8 +1016,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
   case pswapdsi: {
     Type *MMXTy = Type::getX86_MMXTy(Context);
     Ops[0] = Builder.CreateBitCast(Ops[0], MMXTy);
-    Function *pswapd = Intrinsic::getDeclaration(TheModule,
-                                                 Intrinsic::x86_3dnowa_pswapd);
+    Function *pswapd =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::x86_3dnowa_pswapd);
     Result = Builder.CreateCall(pswapd, Ops[0]);
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
@@ -1026,8 +1026,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     // The value is usually passed in as an int rather than as a short.
     Type *Int16Ty = Builder.getInt16Ty();
     Result = Builder.CreateTruncOrBitCast(Ops[0], Int16Ty);
-    Function *ctlz = Intrinsic::getDeclaration(TheModule, Intrinsic::ctlz,
-                                               Int16Ty);
+    Function *ctlz =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::ctlz, Int16Ty);
     Result = Builder.CreateCall2(ctlz, Result, Builder.getTrue());
     return true;
   }
@@ -1035,8 +1035,8 @@ bool TreeToLLVM::TargetIntrinsicLower(
     // The value is usually passed in as an int rather than as a short.
     Type *Int16Ty = Builder.getInt16Ty();
     Result = Builder.CreateTruncOrBitCast(Ops[0], Int16Ty);
-    Function *cttz = Intrinsic::getDeclaration(TheModule, Intrinsic::cttz,
-                                               Int16Ty);
+    Function *cttz =
+        Intrinsic::getDeclaration(TheModule, Intrinsic::cttz, Int16Ty);
     Result = Builder.CreateCall2(cttz, Result, Builder.getTrue());
     return true;
   }
@@ -1119,8 +1119,9 @@ bool llvm_x86_32_should_pass_aggregate_in_mixed_regs(
     // 32 and 64-bit integers are fine, as are float and double.  Long double
     // (which can be picked as the type for a union of 16 bytes) is not fine,
     // as loads and stores of it get only 10 bytes.
-    if (EltTy == Type::getInt32Ty(Context) || EltTy ==
-        Type::getInt64Ty(Context) || EltTy == Type::getFloatTy(Context) ||
+    if (EltTy == Type::getInt32Ty(Context) ||
+        EltTy == Type::getInt64Ty(Context) ||
+        EltTy == Type::getFloatTy(Context) ||
         EltTy == Type::getDoubleTy(Context) || EltTy->isPointerTy()) {
       Elts.push_back(EltTy);
       continue;
@@ -1151,8 +1152,8 @@ bool llvm_x86_should_pass_aggregate_as_fca(tree type, Type *Ty) {
   Type *EltTy = STy->getElementType(0);
   return !((TARGET_64BIT &&
             (EltTy->isIntegerTy() || EltTy == Type::getFloatTy(Context) ||
-             EltTy == Type::getDoubleTy(Context))) ||
-           EltTy->isIntegerTy(16) || EltTy->isIntegerTy(8));
+             EltTy == Type::getDoubleTy(Context))) || EltTy->isIntegerTy(16) ||
+           EltTy->isIntegerTy(8));
 }
 
 /* Target hook for llvm-abi.h. It returns true if an aggregate of the
@@ -1162,8 +1163,8 @@ bool llvm_x86_should_pass_aggregate_in_memory(tree TreeType, Type *Ty) {
     return false;
 
   enum machine_mode Mode = type_natural_mode(TreeType, NULL);
-  HOST_WIDE_INT Bytes = (Mode == BLKmode) ? int_size_in_bytes(TreeType) :
-                        (int) GET_MODE_SIZE(Mode);
+  HOST_WIDE_INT Bytes = (Mode == BLKmode) ? int_size_in_bytes(TreeType) : (int)
+                        GET_MODE_SIZE(Mode);
 
   // Zero sized array, struct, or class, not passed in memory.
   if (Bytes == 0)
@@ -1265,8 +1266,8 @@ bool llvm_x86_64_should_pass_aggregate_in_mixed_regs(
   enum x86_64_reg_class Class[MAX_CLASSES];
   enum machine_mode Mode = type_natural_mode(TreeType, NULL);
   bool totallyEmpty = true;
-  HOST_WIDE_INT Bytes = (Mode == BLKmode) ? int_size_in_bytes(TreeType) :
-                        (int) GET_MODE_SIZE(Mode);
+  HOST_WIDE_INT Bytes = (Mode == BLKmode) ? int_size_in_bytes(TreeType) : (int)
+                        GET_MODE_SIZE(Mode);
   int NumClasses = classify_argument(Mode, TreeType, Class, 0);
   if (!NumClasses)
     return false;
@@ -1549,8 +1550,8 @@ Type *llvm_x86_scalar_type_for_struct_return(tree type, unsigned *Offset) {
       if (Class[0] == X86_64_INTEGERSI_CLASS ||
           Class[0] == X86_64_INTEGER_CLASS) {
         // one int register
-        HOST_WIDE_INT Bytes = (Mode == BLKmode) ? int_size_in_bytes(type) :
-                              (int) GET_MODE_SIZE(Mode);
+        HOST_WIDE_INT Bytes = (Mode == BLKmode) ? int_size_in_bytes(type)
+                                                : (int) GET_MODE_SIZE(Mode);
         if (Bytes > 4)
           return Type::getInt64Ty(Context);
         else if (Bytes > 2)
@@ -1607,8 +1608,8 @@ static void llvm_x86_64_get_multiple_return_reg_classes(
     tree TreeType, Type */*Ty*/, std::vector<Type *> &Elts) {
   enum x86_64_reg_class Class[MAX_CLASSES];
   enum machine_mode Mode = type_natural_mode(TreeType, NULL);
-  HOST_WIDE_INT Bytes = (Mode == BLKmode) ? int_size_in_bytes(TreeType) :
-                        (int) GET_MODE_SIZE(Mode);
+  HOST_WIDE_INT Bytes = (Mode == BLKmode) ? int_size_in_bytes(TreeType) : (int)
+                        GET_MODE_SIZE(Mode);
   int NumClasses = classify_argument(Mode, TreeType, Class, 0);
   assert(NumClasses && "This type does not need multiple return registers!");
 
@@ -1859,8 +1860,8 @@ void llvm_x86_extract_multiple_return_value(
       unsigned i = 0;
       unsigned Size = 1;
 
-      if (VectorType *SElemTy = dyn_cast<
-                                    VectorType>(STy->getElementType(SNO))) {
+      if (VectorType *SElemTy =
+              dyn_cast<VectorType>(STy->getElementType(SNO))) {
         Size = SElemTy->getNumElements();
         if (SElemTy->getElementType()->getTypeID() == Type::FloatTyID &&
             Size == 4)
@@ -1896,8 +1897,8 @@ bool llvm_x86_should_pass_aggregate_in_integer_regs(tree type, unsigned *size,
     if (NumClasses == 1 && (Class[0] == X86_64_INTEGER_CLASS ||
                             Class[0] == X86_64_INTEGERSI_CLASS)) {
       // one int register
-      HOST_WIDE_INT Bytes = (Mode == BLKmode) ? int_size_in_bytes(type) :
-                            (int) GET_MODE_SIZE(Mode);
+      HOST_WIDE_INT Bytes = (Mode == BLKmode) ? int_size_in_bytes(type) : (int)
+                            GET_MODE_SIZE(Mode);
       if (Bytes > 4)
         *size = 8;
       else if (Bytes > 2)

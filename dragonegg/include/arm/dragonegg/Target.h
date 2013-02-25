@@ -70,8 +70,8 @@ extern bool llvm_arm_aggregate_partially_passed_in_regs(
 #define LLVM_AGGREGATE_PARTIALLY_PASSED_IN_REGS(E, SE, ISR, CC)                \
   llvm_arm_aggregate_partially_passed_in_regs((E), (SE), (CC))
 
-extern Type *llvm_arm_aggr_type_for_struct_return(tree_node *type,
-                                                  CallingConv::ID CC);
+extern Type *
+llvm_arm_aggr_type_for_struct_return(tree_node *type, CallingConv::ID CC);
 
 /* LLVM_AGGR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be
   returned as an aggregate, otherwise return NULL. */
@@ -263,21 +263,35 @@ extern bool llvm_arm_should_pass_or_return_aggregate_in_regs(
  * with function notes.
  */
 #define LLVM_OVERRIDE_TARGET_ARCH()                                            \
-  (TARGET_THUMB ?                                                              \
-       (arm_arch7 ? "thumbv7" :                                                \
-            (arm_arch_thumb2 ? "thumbv6t2" :                                   \
-                 (arm_tune == cortexm0 ? "thumbv6m" :                          \
-                      (arm_arch6 ? "thumbv6" :                                 \
-                           (arm_arch5e ? "thumbv5e" :                          \
-                                (arm_arch5 ? "thumbv5" :                       \
-                                     (arm_arch4t ? "thumbv4t" : ""))))))) :    \
-       (arm_arch7 ? "armv7" :                                                  \
-            (arm_arch_thumb2 ? "armv6t2" :                                     \
-                 (arm_arch6 ? "armv6" :                                        \
-                      (arm_arch5e ? "armv5e" :                                 \
-                           (arm_arch5 ? "armv5" :                              \
-                                (arm_arch4t ? "armv4t" :                       \
-                                     (arm_arch4 ? "armv4" : ""))))))))
+  (TARGET_THUMB                                                                \
+       ? (arm_arch7                                                            \
+              ? "thumbv7"                                                      \
+              : (arm_arch_thumb2                                               \
+                     ? "thumbv6t2"                                             \
+                     : (arm_tune == cortexm0                                   \
+                            ? "thumbv6m"                                       \
+                            : (arm_arch6                                       \
+                                   ? "thumbv6"                                 \
+                                   : (arm_arch5e                               \
+                                          ? "thumbv5e"                         \
+                                          : (arm_arch5                         \
+                                                 ? "thumbv5"                   \
+                                                 : (arm_arch4t ? "thumbv4t"    \
+                                                               : "")))))))     \
+       : (arm_arch7                                                            \
+              ? "armv7"                                                        \
+              : (arm_arch_thumb2                                               \
+                     ? "armv6t2"                                               \
+                     : (arm_arch6                                              \
+                            ? "armv6"                                          \
+                            : (arm_arch5e                                      \
+                                   ? "armv5e"                                  \
+                                   : (arm_arch5                                \
+                                          ? "armv5"                            \
+                                          : (arm_arch4t                        \
+                                                 ? "armv4t"                    \
+                                                 : (arm_arch4 ? "armv4"        \
+                                                              : ""))))))))
 
 #if 0
 // Dragonegg should make flag_mkernel and flag_apple_kext option later on.
@@ -322,9 +336,10 @@ extern bool llvm_arm_should_pass_or_return_aggregate_in_regs(
    so use the incoming register name if it exists.  Otherwise, use the default
    register names to match the backend.  */
 #define LLVM_GET_REG_NAME(REG_NAME, REG_NUM)                                   \
-  ((REG_NUM) == 10 ? "r10" : (REG_NUM) == 11 ? "r11" : (REG_NUM) == 12 ?       \
-       "r12" : (REG_NUM) >= FIRST_VFP_REGNUM && REG_NAME != 0 ? REG_NAME :     \
-       reg_names[REG_NUM])
+  ((REG_NUM) == 10 ? "r10" : (REG_NUM) ==                                      \
+                     11 ? "r11" : (REG_NUM) ==                                 \
+                          12 ? "r12" : (REG_NUM) >= FIRST_VFP_REGNUM &&        \
+                               REG_NAME != 0 ? REG_NAME : reg_names[REG_NUM])
 
 /* Define a static enumeration of the NEON builtins to be used when
    converting to LLVM intrinsics.  These names are derived from the

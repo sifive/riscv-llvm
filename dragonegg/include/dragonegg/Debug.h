@@ -80,10 +80,10 @@ public:
 
   /// CreateCompileUnit - Create a new descriptor for the specified compile
   /// unit.
-  void CreateCompileUnit(
-      unsigned LangID, StringRef Filename, StringRef Directory,
-      StringRef Producer, bool isMain = false, bool isOptimized = false,
-      StringRef Flags = "", unsigned RunTimeVer = 0);
+  void CreateCompileUnit(unsigned LangID, StringRef Filename,
+                         StringRef Directory, StringRef Producer,
+                         bool isMain = false, bool isOptimized = false,
+                         StringRef Flags = "", unsigned RunTimeVer = 0);
 
   /// CreateFile -  Create a new descriptor for the specified file.
   DIFile CreateFile(StringRef Filename, StringRef Directory);
@@ -115,7 +115,7 @@ public:
       unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
       unsigned LineNumber, uint64_t SizeInBits, uint64_t AlignInBits,
       uint64_t OffsetInBits, unsigned Flags, DIType DerivedFrom,
-      DIArray Elements, unsigned RunTimeLang = 0, MDNode * ContainingType = 0);
+      DIArray Elements, unsigned RunTimeLang = 0, MDNode *ContainingType = 0);
 
   /// CreateTemporaryType - Create a temporary forward-declared type.
   DIType CreateTemporaryType();
@@ -131,12 +131,12 @@ public:
       StringRef LinkageName, DIFile F, unsigned LineNo, DIType Ty,
       bool isLocalToUnit, bool isDefinition, unsigned VK = 0,
       unsigned VIndex = 0, DIType ContainingType = DIType(), unsigned Flags = 0,
-      bool isOptimized = false, Function * Fn = 0);
+      bool isOptimized = false, Function *Fn = 0);
 
   /// CreateSubprogramDefinition - Create new subprogram descriptor for the
   /// given declaration.
-  DISubprogram CreateSubprogramDefinition(DISubprogram& SPDeclaration,
-                                          unsigned LineNo, Function* Fn);
+  DISubprogram CreateSubprogramDefinition(DISubprogram &SPDeclaration,
+                                          unsigned LineNo, Function *Fn);
 
   /// CreateGlobalVariable - Create a new descriptor for the specified global.
   DIGlobalVariable CreateGlobalVariable(
@@ -180,12 +180,12 @@ public:
                             MDNode *OrigLoc = 0);
 
   /// InsertDeclare - Insert a new llvm.dbg.declare intrinsic call.
-  Instruction *InsertDeclare(llvm::Value *Storage, DIVariable D,
-                             BasicBlock *InsertAtEnd);
+  Instruction *
+  InsertDeclare(llvm::Value *Storage, DIVariable D, BasicBlock *InsertAtEnd);
 
   /// InsertDeclare - Insert a new llvm.dbg.declare intrinsic call.
-  Instruction *InsertDeclare(llvm::Value *Storage, DIVariable D,
-                             Instruction *InsertBefore);
+  Instruction *
+  InsertDeclare(llvm::Value *Storage, DIVariable D, Instruction *InsertBefore);
 
   /// InsertDbgValueIntrinsic - Insert a new llvm.dbg.value intrinsic call.
   Instruction *InsertDbgValueIntrinsic(llvm::Value *V, uint64_t Offset,

@@ -146,8 +146,8 @@ bool isPaddingElement(tree_node *, unsigned N);
 /// that has no value specified.  For example in C like languages such variables
 /// are initialized to zero, while in Ada they hold an undefined value.
 inline Constant *getDefaultValue(Type *Ty) {
-  return flag_default_initialize_globals ? Constant::getNullValue(Ty) :
-         UndefValue::get(Ty);
+  return flag_default_initialize_globals ? Constant::getNullValue(Ty)
+                                         : UndefValue::get(Ty);
 }
 
 /// isPassedByInvisibleReference - Return true if the specified type should be
@@ -323,10 +323,10 @@ public:
 
   /// CastToAnyType - Cast the specified value to the specified type regardless
   /// of the types involved. This is an inferred cast.
-  Value *CastToAnyType(Value *Src, bool SrcIsSigned, Type *DstTy,
-                       bool DstIsSigned);
-  Constant *CastToAnyType(Constant *Src, bool SrcIsSigned, Type *DstTy,
-                          bool DstIsSigned);
+  Value *
+  CastToAnyType(Value *Src, bool SrcIsSigned, Type *DstTy, bool DstIsSigned);
+  Constant *
+  CastToAnyType(Constant *Src, bool SrcIsSigned, Type *DstTy, bool DstIsSigned);
 
   /// CastFromSameSizeInteger - Cast an integer (or vector of integer) value to
   /// the given scalar (resp. vector of scalar) type of the same bitwidth.
@@ -420,8 +420,8 @@ private : // Helper functions.
   /// llvm.memset call with the specified operands.  Returns DestPtr bitcast
   /// to i8*.
   Value *EmitMemCpy(Value *DestPtr, Value *SrcPtr, Value *Size, unsigned Align);
-  Value *EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size,
-                     unsigned Align);
+  Value *
+  EmitMemMove(Value *DestPtr, Value *SrcPtr, Value *Size, unsigned Align);
   Value *EmitMemSet(Value *DestPtr, Value *SrcVal, Value *Size, unsigned Align);
 
   /// EmitLandingPads - Emit EH landing pads.
@@ -568,14 +568,14 @@ private:
 #endif
   Value *EmitReg_VEC_PACK_FIX_TRUNC_EXPR(tree_node *type, tree_node *op0,
                                          tree_node *op1);
-  Value *EmitReg_VEC_PACK_TRUNC_EXPR(tree_node *type, tree_node *op0,
-                                     tree_node *op1);
+  Value *
+  EmitReg_VEC_PACK_TRUNC_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
   Value *EmitReg_VEC_WIDEN_MULT_HI_EXPR(tree_node *type, tree_node *op0,
                                         tree_node *op1);
   Value *EmitReg_VEC_WIDEN_MULT_LO_EXPR(tree_node *type, tree_node *op0,
                                         tree_node *op1);
-  Value *EmitReg_WIDEN_MULT_EXPR(tree_node *type, tree_node *op0,
-                                 tree_node *op1);
+  Value *
+  EmitReg_WIDEN_MULT_EXPR(tree_node *type, tree_node *op0, tree_node *op1);
 
   // Ternary expressions.
   Value *EmitReg_CondExpr(tree_node *op0, tree_node *op1, tree_node *op2);
@@ -592,8 +592,7 @@ private:
   Value *EmitCallOf(Value *Callee, gimple_statement_d *stmt,
                     const MemRef *DestLoc, const AttributeSet &PAL);
   CallInst *EmitSimpleCall(StringRef CalleeName, tree_node *ret_type,
-                           /* arguments */ ...)
-      END_WITH_NULL;
+                           /* arguments */ ...) END_WITH_NULL;
   Value *EmitFieldAnnotation(Value *FieldPtr, tree_node *FieldDecl);
 
   // Inline Assembly and Register Variables.
@@ -606,8 +605,8 @@ private:
   Value *BuildVectorShuffle(Value *InVec1, Value *InVec2, ...);
   Value *BuildBinaryAtomic(gimple_statement_d *stmt, AtomicRMWInst::BinOp Kind,
                            unsigned PostOp = 0);
-  Value *BuildCmpAndSwapAtomic(gimple_statement_d *stmt, unsigned Bits,
-                               bool isBool);
+  Value *
+  BuildCmpAndSwapAtomic(gimple_statement_d *stmt, unsigned Bits, bool isBool);
 
   // Builtin Function Expansion.
   bool EmitBuiltinCall(gimple_statement_d *stmt, tree_node *fndecl,
@@ -616,8 +615,8 @@ private:
                                        tree_node *fndecl, const MemRef *DestLoc,
                                        Value *&Result);
   bool EmitBuiltinUnaryOp(Value *InVal, Value *&Result, Intrinsic::ID Id);
-  Value *EmitBuiltinBitCountIntrinsic(gimple_statement_d *stmt,
-                                      Intrinsic::ID Id);
+  Value *
+  EmitBuiltinBitCountIntrinsic(gimple_statement_d *stmt, Intrinsic::ID Id);
   Value *EmitBuiltinSQRT(gimple_statement_d *stmt);
   Value *EmitBuiltinPOWI(gimple_statement_d *stmt);
   Value *EmitBuiltinPOW(gimple_statement_d *stmt);
