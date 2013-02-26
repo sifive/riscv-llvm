@@ -40,7 +40,7 @@ def getSuffixesForLanguage(language):
 
 def isLanguageSupported(language, compiler):
   # How to run the compiler.  Additional arguments are added below.
-  args = [compiler, '-S', '-o', '/dev/null']
+  args = [compiler, '-S', '-o', os.devnull]
 
   if language == 'java':
     # GCC can't compile Java source by itself, it can only compile class files.
