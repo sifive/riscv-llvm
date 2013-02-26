@@ -1,3 +1,4 @@
+import os
 import tempfile
 import TestRunner
 
@@ -38,6 +39,18 @@ def getSuffixesForLanguage(language):
   return suffixes
 
 def isLanguageSupported(language, compiler):
+  # How to run the compiler.  Additional arguments are added below.
+  args = [compiler, '-S', '-o', '/dev/null']
+
+  if language == 'java':
+    # GCC can't compile Java source by itself, it can only compile class files.
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    source = os.path.join(script_dir, 'e.class')
+    # Java is supported if the class file compiles without error.
+    out,err,exitCode = TestRunner.executeCommand(args +
+                                                 [source, '-fuse-boehm-gc'])
+    return exitCode == 0
+
   if language == 'ada':
     suffix='.ads'
   elif language == 'c':
@@ -70,7 +83,7 @@ def isLanguageSupported(language, compiler):
   source.flush()
 
   # The language is supported if the file compiles without error.
-  out,err,exitCode = TestRunner.executeCommand([compiler, '-S', source.name])
+  out,err,exitCode = TestRunner.executeCommand(args + [source.name])
   return exitCode == 0
 
 def getSupportedLanguages(compiler):
