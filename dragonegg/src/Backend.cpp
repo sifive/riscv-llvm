@@ -1260,7 +1260,7 @@ Value *make_decl_llvm(tree decl) {
 
   std::string Name;
   if (!isa<CONST_DECL>(decl)) // CONST_DECLs do not have assembler names.
-    Name = getLLVMAssemblerName(decl);
+    Name = getAssemblerName(decl);
 
   // Now handle ordinary static variables and functions (in memory).
   // Also handle vars declared register invalidly.
@@ -1475,20 +1475,6 @@ const char *extractRegisterName(tree decl) {
   return (*Name == '*') ? Name + 1 : Name;
 }
 
-/// getLLVMAssemblerName - Get the assembler name (DECL_ASSEMBLER_NAME) for the
-/// declaration, with any leading star replaced by '\1'.
-std::string getLLVMAssemblerName(tree decl) {
-  tree Ident = DECL_ASSEMBLER_NAME(decl);
-  if (!Ident)
-    return std::string();
-
-  const char *Name = IDENTIFIER_POINTER(Ident);
-  if (*Name != '*')
-    return std::string(Name, IDENTIFIER_LENGTH(Ident));
-
-  return "\1" + std::string(Name + 1, IDENTIFIER_LENGTH(Ident) - 1);
-}
-
 /// FinalizePlugin - Shutdown the plugin.
 static void FinalizePlugin(void) {
   static bool Finalized = false;
@@ -1622,7 +1608,7 @@ static void emit_cgraph_aliases(struct cgraph_node *node) {
 /// is called once for each function in the compilation unit.
 static void emit_current_function() {
   if (!quiet_flag && DECL_NAME(current_function_decl))
-    errs() << IDENTIFIER_POINTER(DECL_NAME(current_function_decl));
+    errs() << getDescriptiveName(current_function_decl);
 
   // Convert the AST to raw/ugly LLVM code.
   Function *Fn;

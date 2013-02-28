@@ -72,9 +72,18 @@ template <enum dragonegg_tree_code code> bool isa(const_tree t) {
   }
 }
 
+/// getAssemblerName - Return the name to use for the given tree, or an empty
+/// string if it does not have a name.  This is the official name that should
+/// be used for everything that will end up with a name in the final assembler.
+/// It should not be used for anything else: GCC will usually crash if you try
+/// to use this with types, function arguments or anything else that doesn't
+/// have a name in the final assembler.
+std::string getAssemblerName(tree t);
+
 /// getDescriptiveName - Return a helpful name for the given tree, or an empty
 /// string if no sensible name was found.  These names are used to make the IR
-/// more readable, and have no official status.
+/// more readable, and have no official status.  For example, they can be used
+/// to name types because type names don't end up in the final assembler.
 std::string getDescriptiveName(const_tree t);
 
 /// main_type - Return the main variant of the given tree's type.

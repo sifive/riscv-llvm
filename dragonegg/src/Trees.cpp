@@ -60,6 +60,23 @@ concatIfNotEmpty(const std::string &Left, const std::string &Right) {
   return Left + Right;
 }
 
+/// getAssemblerName - Return the name to use for the given tree, or an empty
+/// string if it does not have a name.  This is the official name that should
+/// be used for everything that will end up in the final assembler.
+std::string getAssemblerName(tree t) {
+  tree ident = DECL_ASSEMBLER_NAME(t);
+  if (!ident)
+    // Does not have a name.
+    return std::string();
+
+  // Replace any leading star by '\1'.
+  const char *Name = IDENTIFIER_POINTER(ident);
+  if (*Name != '*')
+    return std::string(Name, IDENTIFIER_LENGTH(ident));
+
+  return "\1" + std::string(Name + 1, IDENTIFIER_LENGTH(ident) - 1);
+}
+
 /// getDescriptiveName - Return a helpful name for the given tree, or an empty
 /// string if no sensible name was found.  These names are used to make the IR
 /// more readable, and have no official status.

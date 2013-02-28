@@ -929,7 +929,7 @@ void TreeToLLVM::StartFunctionBody() {
     // function. Set to current.
     handleVisibility(FnDecl, Fn);
   } else {
-    std::string Name = getLLVMAssemblerName(FnDecl);
+    std::string Name = getAssemblerName(FnDecl);
     Function *FnEntry = TheModule->getFunction(Name);
     if (FnEntry) {
       assert(FnEntry->getName() == Name && "Same entry, different name?");
@@ -1072,9 +1072,9 @@ void TreeToLLVM::StartFunctionBody() {
   // Scalar arguments processed so far.
   std::vector<Type *> ScalarArgs;
   while (Args) {
-    const char *Name = "unnamed_arg";
-    if (DECL_NAME(Args))
-      Name = IDENTIFIER_POINTER(DECL_NAME(Args));
+    std::string Name = getDescriptiveName(Args);
+    if (Name.empty())
+      Name = "unnamed_arg";
 
     Type *ArgTy = ConvertType(TREE_TYPE(Args));
     bool isInvRef = isPassedByInvisibleReference(TREE_TYPE(Args));
@@ -1102,7 +1102,7 @@ void TreeToLLVM::StartFunctionBody() {
       // an l-value.  On entry to the function, we copy formal argument values
       // into the alloca.
       Value *Tmp = CreateTemporary(ArgTy, TYPE_ALIGN_UNIT(TREE_TYPE(Args)));
-      Tmp->setName(std::string(Name) + "_addr");
+      Tmp->setName(Name + "_addr");
       SET_DECL_LOCAL(Args, Tmp);
       if (EmitDebugInfo()) {
         TheDebugInfo->EmitDeclare(Args, dwarf::DW_TAG_arg_variable, Name,
