@@ -61,8 +61,8 @@ template <class T, typename U, unsigned N> class IntervalList {
     for (unsigned i = 0, e = (unsigned) Intervals.size(); i < e; ++i) {
       if (Intervals[i].getRange().empty())
         return false;
-      if (i && Intervals[i].getRange().getFirst() < Intervals[i - 1]
-                                                        .getRange().getLast())
+      if (i && Intervals[i].getRange().getFirst() <
+               Intervals[i - 1].getRange().getLast())
         return false;
     }
     return true;

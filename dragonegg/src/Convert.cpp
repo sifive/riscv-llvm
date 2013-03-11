@@ -725,8 +725,7 @@ struct FunctionPrologArgumentConversion : public DefaultABIClient {
   FunctionPrologArgumentConversion(tree FnDecl, Function::arg_iterator &ai,
                                    const LLVMBuilder &B, CallingConv::ID &CC)
       : FunctionDecl(FnDecl), AI(ai), Builder(B), CallingConv(CC), Offset(0),
-        isShadowRet(false) {
-  }
+        isShadowRet(false) {}
 
   /// getCallingConv - This provides the desired CallingConv for the function.
   CallingConv::ID getCallingConv(void) { return CallingConv; }
@@ -823,15 +822,16 @@ struct FunctionPrologArgumentConversion : public DefaultABIClient {
       // the smaller alignment.
       Type *SBP = Type::getInt8PtrTy(Context);
       Type *IntPtr = getDataLayout().getIntPtrType(Context, 0);
-      Value *Ops[5] = { Builder.CreateCast(Instruction::BitCast, Loc, SBP),
-                        Builder.CreateCast(Instruction::BitCast, AI, SBP),
-                        ConstantInt::get(
-                            IntPtr, TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type))),
-                        Builder.getInt32(LLVM_BYVAL_ALIGNMENT(type)),
-                        Builder.getFalse() };
+      Value *Ops[5] = {
+        Builder.CreateCast(Instruction::BitCast, Loc, SBP),
+        Builder.CreateCast(Instruction::BitCast, AI, SBP),
+        ConstantInt::get(IntPtr, TREE_INT_CST_LOW(TYPE_SIZE_UNIT(type))),
+        Builder.getInt32(LLVM_BYVAL_ALIGNMENT(type)), Builder.getFalse()
+      };
       Type *ArgTypes[3] = { SBP, SBP, IntPtr };
-      Builder.CreateCall(Intrinsic::getDeclaration(TheModule, Intrinsic::memcpy,
-                                                   ArgTypes), Ops);
+      Builder.CreateCall(
+          Intrinsic::getDeclaration(TheModule, Intrinsic::memcpy, ArgTypes),
+          Ops);
 
       AI->setName(NameStack.back());
     }
@@ -1133,7 +1133,8 @@ void TreeToLLVM::StartFunctionBody() {
   SSAInsertionPoint = Builder.Insert(
       CastInst::Create(Instruction::BitCast,
                        Constant::getNullValue(Type::getInt32Ty(Context)),
-                       Type::getInt32Ty(Context)), "ssa point");
+                       Type::getInt32Ty(Context)),
+      "ssa point");
 
   // If this function has nested functions, we should handle a potential
   // nonlocal_goto_save_area.
@@ -1333,11 +1334,10 @@ Function *TreeToLLVM::FinishFunctionBody() {
           if (ReturnOffset) {
             ResultLV.Ptr = Builder
                 .CreateBitCast(ResultLV.Ptr, Type::getInt8PtrTy(Context));
-            ResultLV.Ptr =
-                Builder.CreateGEP(ResultLV.Ptr,
-                                  ConstantInt::get(DL.getIntPtrType(Context, 0),
-                                                   ReturnOffset),
-                                  flag_verbose_asm ? "rtvl" : "");
+            ResultLV.Ptr = Builder.CreateGEP(
+                ResultLV.Ptr,
+                ConstantInt::get(DL.getIntPtrType(Context, 0), ReturnOffset),
+                flag_verbose_asm ? "rtvl" : "");
             ResultLV.setAlignment(
                 MinAlign(ResultLV.getAlignment(), ReturnOffset));
             ResultSize -= ReturnOffset;
@@ -1432,8 +1432,9 @@ Function *TreeToLLVM::FinishFunctionBody() {
 #else
 // When checks are enabled, complain if an SSA name was used but not defined.
 #endif
-    for (DenseMap<tree, TrackingVH<Value> >::const_iterator I =
-             SSANames.begin(), E = SSANames.end();
+    for (DenseMap<tree, TrackingVH<Value> >::const_iterator
+             I = SSANames.begin(),
+             E = SSANames.end();
          I != E; ++I) {
       Value *NameDef = I->second;
       // If this is not a placeholder then the SSA name was defined.
@@ -1656,8 +1657,9 @@ void TreeToLLVM::EmitAggregate(tree exp, const MemRef &DestLoc) {
   }
   LValue LV = EmitLV(exp);
   assert(!LV.isBitfield() && "Bitfields containing aggregates not supported!");
-  EmitAggregateCopy(DestLoc, MemRef(LV.Ptr, LV.getAlignment(),
-                                    TREE_THIS_VOLATILE(exp)), TREE_TYPE(exp));
+  EmitAggregateCopy(DestLoc,
+                    MemRef(LV.Ptr, LV.getAlignment(), TREE_THIS_VOLATILE(exp)),
+                    TREE_TYPE(exp));
 }
 
 /// get_constant_alignment - Return the alignment of constant EXP in bits.
@@ -2826,8 +2828,9 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
 
     // Shift the sign bit of the bitfield to the sign bit position in the loaded
     // type.  This zaps any extra bits occurring after the end of the bitfield.
-    unsigned FirstBitInVal = BYTES_BIG_ENDIAN ? LoadSizeInBits - LV.BitStart -
-                                                LV.BitSize : LV.BitStart;
+    unsigned FirstBitInVal =
+        BYTES_BIG_ENDIAN ? LoadSizeInBits - LV.BitStart - LV.BitSize
+                         : LV.BitStart;
     if (FirstBitInVal + LV.BitSize != LoadSizeInBits) {
       Value *ShAmt = ConstantInt::get(LoadType, LoadSizeInBits -
                                                 (FirstBitInVal + LV.BitSize));
@@ -2861,7 +2864,8 @@ Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
 Value *TreeToLLVM::EmitCondExpr(tree exp) {
   return TriviallyTypeConvert(
       EmitReg_CondExpr(TREE_OPERAND(exp, 0), TREE_OPERAND(exp, 1),
-                       TREE_OPERAND(exp, 2)), getRegType(TREE_TYPE(exp)));
+                       TREE_OPERAND(exp, 2)),
+      getRegType(TREE_TYPE(exp)));
 }
 #endif
 
@@ -2995,8 +2999,7 @@ struct FunctionCallArgumentConversion : public DefaultABIClient {
       bool ReturnSlotOpt, LLVMBuilder &b, CallingConv::ID &CC)
       : CallOperands(ops), FTy(FnTy), DestLoc(destloc), Builder(b),
         CallingConv(CC), Offset(0), isShadowRet(false), isAggrRet(false),
-        useReturnSlot(ReturnSlotOpt) {
-  }
+        useReturnSlot(ReturnSlotOpt) {}
 
   /// getCallingConv - This provides the desired CallingConv for the function.
   CallingConv::ID getCallingConv(void) { return CallingConv; }
@@ -3337,8 +3340,8 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
 
   // If the caller and callee disagree about a parameter type but the difference
   // is trivial, correct the type used by the caller.
-  for (unsigned i =
-           0, e = std::min((unsigned) CallOperands.size(), FTy->getNumParams());
+  for (unsigned i = 0, e = std::min((unsigned) CallOperands.size(),
+                                    FTy->getNumParams());
        i != e; ++i) {
     Type *ExpectedTy = FTy->getParamType(i);
     Type *ActualTy = CallOperands[i]->getType();
@@ -5755,8 +5758,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
           Size = Builder.getInt8(size);
           Idx = Builder.getInt32(rnum);
           Builder.CreateStore(
-              Size, Builder.CreateGEP(Addr, Idx,
-                                      flag_verbose_asm ? "rnum" : ""), false);
+              Size,
+              Builder.CreateGEP(Addr, Idx, flag_verbose_asm ? "rnum" : ""),
+              false);
         }
       }
 
@@ -6078,8 +6082,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
         unsigned Alignment =
             MinAlign(ArrayAlign, DL.getABITypeAlignment(EltTy));
         return LValue(
-            Builder.CreateBitCast(Ptr, PointerType::getUnqual(ConvertType(
-                                           TREE_TYPE(exp)))), Alignment);
+            Builder.CreateBitCast(
+                Ptr, PointerType::getUnqual(ConvertType(TREE_TYPE(exp)))),
+            Alignment);
       }
 
       // Otherwise, just do raw, low-level pointer arithmetic.  FIXME: this could be
@@ -6119,8 +6124,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
                    ? Builder.CreateInBoundsGEP(ArrayAddr, IndexVal, GEPName)
                    : Builder.CreateGEP(ArrayAddr, IndexVal, GEPName);
       return LValue(
-          Builder.CreateBitCast(Ptr, PointerType::getUnqual(ConvertType(
-                                         TREE_TYPE(exp)))), Alignment);
+          Builder.CreateBitCast(
+              Ptr, PointerType::getUnqual(ConvertType(TREE_TYPE(exp)))),
+          Alignment);
     }
 
     LValue TreeToLLVM::EmitLV_BIT_FIELD_REF(tree exp) {
@@ -6579,10 +6585,10 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     /// constant of the corresponding register type.
     Constant *TreeToLLVM::EmitComplexRegisterConstant(tree reg) {
       tree elt_type = TREE_TYPE(TREE_TYPE(reg));
-      Constant *Elts[2] = { EmitRegisterConstantWithCast(TREE_REALPART(reg),
-                                                         elt_type),
-                            EmitRegisterConstantWithCast(TREE_IMAGPART(reg),
-                                                         elt_type) };
+      Constant *Elts[2] = {
+        EmitRegisterConstantWithCast(TREE_REALPART(reg), elt_type),
+        EmitRegisterConstantWithCast(TREE_IMAGPART(reg), elt_type)
+      };
       return ConstantStruct::getAnon(Elts);
     }
 
@@ -7056,8 +7062,10 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       Value *Val = EmitRegister(op);
       Type *Ty = Val->getType();
 
-      CmpInst::Predicate Pred = CmpInst::Predicate(isa<FLOAT_TYPE>(TREE_TYPE(
-          op)) ? FPPred : TYPE_UNSIGNED(TREE_TYPE(op)) ? UIPred : SIPred);
+      CmpInst::Predicate Pred = CmpInst::Predicate(
+          isa<FLOAT_TYPE>(TREE_TYPE(op)) ? FPPred : TYPE_UNSIGNED(TREE_TYPE(op))
+                                                        ? UIPred
+                                                        : SIPred);
 
       unsigned Length = (unsigned) TYPE_VECTOR_SUBPARTS(TREE_TYPE(op));
       assert(Length > 1 && !(Length & (Length - 1)) &&
@@ -7244,8 +7252,8 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
                                     Amt->getName() + ".cast");
 
       // Perform the shift.
-      LHS = Builder.CreateBinOp(isLeftShift ? Instruction::Shl
-                                            : Instruction::LShr, LHS, Amt);
+      LHS = Builder.CreateBinOp(
+          isLeftShift ? Instruction::Shl : Instruction::LShr, LHS, Amt);
 
       // Turn the result back into a vector.
       return Builder.CreateBitCast(LHS, VecTy);
@@ -8037,14 +8045,14 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       for (unsigned i = 0; i != NumInputs; ++i) {
         tree Input = gimple_asm_input_op(stmt, i);
         unsigned NumInputChoices = 1;
-        for (const char *p =
-                 TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Input)));
+        for (const char *
+                 p = TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Input)));
              * p; ++p)
           if (*p == ',')
             ++NumInputChoices;
         if (NumChoices && (NumInputChoices != NumChoices)) {
-          error(
-              "operand constraints for %<asm%> differ in number of alternatives");
+          error("operand constraints for %<asm%> differ in number of "
+                "alternatives");
           return;
         }
         if (NumChoices == 0)
@@ -8053,14 +8061,14 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       for (unsigned i = 0; i != NumOutputs; ++i) {
         tree Output = gimple_asm_output_op(stmt, i);
         unsigned NumOutputChoices = 1;
-        for (const char *p =
-                 TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Output)));
+        for (const char *
+                 p = TREE_STRING_POINTER(TREE_VALUE(TREE_PURPOSE(Output)));
              * p; ++p)
           if (*p == ',')
             ++NumOutputChoices;
         if (NumChoices && (NumOutputChoices != NumChoices)) {
-          error(
-              "operand constraints for %<asm%> differ in number of alternatives");
+          error("operand constraints for %<asm%> differ in number of "
+                "alternatives");
           return;
         }
         if (NumChoices == 0)
@@ -8299,9 +8307,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
                   Op = CastToAnyType(Op, IsSigned, OTy,
                                      CallResultTypes[OutputIndex].second);
                 } else {
-                  error(
-                      "unsupported inline asm: input constraint with a matching "
-                      "output constraint of incompatible type!");
+                  error("unsupported inline asm: input constraint with a "
+                        "matching "
+                        "output constraint of incompatible type!");
                   return;
                 }
               } else if (OTyBits > OpTyBits) {
@@ -8309,9 +8317,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
                 // mentioned in the asm string then we cannot safely promote it, so
                 // bail out.
                 if (isOperandMentioned(stmt, NumOutputs + i)) {
-                  error(
-                      "unsupported inline asm: input constraint with a matching "
-                      "output constraint of incompatible type!");
+                  error("unsupported inline asm: input constraint with a "
+                        "matching "
+                        "output constraint of incompatible type!");
                   return;
                 }
                 Op = CastToAnyType(Op, IsSigned, OTy,
@@ -8468,8 +8476,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       // If the call produces a value, store it into the destination.
       for (unsigned i = 0, NumResults = (unsigned) CallResultTypes.size();
            i != NumResults; ++i) {
-        Value *Val = NumResults ==
-                     1 ? CV : Builder.CreateExtractValue(CV, i, "asmresult");
+        Value *Val =
+            NumResults == 1 ? CV
+                            : Builder.CreateExtractValue(CV, i, "asmresult");
         bool ValIsSigned = CallResultTypes[i].second;
 
         Value *Dest = CallResultDests[i].first;
@@ -9126,8 +9135,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       // with arguments none the less, then calculate the LLVM type from the list
       // of arguments.
       if (flag_functions_from_args) {
-        tree *FirstArgAddr = gimple_call_num_args(stmt) >
-                             0 ? gimple_call_arg_ptr(stmt, 0) : NULL;
+        tree *FirstArgAddr =
+            gimple_call_num_args(stmt) > 0 ? gimple_call_arg_ptr(stmt, 0)
+                                           : NULL;
         Ty = ConvertArgListToFnType(
             function_type,
             ArrayRef<tree>(FirstArgAddr, gimple_call_num_args(stmt)),
@@ -9210,8 +9220,9 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       RHS = CastToAnyType(RHS, isSigned, LoadType, isSigned);
 
       // Shift the right-hand side so that its bits are in the right position.
-      unsigned FirstBitInVal = BYTES_BIG_ENDIAN ? LoadSizeInBits - LV.BitStart -
-                                                  LV.BitSize : LV.BitStart;
+      unsigned FirstBitInVal =
+          BYTES_BIG_ENDIAN ? LoadSizeInBits - LV.BitStart - LV.BitSize
+                           : LV.BitStart;
       if (FirstBitInVal) {
         Value *ShAmt = ConstantInt::get(LoadType, FirstBitInVal);
         RHS = Builder.CreateShl(RHS, ShAmt);

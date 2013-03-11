@@ -290,9 +290,9 @@ bool TreeToLLVM::TargetIntrinsicLower(
   case shufps:
     if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[2])) {
       int EV = Elt->getZExtValue();
-      Result = BuildVectorShuffle(
-          Ops[0], Ops[1], ((EV & 0x03) >> 0), ((EV & 0x0c) >> 2),
-          ((EV & 0x30) >> 4) + 4, ((EV & 0xc0) >> 6) + 4);
+      Result = BuildVectorShuffle(Ops[0], Ops[1], ((EV & 0x03) >> 0),
+                                  ((EV & 0x0c) >> 2), ((EV & 0x30) >> 4) + 4,
+                                  ((EV & 0xc0) >> 6) + 4);
     } else {
       error_at(gimple_location(stmt), "mask must be an immediate");
       Result = Ops[0];
@@ -323,10 +323,10 @@ bool TreeToLLVM::TargetIntrinsicLower(
   case pshufhw:
     if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[1])) {
       int EV = Elt->getZExtValue();
-      Result = BuildVectorShuffle(
-          Ops[0], Ops[0], 0, 1, 2, 3, ((EV & 0x03) >> 0) + 4,
-          ((EV & 0x0c) >> 2) + 4, ((EV & 0x30) >> 4) + 4,
-          ((EV & 0xc0) >> 6) + 4);
+      Result =
+          BuildVectorShuffle(Ops[0], Ops[0], 0, 1, 2, 3, ((EV & 0x03) >> 0) + 4,
+                             ((EV & 0x0c) >> 2) + 4, ((EV & 0x30) >> 4) + 4,
+                             ((EV & 0xc0) >> 6) + 4);
       return true;
     }
     return false;

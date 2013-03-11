@@ -54,8 +54,7 @@ struct DefaultABIClient {
   /// within the struct, and ScalarTy is not necessarily big enough to cover
   /// the entire struct.
   virtual void HandleAggregateResultAsScalar(Type */*ScalarTy*/,
-                                             unsigned /*Offset*/ = 0) {
-  }
+                                             unsigned /*Offset*/ = 0) {}
 
   /// HandleAggregateResultAsAggregate - This callback is invoked if the function
   /// returns an aggregate value using multiple return values.
@@ -66,36 +65,31 @@ struct DefaultABIClient {
   /// a pointer to the aggregate, of type PtrArgTy.  If RetPtr is set to true,
   /// the pointer argument itself is returned from the function.
   virtual void HandleAggregateShadowResult(PointerType */*PtrArgTy*/,
-                                           bool /*RetPtr*/) {
-  }
+                                           bool /*RetPtr*/) {}
 
   /// HandleScalarShadowResult - This callback is invoked if the function
   /// returns a scalar value by using a "shadow" first parameter, which is a
   /// pointer to the scalar, of type PtrArgTy.  If RetPtr is set to true,
   /// the pointer argument itself is returned from the function.
   virtual void HandleScalarShadowResult(PointerType */*PtrArgTy*/,
-                                        bool /*RetPtr*/) {
-  }
+                                        bool /*RetPtr*/) {}
 
   /// HandleScalarArgument - This is the primary callback that specifies an
   /// LLVM argument to pass.  It is only used for first class types.
   /// If RealSize is non Zero then it specifies number of bytes to access
   /// from LLVMTy.
   virtual void HandleScalarArgument(llvm::Type */*LLVMTy*/, tree_node */*type*/,
-                                    unsigned /*RealSize*/ = 0) {
-  }
+                                    unsigned /*RealSize*/ = 0) {}
 
   /// HandleByInvisibleReferenceArgument - This callback is invoked if a pointer
   /// (of type PtrTy) to the argument is passed rather than the argument itself.
   virtual void HandleByInvisibleReferenceArgument(llvm::Type */*PtrTy*/,
-                                                  tree_node */*type*/) {
-  }
+                                                  tree_node */*type*/) {}
 
   /// HandleByValArgument - This callback is invoked if the aggregate function
   /// argument is passed by value.
   virtual void HandleByValArgument(llvm::Type */*LLVMTy*/,
-                                   tree_node */*type*/) {
-  }
+                                   tree_node */*type*/) {}
 
   /// HandleFCAArgument - This callback is invoked if the aggregate function
   /// argument is passed by value as a first class aggregate.

@@ -1820,8 +1820,9 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
   if (!AttributeUsedGlobals.empty()) {
     std::vector<Constant *> AUGs;
     Type *SBP = Type::getInt8PtrTy(Context);
-    for (SmallSetVector<Constant *, 32>::iterator AI =
-             AttributeUsedGlobals.begin(), AE = AttributeUsedGlobals.end();
+    for (SmallSetVector<Constant *, 32>::iterator
+             AI = AttributeUsedGlobals.begin(),
+             AE = AttributeUsedGlobals.end();
          AI != AE; ++AI) {
       Constant *C = *AI;
       AUGs.push_back(TheFolder->CreateBitCast(C, SBP));
@@ -1839,9 +1840,9 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
   if (!AttributeCompilerUsedGlobals.empty()) {
     std::vector<Constant *> ACUGs;
     Type *SBP = Type::getInt8PtrTy(Context);
-    for (SmallSetVector<Constant *, 32>::iterator AI =
-             AttributeCompilerUsedGlobals
-                 .begin(), AE = AttributeCompilerUsedGlobals.end();
+    for (SmallSetVector<Constant *, 32>::iterator
+             AI = AttributeCompilerUsedGlobals.begin(),
+             AE = AttributeCompilerUsedGlobals.end();
          AI != AE; ++AI) {
       Constant *C = *AI;
       ACUGs.push_back(TheFolder->CreateBitCast(C, SBP));
@@ -1914,21 +1915,20 @@ static void llvm_finish(void */*gcc_data*/, void */*user_data*/) {
 static bool gate_null(void) { return false; }
 
 /// pass_gimple_null - Gimple pass that does nothing.
-static struct gimple_opt_pass pass_gimple_null = {
-  { GIMPLE_PASS, "*gimple_null", /* name */
-    gate_null,                   /* gate */
-    NULL,                        /* execute */
-    NULL,                        /* sub */
-    NULL,                        /* next */
-    0,                           /* static_pass_number */
-    TV_NONE,                     /* tv_id */
-    0,                           /* properties_required */
-    0,                           /* properties_provided */
-    0,                           /* properties_destroyed */
-    0,                           /* todo_flags_start */
-    0                            /* todo_flags_finish */
-}
-};
+static struct gimple_opt_pass pass_gimple_null = { {
+  GIMPLE_PASS, "*gimple_null", /* name */
+  gate_null,                   /* gate */
+  NULL,                        /* execute */
+  NULL,                        /* sub */
+  NULL,                        /* next */
+  0,                           /* static_pass_number */
+  TV_NONE,                     /* tv_id */
+  0,                           /* properties_required */
+  0,                           /* properties_provided */
+  0,                           /* properties_destroyed */
+  0,                           /* todo_flags_start */
+  0                            /* todo_flags_finish */
+} };
 
 /// execute_correct_state - Correct the cgraph state to ensure that newly
 /// inserted functions are processed before being converted to LLVM IR.
@@ -1943,21 +1943,20 @@ static bool gate_correct_state(void) { return true; }
 
 /// pass_gimple_correct_state - Gimple pass that corrects the cgraph state so
 /// newly inserted functions are processed before being converted to LLVM IR.
-static struct gimple_opt_pass pass_gimple_correct_state = {
-  { GIMPLE_PASS, "*gimple_correct_state", /* name */
-    gate_correct_state,                   /* gate */
-    execute_correct_state,                /* execute */
-    NULL,                                 /* sub */
-    NULL,                                 /* next */
-    0,                                    /* static_pass_number */
-    TV_NONE,                              /* tv_id */
-    0,                                    /* properties_required */
-    0,                                    /* properties_provided */
-    0,                                    /* properties_destroyed */
-    0,                                    /* todo_flags_start */
-    0                                     /* todo_flags_finish */
-}
-};
+static struct gimple_opt_pass pass_gimple_correct_state = { {
+  GIMPLE_PASS, "*gimple_correct_state", /* name */
+  gate_correct_state,                   /* gate */
+  execute_correct_state,                /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_NONE,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0                                     /* todo_flags_finish */
+} };
 
 /// pass_ipa_null - IPA pass that does nothing.
 static struct ipa_opt_pass_d pass_ipa_null = {
@@ -1973,7 +1972,8 @@ static struct ipa_opt_pass_d pass_ipa_null = {
     0,                     /* properties_destroyed */
     0,                     /* todo_flags_start */
     0                      /* todo_flags_finish */
-}, NULL,                   /* generate_summary */
+},
+  NULL,                    /* generate_summary */
   NULL,                    /* write_summary */
   NULL,                    /* read_summary */
 #if (GCC_MINOR > 5)
@@ -2004,21 +2004,20 @@ static struct rtl_opt_pass pass_rtl_null = { { RTL_PASS, "*rtl_null", /* name */
 } };
 
 /// pass_simple_ipa_null - Simple IPA pass that does nothing.
-static struct simple_ipa_opt_pass pass_simple_ipa_null = {
-  { SIMPLE_IPA_PASS, "*simple_ipa_null", /* name */
-    gate_null,                           /* gate */
-    NULL,                                /* execute */
-    NULL,                                /* sub */
-    NULL,                                /* next */
-    0,                                   /* static_pass_number */
-    TV_NONE,                             /* tv_id */
-    0,                                   /* properties_required */
-    0,                                   /* properties_provided */
-    0,                                   /* properties_destroyed */
-    0,                                   /* todo_flags_start */
-    0                                    /* todo_flags_finish */
-}
-};
+static struct simple_ipa_opt_pass pass_simple_ipa_null = { {
+  SIMPLE_IPA_PASS, "*simple_ipa_null", /* name */
+  gate_null,                           /* gate */
+  NULL,                                /* execute */
+  NULL,                                /* sub */
+  NULL,                                /* next */
+  0,                                   /* static_pass_number */
+  TV_NONE,                             /* tv_id */
+  0,                                   /* properties_required */
+  0,                                   /* properties_provided */
+  0,                                   /* properties_destroyed */
+  0,                                   /* todo_flags_start */
+  0                                    /* todo_flags_finish */
+} };
 
 // Garbage collector roots.
 extern const struct ggc_cache_tab gt_ggc_rc__gt_cache_h[];
@@ -2060,7 +2059,7 @@ static bool version_check(struct plugin_gcc_version *plugged_in_version) {
 int __attribute__((visibility("default"))) plugin_init(
     struct plugin_name_args *plugin_info, struct plugin_gcc_version *
 #ifndef DISABLE_VERSION_CHECK
-    version
+        version
 #endif
     ) {
   const char *plugin_name = plugin_info->base_name;

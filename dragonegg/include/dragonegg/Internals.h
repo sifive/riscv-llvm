@@ -197,8 +197,7 @@ public:
   explicit LValue() : BitStart(255), BitSize(255) {}
   explicit LValue(MemRef &M) : MemRef(M), BitStart(255), BitSize(255) {}
   LValue(Value *P, uint32_t A, bool V = false)
-      : MemRef(P, A, V), BitStart(255), BitSize(255) {
-  }
+      : MemRef(P, A, V), BitStart(255), BitSize(255) {}
   LValue(Value *P, uint32_t A, unsigned BSt, unsigned BSi, bool V = false)
       : MemRef(P, A, V), BitStart((unsigned char) BSt),
         BitSize((unsigned char) BSi) {

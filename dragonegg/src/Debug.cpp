@@ -207,8 +207,7 @@ static StringRef getLinkageName(tree Node) {
 
 DebugInfo::DebugInfo(Module *m)
     : DebugFactory(*m), CurFullPath(""), PrevFullPath(""), CurLineNo(0),
-      PrevLineNo(0), PrevBB(NULL) {
-}
+      PrevLineNo(0), PrevBB(NULL) {}
 
 /// getFunctionName - Get function name for the given FnDecl. If the
 /// name is constructred on demand (e.g. C++ destructor) then the name
@@ -1069,8 +1068,7 @@ DIFile DebugInfo::getOrCreateFile(const char *FullPath) {
 //===----------------------------------------------------------------------===//
 
 DIFactory::DIFactory(Module &m)
-    : M(m), VMContext(M.getContext()), Builder(M), DeclareFn(0), ValueFn(0) {
-}
+    : M(m), VMContext(M.getContext()), Builder(M), DeclareFn(0), ValueFn(0) {}
 
 Constant *DIFactory::GetTagConstant(unsigned TAG) {
   assert((TAG & LLVMDebugVersionMask) == 0 &&

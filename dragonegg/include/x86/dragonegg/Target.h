@@ -39,8 +39,8 @@ namespace llvm { class SubtargetFeatures; }
 #define TARGET_ADJUST_LLVM_RETATTR(type, AttrBuilder)                          \
   {                                                                            \
     tree_node *type_attributes = TYPE_ATTRIBUTES(type);                        \
-    if (!TARGET_64BIT &&                                                       \
-        (TARGET_SSEREGPARM || lookup_attribute("sseregparm", type_attributes)))\
+    if (!TARGET_64BIT && (TARGET_SSEREGPARM ||                                 \
+                          lookup_attribute("sseregparm", type_attributes)))    \
       AttrBuilder.addAttribute(Attribute::InReg);                              \
   }
 
@@ -213,8 +213,9 @@ extern bool llvm_x86_64_aggregate_partially_passed_in_regs(
     std::vector<Type *> &, std::vector<Type *> &, bool);
 
 #define LLVM_AGGREGATE_PARTIALLY_PASSED_IN_REGS(E, SE, ISR, CC)                \
-  (TARGET_64BIT ? llvm_x86_64_aggregate_partially_passed_in_regs(              \
-                      (E), (SE), (ISR)) : false)
+  (TARGET_64BIT                                                                \
+       ? llvm_x86_64_aggregate_partially_passed_in_regs((E), (SE), (ISR))      \
+       : false)
 
 #endif /* DRAGONEGG_ABI_H */
 
@@ -286,7 +287,8 @@ extern const char *llvm_x86_override_target_environment();
  * macro should call the target TreeToLLVM::TargetIntrinsicLower method and
  *  return true.This macro is invoked from a method in the TreeToLLVM class.
  */
-#define LLVM_TARGET_INTRINSIC_LOWER(STMT, FNDECL, DESTLOC, RESULT, DESTTY, OPS)\
+#define LLVM_TARGET_INTRINSIC_LOWER(STMT, FNDECL, DESTLOC, RESULT, DESTTY,     \
+                                    OPS)                                       \
   TargetIntrinsicLower(STMT, FNDECL, DESTLOC, RESULT, DESTTY, OPS);
 
 /* LLVM_GET_REG_NAME - When extracting a register name for a constraint, use

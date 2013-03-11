@@ -324,8 +324,8 @@ extern bool llvm_arm_should_pass_or_return_aggregate_in_regs(
    return true.  This macro is invoked from a method in the TreeToLLVM class. */
 #if 0
 // Because of data dependency, we will implement later on.
-#define LLVM_TARGET_INTRINSIC_LOWER(EXP, BUILTIN_CODE, DESTLOC, RESULT, DESTTY,\
-                                    OPS)                                       \
+#define LLVM_TARGET_INTRINSIC_LOWER(EXP, BUILTIN_CODE, DESTLOC, RESULT,        \
+                                    DESTTY, OPS)                               \
   TargetIntrinsicLower(EXP, BUILTIN_CODE, DESTLOC, RESULT, DESTTY, OPS);
 #endif
 
@@ -336,10 +336,14 @@ extern bool llvm_arm_should_pass_or_return_aggregate_in_regs(
    so use the incoming register name if it exists.  Otherwise, use the default
    register names to match the backend.  */
 #define LLVM_GET_REG_NAME(REG_NAME, REG_NUM)                                   \
-  ((REG_NUM) == 10 ? "r10" : (REG_NUM) ==                                      \
-                     11 ? "r11" : (REG_NUM) ==                                 \
-                          12 ? "r12" : (REG_NUM) >= FIRST_VFP_REGNUM &&        \
-                               REG_NAME != 0 ? REG_NAME : reg_names[REG_NUM])
+  ((REG_NUM) == 10 ? "r10" : (REG_NUM) == 11                                   \
+                                 ? "r11"                                       \
+                                 : (REG_NUM) == 12                             \
+                                       ? "r12"                                 \
+                                       : (REG_NUM) >= FIRST_VFP_REGNUM &&      \
+                                         REG_NAME != 0                         \
+                                             ? REG_NAME                        \
+                                             : reg_names[REG_NUM])
 
 /* Define a static enumeration of the NEON builtins to be used when
    converting to LLVM intrinsics.  These names are derived from the
