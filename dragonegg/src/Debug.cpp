@@ -993,21 +993,16 @@ void DebugInfo::Initialize() {
   // code generator accepts maximum one main compile unit per module. If a
   // module does not contain any main compile unit then the code generator
   // will emit multiple compile units in the output object file.
-  if (!strcmp(main_input_filename, ""))
-    getOrCreateCompileUnit("<stdin>", true);
-  else
-    getOrCreateCompileUnit(main_input_filename, true);
+  getOrCreateCompileUnit(main_input_filename, true);
 }
 
 /// getOrCreateCompileUnit - Get the compile unit from the cache or
 /// create a new one if necessary.
 void DebugInfo::getOrCreateCompileUnit(const char *FullPath, bool isMain) {
-  if (!FullPath) {
-    if (!strcmp(main_input_filename, ""))
-      FullPath = "<stdin>";
-    else
-      FullPath = main_input_filename;
-  }
+  if (!FullPath)
+    FullPath = main_input_filename;
+  if (!strcmp(FullPath, ""))
+    FullPath = "<stdin>";
 
   // Get source file information.
   std::string Directory;
@@ -1049,12 +1044,10 @@ void DebugInfo::getOrCreateCompileUnit(const char *FullPath, bool isMain) {
 
 /// getOrCreateFile - Get DIFile descriptor.
 DIFile DebugInfo::getOrCreateFile(const char *FullPath) {
-  if (!FullPath) {
-    if (!strcmp(main_input_filename, ""))
-      FullPath = "<stdin>";
-    else
-      FullPath = main_input_filename;
-  }
+  if (!FullPath)
+    FullPath = main_input_filename;
+  if (!strcmp(FullPath, ""))
+    FullPath = "<stdin>";
 
   // Get source file information.
   std::string Directory;
