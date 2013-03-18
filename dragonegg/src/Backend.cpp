@@ -1030,30 +1030,6 @@ static void emit_global(tree decl) {
     GV = NGV;
   }
 
-  // Set thread local (TLS)
-  if (isa<VAR_DECL>(decl) && DECL_THREAD_LOCAL_P(decl)) {
-    GV->setThreadLocal(true);
-
-    switch (DECL_TLS_MODEL(decl)) {
-    case TLS_MODEL_NONE:
-      llvm_unreachable("TLS_MODEL_NONE for thread local var is impossible");
-    case TLS_MODEL_EMULATED:
-      llvm_unreachable("LLVM does not support TLS_MODEL_EMULATED");
-    case TLS_MODEL_GLOBAL_DYNAMIC:
-      GV->setThreadLocalMode(GlobalVariable::GeneralDynamicTLSModel);
-      break;
-    case TLS_MODEL_LOCAL_DYNAMIC:
-      GV->setThreadLocalMode(GlobalVariable::LocalDynamicTLSModel);
-      break;
-    case TLS_MODEL_INITIAL_EXEC:
-      GV->setThreadLocalMode(GlobalVariable::InitialExecTLSModel);
-      break;
-    case TLS_MODEL_LOCAL_EXEC:
-      GV->setThreadLocalMode(GlobalVariable::LocalExecTLSModel);
-      break;
-    }
-  }
-
   // Set the linkage.
   GlobalValue::LinkageTypes Linkage;
 
@@ -1426,8 +1402,28 @@ Value *make_decl_llvm(tree decl) {
     }
 
     // Set thread local (TLS)
-    if (isa<VAR_DECL>(decl) && DECL_THREAD_LOCAL_P(decl))
+    if (isa<VAR_DECL>(decl) && DECL_THREAD_LOCAL_P(decl)) {
       GV->setThreadLocal(true);
+
+      switch (DECL_TLS_MODEL(decl)) {
+      case TLS_MODEL_NONE:
+        llvm_unreachable("TLS_MODEL_NONE for thread local var is impossible");
+      case TLS_MODEL_EMULATED:
+        llvm_unreachable("LLVM does not support TLS_MODEL_EMULATED");
+      case TLS_MODEL_GLOBAL_DYNAMIC:
+        GV->setThreadLocalMode(GlobalVariable::GeneralDynamicTLSModel);
+        break;
+      case TLS_MODEL_LOCAL_DYNAMIC:
+        GV->setThreadLocalMode(GlobalVariable::LocalDynamicTLSModel);
+        break;
+      case TLS_MODEL_INITIAL_EXEC:
+        GV->setThreadLocalMode(GlobalVariable::InitialExecTLSModel);
+        break;
+      case TLS_MODEL_LOCAL_EXEC:
+        GV->setThreadLocalMode(GlobalVariable::LocalExecTLSModel);
+        break;
+      }
+    }
 
     assert((GV->isDeclaration() || SizeOfGlobalMatchesDecl(GV, decl)) &&
            "Global has unexpected initializer!");
