@@ -88,6 +88,13 @@ public:
   /// CreateFile -  Create a new descriptor for the specified file.
   DIFile CreateFile(StringRef Filename, StringRef Directory);
 
+  DIType CreateForwardDecl(unsigned Tag, StringRef Name, DIDescriptor Scope,
+                           DIFile F, unsigned Line, unsigned RuntimeLang = 0,
+                           uint64_t SizeInBits = 0, uint64_t AlignInBits = 0) {
+    return Builder.createForwardDecl(Tag, Name, Scope, F, Line, RuntimeLang,
+                                     SizeInBits, AlignInBits);
+  }
+
   /// CreateEnumerator - Create a single enumerator value.
   DIEnumerator CreateEnumerator(StringRef Name, uint64_t Val);
 
@@ -116,10 +123,6 @@ public:
       unsigned LineNumber, uint64_t SizeInBits, uint64_t AlignInBits,
       uint64_t OffsetInBits, unsigned Flags, DIType DerivedFrom,
       DIArray Elements, unsigned RunTimeLang = 0, MDNode *ContainingType = 0);
-
-  /// CreateTemporaryType - Create a temporary forward-declared type.
-  DIType CreateTemporaryType();
-  DIType CreateTemporaryType(DIFile F);
 
   /// CreateArtificialType - Create a new DIType with "artificial" flag set.
   DIType CreateArtificialType(DIType Ty);

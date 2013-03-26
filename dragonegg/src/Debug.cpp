@@ -490,7 +490,10 @@ DIType DebugInfo::createMethodType(tree type) {
 
   // Create a  place holder type first. The may be used as a context
   // for the argument types.
-  llvm::DIType FwdType = DebugFactory.CreateTemporaryType();
+  llvm::DIType FwdType = DebugFactory.CreateForwardDecl(
+    llvm::dwarf::DW_TAG_subroutine_type, StringRef(),
+    findRegion(TYPE_CONTEXT(type)), getOrCreateFile(main_input_filename),
+    0, 0, 0, 0);
   llvm::MDNode *FTN = FwdType;
   llvm::TrackingVH<llvm::MDNode> FwdTypeNode = FTN;
   TypeCache[type] = WeakVH(FwdType);
@@ -691,16 +694,13 @@ DIType DebugInfo::createStructType(tree type) {
         return DIType(TN);
   }
 
-  // forward declaration,
-  if (TYPE_SIZE(type) == 0) {
-    llvm::DICompositeType FwdDecl = DebugFactory.CreateCompositeType(
-        Tag, TyContext, GetNodeName(type), getOrCreateFile(Loc.file), Loc.line,
-        0, 0, 0, SFlags | llvm::DIType::FlagFwdDecl, llvm::DIType(),
-        llvm::DIArray(), RunTimeLang);
-    return FwdDecl;
-  }
+  llvm::DIType FwdDecl = DebugFactory.CreateForwardDecl(
+      Tag, GetNodeName(type), TyContext, getOrCreateFile(Loc.file), Loc.line,
+      0, 0, 0);
 
-  llvm::DIType FwdDecl = DebugFactory.CreateTemporaryType();
+  if (TYPE_SIZE(type) == 0)
+    // forward declaration,
+    return FwdDecl;
 
   // Insert into the TypeCache so that recursive uses will find it.
   llvm::MDNode *FDN = FwdDecl;
@@ -1218,16 +1218,6 @@ DICompositeType DIFactory::CreateCompositeType(
   llvm_unreachable("Unimplemented composite type tag");
 }
 
-/// CreateTemporaryType - Create a temporary forward-declared type.
-DIType DIFactory::CreateTemporaryType() {
-  return Builder.createTemporaryType();
-}
-
-/// CreateTemporaryType - Create a temporary forward-declared type.
-DIType DIFactory::CreateTemporaryType(DIFile F) {
-  return Builder.createTemporaryType(F);
-}
-
 /// CreateSubprogram - Create a new descriptor for the specified subprogram.
 /// See comments in DISubprogram for descriptions of these fields.  This
 /// method does not unique the generated descriptors.
@@ -1252,8 +1242,9 @@ DISubprogram DIFactory::CreateSubprogramDefinition(
   if (SP.isDefinition())
     return DISubprogram(SP);
 
+  DIFile File = Builder.createFile(SP.getFilename(), SP.getDirectory());
   return Builder.createFunction(
-      SP.getContext(), SP.getName(), SP.getLinkageName(), SP.getFile(),
+      SP.getContext(), SP.getName(), SP.getLinkageName(), File,
       SP.getLineNumber(), SP.getType(), SP.isLocalToUnit(), true, LineNo,
       SP.getFlags(), SP.isOptimized(), Fn, SP.getTemplateParams(), SP);
 }
