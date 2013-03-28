@@ -936,19 +936,12 @@ DIType DebugInfo::getOrCreateType(tree type) {
 #if (GCC_MINOR > 5)
   case NULLPTR_TYPE:
 #endif
+  case OFFSET_TYPE:
   case POINTER_TYPE:
   case REFERENCE_TYPE:
     // Do not cache pointer type. The pointer may point to forward declared
     // struct.
     return createPointerType(type);
-
-  case OFFSET_TYPE: {
-    // gen_type_die(TYPE_OFFSET_BASETYPE(type), context_die);
-    // gen_type_die(TREE_TYPE(type), context_die);
-    // gen_ptr_to_mbr_type_die(type, context_die);
-    // PR 7104
-    break;
-  }
 
   case FUNCTION_TYPE:
   case METHOD_TYPE:
