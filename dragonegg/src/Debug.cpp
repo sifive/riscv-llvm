@@ -1136,25 +1136,6 @@ DIDerivedType DIFactory::CreateDerivedType(
     uint64_t OffsetInBits, unsigned Flags, DIType DerivedFrom) {
   switch (Tag) {
   case dwarf::DW_TAG_typedef:
-    // FIXME: This code should use DIBuilder but it's creating something
-    // invalid that DIBuilder doesn't allow. DerivedFrom is invalid due to
-    // getOrCreateType failing to provide the underlying member type for a
-    // pointer to member. The invalid DerivedType causes this code to create
-    // an invalid typedef that is a typedef of no other type. (hence the null
-    // value as the last parameter in Elts, below)
-    if (!DerivedFrom.isValid()) {
-      Value *Elts[] = {
-        GetTagConstant(dwarf::DW_TAG_typedef), Context,
-        MDString::get(VMContext, Name), F,
-        ConstantInt::get(Type::getInt32Ty(VMContext), LineNumber),
-        ConstantInt::get(Type::getInt64Ty(VMContext), 0), // Size
-        ConstantInt::get(Type::getInt64Ty(VMContext), 0), // Align
-        ConstantInt::get(Type::getInt64Ty(VMContext), 0), // Offset
-        ConstantInt::get(Type::getInt32Ty(VMContext), 0), // Flags
-        NULL
-      };
-      return DIDerivedType(MDNode::get(VMContext, Elts));
-    }
     return Builder.createTypedef(DerivedFrom, Name, F, LineNumber, Context);
   case dwarf::DW_TAG_pointer_type:
     return Builder.createPointerType(DerivedFrom, SizeInBits, AlignInBits,
