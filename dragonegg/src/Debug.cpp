@@ -915,15 +915,15 @@ DIType DebugInfo::getOrCreateType(tree type) {
     if (I->second)
       return DIType(cast<MDNode>(I->second));
 
-  DIType MainTy;
-  if (type != TYPE_MAIN_VARIANT(type) && TYPE_MAIN_VARIANT(type))
-    MainTy = getOrCreateType(TYPE_MAIN_VARIANT(type));
-
-  DIType Ty = createVariantType(type, MainTy);
-  if (Ty.isValid())
-    return Ty;
+  if (type != TYPE_MAIN_VARIANT(type) && TYPE_MAIN_VARIANT(type)) {
+    DIType MainTy = getOrCreateType(TYPE_MAIN_VARIANT(type));
+    DIType Ty = createVariantType(type, MainTy);
+    if (Ty.isValid())
+      return Ty;
+  }
 
   // Work out details of type.
+  DIType Ty;
   switch (TREE_CODE(type)) {
   case ERROR_MARK:
   case LANG_TYPE:
