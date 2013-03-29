@@ -370,8 +370,6 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name, tree type,
   // Construct variable.
   DIScope VarScope = DIScope(cast<MDNode>(RegionStack.back()));
   DIType Ty = getOrCreateType(type);
-  if (!Ty && isa<OFFSET_TYPE>(type))
-    Ty = createPointerType(type);
   if (Ty && DECL_ARTIFICIAL(decl))
     Ty = DebugFactory.CreateArtificialType(Ty);
   // If type info is not available then do not emit debug info for this var.
