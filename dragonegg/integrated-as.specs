@@ -1,0 +1,2 @@
+*invoke_as:
+%{!fwpa:%{!S:-fplugin-arg-dragonegg-emit-obj %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}}}

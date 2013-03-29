@@ -127,6 +127,7 @@ static bool DebugPassArguments;
 static bool DebugPassStructure;
 static bool EnableGCCOptimizations;
 static bool EmitIR;
+static bool EmitObj;
 static bool SaveGCCOutput;
 static int LLVMCodeGenOptimizeArg = -1;
 static int LLVMIROptimizeArg = -1;
@@ -293,6 +294,7 @@ Declare(LLVM_TARGET_NAME, TargetInfo);
 Declare(LLVM_TARGET_NAME, Target);
 Declare(LLVM_TARGET_NAME, TargetMC);
 Declare(LLVM_TARGET_NAME, AsmPrinter);
+Declare(LLVM_TARGET_NAME, AsmParser);
 #undef Declare
 #undef Declare2
 }
@@ -306,6 +308,7 @@ static void ConfigureLLVM(void) {
   DoInit(LLVM_TARGET_NAME, Target);
   DoInit(LLVM_TARGET_NAME, TargetMC);
   DoInit(LLVM_TARGET_NAME, AsmPrinter);
+  DoInit(LLVM_TARGET_NAME, AsmParser);
 #undef DoInit
 #undef DoInit2
 
@@ -664,11 +667,13 @@ static void createPerFunctionOptimizationPasses() {
     bool DisableVerify = true;
 #endif
 
-    // Normal mode, emit a .s file by running the code generator.
+    // Normal mode, emit a .s or .o file by running the code generator.
     // Note, this also adds codegenerator level optimization passes.
-    InitializeOutputStreams(false);
-    if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
-                                       TargetMachine::CGFT_AssemblyFile,
+    InitializeOutputStreams(EmitObj);
+    TargetMachine::CodeGenFileType CGFT = TargetMachine::CGFT_AssemblyFile;
+    if (EmitObj)
+      CGFT = TargetMachine::CGFT_ObjectFile;
+    if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream, CGFT,
                                        DisableVerify))
       llvm_unreachable("Error interfacing to target machine!");
   }
@@ -745,11 +750,13 @@ static void createPerModuleOptimizationPasses() {
       bool DisableVerify = true;
 #endif
 
-      // Normal mode, emit a .s file by running the code generator.
+      // Normal mode, emit a .s or .o file by running the code generator.
       // Note, this also adds codegenerator level optimization passes.
-      InitializeOutputStreams(false);
-      if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream,
-                                         TargetMachine::CGFT_AssemblyFile,
+      InitializeOutputStreams(EmitObj);
+      TargetMachine::CodeGenFileType CGFT = TargetMachine::CGFT_AssemblyFile;
+      if (EmitObj)
+        CGFT = TargetMachine::CGFT_ObjectFile;
+      if (TheTarget->addPassesToEmitFile(*PM, FormattedOutStream, CGFT,
                                          DisableVerify))
         llvm_unreachable("Error interfacing to target machine!");
     }
@@ -2029,6 +2036,7 @@ static FlagDescriptor PluginFlags[] = {
   { "debug-pass-structure", &DebugPassStructure },
   { "debug-pass-arguments", &DebugPassArguments },
   { "enable-gcc-optzns", &EnableGCCOptimizations }, { "emit-ir", &EmitIR },
+  { "emit-obj", &EmitObj },
   { "save-gcc-output", &SaveGCCOutput }, { NULL, NULL } // Terminator.
 };
 

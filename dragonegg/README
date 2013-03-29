@@ -85,6 +85,9 @@ If you renamed dragonegg.so to something else, for example llvm.so, replace
   work with -c too but it's not clear how.  If you plan to read the IR then you
   probably want to use the -fverbose-asm flag as well (see below).
 
+-specs=/path/to/integrated-as.specs 
+  Use the LLVM integrated assembler rather than the system assembler.
+
 -fverbose-asm
   Annotate the target assembler with helpful comments.  Turns on the generation
   of helpful names (the same as in GCC tree dumps) in the LLVM IR.
