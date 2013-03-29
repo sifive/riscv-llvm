@@ -206,8 +206,9 @@ static StringRef getLinkageName(tree Node) {
 }
 
 DebugInfo::DebugInfo(Module *m)
-    : DebugFactory(*m), CurFullPath(""), PrevFullPath(""), CurLineNo(0),
-      PrevLineNo(0), PrevBB(NULL) {}
+    : M(*m), VMContext(M.getContext()), Builder(M), DeclareFn(0),
+    ValueFn(0), CurFullPath(""), PrevFullPath(""), CurLineNo(0), PrevLineNo(0),
+    PrevBB(NULL) {}
 
 /// getFunctionName - Get function name for the given FnDecl. If the
 /// name is constructred on demand (e.g. C++ destructor) then the name
@@ -237,8 +238,7 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn) {
   std::map<tree_node *, WeakVH>::iterator I = SPCache.find(FnDecl);
   if (I != SPCache.end()) {
     DISubprogram SPDecl(cast<MDNode>(I->second));
-    DISubprogram SP =
-        DebugFactory.CreateSubprogramDefinition(SPDecl, lineno, Fn);
+    DISubprogram SP = CreateSubprogramDefinition(SPDecl, lineno, Fn);
     SPDecl->replaceAllUsesWith(SP);
 
     // Push function on region stack.
@@ -263,8 +263,7 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn) {
   I = SPCache.find(FnDecl);
   if (I != SPCache.end()) {
     DISubprogram SPDecl(cast<MDNode>(I->second));
-    DISubprogram SP =
-        DebugFactory.CreateSubprogramDefinition(SPDecl, lineno, Fn);
+    DISubprogram SP = CreateSubprogramDefinition(SPDecl, lineno, Fn);
     SPDecl->replaceAllUsesWith(SP);
 
     // Push function on region stack.
@@ -290,7 +289,7 @@ void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn) {
 
   StringRef FnName = getFunctionName(FnDecl);
 
-  DISubprogram SP = DebugFactory.CreateSubprogram(
+  DISubprogram SP = CreateSubprogram(
       SPContext, FnName, FnName, LinkageName, getOrCreateFile(Loc.file), lineno,
       FNType, Fn->hasInternalLinkage(), true /*definition*/, Virtuality, VIndex,
       ContainingType, DECL_ARTIFICIAL(FnDecl), optimize, Fn);
@@ -309,7 +308,7 @@ DINameSpace DebugInfo::getOrCreateNameSpace(tree Node, DIDescriptor Context) {
     return DINameSpace(cast<MDNode>(I->second));
 
   expanded_location Loc = GetNodeLocation(Node, false);
-  DINameSpace DNS = DebugFactory.CreateNameSpace(
+  DINameSpace DNS = Builder.createNameSpace(
       Context, GetNodeName(Node), getOrCreateFile(Loc.file), Loc.line);
 
   NameSpaceCache[Node] = WeakVH(DNS);
@@ -357,7 +356,7 @@ void DebugInfo::EmitFunctionEnd(bool EndFunction) {
 
 /// EmitDeclare - Constructs the debug code for allocation of a new variable.
 void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name, tree type,
-                            Value *AI, LLVMBuilder &Builder) {
+                            Value *AI, LLVMBuilder &IRBuilder) {
 
   // Ignore compiler generated temporaries.
   if (DECL_IGNORED_P(decl))
@@ -371,15 +370,14 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name, tree type,
   DIScope VarScope = DIScope(cast<MDNode>(RegionStack.back()));
   DIType Ty = getOrCreateType(type);
   if (Ty && DECL_ARTIFICIAL(decl))
-    Ty = DebugFactory.CreateArtificialType(Ty);
+    Ty = Builder.createArtificialType(Ty);
   // If type info is not available then do not emit debug info for this var.
   if (!Ty)
     return;
-  llvm::DIVariable D = DebugFactory.CreateVariable(
+  llvm::DIVariable D = Builder.createLocalVariable(
       Tag, VarScope, Name, getOrCreateFile(Loc.file), Loc.line, Ty, optimize);
 
-  Instruction *Call =
-      DebugFactory.InsertDeclare(AI, D, Builder.GetInsertBlock());
+  Instruction *Call = InsertDeclare(AI, D, IRBuilder.GetInsertBlock());
 
   Call->setDebugLoc(DebugLoc::get(Loc.line, 0, VarScope));
 }
@@ -422,10 +420,9 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
   if (DECL_CONTEXT(decl))
     if (!isa<FUNCTION_DECL>(DECL_CONTEXT(decl)))
       LinkageName = GV->getName();
-  DebugFactory.CreateGlobalVariable(
-      findRegion(DECL_CONTEXT(decl)), DispName, DispName, LinkageName,
-      getOrCreateFile(Loc.file), Loc.line, TyD, GV->hasInternalLinkage(),
-      true /*definition*/, GV);
+  Builder.createStaticVariable(
+      findRegion(DECL_CONTEXT(decl)), DispName, LinkageName,
+      getOrCreateFile(Loc.file), Loc.line, TyD, GV->hasInternalLinkage(), GV);
 }
 
 /// createBasicType - Create BasicType.
@@ -463,9 +460,7 @@ DIType DebugInfo::createBasicType(tree type) {
     llvm_unreachable("Basic type case missing");
   }
 
-  return DebugFactory.CreateBasicType(
-      getOrCreateFile(main_input_filename), TypeName,
-      getOrCreateFile(main_input_filename), 0, Size, Align, 0, 0, Encoding);
+  return Builder.createBasicType(TypeName, Size, Align, Encoding);
 }
 
 /// isArtificialArgumentType - Return true if arg_type represents artificial,
@@ -488,7 +483,7 @@ DIType DebugInfo::createMethodType(tree type) {
 
   // Create a  place holder type first. The may be used as a context
   // for the argument types.
-  llvm::DIType FwdType = DebugFactory.CreateForwardDecl(
+  llvm::DIType FwdType = Builder.createForwardDecl(
     llvm::dwarf::DW_TAG_subroutine_type, StringRef(),
     findRegion(TYPE_CONTEXT(type)), getOrCreateFile(main_input_filename),
     0, 0, 0, 0);
@@ -499,7 +494,7 @@ DIType DebugInfo::createMethodType(tree type) {
   RegionStack.push_back(WeakVH(FwdType));
   RegionMap[type] = WeakVH(FwdType);
 
-  llvm::SmallVector<llvm::DIDescriptor, 16> EltTys;
+  llvm::SmallVector<Value*, 16> EltTys;
 
   // Add the result type at least.
   EltTys.push_back(getOrCreateType(TREE_TYPE(type)));
@@ -512,7 +507,7 @@ DIType DebugInfo::createMethodType(tree type) {
       break;
     llvm::DIType FormalType = getOrCreateType(formal_type);
     if (!ProcessedFirstArg && isArtificialArgumentType(formal_type, type)) {
-      DIType AFormalType = DebugFactory.CreateArtificialType(FormalType);
+      DIType AFormalType = Builder.createArtificialType(FormalType);
       EltTys.push_back(AFormalType);
     } else
       EltTys.push_back(FormalType);
@@ -520,15 +515,14 @@ DIType DebugInfo::createMethodType(tree type) {
       ProcessedFirstArg = true;
   }
 
-  llvm::DIArray EltTypeArray =
-      DebugFactory.GetOrCreateArray(EltTys.data(), EltTys.size());
+  llvm::DIArray EltTypeArray = Builder.getOrCreateArray(EltTys);
 
   RegionStack.pop_back();
   std::map<tree_node *, WeakVH>::iterator RI = RegionMap.find(type);
   if (RI != RegionMap.end())
     RegionMap.erase(RI);
 
-  llvm::DIType RealType = DebugFactory.CreateCompositeType(
+  llvm::DIType RealType = CreateCompositeType(
       llvm::dwarf::DW_TAG_subroutine_type, findRegion(TYPE_CONTEXT(type)),
       StringRef(), getOrCreateFile(main_input_filename), 0, 0, 0, 0, 0,
       llvm::DIType(), EltTypeArray);
@@ -554,7 +548,7 @@ DIType DebugInfo::createPointerType(tree type) {
   if (tree TyName = TYPE_NAME(type))
     if (isa<TYPE_DECL>(TyName) && !DECL_ORIGINAL_TYPE(TyName)) {
       expanded_location TypeNameLoc = GetNodeLocation(TyName);
-      DIType Ty = DebugFactory.CreateDerivedType(
+      DIType Ty = CreateDerivedType(
           Tag, findRegion(DECL_CONTEXT(TyName)), GetNodeName(TyName),
           getOrCreateFile(TypeNameLoc.file), TypeNameLoc.line, 0 /*size*/,
           0 /*align*/, 0 /*offset */, 0 /*flags*/, FromTy);
@@ -563,7 +557,7 @@ DIType DebugInfo::createPointerType(tree type) {
     }
 
   StringRef PName = FromTy.getName();
-  DIType PTy = DebugFactory.CreateDerivedType(
+  DIType PTy = CreateDerivedType(
       Tag, findRegion(TYPE_CONTEXT(type)),
       Tag == DW_TAG_pointer_type ? StringRef() : PName,
       getOrCreateFile(main_input_filename), 0 /*line no*/, NodeSizeInBits(type),
@@ -576,7 +570,7 @@ DIType DebugInfo::createArrayType(tree type) {
   // Add the dimensions of the array.  FIXME: This loses CV qualifiers from
   // interior arrays, do we care?  Why aren't nested arrays represented the
   // obvious/recursive way?
-  llvm::SmallVector<llvm::DIDescriptor, 8> Subscripts;
+  llvm::SmallVector<Value*, 8> Subscripts;
 
   // There will be ARRAY_TYPE nodes for each rank.  Followed by the derived
   // type.
@@ -595,20 +589,19 @@ DIType DebugInfo::createArrayType(tree type) {
           Low = getInt64(MinValue, false);
         if (isInt64(MaxValue, false))
           Hi = getInt64(MaxValue, false);
-        Subscripts.push_back(DebugFactory.GetOrCreateSubrange(Low, Hi));
+        Subscripts.push_back(Builder.getOrCreateSubrange(Low, Hi));
       }
       EltTy = TREE_TYPE(atype);
     }
   } else {
     assert(isa<VECTOR_TYPE>(type) && "Not an array or vector type!");
     unsigned Length = TYPE_VECTOR_SUBPARTS(type);
-    Subscripts.push_back(DebugFactory.GetOrCreateSubrange(0, Length));
+    Subscripts.push_back(Builder.getOrCreateSubrange(0, Length));
   }
 
-  llvm::DIArray SubscriptArray =
-      DebugFactory.GetOrCreateArray(Subscripts.data(), Subscripts.size());
+  llvm::DIArray SubscriptArray = Builder.getOrCreateArray(Subscripts);
   expanded_location Loc = GetNodeLocation(type);
-  return DebugFactory.CreateCompositeType(
+  return CreateCompositeType(
       llvm::dwarf::DW_TAG_array_type, findRegion(TYPE_CONTEXT(type)),
       StringRef(), getOrCreateFile(Loc.file), 0, NodeSizeInBits(type),
       NodeAlignInBits(type), 0, 0, getOrCreateType(EltTy), SubscriptArray);
@@ -617,7 +610,7 @@ DIType DebugInfo::createArrayType(tree type) {
 /// createEnumType - Create EnumType.
 DIType DebugInfo::createEnumType(tree type) {
   // enum { a, b, ..., z };
-  llvm::SmallVector<llvm::DIDescriptor, 32> Elements;
+  llvm::SmallVector<Value*, 32> Elements;
 
   if (TYPE_SIZE(type)) {
     for (tree Link = TYPE_VALUES(type); Link; Link = TREE_CHAIN(Link)) {
@@ -626,19 +619,18 @@ DIType DebugInfo::createEnumType(tree type) {
         EnumValue = DECL_INITIAL(EnumValue);
       uint64_t Value = getAPIntValue(EnumValue, 64).getZExtValue();
       const char *EnumName = IDENTIFIER_POINTER(TREE_PURPOSE(Link));
-      Elements.push_back(DebugFactory.CreateEnumerator(EnumName, Value));
+      Elements.push_back(Builder.createEnumerator(EnumName, Value));
     }
   }
 
-  llvm::DIArray EltArray =
-      DebugFactory.GetOrCreateArray(Elements.data(), Elements.size());
+  llvm::DIArray EltArray = Builder.getOrCreateArray(Elements);
 
   expanded_location Loc = { NULL, 0, 0, false };
   if (TYPE_SIZE(type))
     // Incomplete enums do not  have any location info.
     Loc = GetNodeLocation(TREE_CHAIN(type), false);
 
-  return DebugFactory.CreateCompositeType(
+  return CreateCompositeType(
       llvm::dwarf::DW_TAG_enumeration_type, findRegion(TYPE_CONTEXT(type)),
       GetNodeName(type), getOrCreateFile(Loc.file), Loc.line,
       NodeSizeInBits(type), NodeAlignInBits(type), 0, 0, llvm::DIType(),
@@ -692,7 +684,7 @@ DIType DebugInfo::createStructType(tree type) {
         return DIType(TN);
   }
 
-  llvm::DIType FwdDecl = DebugFactory.CreateForwardDecl(
+  llvm::DIType FwdDecl = Builder.createForwardDecl(
       Tag, GetNodeName(type), TyContext, getOrCreateFile(Loc.file), Loc.line,
       0, 0, 0);
 
@@ -710,7 +702,7 @@ DIType DebugInfo::createStructType(tree type) {
   RegionMap[type] = WeakVH(FwdDecl);
 
   // Convert all the elements.
-  llvm::SmallVector<llvm::DIDescriptor, 16> EltTys;
+  llvm::SmallVector<Value*, 16> EltTys;
 
   if (tree binfo = TYPE_BINFO(type)) {
     VEC(tree, gc) *accesses = BINFO_BASE_ACCESSES(binfo);
@@ -738,7 +730,7 @@ DIType DebugInfo::createStructType(tree type) {
       if (BINFO_VIRTUAL_P(BInfo))
         Offset = 0 - getInt64(BINFO_VPTR_FIELD(BInfo), false);
       // FIXME : name, size, align etc...
-      DIType DTy = DebugFactory.CreateDerivedType(
+      DIType DTy = CreateDerivedType(
           DW_TAG_inheritance, findRegion(type), StringRef(), llvm::DIFile(), 0,
           0, 0, Offset, BFlags, BaseClass);
       EltTys.push_back(DTy);
@@ -779,7 +771,7 @@ DIType DebugInfo::createStructType(tree type) {
     else if (TREE_PRIVATE(Member))
       MFlags = llvm::DIType::FlagPrivate;
 
-    DIType DTy = DebugFactory.CreateDerivedType(
+    DIType DTy = CreateDerivedType(
         DW_TAG_member, findRegion(DECL_CONTEXT(Member)), MemberName,
         getOrCreateFile(MemLoc.file), MemLoc.line, NodeSizeInBits(Member),
         NodeAlignInBits(FieldNodeType), int_bit_position(Member), MFlags,
@@ -816,7 +808,7 @@ DIType DebugInfo::createStructType(tree type) {
         Virtuality = dwarf::DW_VIRTUALITY_virtual;
         ContainingType = getOrCreateType(DECL_CONTEXT(Member));
       }
-      DISubprogram SP = DebugFactory.CreateSubprogram(
+      DISubprogram SP = CreateSubprogram(
           findRegion(DECL_CONTEXT(Member)), MemberName, MemberName, LinkageName,
           getOrCreateFile(MemLoc.file), MemLoc.line, SPTy, false, false,
           Virtuality, VIndex, ContainingType, DECL_ARTIFICIAL(Member),
@@ -826,8 +818,7 @@ DIType DebugInfo::createStructType(tree type) {
     }
   }
 
-  llvm::DIArray Elements =
-      DebugFactory.GetOrCreateArray(EltTys.data(), EltTys.size());
+  llvm::DIArray Elements = Builder.getOrCreateArray(EltTys);
 
   RegionStack.pop_back();
   std::map<tree_node *, WeakVH>::iterator RI = RegionMap.find(type);
@@ -839,7 +830,7 @@ DIType DebugInfo::createStructType(tree type) {
     tree vtype = DECL_FCONTEXT(TYPE_VFIELD(type));
     ContainingType = getOrCreateType(vtype);
   }
-  llvm::DICompositeType RealDecl = DebugFactory.CreateCompositeType(
+  llvm::DICompositeType RealDecl = CreateCompositeType(
       Tag, findRegion(TYPE_CONTEXT(type)), GetNodeName(type),
       getOrCreateFile(Loc.file), Loc.line, NodeSizeInBits(type),
       NodeAlignInBits(type), 0, SFlags, llvm::DIType(), Elements, RunTimeLang,
@@ -864,7 +855,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
         return DIType(cast<MDNode>(I->second));
     if (isa<TYPE_DECL>(TyDef) && DECL_ORIGINAL_TYPE(TyDef)) {
       expanded_location TypeDefLoc = GetNodeLocation(TyDef);
-      Ty = DebugFactory.CreateDerivedType(
+      Ty = CreateDerivedType(
           DW_TAG_typedef, findRegion(DECL_CONTEXT(TyDef)), GetNodeName(TyDef),
           getOrCreateFile(TypeDefLoc.file), TypeDefLoc.line, 0 /*size*/,
           0 /*align*/, 0 /*offset */, 0 /*flags*/, MainTy);
@@ -874,7 +865,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
   }
 
   if (TYPE_VOLATILE(type)) {
-    Ty = DebugFactory.CreateDerivedType(
+    Ty = CreateDerivedType(
         DW_TAG_volatile_type, findRegion(TYPE_CONTEXT(type)), StringRef(),
         getOrCreateFile(main_input_filename), 0 /*line no*/,
         NodeSizeInBits(type), NodeAlignInBits(type), 0 /*offset */,
@@ -883,7 +874,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
   }
 
   if (TYPE_READONLY(type))
-    Ty = DebugFactory.CreateDerivedType(
+    Ty = CreateDerivedType(
         DW_TAG_const_type, findRegion(TYPE_CONTEXT(type)), StringRef(),
         getOrCreateFile(main_input_filename), 0 /*line no*/,
         NodeSizeInBits(type), NodeAlignInBits(type), 0 /*offset */,
@@ -1029,8 +1020,8 @@ void DebugInfo::getOrCreateCompileUnit(const char *FullPath, bool isMain) {
   unsigned ObjcRunTimeVer = 0;
   //  if (flag_objc_abi != 0 && flag_objc_abi != -1)
   //    ObjcRunTimeVer = flag_objc_abi;
-  DebugFactory.CreateCompileUnit(LangTag, FileName, Directory, version_string,
-                                 isMain, optimize, Flags, ObjcRunTimeVer);
+  Builder.createCompileUnit(LangTag, FileName, Directory, version_string,
+                            optimize, Flags, ObjcRunTimeVer);
 }
 
 /// getOrCreateFile - Get DIFile descriptor.
@@ -1044,93 +1035,18 @@ DIFile DebugInfo::getOrCreateFile(const char *FullPath) {
   std::string Directory;
   std::string FileName;
   DirectoryAndFile(FullPath, Directory, FileName);
-  return DebugFactory.CreateFile(FileName, Directory);
-}
-
-//===----------------------------------------------------------------------===//
-// DIFactory: Basic Helpers
-//===----------------------------------------------------------------------===//
-
-DIFactory::DIFactory(Module &m)
-    : M(m), VMContext(M.getContext()), Builder(M), DeclareFn(0), ValueFn(0) {}
-
-Constant *DIFactory::GetTagConstant(unsigned TAG) {
-  assert((TAG & LLVMDebugVersionMask) == 0 &&
-         "Tag too large for debug encoding!");
-  // llvm has moved forward. DIFactory does not emit debug info in updated form.
-  // Use LLVMDebugVersion10 directly here.
-  return ConstantInt::get(Type::getInt32Ty(VMContext), TAG | LLVMDebugVersion);
+  return Builder.createFile(FileName, Directory);
 }
 
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
-// DIFactory: Primary Constructors
+// Primary Constructors
 //===----------------------------------------------------------------------===//
-
-/// GetOrCreateArray - Create an descriptor for an array of descriptors.
-/// This implicitly uniques the arrays created.
-DIArray DIFactory::GetOrCreateArray(DIDescriptor *Tys, unsigned NumTys) {
-  SmallVector<Value *, 16> Elts(Tys, Tys + NumTys);
-  return Builder.getOrCreateArray(Elts);
-}
-
-/// GetOrCreateSubrange - Create a descriptor for a value range.  This
-/// implicitly uniques the values returned.
-DISubrange DIFactory::GetOrCreateSubrange(int64_t Lo, int64_t Hi) {
-  return Builder.getOrCreateSubrange(Lo, Hi);
-}
-
-/// CreateUnspecifiedParameter - Create unspeicified type descriptor
-/// for the subroutine type.
-DIDescriptor DIFactory::CreateUnspecifiedParameter() {
-  return Builder.createUnspecifiedParameter();
-}
-
-/// CreateCompileUnit - Create a new descriptor for the specified compile
-/// unit.  Note that this does not unique compile units within the module.
-void DIFactory::CreateCompileUnit(unsigned LangID, StringRef Filename,
-                                  StringRef Directory, StringRef Producer,
-                                  bool isMain, bool isOptimized,
-                                  StringRef Flags, unsigned RunTimeVer) {
-  Builder.createCompileUnit(LangID, Filename, Directory, Producer, isOptimized,
-                            Flags, RunTimeVer);
-}
-
-/// CreateFile -  Create a new descriptor for the specified file.
-DIFile DIFactory::CreateFile(StringRef Filename, StringRef Directory) {
-  return Builder.createFile(Filename, Directory);
-}
-
-/// CreateEnumerator - Create a single enumerator value.
-DIEnumerator DIFactory::CreateEnumerator(StringRef Name, uint64_t Val) {
-  return Builder.createEnumerator(Name, Val);
-}
-
-/// CreateBasicType - Create a basic type like int, float, etc.
-DIBasicType DIFactory::CreateBasicType(
-    DIDescriptor Context, StringRef Name, DIFile F, unsigned LineNumber,
-    uint64_t SizeInBits, uint64_t AlignInBits, uint64_t OffsetInBits,
-    unsigned Flags, unsigned Encoding) {
-  return Builder.createBasicType(Name, SizeInBits, AlignInBits, Encoding);
-}
-
-/// CreateBasicType - Create a basic type like int, float, etc.
-DIBasicType DIFactory::CreateBasicTypeEx(
-    DIDescriptor Context, StringRef Name, DIFile F, unsigned LineNumber,
-    Constant *SizeInBits, Constant *AlignInBits, Constant *OffsetInBits,
-    unsigned Flags, unsigned Encoding) {
-  assert(false && "Why are you passing Constants around");
-}
-
-/// CreateArtificialType - Create a new DIType with "artificial" flag set.
-DIType DIFactory::CreateArtificialType(DIType Ty) {
-  return Builder.createArtificialType(Ty);
-}
 
 /// CreateDerivedType - Create a derived type like const qualified type,
 /// pointer, typedef, etc.
-DIDerivedType DIFactory::CreateDerivedType(
+DIDerivedType DebugInfo::CreateDerivedType(
     unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
     unsigned LineNumber, uint64_t SizeInBits, uint64_t AlignInBits,
     uint64_t OffsetInBits, unsigned Flags, DIType DerivedFrom) {
@@ -1162,7 +1078,7 @@ DIDerivedType DIFactory::CreateDerivedType(
 }
 
 /// CreateCompositeType - Create a composite type like array, struct, etc.
-DICompositeType DIFactory::CreateCompositeType(
+DICompositeType DebugInfo::CreateCompositeType(
     unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
     unsigned LineNumber, uint64_t SizeInBits, uint64_t AlignInBits,
     uint64_t OffsetInBits, unsigned Flags, DIType DerivedFrom, DIArray Elements,
@@ -1193,7 +1109,7 @@ DICompositeType DIFactory::CreateCompositeType(
 /// CreateSubprogram - Create a new descriptor for the specified subprogram.
 /// See comments in DISubprogram for descriptions of these fields.  This
 /// method does not unique the generated descriptors.
-DISubprogram DIFactory::CreateSubprogram(
+DISubprogram DebugInfo::CreateSubprogram(
     DIDescriptor Context, StringRef Name, StringRef DisplayName,
     StringRef LinkageName, DIFile F, unsigned LineNo, DIType Ty,
     bool isLocalToUnit, bool isDefinition, unsigned VK, unsigned VIndex,
@@ -1209,7 +1125,7 @@ DISubprogram DIFactory::CreateSubprogram(
 
 /// CreateSubprogramDefinition - Create new subprogram descriptor for the
 /// given declaration.
-DISubprogram DIFactory::CreateSubprogramDefinition(
+DISubprogram DebugInfo::CreateSubprogramDefinition(
     DISubprogram &SP, unsigned LineNo, Function *Fn) {
   if (SP.isDefinition())
     return DISubprogram(SP);
@@ -1221,69 +1137,12 @@ DISubprogram DIFactory::CreateSubprogramDefinition(
       SP.getFlags(), SP.isOptimized(), Fn, SP.getTemplateParams(), SP);
 }
 
-/// CreateGlobalVariable - Create a new descriptor for the specified global.
-DIGlobalVariable DIFactory::CreateGlobalVariable(
-    DIDescriptor Context, StringRef Name, StringRef DisplayName,
-    StringRef LinkageName, DIFile F, unsigned LineNo, DIType Ty,
-    bool isLocalToUnit, bool isDefinition, llvm::GlobalVariable *Val) {
-  return Builder.createStaticVariable(Context, Name, LinkageName, F, LineNo, Ty,
-                                      isLocalToUnit, Val);
-}
-
-/// CreateGlobalVariable - Create a new descriptor for the specified constant.
-DIGlobalVariable DIFactory::CreateGlobalVariable(
-    DIDescriptor Context, StringRef Name, StringRef DisplayName,
-    StringRef LinkageName, DIFile F, unsigned LineNo, DIType Ty,
-    bool isLocalToUnit, bool isDefinition, llvm::Constant *Val) {
-  return Builder.createGlobalVariable(Name, F, LineNo, Ty, isLocalToUnit, Val);
-}
-
-/// CreateVariable - Create a new descriptor for the specified variable.
-DIVariable DIFactory::CreateVariable(
-    unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
-    unsigned LineNo, DIType Ty, bool AlwaysPreserve, unsigned Flags) {
-  return Builder.createLocalVariable(Tag, Context, Name, F, LineNo, Ty,
-                                     AlwaysPreserve, Flags);
-}
-
-/// CreateComplexVariable - Create a new descriptor for the specified variable
-/// which has a complex address expression for its address.
-DIVariable DIFactory::CreateComplexVariable(
-    unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
-    unsigned LineNo, DIType Ty, Value *const *Addr, unsigned NumAddr) {
-  return Builder.createComplexVariable(Tag, Context, Name, F, LineNo, Ty,
-                                       ArrayRef<Value *>(Addr, NumAddr));
-}
-
-/// CreateBlock - This creates a descriptor for a lexical block with the
-/// specified parent VMContext.
-DILexicalBlock DIFactory::CreateLexicalBlock(DIDescriptor Context, DIFile F,
-                                             unsigned LineNo, unsigned Col) {
-  return Builder.createLexicalBlock(Context, F, LineNo, Col);
-}
-
-/// CreateNameSpace - This creates new descriptor for a namespace
-/// with the specified parent context.
-DINameSpace DIFactory::CreateNameSpace(DIDescriptor Context, StringRef Name,
-                                       DIFile F, unsigned LineNo) {
-  return Builder.createNameSpace(Context, Name, F, LineNo);
-}
-
-/// CreateLocation - Creates a debug info location.
-DILocation DIFactory::CreateLocation(unsigned LineNo, unsigned ColumnNo,
-                                     DIScope S, DILocation OrigLoc) {
-  Value *Elts[] = { ConstantInt::get(Type::getInt32Ty(VMContext), LineNo),
-                    ConstantInt::get(Type::getInt32Ty(VMContext), ColumnNo), S,
-                    OrigLoc, };
-  return DILocation(MDNode::get(VMContext, Elts));
-}
-
 //===----------------------------------------------------------------------===//
-// DIFactory: Routines for inserting code into a function
+// Routines for inserting code into a function
 //===----------------------------------------------------------------------===//
 
 /// InsertDeclare - Insert a new llvm.dbg.declare intrinsic call.
-Instruction *DIFactory::InsertDeclare(Value *Storage, DIVariable D,
+Instruction *DebugInfo::InsertDeclare(Value *Storage, DIVariable D,
                                       Instruction *InsertBefore) {
   assert(Storage && "no storage passed to dbg.declare");
   assert(D.Verify() && "empty DIVariable passed to dbg.declare");
@@ -1295,7 +1154,7 @@ Instruction *DIFactory::InsertDeclare(Value *Storage, DIVariable D,
 }
 
 /// InsertDeclare - Insert a new llvm.dbg.declare intrinsic call.
-Instruction *DIFactory::InsertDeclare(Value *Storage, DIVariable D,
+Instruction *DebugInfo::InsertDeclare(Value *Storage, DIVariable D,
                                       BasicBlock *InsertAtEnd) {
   assert(Storage && "no storage passed to dbg.declare");
   assert(D.Verify() && "invalid DIVariable passed to dbg.declare");
@@ -1313,7 +1172,7 @@ Instruction *DIFactory::InsertDeclare(Value *Storage, DIVariable D,
 }
 
 /// InsertDbgValueIntrinsic - Insert a new llvm.dbg.value intrinsic call.
-Instruction *DIFactory::InsertDbgValueIntrinsic(
+Instruction *DebugInfo::InsertDbgValueIntrinsic(
     Value *V, uint64_t Offset, DIVariable D, Instruction *InsertBefore) {
   assert(V && "no value passed to dbg.value");
   assert(D.Verify() && "invalid DIVariable passed to dbg.value");
@@ -1327,7 +1186,7 @@ Instruction *DIFactory::InsertDbgValueIntrinsic(
 }
 
 /// InsertDbgValueIntrinsic - Insert a new llvm.dbg.value intrinsic call.
-Instruction *DIFactory::InsertDbgValueIntrinsic(
+Instruction *DebugInfo::InsertDbgValueIntrinsic(
     Value *V, uint64_t Offset, DIVariable D, BasicBlock *InsertAtEnd) {
   assert(V && "no value passed to dbg.value");
   assert(D.Verify() && "invalid DIVariable passed to dbg.value");
@@ -1339,7 +1198,3 @@ Instruction *DIFactory::InsertDbgValueIntrinsic(
                     D };
   return CallInst::Create(ValueFn, Args, "", InsertAtEnd);
 }
-
-// RecordType - Record DIType in a module such that it is not lost even if
-// it is not referenced through debug info anchors.
-void DIFactory::RecordType(DIType T) { Builder.retainType(T); }

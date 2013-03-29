@@ -44,168 +44,6 @@ class Function;
 class Module;
 }
 
-/// DIFactory - This object assists with the construction of the various
-/// descriptors.
-class DIFactory {
-  Module &M;
-  LLVMContext &VMContext;
-  DIBuilder Builder;
-
-  Function *DeclareFn; // llvm.dbg.declare
-  Function *ValueFn;   // llvm.dbg.value
-
-  DIFactory(const DIFactory &) LLVM_DELETED_FUNCTION;
-  void operator=(const DIFactory &)LLVM_DELETED_FUNCTION;
-public:
-  enum ComplexAddrKind {
-    OpPlus = 1,
-    OpDeref
-  };
-
-  ~DIFactory() { Builder.finalize(); }
-
-  explicit DIFactory(Module &m);
-
-  /// GetOrCreateArray - Create an descriptor for an array of descriptors.
-  /// This implicitly uniques the arrays created.
-  DIArray GetOrCreateArray(DIDescriptor *Tys, unsigned NumTys);
-
-  /// GetOrCreateSubrange - Create a descriptor for a value range.  This
-  /// implicitly uniques the values returned.
-  DISubrange GetOrCreateSubrange(int64_t Lo, int64_t Hi);
-
-  /// CreateUnspecifiedParameter - Create unspeicified type descriptor
-  /// for a subroutine type.
-  DIDescriptor CreateUnspecifiedParameter();
-
-  /// CreateCompileUnit - Create a new descriptor for the specified compile
-  /// unit.
-  void CreateCompileUnit(unsigned LangID, StringRef Filename,
-                         StringRef Directory, StringRef Producer,
-                         bool isMain = false, bool isOptimized = false,
-                         StringRef Flags = "", unsigned RunTimeVer = 0);
-
-  /// CreateFile -  Create a new descriptor for the specified file.
-  DIFile CreateFile(StringRef Filename, StringRef Directory);
-
-  DIType CreateForwardDecl(unsigned Tag, StringRef Name, DIDescriptor Scope,
-                           DIFile F, unsigned Line, unsigned RuntimeLang = 0,
-                           uint64_t SizeInBits = 0, uint64_t AlignInBits = 0) {
-    return Builder.createForwardDecl(Tag, Name, Scope, F, Line, RuntimeLang,
-                                     SizeInBits, AlignInBits);
-  }
-
-  /// CreateEnumerator - Create a single enumerator value.
-  DIEnumerator CreateEnumerator(StringRef Name, uint64_t Val);
-
-  /// CreateBasicType - Create a basic type like int, float, etc.
-  DIBasicType CreateBasicType(DIDescriptor Context, StringRef Name, DIFile F,
-                              unsigned LineNumber, uint64_t SizeInBits,
-                              uint64_t AlignInBits, uint64_t OffsetInBits,
-                              unsigned Flags, unsigned Encoding);
-
-  /// CreateBasicType - Create a basic type like int, float, etc.
-  DIBasicType CreateBasicTypeEx(DIDescriptor Context, StringRef Name, DIFile F,
-                                unsigned LineNumber, Constant *SizeInBits,
-                                Constant *AlignInBits, Constant *OffsetInBits,
-                                unsigned Flags, unsigned Encoding);
-
-  /// CreateDerivedType - Create a derived type like const qualified type,
-  /// pointer, typedef, etc.
-  DIDerivedType CreateDerivedType(
-      unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
-      unsigned LineNumber, uint64_t SizeInBits, uint64_t AlignInBits,
-      uint64_t OffsetInBits, unsigned Flags, DIType DerivedFrom);
-
-  /// CreateCompositeType - Create a composite type like array, struct, etc.
-  DICompositeType CreateCompositeType(
-      unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
-      unsigned LineNumber, uint64_t SizeInBits, uint64_t AlignInBits,
-      uint64_t OffsetInBits, unsigned Flags, DIType DerivedFrom,
-      DIArray Elements, unsigned RunTimeLang = 0, MDNode *ContainingType = 0);
-
-  /// CreateArtificialType - Create a new DIType with "artificial" flag set.
-  DIType CreateArtificialType(DIType Ty);
-
-  /// CreateSubprogram - Create a new descriptor for the specified subprogram.
-  /// See comments in DISubprogram for descriptions of these fields.
-  DISubprogram CreateSubprogram(
-      DIDescriptor Context, StringRef Name, StringRef DisplayName,
-      StringRef LinkageName, DIFile F, unsigned LineNo, DIType Ty,
-      bool isLocalToUnit, bool isDefinition, unsigned VK = 0,
-      unsigned VIndex = 0, DIType ContainingType = DIType(), unsigned Flags = 0,
-      bool isOptimized = false, Function *Fn = 0);
-
-  /// CreateSubprogramDefinition - Create new subprogram descriptor for the
-  /// given declaration.
-  DISubprogram CreateSubprogramDefinition(DISubprogram &SPDeclaration,
-                                          unsigned LineNo, Function *Fn);
-
-  /// CreateGlobalVariable - Create a new descriptor for the specified global.
-  DIGlobalVariable CreateGlobalVariable(
-      DIDescriptor Context, StringRef Name, StringRef DisplayName,
-      StringRef LinkageName, DIFile F, unsigned LineNo, DIType Ty,
-      bool isLocalToUnit, bool isDefinition, llvm::GlobalVariable *GV);
-
-  /// CreateGlobalVariable - Create a new descriptor for the specified constant.
-  DIGlobalVariable CreateGlobalVariable(
-      DIDescriptor Context, StringRef Name, StringRef DisplayName,
-      StringRef LinkageName, DIFile F, unsigned LineNo, DIType Ty,
-      bool isLocalToUnit, bool isDefinition, llvm::Constant *C);
-
-  /// CreateVariable - Create a new descriptor for the specified variable.
-  DIVariable CreateVariable(unsigned Tag, DIDescriptor Context, StringRef Name,
-                            DIFile F, unsigned LineNo, DIType Ty,
-                            bool AlwaysPreserve = false, unsigned Flags = 0);
-
-  /// CreateComplexVariable - Create a new descriptor for the specified
-  /// variable which has a complex address expression for its address.
-  DIVariable CreateComplexVariable(
-      unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
-      unsigned LineNo, DIType Ty, Value *const *Addr, unsigned NumAddr);
-
-  /// CreateLexicalBlock - This creates a descriptor for a lexical block
-  /// with the specified parent context.
-  DILexicalBlock CreateLexicalBlock(DIDescriptor Context, DIFile F,
-                                    unsigned Line = 0, unsigned Col = 0);
-
-  /// CreateNameSpace - This creates new descriptor for a namespace
-  /// with the specified parent context.
-  DINameSpace CreateNameSpace(DIDescriptor Context, StringRef Name, DIFile F,
-                              unsigned LineNo);
-
-  /// CreateLocation - Creates a debug info location.
-  DILocation CreateLocation(unsigned LineNo, unsigned ColumnNo, DIScope S,
-                            DILocation OrigLoc);
-
-  /// CreateLocation - Creates a debug info location.
-  DILocation CreateLocation(unsigned LineNo, unsigned ColumnNo, DIScope S,
-                            MDNode *OrigLoc = 0);
-
-  /// InsertDeclare - Insert a new llvm.dbg.declare intrinsic call.
-  Instruction *
-  InsertDeclare(llvm::Value *Storage, DIVariable D, BasicBlock *InsertAtEnd);
-
-  /// InsertDeclare - Insert a new llvm.dbg.declare intrinsic call.
-  Instruction *
-  InsertDeclare(llvm::Value *Storage, DIVariable D, Instruction *InsertBefore);
-
-  /// InsertDbgValueIntrinsic - Insert a new llvm.dbg.value intrinsic call.
-  Instruction *InsertDbgValueIntrinsic(llvm::Value *V, uint64_t Offset,
-                                       DIVariable D, BasicBlock *InsertAtEnd);
-
-  /// InsertDbgValueIntrinsic - Insert a new llvm.dbg.value intrinsic call.
-  Instruction *InsertDbgValueIntrinsic(llvm::Value *V, uint64_t Offset,
-                                       DIVariable D, Instruction *InsertBefore);
-
-  // RecordType - Record DIType in a module such that it is not lost even if
-  // it is not referenced through debug info anchors.
-  void RecordType(DIType T);
-
-private:
-  Constant *GetTagConstant(unsigned TAG);
-};
-
 /// DebugInfo - This class gathers all debug information during compilation and
 /// is responsible for emitting to llvm globals or pass directly to the backend.
 class DebugInfo {
@@ -215,7 +53,12 @@ private:
 
   std::map<tree_node *, WeakVH> RegionMap;
 
-  DIFactory DebugFactory;
+  Module &M;
+  LLVMContext &VMContext;
+  DIBuilder Builder;
+  Function *DeclareFn; // llvm.dbg.declare
+  Function *ValueFn;   // llvm.dbg.value
+
   const char *CurFullPath;  // Previous location file encountered.
   const char *PrevFullPath; // Previous location file encountered.
   int CurLineNo;            // Previous location line# encountered.
@@ -238,6 +81,8 @@ private:
 
 public:
   DebugInfo(Module *m);
+
+  ~DebugInfo() { Builder.finalize(); }
 
   /// Initialize - Initialize debug info by creating compile unit for
   /// main_input_filename. This must be invoked after language dependent
@@ -310,6 +155,51 @@ public:
   /// name is constructred on demand (e.g. C++ destructor) then the name
   /// is stored on the side.
   StringRef getFunctionName(tree_node *FnDecl);
+
+private:
+  /// CreateDerivedType - Create a derived type like const qualified type,
+  /// pointer, typedef, etc.
+  DIDerivedType CreateDerivedType(
+      unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
+      unsigned LineNumber, uint64_t SizeInBits, uint64_t AlignInBits,
+      uint64_t OffsetInBits, unsigned Flags, DIType DerivedFrom);
+
+  /// CreateCompositeType - Create a composite type like array, struct, etc.
+  DICompositeType CreateCompositeType(
+      unsigned Tag, DIDescriptor Context, StringRef Name, DIFile F,
+      unsigned LineNumber, uint64_t SizeInBits, uint64_t AlignInBits,
+      uint64_t OffsetInBits, unsigned Flags, DIType DerivedFrom,
+      DIArray Elements, unsigned RunTimeLang = 0, MDNode *ContainingType = 0);
+
+  /// CreateSubprogram - Create a new descriptor for the specified subprogram.
+  /// See comments in DISubprogram for descriptions of these fields.
+  DISubprogram CreateSubprogram(
+      DIDescriptor Context, StringRef Name, StringRef DisplayName,
+      StringRef LinkageName, DIFile F, unsigned LineNo, DIType Ty,
+      bool isLocalToUnit, bool isDefinition, unsigned VK = 0,
+      unsigned VIndex = 0, DIType ContainingType = DIType(), unsigned Flags = 0,
+      bool isOptimized = false, Function *Fn = 0);
+
+  /// CreateSubprogramDefinition - Create new subprogram descriptor for the
+  /// given declaration.
+  DISubprogram CreateSubprogramDefinition(DISubprogram &SPDeclaration,
+                                          unsigned LineNo, Function *Fn);
+
+  /// InsertDeclare - Insert a new llvm.dbg.declare intrinsic call.
+  Instruction *
+  InsertDeclare(llvm::Value *Storage, DIVariable D, BasicBlock *InsertAtEnd);
+
+  /// InsertDeclare - Insert a new llvm.dbg.declare intrinsic call.
+  Instruction *
+  InsertDeclare(llvm::Value *Storage, DIVariable D, Instruction *InsertBefore);
+
+  /// InsertDbgValueIntrinsic - Insert a new llvm.dbg.value intrinsic call.
+  Instruction *InsertDbgValueIntrinsic(llvm::Value *V, uint64_t Offset,
+                                       DIVariable D, BasicBlock *InsertAtEnd);
+
+  /// InsertDbgValueIntrinsic - Insert a new llvm.dbg.value intrinsic call.
+  Instruction *InsertDbgValueIntrinsic(llvm::Value *V, uint64_t Offset,
+                                       DIVariable D, Instruction *InsertBefore);
 };
 
 #endif /* DRAGONEGG_DEBUG_H */
