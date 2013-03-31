@@ -3260,8 +3260,12 @@ Value *TreeToLLVM::EmitCallOf(Value *Callee, gimple stmt, const MemRef *DestLoc,
   }
 
   tree fndecl = gimple_call_fndecl(stmt);
+#if (GCC_MINOR < 7)
   tree fntype =
       fndecl ? TREE_TYPE(fndecl) : TREE_TYPE(TREE_TYPE(gimple_call_fn(stmt)));
+#else
+  tree fntype = gimple_call_fntype(stmt);
+#endif
 
   // Determine the calling convention.
   CallingConv::ID CallingConvention = CallingConv::C;
@@ -9125,7 +9129,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
               isa<REFERENCE_TYPE>(TREE_TYPE(call_expr))) &&
              "Not calling a function pointer?");
 
+#if (GCC_MINOR < 7)
       tree function_type = TREE_TYPE(TREE_TYPE(call_expr));
+#else
+      tree function_type = gimple_call_fntype(stmt);
+#endif
       Value *Callee = EmitRegister(call_expr);
       CallingConv::ID CallingConv;
       AttributeSet PAL;
