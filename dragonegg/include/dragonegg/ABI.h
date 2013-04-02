@@ -41,37 +41,37 @@ namespace llvm { class BasicBlock; }
 struct DefaultABIClient {
   virtual void anchor();
   virtual ~DefaultABIClient() {}
-  virtual CallingConv::ID getCallingConv(void) = 0;
+  virtual llvm::CallingConv::ID getCallingConv(void) = 0;
   virtual bool isShadowReturn() const { return false; }
 
   /// HandleScalarResult - This callback is invoked if the function returns a
   /// simple scalar result value, which is of type RetTy.
-  virtual void HandleScalarResult(Type */*RetTy*/) {}
+  virtual void HandleScalarResult(llvm::Type */*RetTy*/) {}
 
   /// HandleAggregateResultAsScalar - This callback is invoked if the function
   /// returns an aggregate value by bit converting it to the specified scalar
   /// type and returning that.  The bit conversion should start at byte Offset
   /// within the struct, and ScalarTy is not necessarily big enough to cover
   /// the entire struct.
-  virtual void HandleAggregateResultAsScalar(Type */*ScalarTy*/,
+  virtual void HandleAggregateResultAsScalar(llvm::Type */*ScalarTy*/,
                                              unsigned /*Offset*/ = 0) {}
 
   /// HandleAggregateResultAsAggregate - This callback is invoked if the function
   /// returns an aggregate value using multiple return values.
-  virtual void HandleAggregateResultAsAggregate(Type */*AggrTy*/) {}
+  virtual void HandleAggregateResultAsAggregate(llvm::Type */*AggrTy*/) {}
 
   /// HandleAggregateShadowResult - This callback is invoked if the function
   /// returns an aggregate value by using a "shadow" first parameter, which is
   /// a pointer to the aggregate, of type PtrArgTy.  If RetPtr is set to true,
   /// the pointer argument itself is returned from the function.
-  virtual void HandleAggregateShadowResult(PointerType */*PtrArgTy*/,
+  virtual void HandleAggregateShadowResult(llvm::PointerType */*PtrArgTy*/,
                                            bool /*RetPtr*/) {}
 
   /// HandleScalarShadowResult - This callback is invoked if the function
   /// returns a scalar value by using a "shadow" first parameter, which is a
   /// pointer to the scalar, of type PtrArgTy.  If RetPtr is set to true,
   /// the pointer argument itself is returned from the function.
-  virtual void HandleScalarShadowResult(PointerType */*PtrArgTy*/,
+  virtual void HandleScalarShadowResult(llvm::PointerType */*PtrArgTy*/,
                                         bool /*RetPtr*/) {}
 
   /// HandleScalarArgument - This is the primary callback that specifies an
@@ -119,7 +119,7 @@ struct DefaultABIClient {
 // doNotUseShadowReturn - Return true if the specified GCC type
 // should not be returned using a pointer to struct parameter.
 extern bool doNotUseShadowReturn(tree_node *type, tree_node *fndecl,
-                                 CallingConv::ID CC);
+                                 llvm::CallingConv::ID CC);
 
 /// isSingleElementStructOrArray - If this is (recursively) a structure with one
 /// field or an array with one element, return the field type, otherwise return
@@ -137,25 +137,25 @@ extern bool isZeroSizedStructOrUnion(tree_node *type);
 // getLLVMScalarTypeForStructReturn - Return LLVM Type if TY can be
 // returned as a scalar, otherwise return NULL. This is the default
 // target independent implementation.
-inline Type *
+inline llvm::Type *
 getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) {
-  Type *Ty = ConvertType(type);
+  llvm::Type *Ty = ConvertType(type);
   uint64_t Size = getDataLayout().getTypeAllocSize(Ty);
   *Offset = 0;
   if (Size == 0)
-    return Type::getVoidTy(getGlobalContext());
+    return llvm::Type::getVoidTy(llvm::getGlobalContext());
   else if (Size == 1)
-    return Type::getInt8Ty(getGlobalContext());
+    return llvm::Type::getInt8Ty(llvm::getGlobalContext());
   else if (Size == 2)
-    return Type::getInt16Ty(getGlobalContext());
+    return llvm::Type::getInt16Ty(llvm::getGlobalContext());
   else if (Size <= 4)
-    return Type::getInt32Ty(getGlobalContext());
+    return llvm::Type::getInt32Ty(llvm::getGlobalContext());
   else if (Size <= 8)
-    return Type::getInt64Ty(getGlobalContext());
+    return llvm::Type::getInt64Ty(llvm::getGlobalContext());
   else if (Size <= 16)
-    return IntegerType::get(getGlobalContext(), 128);
+    return llvm::IntegerType::get(llvm::getGlobalContext(), 128);
   else if (Size <= 32)
-    return IntegerType::get(getGlobalContext(), 256);
+    return llvm::IntegerType::get(llvm::getGlobalContext(), 256);
 
   return NULL;
 }
@@ -163,7 +163,7 @@ getLLVMScalarTypeForStructReturn(tree_node *type, unsigned *Offset) {
 // getLLVMAggregateTypeForStructReturn - Return LLVM type if TY can be
 // returns as multiple values, otherwise return NULL. This is the default
 // target independent implementation.
-inline Type *getLLVMAggregateTypeForStructReturn(tree_node */*type*/) {
+inline llvm::Type *getLLVMAggregateTypeForStructReturn(tree_node */*type*/) {
   return NULL;
 }
 
@@ -282,7 +282,7 @@ inline Type *getLLVMAggregateTypeForStructReturn(tree_node */*type*/) {
   llvm_default_extract_multiple_return_value((Src), (Dest), (V), (B))
 #endif
 inline void llvm_default_extract_multiple_return_value(
-    Value */*Src*/, Value */*Dest*/, bool /*isVolatile*/,
+    llvm::Value */*Src*/, llvm::Value */*Dest*/, bool /*isVolatile*/,
     LLVMBuilder &/*Builder*/) {
   llvm_unreachable("LLVM_EXTRACT_MULTIPLE_RETURN_VALUE is not implemented!");
 }
@@ -310,24 +310,25 @@ public:
   /// argument and invokes methods on the client that indicate how its pieces
   /// should be handled.  This handles things like decimating structures into
   /// their fields.
-  void HandleArgument(tree_node *type, std::vector<Type *> &ScalarElts,
-                      AttrBuilder *AttrBuilder = NULL);
+  void HandleArgument(tree_node *type, std::vector<llvm::Type *> &ScalarElts,
+                      llvm::AttrBuilder *AttrBuilder = NULL);
 
   /// HandleUnion - Handle a UNION_TYPE or QUAL_UNION_TYPE tree.
   ///
-  void HandleUnion(tree_node *type, std::vector<Type *> &ScalarElts);
+  void HandleUnion(tree_node *type, std::vector<llvm::Type *> &ScalarElts);
 
   /// PassInIntegerRegisters - Given an aggregate value that should be passed in
   /// integer registers, convert it to a structure containing ints and pass all
   /// of the struct elements in.  If Size is set we pass only that many bytes.
-  void PassInIntegerRegisters(tree_node *type, std::vector<Type *> &ScalarElts,
+  void PassInIntegerRegisters(tree_node *type,
+                              std::vector<llvm::Type *> &ScalarElts,
                               unsigned origSize, bool DontCheckAlignment);
 
   /// PassInMixedRegisters - Given an aggregate value that should be passed in
   /// mixed integer, floating point, and vector registers, convert it to a
   /// structure containing the specified struct elements in.
-  void PassInMixedRegisters(Type *Ty, std::vector<Type *> &OrigElts,
-                            std::vector<Type *> &ScalarElts);
+  void PassInMixedRegisters(llvm::Type *Ty, std::vector<llvm::Type *> &OrigElts,
+                            std::vector<llvm::Type *> &ScalarElts);
 };
 
 #endif /* DRAGONEGG_ABI_H */

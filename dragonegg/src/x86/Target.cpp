@@ -63,6 +63,12 @@ extern void debug_gimple_stmt(union gimple_statement_d *);
 // Trees header.
 #include "dragonegg/Trees.h"
 
+// One day we will do parameter marshalling right: by using CUMULATIVE_ARGS.
+// While waiting for that happy day, just include a chunk of i386.c.
+#include "ABIHack.inc"
+
+using namespace llvm;
+
 static LLVMContext &Context = getGlobalContext();
 
 /// BitCastToIntVector - Bitcast the vector operand to a vector of integers of
@@ -173,7 +179,7 @@ bool TreeToLLVM::TargetIntrinsicLower(
   case copysignps256: {
     if (Ops.size() != 2)
       return false;
-    VectorType *VecTy = dyn_cast<VectorType>(Ops[0]->getType());
+    VectorType *VecTy = llvm::dyn_cast<VectorType>(Ops[0]->getType());
     if (Ops[1]->getType() != VecTy)
       return false;
     Type *EltTy = VecTy->getElementType();
@@ -288,7 +294,7 @@ bool TreeToLLVM::TargetIntrinsicLower(
     Result = Builder.CreateBitCast(Result, ResultType);
     return true;
   case shufps:
-    if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[2])) {
+    if (ConstantInt *Elt = llvm::dyn_cast<ConstantInt>(Ops[2])) {
       int EV = Elt->getZExtValue();
       Result = BuildVectorShuffle(Ops[0], Ops[1], ((EV & 0x03) >> 0),
                                   ((EV & 0x0c) >> 2), ((EV & 0x30) >> 4) + 4,
@@ -299,7 +305,7 @@ bool TreeToLLVM::TargetIntrinsicLower(
     }
     return true;
   case shufpd:
-    if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[2])) {
+    if (ConstantInt *Elt = llvm::dyn_cast<ConstantInt>(Ops[2])) {
       int EV = Elt->getZExtValue();
       Result = BuildVectorShuffle(Ops[0], Ops[1], ((EV & 0x01) >> 0),
                                   ((EV & 0x02) >> 1) + 2);
@@ -310,7 +316,7 @@ bool TreeToLLVM::TargetIntrinsicLower(
     return true;
   case pshufw:
   case pshufd:
-    if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[1])) {
+    if (ConstantInt *Elt = llvm::dyn_cast<ConstantInt>(Ops[1])) {
       int EV = Elt->getZExtValue();
       Result = BuildVectorShuffle(Ops[0], Ops[0], ((EV & 0x03) >> 0),
                                   ((EV & 0x0c) >> 2), ((EV & 0x30) >> 4),
@@ -321,7 +327,7 @@ bool TreeToLLVM::TargetIntrinsicLower(
     }
     return true;
   case pshufhw:
-    if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[1])) {
+    if (ConstantInt *Elt = llvm::dyn_cast<ConstantInt>(Ops[1])) {
       int EV = Elt->getZExtValue();
       Result =
           BuildVectorShuffle(Ops[0], Ops[0], 0, 1, 2, 3, ((EV & 0x03) >> 0) + 4,
@@ -331,7 +337,7 @@ bool TreeToLLVM::TargetIntrinsicLower(
     }
     return false;
   case pshuflw:
-    if (ConstantInt *Elt = dyn_cast<ConstantInt>(Ops[1])) {
+    if (ConstantInt *Elt = llvm::dyn_cast<ConstantInt>(Ops[1])) {
       int EV = Elt->getZExtValue();
       Result = BuildVectorShuffle(Ops[0], Ops[0], ((EV & 0x03) >> 0),
                                   ((EV & 0x0c) >> 2), ((EV & 0x30) >> 4),
@@ -971,14 +977,14 @@ bool TreeToLLVM::TargetIntrinsicLower(
   case vec_perm_v8hi:
   case vec_perm_v8hi_u:
   case vec_perm_v8sf: {
-    VectorType *VecTy = dyn_cast<VectorType>(Ops[0]->getType());
+    VectorType *VecTy = llvm::dyn_cast<VectorType>(Ops[0]->getType());
     if (Ops[1]->getType() != VecTy)
       return false;
     unsigned NElts = VecTy->getNumElements();
-    Constant *Mask = dyn_cast<Constant>(Ops[2]);
+    Constant *Mask = llvm::dyn_cast<Constant>(Ops[2]);
     if (!Mask)
       return false;
-    VectorType *MaskTy = dyn_cast<VectorType>(Mask->getType());
+    VectorType *MaskTy = llvm::dyn_cast<VectorType>(Mask->getType());
     if (!MaskTy || MaskTy->getNumElements() != NElts ||
         !MaskTy->getElementType()->isIntegerTy())
       return false;
@@ -1063,10 +1069,6 @@ bool TreeToLLVM::TargetIntrinsicLower(
   llvm_unreachable("Forgot case for code?");
 }
 
-// One day we will do parameter marshalling right: by using CUMULATIVE_ARGS.
-// While waiting for that happy day, just include a chunk of i386.c.
-#include "ABIHack.inc"
-
 /* Target hook for llvm-abi.h. It returns true if an aggregate of the
    specified type should be passed in memory. This is only called for
    x86-64. */
@@ -1110,7 +1112,7 @@ bool llvm_x86_32_should_pass_aggregate_in_mixed_regs(
   // Note that we can't support passing all structs this way.  For example,
   // {i16, i16} should be passed in on 32-bit unit, which is not how "i16, i16"
   // would be passed as stand-alone arguments.
-  StructType *STy = dyn_cast<StructType>(Ty);
+  StructType *STy = llvm::dyn_cast<StructType>(Ty);
   if (!STy || STy->isPacked())
     return false;
 
@@ -1142,7 +1144,7 @@ bool llvm_x86_32_should_pass_aggregate_in_mixed_regs(
 bool llvm_x86_should_pass_aggregate_as_fca(tree type, Type *Ty) {
   if (!isa<COMPLEX_TYPE>(type))
     return false;
-  StructType *STy = dyn_cast<StructType>(Ty);
+  StructType *STy = llvm::dyn_cast<StructType>(Ty);
   if (!STy || STy->isPacked())
     return false;
 
@@ -1183,7 +1185,7 @@ static void count_num_registers_uses(std::vector<Type *> &ScalarElts,
                                      unsigned &NumGPRs, unsigned &NumXMMs) {
   for (size_t i = 0, e = ScalarElts.size(); i != e; ++i) {
     Type *Ty = ScalarElts[i];
-    if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
+    if (VectorType *VTy = llvm::dyn_cast<VectorType>(Ty)) {
       if (!TARGET_MACHO)
         continue;
       if (VTy->getNumElements() == 1)
@@ -1305,11 +1307,11 @@ bool llvm_x86_64_should_pass_aggregate_in_mixed_regs(
       } else if ((NumClasses - i) == 2) {
         if (Class[i + 1] == X86_64_SSEUP_CLASS) {
           Type *LLVMTy = ConvertType(TreeType);
-          if (StructType *STy = dyn_cast<StructType>(LLVMTy))
+          if (StructType *STy = llvm::dyn_cast<StructType>(LLVMTy))
             // Look pass the struct wrapper.
             if (STy->getNumElements() == 1)
               LLVMTy = STy->getElementType(0);
-          if (VectorType *VTy = dyn_cast<VectorType>(LLVMTy)) {
+          if (VectorType *VTy = llvm::dyn_cast<VectorType>(LLVMTy)) {
             if (VTy->getNumElements() == 2) {
               if (VTy->getElementType()->isIntegerTy()) {
                 Elts.push_back(VectorType::get(Type::getInt64Ty(Context), 2));
@@ -1489,7 +1491,7 @@ static bool llvm_suitable_multiple_ret_value_type(Type *Ty, tree TreeType) {
   if (!TARGET_64BIT)
     return false;
 
-  StructType *STy = dyn_cast<StructType>(Ty);
+  StructType *STy = llvm::dyn_cast<StructType>(Ty);
   if (!STy)
     return false;
 
@@ -1653,11 +1655,11 @@ static void llvm_x86_64_get_multiple_return_reg_classes(
       } else if ((NumClasses - i) == 2) {
         if (Class[i + 1] == X86_64_SSEUP_CLASS) {
           Type *Ty = ConvertType(TreeType);
-          if (StructType *STy = dyn_cast<StructType>(Ty))
+          if (StructType *STy = llvm::dyn_cast<StructType>(Ty))
             // Look pass the struct wrapper.
             if (STy->getNumElements() == 1)
               Ty = STy->getElementType(0);
-          if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
+          if (VectorType *VTy = llvm::dyn_cast<VectorType>(Ty)) {
             if (VTy->getNumElements() == 2) {
               if (VTy->getElementType()->isIntegerTy())
                 Elts.push_back(VectorType::get(Type::getInt64Ty(Context), 2));
@@ -1861,7 +1863,7 @@ void llvm_x86_extract_multiple_return_value(
       unsigned Size = 1;
 
       if (VectorType *SElemTy =
-              dyn_cast<VectorType>(STy->getElementType(SNO))) {
+              llvm::dyn_cast<VectorType>(STy->getElementType(SNO))) {
         Size = SElemTy->getNumElements();
         if (SElemTy->getElementType()->getTypeID() == Type::FloatTyID &&
             Size == 4)

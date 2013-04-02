@@ -68,6 +68,8 @@ extern "C" {
 #include "tree-flow.h"
 #include "tree-pass.h"
 
+using namespace llvm;
+
 #if (GCC_MINOR < 6)
 extern enum machine_mode reg_raw_mode[FIRST_PSEUDO_REGISTER];
 #else
@@ -128,7 +130,7 @@ static Value *GetSSAPlaceholder(Type *Ty) {
 /// isSSAPlaceholder - Whether this is a fake value being used as a placeholder
 /// for the definition of an SSA name.
 static bool isSSAPlaceholder(Value *V) {
-  LoadInst *LI = dyn_cast<LoadInst>(V);
+  LoadInst *LI = llvm::dyn_cast<LoadInst>(V);
   return LI && !LI->getParent();
 }
 
@@ -1353,7 +1355,8 @@ Function *TreeToLLVM::FinishFunctionBody() {
               ReturnLoc.Ptr, ResultLV.Ptr, Builder.getInt64(OctetsToCopy),
               std::min(ReturnLoc.getAlignment(), ResultLV.getAlignment()));
 
-          if (StructType *STy = dyn_cast<StructType>(Fn->getReturnType())) {
+          if (StructType *STy =
+                llvm::dyn_cast<StructType>(Fn->getReturnType())) {
             llvm::Value *Idxs[2];
             Idxs[0] = Builder.getInt32(0);
             bool Packed = STy->isPacked();
@@ -1879,7 +1882,7 @@ Value *TreeToLLVM::CastToSameSizeInteger(Value *V) {
   assert(OrigEltTy->isFloatingPointTy() && "Expected a floating point type!");
   unsigned BitWidth = OrigEltTy->getPrimitiveSizeInBits();
   Type *NewEltTy = IntegerType::get(Context, BitWidth);
-  if (VectorType *VecTy = dyn_cast<VectorType>(OrigTy)) {
+  if (VectorType *VecTy = llvm::dyn_cast<VectorType>(OrigTy)) {
     Type *NewTy = VectorType::get(NewEltTy, VecTy->getNumElements());
     return Builder.CreateBitCast(V, NewTy);
   }
@@ -2879,7 +2882,7 @@ Value *TreeToLLVM::EmitOBJ_TYPE_REF(tree exp) {
 Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
   tree type = TREE_TYPE(exp);
   Type *Ty = ConvertType(type);
-  if (VectorType *VTy = dyn_cast<VectorType>(Ty)) {
+  if (VectorType *VTy = llvm::dyn_cast<VectorType>(Ty)) {
     assert(DestLoc == 0 && "Dest location for vector value?");
     std::vector<Value *> BuildVecOps;
     BuildVecOps.reserve(VTy->getNumElements());
@@ -2890,7 +2893,7 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
     FOR_EACH_CONSTRUCTOR_VALUE(CONSTRUCTOR_ELTS(exp), idx, value) {
       Value *Elt = EmitRegister(value);
 
-      if (VectorType *EltTy = dyn_cast<VectorType>(Elt->getType())) {
+      if (VectorType *EltTy = llvm::dyn_cast<VectorType>(Elt->getType())) {
         // GCC allows vectors to be built up from vectors.  Extract all of the
         // vector elements and add them to the list of build vector operands.
         for (unsigned i = 0, e = EltTy->getNumElements(); i != e; ++i) {
@@ -3544,7 +3547,7 @@ CallInst *TreeToLLVM::EmitSimpleCall(StringRef CalleeName, tree ret_type,
 
   // If the function already existed with the wrong prototype then don't try to
   // muck with its calling convention.  Otherwise, set the calling convention.
-  if (Function *F = dyn_cast<Function>(Func))
+  if (Function *F = llvm::dyn_cast<Function>(Func))
     F->setCallingConv(CC);
 
   // Finally, call the function.
@@ -5213,7 +5216,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 
         // If the function already existed with the wrong prototype then don't try to
         // muck with its calling convention.  Otherwise, set the calling convention.
-        if (Function *F = dyn_cast<Function>(Func))
+        if (Function *F = llvm::dyn_cast<Function>(Func))
           F->setCallingConv(CC);
 
         // Call sincos.
@@ -5252,7 +5255,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 
         // If the function already existed with the wrong prototype then don't try to
         // muck with its calling convention.  Otherwise, set the calling convention.
-        if (Function *F = dyn_cast<Function>(Func))
+        if (Function *F = llvm::dyn_cast<Function>(Func))
           F->setCallingConv(CC);
 
         // Form the complex number "0 + i*arg".
@@ -5355,18 +5358,18 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     /// or large enough to ensure no overflow (> len), then it's safe to do so.
     static bool OptimizeIntoPlainBuiltIn(gimple stmt, Value * Len,
                                          Value * Size) {
-      if (BitCastInst *SizeBC = dyn_cast<BitCastInst>(Size))
+      if (BitCastInst *SizeBC = llvm::dyn_cast<BitCastInst>(Size))
         Size = SizeBC->getOperand(0);
-      ConstantInt *SizeCI = dyn_cast<ConstantInt>(Size);
+      ConstantInt *SizeCI = llvm::dyn_cast<ConstantInt>(Size);
       if (!SizeCI)
         return false;
       if (SizeCI->isAllOnesValue())
         // If size is -1, convert to plain memcpy, etc.
         return true;
 
-      if (BitCastInst *LenBC = dyn_cast<BitCastInst>(Len))
+      if (BitCastInst *LenBC = llvm::dyn_cast<BitCastInst>(Len))
         Len = LenBC->getOperand(0);
-      ConstantInt *LenCI = dyn_cast<ConstantInt>(Len);
+      ConstantInt *LenCI = llvm::dyn_cast<ConstantInt>(Len);
       if (!LenCI)
         return false;
       if (SizeCI->getValue().ult(LenCI->getValue())) {
@@ -5520,7 +5523,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
         return false;
 
       ConstantInt *Level =
-          dyn_cast<ConstantInt>(EmitMemory(gimple_call_arg(stmt, 0)));
+          llvm::dyn_cast<ConstantInt>(EmitMemory(gimple_call_arg(stmt, 0)));
       if (!Level) {
         if (isFrame)
           error("invalid argument to %<__builtin_frame_address%>");
@@ -7209,7 +7212,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       unsigned Bits = VecTy->getPrimitiveSizeInBits();
 
       // If the shift is by a multiple of the element size then emit a shuffle.
-      if (ConstantInt *CI = dyn_cast<ConstantInt>(Amt)) {
+      if (ConstantInt *CI = llvm::dyn_cast<ConstantInt>(Amt)) {
         // The GCC docs are not clear whether the bits shifted in must be zero or if
         // they can be anything.  Since these expressions are currently only used in
         // situations which make no assumptions about the shifted in bits, we choose

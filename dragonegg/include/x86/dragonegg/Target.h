@@ -125,7 +125,7 @@ extern bool llvm_x86_should_pass_aggregate_in_integer_regs(tree_node *,
 #define LLVM_SHOULD_PASS_AGGREGATE_IN_INTEGER_REGS(X, Y, Z)                    \
   llvm_x86_should_pass_aggregate_in_integer_regs((X), (Y), (Z))
 
-extern Type *
+extern llvm::Type *
 llvm_x86_scalar_type_for_struct_return(tree_node *type, unsigned *Offset);
 
 /* LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be
@@ -133,7 +133,7 @@ llvm_x86_scalar_type_for_struct_return(tree_node *type, unsigned *Offset);
 #define LLVM_SCALAR_TYPE_FOR_STRUCT_RETURN(X, Y)                               \
   llvm_x86_scalar_type_for_struct_return((X), (Y))
 
-extern Type *llvm_x86_aggr_type_for_struct_return(tree_node *type);
+extern llvm::Type *llvm_x86_aggr_type_for_struct_return(tree_node *type);
 
 /* LLVM_AGGR_TYPE_FOR_STRUCT_RETURN - Return LLVM Type if X can be
    returned as an aggregate, otherwise return NULL. */
@@ -141,7 +141,7 @@ extern Type *llvm_x86_aggr_type_for_struct_return(tree_node *type);
   llvm_x86_aggr_type_for_struct_return(X)
 
 extern void llvm_x86_extract_multiple_return_value(
-    Value *Src, Value *Dest, bool isVolatile, LLVMBuilder &B);
+    llvm::Value *Src, llvm::Value *Dest, bool isVolatile, LLVMBuilder &B);
 
 /* LLVM_EXTRACT_MULTIPLE_RETURN_VALUE - Extract multiple return value from
    SRC and assign it to DEST. */
@@ -185,7 +185,8 @@ extern bool llvm_x86_should_not_return_complex_in_memory(tree_node *type);
 #define LLVM_SHOULD_NOT_RETURN_COMPLEX_IN_MEMORY(X)                            \
   llvm_x86_should_not_return_complex_in_memory((X))
 
-extern bool llvm_x86_should_pass_aggregate_as_fca(tree_node *type, Type *);
+extern bool llvm_x86_should_pass_aggregate_as_fca(tree_node *type,
+                                                  llvm::Type *);
 
 /* LLVM_SHOULD_PASS_AGGREGATE_AS_FCA - Return true if an aggregate of the
    specified type should be passed as a first-class aggregate. */
@@ -194,15 +195,15 @@ extern bool llvm_x86_should_pass_aggregate_as_fca(tree_node *type, Type *);
   llvm_x86_should_pass_aggregate_as_fca(X, TY)
 #endif
 
-extern bool llvm_x86_should_pass_aggregate_in_memory(tree_node *, Type *);
+extern bool llvm_x86_should_pass_aggregate_in_memory(tree_node *, llvm::Type *);
 
 #define LLVM_SHOULD_PASS_AGGREGATE_USING_BYVAL_ATTR(X, TY)                     \
   llvm_x86_should_pass_aggregate_in_memory(X, TY)
 
 extern bool llvm_x86_64_should_pass_aggregate_in_mixed_regs(
-    tree_node *, Type *Ty, std::vector<Type *> &);
+    tree_node *, llvm::Type *Ty, std::vector<llvm::Type *> &);
 extern bool llvm_x86_32_should_pass_aggregate_in_mixed_regs(
-    tree_node *, Type *Ty, std::vector<Type *> &);
+    tree_node *, llvm::Type *Ty, std::vector<llvm::Type *> &);
 
 #define LLVM_SHOULD_PASS_AGGREGATE_IN_MIXED_REGS(T, TY, CC, E)                 \
   (TARGET_64BIT                                                                \
@@ -210,7 +211,7 @@ extern bool llvm_x86_32_should_pass_aggregate_in_mixed_regs(
        : llvm_x86_32_should_pass_aggregate_in_mixed_regs((T), (TY), (E)))
 
 extern bool llvm_x86_64_aggregate_partially_passed_in_regs(
-    std::vector<Type *> &, std::vector<Type *> &, bool);
+    std::vector<llvm::Type *> &, std::vector<llvm::Type *> &, bool);
 
 #define LLVM_AGGREGATE_PARTIALLY_PASSED_IN_REGS(E, SE, ISR, CC)                \
   (TARGET_64BIT                                                                \

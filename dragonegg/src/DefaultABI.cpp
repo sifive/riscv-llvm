@@ -46,6 +46,8 @@ extern "C" {
 // Trees header.
 #include "dragonegg/Trees.h"
 
+using namespace llvm;
+
 void DefaultABIClient::anchor() {}
 
 // doNotUseShadowReturn - Return true if the specified GCC type

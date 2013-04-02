@@ -99,6 +99,8 @@ tree default_mangle_decl_assembler_name(tree, tree);
 #error Unsupported GCC major version
 #endif
 
+using namespace llvm;
+
 // Non-zero if libcalls should not be simplified.
 int flag_no_simplify_libcalls;
 
@@ -921,11 +923,11 @@ static void emit_alias(tree decl, tree target) {
       }
     } else {
       // weakref to external symbol.
-      if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
+      if (GlobalVariable *GV = llvm::dyn_cast<GlobalVariable>(V))
         Aliasee = new GlobalVariable(
             *TheModule, GV->getType()->getElementType(), GV->isConstant(),
             GlobalVariable::ExternalWeakLinkage, NULL, AliaseeName);
-      else if (Function *F = dyn_cast<Function>(V))
+      else if (Function *F = llvm::dyn_cast<Function>(V))
         Aliasee = Function::Create(F->getFunctionType(),
                                    Function::ExternalWeakLinkage, AliaseeName,
                                    TheModule);
