@@ -755,7 +755,7 @@ static Constant *ConvertSTRING_CST(tree exp, TargetFolder &) {
       // gcc has constructed the initializer elements in the target endianness,
       // but we're going to treat them as ordinary shorts from here, with
       // host endianness.  Adjust if necessary.
-      if (llvm::sys::isBigEndianHost() == BYTES_BIG_ENDIAN)
+      if (llvm::sys::IsBigEndianHost == BYTES_BIG_ENDIAN)
         Elts.push_back(ConstantInt::get(Type::getInt16Ty(Context), InStr[i]));
       else
         Elts.push_back(
@@ -769,7 +769,7 @@ static Constant *ConvertSTRING_CST(tree exp, TargetFolder &) {
       // gcc has constructed the initializer elements in the target endianness,
       // but we're going to treat them as ordinary ints from here, with
       // host endianness.  Adjust if necessary.
-      if (llvm::sys::isBigEndianHost() == BYTES_BIG_ENDIAN)
+      if (llvm::sys::IsBigEndianHost == BYTES_BIG_ENDIAN)
         Elts.push_back(ConstantInt::get(Type::getInt32Ty(Context), InStr[i]));
       else
         Elts.push_back(
