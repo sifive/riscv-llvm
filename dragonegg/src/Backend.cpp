@@ -611,7 +611,7 @@ static void InitializeBackend(void) {
   // FIXME: Hack around the fact the we initialize PassBuilder before processing
   // command line arguments.  The following makes it possible to enable the LLVM
   // vectorizer using -fplugin-arg-dragonegg-llvm-option=-vectorize
-  PassBuilder.Vectorize = PassManagerBuilder().Vectorize;
+  PassBuilder.SLPVectorize = PassManagerBuilder().SLPVectorize;
 
   PassBuilder.LibraryInfo =
       new TargetLibraryInfo((Triple) TheModule->getTargetTriple());
