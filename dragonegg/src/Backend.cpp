@@ -104,6 +104,12 @@ using namespace llvm;
 // Non-zero if libcalls should not be simplified.
 int flag_no_simplify_libcalls;
 
+// Whether -fno-builtin was specified.
+// In GCC < 4.6, this variable is only defined in C family front ends.
+#if (GCC_MINOR < 6)
+extern int flag_no_builtin __attribute__((weak));
+#endif
+
 // Non-zero if red-zone is disabled.
 //TODOstatic int flag_disable_red_zone = 0;
 
@@ -563,8 +569,10 @@ static void InstallLanguageSettings() {
     flag_default_initialize_globals = false; // Uninitialized means what it says
     flag_odr = true; // Ada obeys the one-definition-rule
   } else if (LanguageName == "GNU C") {
+    flag_no_simplify_libcalls = flag_no_builtin;
   } else if (LanguageName == "GNU C++") {
     flag_odr = true; // C++ obeys the one-definition-rule
+    flag_no_simplify_libcalls = flag_no_builtin;
   } else if (LanguageName == "GNU Fortran") {
     flag_functions_from_args = true;
   } else if (LanguageName == "GNU GIMPLE") { // LTO gold plugin
