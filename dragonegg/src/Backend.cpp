@@ -1117,9 +1117,11 @@ static void emit_global(tree decl) {
       TARGET_ADJUST_CSTRING_ALIGN(GV);
 #endif
 
-    // If this is the alignment we would have given the variable anyway then don't
-    // use an explicit alignment, making the IR look more portable.
-    if (GV->getAlignment() ==
+    // If this is the alignment we would have given the variable anyway and it
+    // was not user specified, then don't use an explicit alignment, making the
+    // IR look more portable.
+    if (!DECL_USER_ALIGN(decl) &&
+        GV->getAlignment() ==
         getDataLayout().getABITypeAlignment(GV->getType()->getElementType()))
       GV->setAlignment(0);
 
