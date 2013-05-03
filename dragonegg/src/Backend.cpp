@@ -46,6 +46,7 @@
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm-c/Target.h"
 
 #ifdef ENABLE_LLVM_PLUGINS
 #include "llvm/LinkAllPasses.h"
@@ -294,18 +295,6 @@ static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
 #ifndef LLVM_TARGET_NAME
 #error LLVM_TARGET_NAME macro not specified
 #endif
-
-namespace llvm {
-#define Declare2(TARG, MOD) extern "C" void LLVMInitialize##TARG##MOD()
-#define Declare(T, M) Declare2(T, M)
-Declare(LLVM_TARGET_NAME, TargetInfo);
-Declare(LLVM_TARGET_NAME, Target);
-Declare(LLVM_TARGET_NAME, TargetMC);
-Declare(LLVM_TARGET_NAME, AsmPrinter);
-Declare(LLVM_TARGET_NAME, AsmParser);
-#undef Declare
-#undef Declare2
-}
 
 /// ConfigureLLVM - Initialized and configure LLVM.
 static void ConfigureLLVM(void) {
