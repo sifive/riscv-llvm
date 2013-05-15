@@ -2856,22 +2856,22 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
 
   // Otherwise the result type is a non-integer scalar, possibly a vector.
   // Get the bits as an integer with the same alloc size as the result.
+  // Extending the integer with defined bits (rather than storing it as is to
+  // the temporary, which in effect extends with undefined bits) is required
+  // to get the right result for C-like languages.
   Type *ResIntTy = IntegerType::get(Context, DL.getTypeAllocSizeInBits(Ty));
   Value *ResInt = Builder.CreateIntCast(Val, ResIntTy, isSigned);
 
-  // Create a temporary with the final type and store the bits to it.  Going
-  // via a temporary isn't really necessary: we could get the same effect by
-  // casting the value.  It is very natural however, since in effect we just
-  // displace the original set of bits to a new memory location that is byte
-  // aligned, from which we can trivially load the desired value.
+  // Create a temporary with the final type and store the bits to it.
   Alignment = std::max(DL.getPrefTypeAlignment(Ty),
                                 DL.getPrefTypeAlignment(ResIntTy));
-  Value *Tmp = CreateTemporary(Ty, Alignment);
+  MemRef Tmp(CreateTemporary(Ty, Alignment), Alignment, false);
   Builder.CreateStore(ResInt,
-                      Builder.CreateBitCast(Tmp, ResIntTy->getPointerTo()));
-
-  // Load out the bits as the correct type.
-  return Builder.CreateLoad(Tmp);
+                      Builder.CreateBitCast(Tmp.Ptr, ResIntTy->getPointerTo()));
+  // At this point we have in essence just displaced the original set of bits to
+  // a new memory location that is byte aligned, from which we now trivially load
+  // the desired value.
+  return LoadRegisterFromMemory(Tmp, TREE_TYPE(exp), 0, Builder);
 }
 
 Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
