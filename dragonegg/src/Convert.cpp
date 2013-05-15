@@ -2849,9 +2849,29 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
     Val = isSigned ? Builder.CreateAShr(Val, ShAmt)
                    : Builder.CreateLShr(Val, ShAmt);
 
-    // Get the bits as a value of the correct type.
-    // FIXME: This assumes the result is an integer.
-    return Builder.CreateIntCast(Val, Ty, isSigned);
+    // If the result is an integer then cast to the right size and return.  This
+    // is an optimization: the code below would give the same result.
+    if (Ty->isIntegerTy())
+      return Builder.CreateIntCast(Val, Ty, isSigned);
+
+    // Otherwise the result type is a non-integer scalar, possibly a vector.
+    // Get the bits as an integer with the same alloc size as the result.
+    Type *ResIntTy = IntegerType::get(Context, DL.getTypeAllocSizeInBits(Ty));
+    Value *ResInt = Builder.CreateIntCast(Val, ResIntTy, isSigned);
+
+    // Create a temporary with the final type and store the bits to it.  Going
+    // via a temporary isn't really necessary: we could get the same effect by
+    // casting the value.  It is very natural however, since in effect we just
+    // displace the original set of bits to a new memory location that is byte
+    // aligned, from which we can trivially load the desired value.
+    unsigned Alignment = std::max(DL.getPrefTypeAlignment(Ty),
+                                  DL.getPrefTypeAlignment(ResIntTy));
+    Value *Tmp = CreateTemporary(Ty, Alignment);
+    Builder.CreateStore(ResInt,
+                        Builder.CreateBitCast(Tmp, ResIntTy->getPointerTo()));
+
+    // Load out the bits as the correct type.
+    return Builder.CreateLoad(Tmp);
   }
 }
 
