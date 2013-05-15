@@ -2809,70 +2809,69 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
   // TODO: Arrange for Volatile to already be set in the LValue.
   unsigned Alignment = LV.getAlignment();
 
-  if (!LV.isBitfield()) {
+  if (!LV.isBitfield())
     // Scalar value: emit a load.
     return LoadRegisterFromMemory(LV, TREE_TYPE(exp), describeAliasSet(exp),
                                   Builder);
-  } else {
-    // This is a bitfield reference.
-    Type *Ty = getRegType(TREE_TYPE(exp));
-    if (!LV.BitSize)
-      return Constant::getNullValue(Ty);
 
-    // Load the minimum number of bytes that covers the field.
-    unsigned LoadSizeInBits = LV.BitStart + LV.BitSize;
-    LoadSizeInBits = RoundUpToAlignment(LoadSizeInBits, BITS_PER_UNIT);
-    Type *LoadType = IntegerType::get(Context, LoadSizeInBits);
+  // This is a bitfield reference.
+  Type *Ty = getRegType(TREE_TYPE(exp));
+  if (!LV.BitSize)
+    return Constant::getNullValue(Ty);
 
-    // Load the bits.
-    Value *Ptr = Builder.CreateBitCast(LV.Ptr, LoadType->getPointerTo());
-    Value *Val = Builder.CreateAlignedLoad(Ptr, Alignment, LV.Volatile);
+  // Load the minimum number of bytes that covers the field.
+  unsigned LoadSizeInBits = LV.BitStart + LV.BitSize;
+  LoadSizeInBits = RoundUpToAlignment(LoadSizeInBits, BITS_PER_UNIT);
+  Type *LoadType = IntegerType::get(Context, LoadSizeInBits);
 
-    // Mask the bits out by shifting left first, then shifting right.  The
-    // optimizers will turn this into an "and" in the unsigned case.
+  // Load the bits.
+  Value *Ptr = Builder.CreateBitCast(LV.Ptr, LoadType->getPointerTo());
+  Value *Val = Builder.CreateAlignedLoad(Ptr, Alignment, LV.Volatile);
 
-    // Shift the sign bit of the bitfield to the sign bit position in the loaded
-    // type.  This zaps any extra bits occurring after the end of the bitfield.
-    unsigned FirstBitInVal =
-        BYTES_BIG_ENDIAN ? LoadSizeInBits - LV.BitStart - LV.BitSize
-                         : LV.BitStart;
-    if (FirstBitInVal + LV.BitSize != LoadSizeInBits) {
-      Value *ShAmt = ConstantInt::get(LoadType, LoadSizeInBits -
-                                                (FirstBitInVal + LV.BitSize));
-      Val = Builder.CreateShl(Val, ShAmt);
-    }
-    // Shift the first bit of the bitfield to be bit zero.  This zaps any extra
-    // bits that occurred before the start of the bitfield.  In the signed case
-    // this also duplicates the sign bit, giving a sign extended value.
-    bool isSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
-    Value *ShAmt = ConstantInt::get(LoadType, LoadSizeInBits - LV.BitSize);
-    Val = isSigned ? Builder.CreateAShr(Val, ShAmt)
-                   : Builder.CreateLShr(Val, ShAmt);
+  // Mask the bits out by shifting left first, then shifting right.  The
+  // optimizers will turn this into an "and" in the unsigned case.
 
-    // If the result is an integer then cast to the right size and return.  This
-    // is an optimization: the code below would give the same result.
-    if (Ty->isIntegerTy())
-      return Builder.CreateIntCast(Val, Ty, isSigned);
-
-    // Otherwise the result type is a non-integer scalar, possibly a vector.
-    // Get the bits as an integer with the same alloc size as the result.
-    Type *ResIntTy = IntegerType::get(Context, DL.getTypeAllocSizeInBits(Ty));
-    Value *ResInt = Builder.CreateIntCast(Val, ResIntTy, isSigned);
-
-    // Create a temporary with the final type and store the bits to it.  Going
-    // via a temporary isn't really necessary: we could get the same effect by
-    // casting the value.  It is very natural however, since in effect we just
-    // displace the original set of bits to a new memory location that is byte
-    // aligned, from which we can trivially load the desired value.
-    unsigned Alignment = std::max(DL.getPrefTypeAlignment(Ty),
-                                  DL.getPrefTypeAlignment(ResIntTy));
-    Value *Tmp = CreateTemporary(Ty, Alignment);
-    Builder.CreateStore(ResInt,
-                        Builder.CreateBitCast(Tmp, ResIntTy->getPointerTo()));
-
-    // Load out the bits as the correct type.
-    return Builder.CreateLoad(Tmp);
+  // Shift the sign bit of the bitfield to the sign bit position in the loaded
+  // type.  This zaps any extra bits occurring after the end of the bitfield.
+  unsigned FirstBitInVal =
+      BYTES_BIG_ENDIAN ? LoadSizeInBits - LV.BitStart - LV.BitSize
+                       : LV.BitStart;
+  if (FirstBitInVal + LV.BitSize != LoadSizeInBits) {
+    Value *ShAmt = ConstantInt::get(LoadType, LoadSizeInBits -
+                                              (FirstBitInVal + LV.BitSize));
+    Val = Builder.CreateShl(Val, ShAmt);
   }
+  // Shift the first bit of the bitfield to be bit zero.  This zaps any extra
+  // bits that occurred before the start of the bitfield.  In the signed case
+  // this also duplicates the sign bit, giving a sign extended value.
+  bool isSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
+  Value *ShAmt = ConstantInt::get(LoadType, LoadSizeInBits - LV.BitSize);
+  Val = isSigned ? Builder.CreateAShr(Val, ShAmt)
+                 : Builder.CreateLShr(Val, ShAmt);
+
+  // If the result is an integer then cast to the right size and return.  This
+  // is an optimization: the code below would give the same result.
+  if (Ty->isIntegerTy())
+    return Builder.CreateIntCast(Val, Ty, isSigned);
+
+  // Otherwise the result type is a non-integer scalar, possibly a vector.
+  // Get the bits as an integer with the same alloc size as the result.
+  Type *ResIntTy = IntegerType::get(Context, DL.getTypeAllocSizeInBits(Ty));
+  Value *ResInt = Builder.CreateIntCast(Val, ResIntTy, isSigned);
+
+  // Create a temporary with the final type and store the bits to it.  Going
+  // via a temporary isn't really necessary: we could get the same effect by
+  // casting the value.  It is very natural however, since in effect we just
+  // displace the original set of bits to a new memory location that is byte
+  // aligned, from which we can trivially load the desired value.
+  Alignment = std::max(DL.getPrefTypeAlignment(Ty),
+                                DL.getPrefTypeAlignment(ResIntTy));
+  Value *Tmp = CreateTemporary(Ty, Alignment);
+  Builder.CreateStore(ResInt,
+                      Builder.CreateBitCast(Tmp, ResIntTy->getPointerTo()));
+
+  // Load out the bits as the correct type.
+  return Builder.CreateLoad(Tmp);
 }
 
 Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
