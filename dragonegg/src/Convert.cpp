@@ -2809,13 +2809,13 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
   // TODO: Arrange for Volatile to already be set in the LValue.
   unsigned Alignment = LV.getAlignment();
 
+  tree type = TREE_TYPE(exp);
   if (!LV.isBitfield())
     // Scalar value: emit a load.
-    return LoadRegisterFromMemory(LV, TREE_TYPE(exp), describeAliasSet(exp),
-                                  Builder);
+    return LoadRegisterFromMemory(LV, type, describeAliasSet(exp), Builder);
 
   // This is a bitfield reference.
-  Type *Ty = getRegType(TREE_TYPE(exp));
+  Type *Ty = getRegType(type);
   if (!LV.BitSize)
     return Constant::getNullValue(Ty);
 
@@ -2844,34 +2844,30 @@ Value *TreeToLLVM::EmitLoadOfLValue(tree exp) {
   // Shift the first bit of the bitfield to be bit zero.  This zaps any extra
   // bits that occurred before the start of the bitfield.  In the signed case
   // this also duplicates the sign bit, giving a sign extended value.
-  bool isSigned = !TYPE_UNSIGNED(TREE_TYPE(exp));
+  bool isSigned = !TYPE_UNSIGNED(type);
   Value *ShAmt = ConstantInt::get(LoadType, LoadSizeInBits - LV.BitSize);
   Val = isSigned ? Builder.CreateAShr(Val, ShAmt)
                  : Builder.CreateLShr(Val, ShAmt);
 
-  // If the result is an integer then cast to the right size and return.  This
-  // is an optimization: the code below would give the same result.
-  if (Ty->isIntegerTy())
-    return Builder.CreateIntCast(Val, Ty, isSigned);
-
-  // Otherwise the result type is a non-integer scalar, possibly a vector.
-  // Get the bits as an integer with the same alloc size as the result.
+  // Get the bits as an integer with the same in-memory size as the result.
   // Extending the integer with defined bits (rather than storing it as is to
   // the temporary, which in effect extends with undefined bits) is required
-  // to get the right result for C-like languages.
-  Type *ResIntTy = IntegerType::get(Context, DL.getTypeAllocSizeInBits(Ty));
+  // in order to get the right result for C-like languages.
+  unsigned MemSize = GET_MODE_BITSIZE(TYPE_MODE(type));
+  Type *ResIntTy = IntegerType::get(Context, MemSize);
   Value *ResInt = Builder.CreateIntCast(Val, ResIntTy, isSigned);
 
-  // Create a temporary with the final type and store the bits to it.
-  Alignment = std::max(DL.getPrefTypeAlignment(Ty),
-                                DL.getPrefTypeAlignment(ResIntTy));
-  MemRef Tmp(CreateTemporary(Ty, Alignment), Alignment, false);
-  Builder.CreateStore(ResInt,
-                      Builder.CreateBitCast(Tmp.Ptr, ResIntTy->getPointerTo()));
+  // Create the temporary, an integer.  Ensure it is sufficiently aligned for
+  // both the integer and the real type.  Store the bits to it.
+  Alignment = std::max(TYPE_ALIGN(type) / 8,
+                       DL.getPrefTypeAlignment(ResIntTy));
+  MemRef Tmp(CreateTemporary(ResIntTy, Alignment), Alignment, false);
+  Builder.CreateStore(ResInt, Tmp.Ptr);
+
   // At this point we have in essence just displaced the original set of bits to
   // a new memory location that is byte aligned, from which we now trivially load
   // the desired value.
-  return LoadRegisterFromMemory(Tmp, TREE_TYPE(exp), 0, Builder);
+  return LoadRegisterFromMemory(Tmp, type, 0, Builder);
 }
 
 Value *TreeToLLVM::EmitADDR_EXPR(tree exp) {
@@ -9199,78 +9195,108 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
                     : 0;
     }
 
-    /// WriteScalarToLHS - Store RHS, a non-aggregate value, into the given LHS.
-    void TreeToLLVM::WriteScalarToLHS(tree lhs, Value * RHS) {
-      // May need a useless type conversion (useless_type_conversion_p).
-      RHS = TriviallyTypeConvert(RHS, getRegType(TREE_TYPE(lhs)));
+/// WriteScalarToLHS - Store RHS, a non-aggregate value, into the given LHS.
+void TreeToLLVM::WriteScalarToLHS(tree lhs, Value * RHS) {
+  tree type = TREE_TYPE(lhs);
 
-      // If this is the definition of an ssa name, record it in the SSANames map.
-      if (isa<SSA_NAME>(lhs)) {
-        if (flag_verbose_asm)
-          NameValue(RHS, lhs);
-        DefineSSAName(lhs, RHS);
-        return;
-      }
+  // May need a useless type conversion (useless_type_conversion_p).
+  RHS = TriviallyTypeConvert(RHS, getRegType(type));
 
-      if (canEmitRegisterVariable(lhs)) {
-        // If this is a store to a register variable, EmitLV can't handle the dest
-        // (there is no l-value of a register variable).  Emit an inline asm node
-        // that copies the value into the specified register.
-        EmitModifyOfRegisterVariable(lhs, RHS);
-        return;
-      }
+  // If this is the definition of an ssa name, record it in the SSANames map.
+  if (isa<SSA_NAME>(lhs)) {
+    if (flag_verbose_asm)
+      NameValue(RHS, lhs);
+    DefineSSAName(lhs, RHS);
+    return;
+  }
 
-      LValue LV = EmitLV(lhs);
-      LV.Volatile = TREE_THIS_VOLATILE(lhs);
-      // TODO: Arrange for Volatile to already be set in the LValue.
-      if (!LV.isBitfield()) {
-        // Non-bitfield, scalar value.  Just emit a store.
-        StoreRegisterToMemory(RHS, LV, TREE_TYPE(lhs), describeAliasSet(lhs),
-                              Builder);
-        return;
-      }
+  if (canEmitRegisterVariable(lhs)) {
+    // If this is a store to a register variable, EmitLV can't handle the dest
+    // (there is no l-value of a register variable).  Emit an inline asm node
+    // that copies the value into the specified register.
+    EmitModifyOfRegisterVariable(lhs, RHS);
+    return;
+  }
 
-      // Last case, this is a store to a bitfield, so we have to emit a
-      // read/modify/write sequence.
-      if (!LV.BitSize)
-        return;
+  LValue LV = EmitLV(lhs);
+  LV.Volatile = TREE_THIS_VOLATILE(lhs);
+  // TODO: Arrange for Volatile to already be set in the LValue.
+  if (!LV.isBitfield()) {
+    // Non-bitfield, scalar value.  Just emit a store.
+    StoreRegisterToMemory(RHS, LV, type, describeAliasSet(lhs), Builder);
+    return;
+  }
 
-      // Load and store the minimum number of bytes that covers the field.
-      unsigned LoadSizeInBits = LV.BitStart + LV.BitSize;
-      LoadSizeInBits =
-          (unsigned) RoundUpToAlignment(LoadSizeInBits, BITS_PER_UNIT);
-      Type *LoadType = IntegerType::get(Context, LoadSizeInBits);
+  // Last case, this is a store to a bitfield, so we have to emit a
+  // read/modify/write sequence.
+  if (!LV.BitSize)
+    return;
 
-      // Load the bits.
-      Value *Ptr = Builder.CreateBitCast(LV.Ptr, LoadType->getPointerTo());
-      Value *Val =
-          Builder.CreateAlignedLoad(Ptr, LV.getAlignment(), LV.Volatile);
+  // Load and store the minimum number of bytes that covers the field.
+  unsigned LoadSizeInBits = LV.BitStart + LV.BitSize;
+  LoadSizeInBits =
+      (unsigned) RoundUpToAlignment(LoadSizeInBits, BITS_PER_UNIT);
+  Type *LoadType = IntegerType::get(Context, LoadSizeInBits);
 
-      // Get the right-hand side as a value of the same type.
-      // FIXME: This assumes the right-hand side is an integer.
-      bool isSigned = !TYPE_UNSIGNED(TREE_TYPE(lhs));
-      RHS = CastToAnyType(RHS, isSigned, LoadType, isSigned);
+  // Load the existing bits.
+  Value *Ptr = Builder.CreateBitCast(LV.Ptr, LoadType->getPointerTo());
+  Value *Val =
+      Builder.CreateAlignedLoad(Ptr, LV.getAlignment(), LV.Volatile);
 
-      // Shift the right-hand side so that its bits are in the right position.
-      unsigned FirstBitInVal =
-          BYTES_BIG_ENDIAN ? LoadSizeInBits - LV.BitStart - LV.BitSize
-                           : LV.BitStart;
-      if (FirstBitInVal) {
-        Value *ShAmt = ConstantInt::get(LoadType, FirstBitInVal);
-        RHS = Builder.CreateShl(RHS, ShAmt);
-      }
-      // Mask out any bits in the right-hand side that shouldn't be in the result.
-      // The lower bits are zero already, so this only changes bits off the end.
-      APInt Mask = APInt::getBitsSet(LoadSizeInBits, FirstBitInVal,
-                                     FirstBitInVal + LV.BitSize);
-      if (FirstBitInVal + LV.BitSize != LoadSizeInBits)
-        RHS = Builder.CreateAnd(RHS, ConstantInt::get(Context, Mask));
+  // Turn RHS into a bunch of bits by storing it to a temporary then loading it
+  // out again as an integer.  The temporary needs to be big enough to hold the
+  // in-memory representation of RHS.  If the bitfield is wider than this (which
+  // only happens for non C-like languages) then any extra bits are undefined.
+  // We tell the optimizers that they are undefined by widening the temporary to
+  // at least the bitfield size but not storing anything to the extra bits.
+  unsigned MemSize = GET_MODE_BITSIZE(TYPE_MODE(type));
+  unsigned TmpSize = std::max(LoadSizeInBits, MemSize);
+  Type *TmpType = IntegerType::get(Context, TmpSize);
 
-      // Mask out those bits in the original value that are being replaced by the
-      // right-hand side.
-      Val = Builder.CreateAnd(Val, ConstantInt::get(Context, ~Mask));
+  // Create the temporary, an integer.  Ensure it is aligned enough for both RHS
+  // and the integer version of RHS.
+  unsigned Alignment = std::max(TYPE_ALIGN(type) / 8,
+                                DL.getPrefTypeAlignment(TmpType));
+  Value *Tmp = CreateTemporary(TmpType, Alignment);
 
-      // Finally, merge the two together and store it.
-      Val = Builder.CreateOr(Val, RHS);
-      Builder.CreateAlignedStore(Val, Ptr, LV.getAlignment(), LV.Volatile);
-    }
+  // Store the right-hand side to it.  Ensure that any extra bits turn up in the
+  // high bits of the integer loaded out below.
+  MemRef TmpLoc(Tmp, Alignment, false);
+  if (BYTES_BIG_ENDIAN && MemSize < LoadSizeInBits) {
+    unsigned BitOffset = LoadSizeInBits - MemSize;
+    assert(BitOffset % BITS_PER_UNIT == 0 && "Mode size not round?");
+    TmpLoc = DisplaceLocationByUnits(TmpLoc, BitOffset/BITS_PER_UNIT, Builder);
+  }
+  StoreRegisterToMemory(RHS, TmpLoc, type, 0, Builder);
+
+  // Load it out again as an integer.  Only the first LV.BitSize bits of this
+  // integer will be used (see the masking below).  For C-like languages, the
+  // original RHS is always an integer that is at least as wide as LV.BitSize,
+  // so the used bits are just the original integer truncated to be LV.BitSize
+  // bits wide.
+  RHS = Builder.CreateIntCast(Builder.CreateLoad(Tmp), LoadType,
+                              !TYPE_UNSIGNED(type));
+
+  // Shift the right-hand side so that its bits are in the right position.
+  unsigned FirstBitInVal =
+      BYTES_BIG_ENDIAN ? LoadSizeInBits - LV.BitStart - LV.BitSize
+                       : LV.BitStart;
+  if (FirstBitInVal) {
+    Value *ShAmt = ConstantInt::get(LoadType, FirstBitInVal);
+    RHS = Builder.CreateShl(RHS, ShAmt);
+  }
+  // Mask out any bits in the right-hand side that shouldn't be in the result.
+  // The lower bits are zero already, so this only changes bits off the end.
+  APInt Mask = APInt::getBitsSet(LoadSizeInBits, FirstBitInVal,
+                                 FirstBitInVal + LV.BitSize);
+  if (FirstBitInVal + LV.BitSize != LoadSizeInBits)
+    RHS = Builder.CreateAnd(RHS, ConstantInt::get(Context, Mask));
+
+  // Mask out those bits in the original value that are being replaced by the
+  // right-hand side.
+  Val = Builder.CreateAnd(Val, ConstantInt::get(Context, ~Mask));
+
+  // Finally, merge the two together and store it.
+  Val = Builder.CreateOr(Val, RHS);
+  Builder.CreateAlignedStore(Val, Ptr, LV.getAlignment(), LV.Volatile);
+}
