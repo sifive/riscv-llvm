@@ -864,7 +864,9 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
     }
   }
 
-  if (TYPE_VOLATILE(type)) {
+  // Handle volatile types.  Volatile function types are not volatile in the
+  // sense meant here.
+  if (TYPE_VOLATILE(type) && !isa<FUNCTION_TYPE>(type)) {
     Ty = CreateDerivedType(
         DW_TAG_volatile_type, findRegion(TYPE_CONTEXT(type)), StringRef(),
         getOrCreateFile(main_input_filename), 0 /*line no*/,
@@ -885,7 +887,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
     return Ty;
   }
 
-  // If, for some reason, main type varaint type is seen then use it.
+  // If, for some reason, main type variant type is seen then use it.
   return MainTy;
 }
 
