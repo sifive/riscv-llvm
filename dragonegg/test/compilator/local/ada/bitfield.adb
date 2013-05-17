@@ -1,4 +1,3 @@
--- RUN: %dragonegg -S %s
 package body Bitfield is
    function R (X : T) return Boolean is
    begin

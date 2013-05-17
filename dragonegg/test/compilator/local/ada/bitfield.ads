@@ -1,4 +1,3 @@
--- RUN: true
 package Bitfield is
    -- Read and write of a non-integer scalar bitfield.
    type T is record
