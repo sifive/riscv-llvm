@@ -6352,8 +6352,10 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 #elif(GCC_MINOR < 7)
       std::max(get_object_alignment(exp, BIGGEST_ALIGNMENT),
                TYPE_ALIGN(TREE_TYPE(exp)));
-#else
+#elif (GCC_MINOR < 8)
       get_object_or_type_alignment(exp);
+#else
+      get_object_alignment(exp);
 #endif
       bool Volatile = TREE_THIS_VOLATILE(exp);
 
@@ -6474,8 +6476,10 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
 #elif(GCC_MINOR < 7)
       std::max(get_object_alignment(exp, BIGGEST_ALIGNMENT),
                TYPE_ALIGN(TREE_TYPE(exp)));
-#else
+#elif (GCC_MINOR < 8)
       get_object_or_type_alignment(exp);
+#else
+      get_object_alignment(exp);
 #endif
       bool Volatile = TREE_THIS_VOLATILE(exp);
 
