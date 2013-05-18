@@ -231,7 +231,7 @@ StringRef DebugInfo::getFunctionName(tree FnDecl) {
 
 /// EmitFunctionStart - Constructs the debug code for entering a function.
 void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn) {
-  DIType FNType = getOrCreateType(TREE_TYPE(FnDecl));
+  DIType FNType = getOrCreateType(TYPE_MAIN_VARIANT(TREE_TYPE(FnDecl)));
 
   unsigned lineno = CurLineNo;
 
@@ -844,7 +844,7 @@ DIType DebugInfo::createStructType(tree type) {
   return RealDecl;
 }
 
-/// createVarinatType - Create variant type or return MainTy.
+/// createVariantType - Create variant type or return MainTy.
 DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
 
   DIType Ty;
@@ -864,9 +864,7 @@ DIType DebugInfo::createVariantType(tree type, DIType MainTy) {
     }
   }
 
-  // Handle volatile types.  Volatile function types are not volatile in the
-  // sense meant here.
-  if (TYPE_VOLATILE(type) && !isa<FUNCTION_TYPE>(type)) {
+  if (TYPE_VOLATILE(type)) {
     Ty = CreateDerivedType(
         DW_TAG_volatile_type, findRegion(TYPE_CONTEXT(type)), StringRef(),
         getOrCreateFile(main_input_filename), 0 /*line no*/,
