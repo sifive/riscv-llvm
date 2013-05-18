@@ -5,7 +5,7 @@
 Prerequisites
 -------------
 
-The dragonegg plugin works with gcc 4.5, gcc 4.6 or gcc-4.7, so you will need to
+The dragonegg plugin works with gcc 4.5, 4.6, 4.7 or 4.8, so you will need to
 have one of these installed.  Many linux distributions ship one or both of them,
 perhaps as an addon package; binaries can be downloaded for most platforms.
 Otherwise you can always build gcc yourself.  Plugin support (--enable-plugin)
