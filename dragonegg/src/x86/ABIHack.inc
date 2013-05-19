@@ -1496,9 +1496,6 @@ enum processor_type ix86_tune;
 /* Which instruction set architecture to use.  */
 enum processor_type ix86_arch;
 
-/* true if sse prefetch instruction is not NOOP.  */
-int x86_prefetch_sse;
-
 /* Preferred alignment for stack boundary in bits.  */
 unsigned int ix86_preferred_stack_boundary;
 
