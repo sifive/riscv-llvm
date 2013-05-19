@@ -141,4 +141,26 @@ unsigned getFieldAlignment(const_tree field);
 /// isBitfield - Returns whether to treat the specified field as a bitfield.
 bool isBitfield(const_tree field_decl);
 
+// Compatibility hacks for older versions of GCC.
+#if (GCC_MINOR < 8)
+// Supported allocation types:
+struct va_gc {
+}; // Allocation uses ggc_alloc.
+
+// Fake vector class specialized below.
+template <typename T, typename A> class vec {
+};
+
+#define INSTANTIATE_VECTOR(TT)                                                 \
+  template<> class vec<TT, va_gc> {                                            \
+    VEC(TT, gc) & v;                                                           \
+  public:                                                                      \
+    vec(VEC(TT, gc) & V) : v(V) {}                                             \
+                                                                               \
+    bool is_empty() const { return VEC_empty(TT, &v); }                        \
+    unsigned length() const { return VEC_length(TT, &v); }                     \
+    TT &operator[](unsigned i) const { return *VEC_index(TT, &v, i); }         \
+  }
+#endif
+
 #endif /* DRAGONEGG_TREES_H */

@@ -2894,6 +2894,10 @@ Value *TreeToLLVM::EmitOBJ_TYPE_REF(tree exp) {
                                getRegType(TREE_TYPE(exp)));
 }
 
+#if (GCC_MINOR < 8)
+INSTANTIATE_VECTOR(constructor_elt);
+#endif
+
 /// EmitCONSTRUCTOR - emit the constructor into the location specified by
 /// DestLoc.
 Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
@@ -2938,25 +2942,27 @@ Value *TreeToLLVM::EmitCONSTRUCTOR(tree exp, const MemRef *DestLoc) {
   // Start out with the value zero'd out.
   EmitAggregateZero(*DestLoc, type);
 
-  VEC(constructor_elt, gc) *elt = CONSTRUCTOR_ELTS(exp);
+  if (!CONSTRUCTOR_ELTS(exp))
+    return 0; // No elements.
+
+  const vec<constructor_elt, va_gc> &elt = *CONSTRUCTOR_ELTS(exp);
+
+  if (elt.is_empty())
+    return 0; // No elements.
+
   switch (TREE_CODE(TREE_TYPE(exp))) {
   case ARRAY_TYPE:
   case RECORD_TYPE:
   default:
-    if (!elt || !VEC_length(constructor_elt, elt))
-      return 0;
     debug_tree(exp);
     llvm_unreachable("We don't handle elements yet!");
   case QUAL_UNION_TYPE:
   case UNION_TYPE:
     // Store each element of the constructor into the corresponding field of
     // DEST.
-    if (!elt || VEC_empty(constructor_elt, elt))
-      return 0; // no elements
-    assert(VEC_length(constructor_elt, elt) == 1 &&
-           "Union CONSTRUCTOR should have one element!");
-    tree tree_purpose = VEC_index(constructor_elt, elt, 0)->index;
-    tree tree_value = VEC_index(constructor_elt, elt, 0)->value;
+    assert(elt.length() == 1 && "Union CONSTRUCTOR should have one element!");
+    tree tree_purpose = elt[0].index;
+    tree tree_value = elt[0].value;
     if (!tree_purpose)
       return 0; // Not actually initialized?
 
@@ -6695,14 +6701,25 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     Constant *TreeToLLVM::EmitVectorRegisterConstant(tree reg) {
       // If there are no elements then immediately return the default value for a
       // small speedup.
+#if (GCC_MINOR < 8)
       if (!TREE_VECTOR_CST_ELTS(reg))
+#else
+      if (!VECTOR_CST_NELTS(reg))
+#endif
         return getDefaultValue(getRegType(TREE_TYPE(reg)));
 
       // Convert the elements.
       SmallVector<Constant *, 16> Elts;
       tree elt_type = TREE_TYPE(TREE_TYPE(reg));
-      for (tree elt = TREE_VECTOR_CST_ELTS(reg); elt; elt = TREE_CHAIN(elt))
-        Elts.push_back(EmitRegisterConstantWithCast(TREE_VALUE(elt), elt_type));
+#if (GCC_MINOR < 8)
+      for (tree ch = TREE_VECTOR_CST_ELTS(reg); ch; ch = TREE_CHAIN(ch)) {
+        tree elt = TREE_VALUE(ch);
+#else
+      for (unsigned i = 0, e = VECTOR_CST_NELTS(reg); i != e; ++i) {
+        tree elt = VECTOR_CST_ELT(reg, i);
+#endif
+        Elts.push_back(EmitRegisterConstantWithCast(elt, elt_type));
+      }
 
       // If there weren't enough elements then set the rest of the vector to the
       // default value.
