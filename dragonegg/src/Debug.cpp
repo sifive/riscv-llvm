@@ -153,7 +153,7 @@ static StringRef GetNodeName(tree Node) {
 /// whether the node is a TYPE or DECL.  UseStub is true if we should consider
 /// the type stub as the actually location (ignored in struct/unions/enums.)
 static expanded_location GetNodeLocation(tree Node, bool UseStub = true) {
-  expanded_location Location = { NULL, 0, 0, false };
+  expanded_location Location = {};
 
   if (Node == NULL_TREE)
     return Location;
@@ -625,7 +625,8 @@ DIType DebugInfo::createEnumType(tree type) {
 
   llvm::DIArray EltArray = Builder.getOrCreateArray(Elements);
 
-  expanded_location Loc = { NULL, 0, 0, false };
+  expanded_location Loc = {};
+
   if (TYPE_SIZE(type))
     // Incomplete enums do not  have any location info.
     Loc = GetNodeLocation(TREE_CHAIN(type), false);
