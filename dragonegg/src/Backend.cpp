@@ -1189,7 +1189,9 @@ static void emit_global(tree decl) {
   assert(SizeOfGlobalMatchesDecl(GV, decl) && "Global has wrong size!");
 
   // Mark the global as written so gcc doesn't waste time outputting it.
+#if (GCC_MINOR < 8)
   TREE_ASM_WRITTEN(decl) = 1;
+#endif
 
   // Output any associated aliases.
   if (isa<VAR_DECL>(decl))
