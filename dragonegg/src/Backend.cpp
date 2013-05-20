@@ -156,6 +156,33 @@ static FunctionPassManager *CodeGenPasses = 0;
 static void createPerFunctionOptimizationPasses();
 static void createPerModuleOptimizationPasses();
 
+// Compatibility hacks for older versions of GCC.
+#if (GCC_MINOR < 8)
+
+static struct cgraph_node *cgraph_symbol(struct cgraph_node *N) { return N; }
+static struct varpool_node *varpool_symbol(struct varpool_node *N) { return N; }
+
+#define ipa_ref_list_referring_iterate(L,I,P) \
+  ipa_ref_list_refering_iterate(L,I,P)
+#define ipa_ref_referring_node(R) ipa_ref_refering_node(R)
+#define ipa_ref_referring_varpool_node(R) ipa_ref_refering_varpool_node(R)
+
+#define asm_nodes cgraph_asm_nodes
+#define asm_node cgraph_asm_node
+
+#define FOR_EACH_FUNCTION(node) \
+  for ((node) = cgraph_nodes; (node); (node) = (node)->next)
+
+#define FOR_EACH_VARIABLE(node) \
+  for ((node) = varpool_nodes; (node); (node) = (node)->next)
+
+#else
+
+static symtab_node_base *cgraph_symbol(cgraph_node *N) { return &N->symbol; }
+static symtab_node_base *varpool_symbol(varpool_node *N) { return &N->symbol; }
+
+#endif
+
 //===----------------------------------------------------------------------===//
 //                   Matching LLVM Values with GCC DECL trees
 //===----------------------------------------------------------------------===//
@@ -900,9 +927,9 @@ static void emit_alias(tree decl, tree target) {
 
   if (isa<IDENTIFIER_NODE>(target)) {
     if (struct cgraph_node *fnode = cgraph_node_for_asm(target))
-      target = fnode->decl;
+      target = cgraph_symbol(fnode)->decl;
     else if (struct varpool_node *vnode = varpool_node_for_asm(target))
-      target = vnode->decl;
+      target = varpool_symbol(vnode)->decl;
   }
 
   GlobalValue *Aliasee = 0;
@@ -968,10 +995,12 @@ static void emit_varpool_aliases(struct varpool_node *node) {
     emit_alias(alias->decl, node->decl);
 #else
   struct ipa_ref *ref;
-  for (int i = 0; ipa_ref_list_refering_iterate(&node->ref_list, i, ref); i++)
+  for (int i = 0;
+       ipa_ref_list_referring_iterate(&varpool_symbol(node)->ref_list, i, ref);
+       i++)
     if (ref->use == IPA_REF_ALIAS) {
-      struct varpool_node *alias = ipa_ref_refering_varpool_node(ref);
-      emit_alias(alias->decl, alias->alias_of);
+      struct varpool_node *alias = ipa_ref_referring_varpool_node(ref);
+      emit_alias(varpool_symbol(alias)->decl, alias->alias_of);
       emit_varpool_aliases(alias);
     }
 #endif
@@ -1599,10 +1628,12 @@ static void emit_cgraph_aliases(struct cgraph_node *node) {
   // for thunks to be output as functions and thus visit thunk aliases when the
   // thunk function is output.
   struct ipa_ref *ref;
-  for (int i = 0; ipa_ref_list_refering_iterate(&node->ref_list, i, ref); i++)
+  for (int i = 0;
+       ipa_ref_list_referring_iterate(&cgraph_symbol(node)->ref_list, i, ref);
+       i++)
     if (ref->use == IPA_REF_ALIAS) {
-      struct cgraph_node *alias = ipa_ref_refering_node(ref);
-      emit_alias(alias->decl, alias->thunk.alias);
+      struct cgraph_node *alias = ipa_ref_referring_node(ref);
+      emit_alias(cgraph_symbol(alias)->decl, alias->thunk.alias);
       emit_cgraph_aliases(alias);
     }
 #endif
@@ -1674,14 +1705,14 @@ static struct rtl_opt_pass pass_rtl_emit_function = { {
 
 /// emit_file_scope_asms - Output any file-scope assembly.
 static void emit_file_scope_asms() {
-  for (struct cgraph_asm_node *can = cgraph_asm_nodes; can; can = can->next) {
+  for (struct asm_node *can = asm_nodes; can; can = can->next) {
     tree string = can->asm_str;
     if (isa<ADDR_EXPR>(string))
       string = TREE_OPERAND(string, 0);
     TheModule->appendModuleInlineAsm(TREE_STRING_POINTER(string));
   }
   // Remove the asms so gcc doesn't waste time outputting them.
-  cgraph_asm_nodes = NULL;
+  asm_nodes = NULL;
 }
 
 #if (GCC_MINOR > 6)
@@ -1694,27 +1725,31 @@ static tree get_alias_symbol(tree decl) {
 /// emit_cgraph_weakrefs - Output any cgraph weak references to external
 /// declarations.
 static void emit_cgraph_weakrefs() {
-  for (struct cgraph_node *node = cgraph_nodes; node; node = node->next)
-    if (node->alias && DECL_EXTERNAL(node->decl) &&
-        lookup_attribute("weakref", DECL_ATTRIBUTES(node->decl)))
-      emit_alias(node->decl, node->thunk.alias ? node->thunk.alias
-                                               : get_alias_symbol(node->decl));
+  struct cgraph_node *node;
+  FOR_EACH_FUNCTION(node)
+    if (node->alias && DECL_EXTERNAL(cgraph_symbol(node)->decl) &&
+        lookup_attribute("weakref", DECL_ATTRIBUTES(cgraph_symbol(node)->decl)))
+      emit_alias(cgraph_symbol(node)->decl, node->thunk.alias ?
+                 node->thunk.alias :
+                 get_alias_symbol(cgraph_symbol(node)->decl));
 }
 
 /// emit_varpool_weakrefs - Output any varpool weak references to external
 /// declarations.
 static void emit_varpool_weakrefs() {
-  for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next)
-    if (vnode->alias && DECL_EXTERNAL(vnode->decl) &&
-        lookup_attribute("weakref", DECL_ATTRIBUTES(vnode->decl)))
-      emit_alias(vnode->decl, vnode->alias_of ? vnode->alias_of
-                                              : get_alias_symbol(vnode->decl));
+  struct varpool_node *vnode;
+  FOR_EACH_VARIABLE(vnode)
+    if (vnode->alias && DECL_EXTERNAL(varpool_symbol(vnode)->decl) &&
+        lookup_attribute("weakref",
+                         DECL_ATTRIBUTES(varpool_symbol(vnode)->decl)))
+      emit_alias(varpool_symbol(vnode)->decl, vnode->alias_of ? vnode->alias_of
+                 : get_alias_symbol(varpool_symbol(vnode)->decl));
 }
 #endif
 
 /// llvm_emit_globals - Output GCC global variables, aliases and asm's to the
 /// LLVM IR.
-static void llvm_emit_globals(void */*gcc_data*/, void */*user_data*/) {
+static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
   if (errorcount || sorrycount)
     return; // Do not process broken code.
 
@@ -1726,16 +1761,19 @@ static void llvm_emit_globals(void */*gcc_data*/, void */*user_data*/) {
   // Some global variables must be output even if unused, for example because
   // they are externally visible.  Output them now.  All other variables are
   // output when their user is, or discarded if unused.
-  for (struct varpool_node *vnode = varpool_nodes; vnode; vnode = vnode->next) {
+  struct varpool_node *vnode;
+  FOR_EACH_VARIABLE(vnode) {
     // If the node is explicitly marked as not being needed, then skip it.
+#if (GCC_MINOR < 8)
     if (!vnode->needed)
       continue;
+#endif
     // If the node is an alias then skip it - aliases are handled below.
     if (vnode->alias)
       continue;
 
     // If this variable must be output even if unused then output it.
-    tree decl = vnode->decl;
+    tree decl = varpool_symbol(vnode)->decl;
     if (vnode->analyzed &&
         (
 #if (GCC_MINOR > 5)
