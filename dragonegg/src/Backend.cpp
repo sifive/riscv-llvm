@@ -1656,6 +1656,9 @@ static unsigned int rtl_emit_function(void) {
 /// pass_rtl_emit_function - RTL pass that converts a function to LLVM IR.
 static struct rtl_opt_pass pass_rtl_emit_function = { {
   RTL_PASS, "rtl_emit_function",         /* name */
+#if (GCC_MINOR >= 8)
+  OPTGROUP_NONE,                         /* optinfo_flags */
+#endif
   NULL,                                  /* gate */
   rtl_emit_function,                     /* execute */
   NULL,                                  /* sub */
@@ -1921,6 +1924,9 @@ static bool gate_null(void) { return false; }
 /// pass_gimple_null - Gimple pass that does nothing.
 static struct gimple_opt_pass pass_gimple_null = { {
   GIMPLE_PASS, "*gimple_null", /* name */
+#if (GCC_MINOR >= 8)
+  OPTGROUP_NONE,               /* optinfo_flags */
+#endif
   gate_null,                   /* gate */
   NULL,                        /* execute */
   NULL,                        /* sub */
@@ -1949,6 +1955,9 @@ static bool gate_correct_state(void) { return true; }
 /// newly inserted functions are processed before being converted to LLVM IR.
 static struct gimple_opt_pass pass_gimple_correct_state = { {
   GIMPLE_PASS, "*gimple_correct_state", /* name */
+#if (GCC_MINOR >= 8)
+  OPTGROUP_NONE,                        /* optinfo_flags */
+#endif
   gate_correct_state,                   /* gate */
   execute_correct_state,                /* execute */
   NULL,                                 /* sub */
@@ -1965,6 +1974,9 @@ static struct gimple_opt_pass pass_gimple_correct_state = { {
 /// pass_ipa_null - IPA pass that does nothing.
 static struct ipa_opt_pass_d pass_ipa_null = {
   { IPA_PASS, "*ipa_null", /* name */
+#if (GCC_MINOR >= 8)
+    OPTGROUP_NONE,         /* optinfo_flags */
+#endif
     gate_null,             /* gate */
     NULL,                  /* execute */
     NULL,                  /* sub */
@@ -1994,6 +2006,9 @@ static struct ipa_opt_pass_d pass_ipa_null = {
 
 /// pass_rtl_null - RTL pass that does nothing.
 static struct rtl_opt_pass pass_rtl_null = { { RTL_PASS, "*rtl_null", /* name */
+#if (GCC_MINOR >= 8)
+                                               OPTGROUP_NONE,/* optinfo_flags */
+#endif
                                                gate_null,             /* gate */
                                                NULL,    /* execute */
                                                NULL,    /* sub */
@@ -2010,6 +2025,9 @@ static struct rtl_opt_pass pass_rtl_null = { { RTL_PASS, "*rtl_null", /* name */
 /// pass_simple_ipa_null - Simple IPA pass that does nothing.
 static struct simple_ipa_opt_pass pass_simple_ipa_null = { {
   SIMPLE_IPA_PASS, "*simple_ipa_null", /* name */
+#if (GCC_MINOR >= 8)
+  OPTGROUP_NONE,                       /* optinfo_flags */
+#endif
   gate_null,                           /* gate */
   NULL,                                /* execute */
   NULL,                                /* sub */
@@ -2254,12 +2272,14 @@ int __attribute__((visibility("default"))) plugin_init(
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
+#if (GCC_MINOR < 8)
     // Turn off pass_ipa_matrix_reorg.
     pass_info.pass = &pass_simple_ipa_null.pass;
     pass_info.reference_pass_name = "matrix-reorg";
     pass_info.ref_pass_instance_number = 0;
     pass_info.pos_op = PASS_POS_REPLACE;
     register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
+#endif
 
     // Leave pass_ipa_tm.
 
@@ -2423,7 +2443,7 @@ int __attribute__((visibility("default"))) plugin_init(
   register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
   // Turn off all other rtl passes.
-  pass_info.pass = &pass_gimple_null.pass;
+  pass_info.pass = &pass_rtl_null.pass;
   pass_info.reference_pass_name = "*rest_of_compilation";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
