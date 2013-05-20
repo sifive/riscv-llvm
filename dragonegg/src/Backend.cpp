@@ -1676,8 +1676,15 @@ static unsigned int rtl_emit_function(void) {
     emit_current_function();
   }
 
-  // Free any data structures.
+  // Free tree-ssa data structures.
+#if (GCC_MINOR < 8)
   execute_free_datastructures();
+#else
+  free_dominance_info(CDI_DOMINATORS);
+  free_dominance_info(CDI_POST_DOMINATORS);
+  // And get rid of annotations we no longer need.
+  delete_tree_cfg_annotations();
+#endif
 
   // Finally, we have written out this function!
   TREE_ASM_WRITTEN(current_function_decl) = 1;
