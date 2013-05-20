@@ -2443,7 +2443,11 @@ int __attribute__((visibility("default"))) plugin_init(
   register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_info);
 
   // Turn off all other rtl passes.
+#if (GCC_MINOR < 8)
+  pass_info.pass = &pass_gimple_null.pass;
+#else
   pass_info.pass = &pass_rtl_null.pass;
+#endif
   pass_info.reference_pass_name = "*rest_of_compilation";
   pass_info.ref_pass_instance_number = 0;
   pass_info.pos_op = PASS_POS_REPLACE;
