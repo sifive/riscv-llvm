@@ -152,7 +152,7 @@ template <typename T, typename A> class vec {
 };
 
 #define INSTANTIATE_VECTOR(TT)                                                 \
-  template<> class vec<TT, va_gc> {                                            \
+  template <> class vec<TT, va_gc> {                                           \
     VEC(TT, gc) & v;                                                           \
   public:                                                                      \
     vec(VEC(TT, gc) & V) : v(V) {}                                             \
@@ -160,6 +160,9 @@ template <typename T, typename A> class vec {
     bool is_empty() const { return VEC_empty(TT, &v); }                        \
     unsigned length() const { return VEC_length(TT, &v); }                     \
     TT &operator[](unsigned i) const { return *VEC_index(TT, &v, i); }         \
+    bool iterate(unsigned ix, TT **ptr) const {                                \
+      return VEC_iterate(TT, &v, ix, *ptr);                                    \
+    }                                                                          \
   }
 #endif
 

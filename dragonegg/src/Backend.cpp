@@ -1754,6 +1754,10 @@ static void emit_varpool_weakrefs() {
 }
 #endif
 
+#if (GCC_MINOR < 8)
+INSTANTIATE_VECTOR(alias_pair);
+#endif
+
 /// llvm_emit_globals - Output GCC global variables, aliases and asm's to the
 /// LLVM IR.
 static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
@@ -1811,9 +1815,12 @@ static void llvm_emit_globals(void * /*gcc_data*/, void * /*user_data*/) {
 
   // Emit any aliases that aren't represented in cgraph or varpool, for example
   // a function that aliases a variable or a variable that aliases a function.
-  alias_pair *p;
-  for (unsigned i = 0; VEC_iterate(alias_pair, alias_pairs, i, p); i++)
-    emit_alias(p->decl, p->target);
+  if (alias_pairs) {
+    alias_pair *p;
+    const vec<alias_pair, va_gc> &pairs = *alias_pairs;
+    for (unsigned i = 0; pairs.iterate(i, &p); i++)
+      emit_alias(p->decl, p->target);
+  }
 }
 
 static void InlineAsmDiagnosticHandler(const SMDiagnostic &D, void */*Data*/,
