@@ -1,6 +1,6 @@
 // RUN: %dragonegg %s -S -o - | FileCheck %s
 // PR1085
-// XFAIL: gcc-4.7
+// XFAIL: gcc-4.7, gcc-4.8
 
 // CHECK: define weak void @_ZThn{{[48]}}_N
 // CHECK: define weak void @_ZThn{{[48]}}_N
