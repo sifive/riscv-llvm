@@ -706,8 +706,6 @@ DIType DebugInfo::createStructType(tree type) {
   llvm::SmallVector<Value*, 16> EltTys;
 
   if (tree binfo = TYPE_BINFO(type)) {
-    VEC(tree, gc) *accesses = BINFO_BASE_ACCESSES(binfo);
-
     for (unsigned i = 0, e = BINFO_N_BASE_BINFOS(binfo); i != e; ++i) {
       tree BInfo = BINFO_BASE_BINFO(binfo, i);
       tree BInfoType = BINFO_TYPE(BInfo);
@@ -715,8 +713,8 @@ DIType DebugInfo::createStructType(tree type) {
       unsigned BFlags = 0;
       if (BINFO_VIRTUAL_P(BInfo))
         BFlags = llvm::DIType::FlagVirtual;
-      if (accesses) {
-        tree access = VEC_index(tree, accesses, i);
+      if (BINFO_BASE_ACCESSES(binfo)) {
+        tree access = BINFO_BASE_ACCESS(binfo, i);
         if (access == access_protected_node)
           BFlags |= llvm::DIType::FlagProtected;
         else if (access == access_private_node)
