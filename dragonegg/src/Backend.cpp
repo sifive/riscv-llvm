@@ -525,31 +525,44 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   TheTarget->setMCUseDwarfDirectory(false);
 }
 
+/// output_ident - Insert a .ident directive that identifies the plugin.
+static void output_ident(const char *ident_str) {
+  const char *ident_asm_op = "\t.ident\t";
+#if (GCC_MINOR < 8)
+#ifdef IDENT_ASM_OP
+  ident_asm_op = IDENT_ASM_OP;
+#endif
+#endif
+  std::string Directive(ident_asm_op);
+  Directive += "\"";
+  Directive += ident_str;
+  Directive += " LLVM: ";
+  Directive += LLVM_VERSION;
+  Directive += "\"";
+  TheModule->setModuleInlineAsm(Directive);
+}
+
 /// CreateModule - Create and initialize a module to output LLVM IR to.
 static void CreateModule(const std::string &TargetTriple) {
   // Create the module itself.
   StringRef ModuleID = main_input_filename ? main_input_filename : "";
   TheModule = new Module(ModuleID, getGlobalContext());
 
-// Insert a special .ident directive to identify the version of the plugin
-// which compiled this code.  The format of the .ident string is patterned
-// after the ones produced by GCC.
+#if (GCC_MINOR < 8)
 #ifdef IDENT_ASM_OP
   if (!flag_no_ident) {
+    std::string IdentString;
     const char *pkg_version = "(GNU) ";
 
     if (strcmp("(GCC) ", pkgversion_string))
       pkg_version = pkgversion_string;
 
-    std::string IdentString = IDENT_ASM_OP;
-    IdentString += "\"GCC: ";
+    IdentString += "GCC: ";
     IdentString += pkg_version;
     IdentString += version_string;
-    IdentString += " LLVM: ";
-    IdentString += LLVM_VERSION;
-    IdentString += "\"";
-    TheModule->setModuleInlineAsm(IdentString);
+    output_ident(IdentString.c_str());
   }
+#endif
 #endif
 
   // Install information about the target triple and data layout into the module
@@ -1609,6 +1622,12 @@ static void llvm_start_unit(void */*gcc_data*/, void */*user_data*/) {
   // Ensure that GCC doesn't decorate stdcall and fastcall function names:
   // LLVM codegen takes care of this, and we don't want them decorated twice.
   targetm.mangle_decl_assembler_name = default_mangle_decl_assembler_name;
+
+#if (GCC_MINOR > 7)
+  // Arrange for a special .ident directive identifying the compiler and plugin
+  // versions to be inserted into the final assembler.
+  targetm.asm_out.output_ident = output_ident;
+#endif
 }
 
 /// emit_cgraph_aliases - Output any aliases associated with the given cgraph
