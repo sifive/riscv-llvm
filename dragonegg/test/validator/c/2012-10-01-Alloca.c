@@ -1,5 +1,5 @@
 // RUN: %dragonegg -S %s -o - | FileCheck %s
-// XFAIL: gcc-4.7
+// XFAIL: gcc-4.7, gcc-4.8
 
 void use(int*);
 
