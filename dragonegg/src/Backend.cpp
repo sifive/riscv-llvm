@@ -1705,8 +1705,8 @@ static struct rtl_opt_pass pass_rtl_emit_function = { {
 
 /// emit_file_scope_asms - Output any file-scope assembly.
 static void emit_file_scope_asms() {
-  for (struct asm_node *can = asm_nodes; can; can = can->next) {
-    tree string = can->asm_str;
+  for (struct asm_node *anode = asm_nodes; anode; anode = anode->next) {
+    tree string = anode->asm_str;
     if (isa<ADDR_EXPR>(string))
       string = TREE_OPERAND(string, 0);
     TheModule->appendModuleInlineAsm(TREE_STRING_POINTER(string));
