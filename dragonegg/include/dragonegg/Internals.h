@@ -632,6 +632,7 @@ private:
   llvm::Value *EmitBuiltinPOW(gimple_statement_d *stmt);
   llvm::Value *EmitBuiltinLCEIL(gimple_statement_d *stmt);
   llvm::Value *EmitBuiltinLFLOOR(gimple_statement_d *stmt);
+  llvm::Value *EmitBuiltinLROUND(gimple_statement_d *stmt);
   llvm::Value *EmitBuiltinCEXPI(gimple_statement_d *stmt);
 
   bool EmitBuiltinAdjustTrampoline(gimple_statement_d *stmt,

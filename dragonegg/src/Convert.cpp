@@ -4568,6 +4568,16 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_LLFLOORL:
     Result = EmitBuiltinLFLOOR(stmt);
     return true;
+#if (GCC_MINOR > 6)
+  case BUILT_IN_IROUND:
+  case BUILT_IN_IROUNDF:
+  case BUILT_IN_IROUNDL:
+#endif
+  case BUILT_IN_LROUND:
+  case BUILT_IN_LROUNDF:
+  case BUILT_IN_LROUNDL:
+    Result = EmitBuiltinLROUND(stmt);
+    return true;
   case BUILT_IN_CEXPI:
   case BUILT_IN_CEXPIF:
   case BUILT_IN_CEXPIL:
@@ -5201,6 +5211,26 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       Type *RetTy = getRegType(type);
       return TYPE_UNSIGNED(type) ? Builder.CreateFPToUI(Call, RetTy)
                                  : Builder.CreateFPToSI(Call, RetTy);
+    }
+
+    Value *TreeToLLVM::EmitBuiltinLROUND(gimple stmt) {
+      if (!validate_gimple_arglist(stmt, REAL_TYPE, VOID_TYPE))
+        return 0;
+
+      // Cast the result of "lround" to the appropriate integer type.
+      // First call the appropriate version of "lround".
+      tree op = gimple_call_arg(stmt, 0);
+      StringRef Name = SelectFPName(TREE_TYPE(op),
+                                    "lroundf", "lround", "lroundl");
+      assert(!Name.empty() && "Unsupported floating point type!");
+      CallInst *Call = EmitSimpleCall(Name, long_integer_type_node, op, NULL);
+      Call->setDoesNotThrow();
+      Call->setDoesNotAccessMemory();
+
+      // Then type cast the result of the "lround" call.
+      tree type = gimple_call_return_type(stmt);
+      Type *RetTy = getRegType(type);
+      return Builder.CreateTrunc(Call, RetTy);
     }
 
     Value *TreeToLLVM::EmitBuiltinCEXPI(gimple stmt) {
