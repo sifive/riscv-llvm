@@ -429,6 +429,8 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
 DIType DebugInfo::createBasicType(tree type) {
 
   StringRef TypeName = GetNodeName(type);
+  if (TypeName.empty())
+    TypeName = "__unknown__";
   uint64_t Size = NodeSizeInBits(type);
   uint64_t Align = NodeAlignInBits(type);
 
