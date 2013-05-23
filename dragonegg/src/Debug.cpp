@@ -231,7 +231,7 @@ StringRef DebugInfo::getFunctionName(tree FnDecl) {
 
 /// EmitFunctionStart - Constructs the debug code for entering a function.
 void DebugInfo::EmitFunctionStart(tree FnDecl, Function *Fn) {
-  DIType FNType = getOrCreateType(TYPE_MAIN_VARIANT(TREE_TYPE(FnDecl)));
+  DIType FNType = getOrCreateType(TREE_TYPE(FnDecl));
 
   unsigned lineno = CurLineNo;
 
@@ -1115,11 +1115,13 @@ DISubprogram DebugInfo::CreateSubprogram(
     StringRef LinkageName, DIFile F, unsigned LineNo, DIType Ty,
     bool isLocalToUnit, bool isDefinition, unsigned VK, unsigned VIndex,
     DIType ContainingType, unsigned Flags, bool isOptimized, Function *Fn) {
+  DICompositeType CTy = getDICompositeType(Ty);
+  assert(CTy.Verify() && "Expected a composite type!");
   if (ContainingType.isValid() || VK || VIndex)
-    return Builder.createMethod(Context, Name, LinkageName, F, LineNo, Ty,
+    return Builder.createMethod(Context, Name, LinkageName, F, LineNo, CTy,
                                 isLocalToUnit, isDefinition, VK, VIndex, NULL,
                                 Flags, isOptimized, Fn, NULL);
-  return Builder.createFunction(Context, Name, LinkageName, F, LineNo, Ty,
+  return Builder.createFunction(Context, Name, LinkageName, F, LineNo, CTy,
                                 isLocalToUnit, isDefinition, LineNo, Flags,
                                 isOptimized, Fn, NULL, NULL);
 }
