@@ -479,6 +479,8 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 #endif
 
   TargetOptions Options;
+
+  // Set frame pointer elimination mode.
   if (flag_omit_frame_pointer) {
     // Eliminate frame pointers everywhere.
     Options.NoFramePointerElim = false;
@@ -493,28 +495,42 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   //   NoFramePointerElim = false;
   //   NoFramePointerElimNonLeaf = true;
   // in its LLVM_SET_TARGET_MACHINE_OPTIONS method when this option is true.
+
+#ifdef HAVE_INITFINI_ARRAY
+  Options.UseInitArray = true;
+#else
+  Options.UseInitArray = false;
+#endif
+
+  // TODO: Set float ABI type.
+
+  // TODO: Set FP fusion mode.
+
+  // TODO: LessPreciseFPMADOption.
+  Options.NoInfsFPMath = flag_finite_math_only;
+  Options.NoNaNsFPMath = flag_finite_math_only;
+  Options.NoZerosInBSS = !flag_zero_initialized_in_bss;
   Options.UnsafeFPMath =
 #if (GCC_MINOR > 5)
       fast_math_flags_set_p(&global_options);
 #else
   fast_math_flags_set_p();
 #endif
-  Options.NoInfsFPMath = flag_finite_math_only;
-  Options.NoNaNsFPMath = flag_finite_math_only;
-  Options.NoZerosInBSS = !flag_zero_initialized_in_bss;
+  // TODO: UseSoftFloat.
+  // TODO: StackAlignmentOverride.
+  // TODO: RealignStack.
+  // TODO: DisableTailCalls.
+  // TODO: TrapFuncName.
   Options.PositionIndependentExecutable = flag_pie;
+  Options.SSPBufferSize = PARAM_VALUE(PARAM_SSP_BUFFER_SIZE);
 #if (GCC_MINOR > 5)
   Options.EnableSegmentedStacks = flag_split_stack;
 #endif
-#ifdef HAVE_INITFINI_ARRAY
-  Options.UseInitArray = true;
-#else
-  Options.UseInitArray = false;
-#endif
-  Options.SSPBufferSize = PARAM_VALUE(PARAM_SSP_BUFFER_SIZE);
+
 #ifdef LLVM_SET_TARGET_MACHINE_OPTIONS
   LLVM_SET_TARGET_MACHINE_OPTIONS(Options);
 #endif
+
   TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr, Options,
                                        RelocModel, CMModel, CodeGenOptLevel());
   assert(TheTarget->getDataLayout()->isBigEndian() == BYTES_BIG_ENDIAN);
