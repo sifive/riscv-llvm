@@ -661,12 +661,11 @@ static void InitializeBackend(void) {
   // Configure the pass builder.
   PassBuilder.SizeLevel = optimize_size;
   PassBuilder.DisableSimplifyLibCalls = flag_no_simplify_libcalls;
-  PassBuilder.DisableUnrollLoops = !flag_unroll_loops;
   PassBuilder.DisableUnitAtATime = !flag_unit_at_a_time;
-  // FIXME: Hack around the fact the we initialize PassBuilder before processing
-  // command line arguments.  The following makes it possible to enable the LLVM
-  // vectorizer using -fplugin-arg-dragonegg-llvm-option=-vectorize
-  PassBuilder.SLPVectorize = PassManagerBuilder().SLPVectorize;
+  PassBuilder.DisableUnrollLoops = !flag_unroll_loops;
+//  Don't turn on the SLP vectorizer by default at -O3 for the moment.
+//  PassBuilder.SLPVectorize = flag_tree_slp_vectorize;
+  PassBuilder.LoopVectorize = flag_tree_vectorize;
 
   PassBuilder.LibraryInfo =
       new TargetLibraryInfo((Triple) TheModule->getTargetTriple());
