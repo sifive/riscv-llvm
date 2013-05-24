@@ -1639,6 +1639,19 @@ void TreeToLLVM::EmitBasicBlock(basic_block bb) {
 }
 
 Function *TreeToLLVM::EmitFunction() {
+  FastMathFlags FMF;
+  if (flag_finite_math_only) {
+    FMF.setNoInfs();
+    FMF.setNoNaNs();
+  }
+  if (!flag_signed_zeros)
+    FMF.setNoSignedZeros();
+  if (flag_reciprocal_math)
+    FMF.setAllowReciprocal();
+  if (flag_unsafe_math_optimizations && flag_finite_math_only)
+    FMF.setUnsafeAlgebra();
+  Builder.SetFastMathFlags(FMF);
+
   // Set up parameters and prepare for return, for the function.
   StartFunctionBody();
 
