@@ -562,6 +562,8 @@ static void CreateModule(const std::string &TargetTriple) {
     IdentString += version_string;
     output_ident(IdentString.c_str());
   }
+#else
+  (void)output_ident; // Avoid compiler warning about output_ident being unused.
 #endif
 #endif
 
