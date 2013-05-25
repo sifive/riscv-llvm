@@ -651,8 +651,7 @@ private:
                                     llvm::Value *&Result);
   bool EmitBuiltinFrobReturnAddr(gimple_statement_d *stmt,
                                  llvm::Value *&Result);
-  bool EmitBuiltinInitTrampoline(gimple_statement_d *stmt,
-                                 llvm::Value *&Result);
+  bool EmitBuiltinInitTrampoline(gimple_statement_d *stmt, bool OnStack);
   bool EmitBuiltinMemCopy(gimple_statement_d *stmt, llvm::Value *&Result,
                           bool isMemMove, bool SizeCheck);
   bool EmitBuiltinMemSet(gimple_statement_d *stmt, llvm::Value *&Result,

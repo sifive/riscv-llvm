@@ -4325,7 +4325,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
   case BUILT_IN_FROB_RETURN_ADDR:
     return EmitBuiltinFrobReturnAddr(stmt, Result);
   case BUILT_IN_INIT_TRAMPOLINE:
-    return EmitBuiltinInitTrampoline(stmt, Result);
+    return EmitBuiltinInitTrampoline(stmt, true);
+#if (GCC_MINOR > 6)
+  case BUILT_IN_INIT_HEAP_TRAMPOLINE:
+    return EmitBuiltinInitTrampoline(stmt, false);
+#endif
   case BUILT_IN_MEMCPY:
     return EmitBuiltinMemCopy(stmt, Result, false, false);
   case BUILT_IN_MEMCPY_CHK:
@@ -6006,8 +6010,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       return true;
     }
 
-    bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt,
-                                               Value * &/*Result*/) {
+    bool TreeToLLVM::EmitBuiltinInitTrampoline(gimple stmt, bool OnStack) {
       if (!validate_gimple_arglist(stmt, POINTER_TYPE, POINTER_TYPE,
                                    POINTER_TYPE, VOID_TYPE))
         return false;
@@ -6024,6 +6027,17 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       Function *Intr =
           Intrinsic::getDeclaration(TheModule, Intrinsic::init_trampoline);
       Builder.CreateCall(Intr, Ops);
+
+#if (GCC_MINOR > 5)
+      if (OnStack) {
+        tree target = TREE_OPERAND(gimple_call_arg(stmt, 1), 0);
+        warning_at(DECL_SOURCE_LOCATION(target), OPT_Wtrampolines,
+                   "trampoline generated for nested function %qD", target);
+      }
+#else
+      (void)OnStack; // Avoid compiler warning.
+#endif
+
       return true;
     }
 
