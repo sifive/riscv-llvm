@@ -1,5 +1,5 @@
-// RUN: %dragonegg -S %s -o - -O3 | FileCheck -check-prefix=VON %s
-// RUN: %dragonegg -S %s -o - -O3 -fno-tree-vectorize | FileCheck -check-prefix=VOFF %s
+// RUN: %dragonegg -S %s -o - -O3 -msse | FileCheck -check-prefix=VON %s
+// RUN: %dragonegg -S %s -o - -O3 -msse -fno-tree-vectorize | FileCheck -check-prefix=VOFF %s
 // VON: fadd <
 // VOFF-NOT: fadd <
 
