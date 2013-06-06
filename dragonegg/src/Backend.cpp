@@ -698,6 +698,7 @@ static void createPerFunctionOptimizationPasses() {
   // FIXME: Move the code generator to be function-at-a-time.
   PerFunctionPasses = new FunctionPassManager(TheModule);
   PerFunctionPasses->add(new DataLayout(TheModule));
+  TheTarget->addAnalysisPasses(*PerFunctionPasses);
 
 #ifndef NDEBUG
   PerFunctionPasses->add(createVerifierPass());
@@ -746,8 +747,10 @@ static void createPerModuleOptimizationPasses() {
   TheTarget->addAnalysisPasses(*PerModulePasses);
 
   bool NeedAlwaysInliner = false;
-  llvm::Pass *InliningPass = 0;
-  if (LLVMIROptimizeArg && flag_inline_small_functions && !flag_no_inline) {
+  Pass *InliningPass;
+  if (!LLVMIROptimizeArg)
+    InliningPass = 0;
+  else if (flag_inline_small_functions && !flag_no_inline) {
     // Inline small functions.  Figure out a reasonable threshold to pass llvm's
     // inliner.  GCC has many options that control inlining, but we have decided
     // not to support anything like that for dragonegg.
@@ -772,8 +775,7 @@ static void createPerModuleOptimizationPasses() {
         break;
       }
 
-    if (NeedAlwaysInliner)
-      InliningPass = createAlwaysInlinerPass(); // Inline always_inline funcs
+    InliningPass = NeedAlwaysInliner ? createAlwaysInlinerPass() : 0;
   }
 
   PassBuilder.OptLevel = ModuleOptLevel();
