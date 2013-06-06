@@ -747,7 +747,7 @@ static void createPerModuleOptimizationPasses() {
 
   bool NeedAlwaysInliner = false;
   llvm::Pass *InliningPass = 0;
-  if (flag_inline_small_functions && !flag_no_inline) {
+  if (LLVMIROptimizeArg && flag_inline_small_functions && !flag_no_inline) {
     // Inline small functions.  Figure out a reasonable threshold to pass llvm's
     // inliner.  GCC has many options that control inlining, but we have decided
     // not to support anything like that for dragonegg.
