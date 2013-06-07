@@ -746,9 +746,9 @@ static void createPerModuleOptimizationPasses() {
   PerModulePasses->add(new DataLayout(TheModule));
   TheTarget->addAnalysisPasses(*PerModulePasses);
 
-  bool NeedAlwaysInliner = false;
   Pass *InliningPass;
   if (!LLVMIROptimizeArg)
+    // If the user asked for no LLVM optimization, then don't do any inlining.
     InliningPass = 0;
   else if (flag_inline_small_functions && !flag_no_inline) {
     // Inline small functions.  Figure out a reasonable threshold to pass llvm's
@@ -764,18 +764,9 @@ static void createPerModuleOptimizationPasses() {
       Threshold = 225;
     InliningPass = createFunctionInliningPass(Threshold);
   } else {
-    // If full inliner is not run, check if always-inline is needed to handle
-    // functions that are  marked as always_inline.
+    // Run the always-inline pass to handle functions marked as always_inline.
     // TODO: Consider letting the GCC inliner do this.
-    for (Module::iterator I = TheModule->begin(), E = TheModule->end(); I != E;
-         ++I)
-      if (I->getAttributes().hasAttribute(AttributeSet::FunctionIndex,
-                                          Attribute::AlwaysInline)) {
-        NeedAlwaysInliner = true;
-        break;
-      }
-
-    InliningPass = NeedAlwaysInliner ? createAlwaysInlinerPass() : 0;
+    InliningPass = createAlwaysInlinerPass();
   }
 
   PassBuilder.OptLevel = ModuleOptLevel();
