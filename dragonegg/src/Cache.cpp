@@ -79,7 +79,8 @@ struct GTY(()) tree2Type {
 #ifndef IN_GCC
   struct
 #endif
-      Type *GTY((skip)) Ty;
+      Type *
+          GTY((skip)) Ty;
 };
 
 #define tree2Type_eq tree_map_base_eq
@@ -100,7 +101,8 @@ struct GTY(()) tree2WeakVH {
 #ifndef IN_GCC
   struct
 #endif
-      WeakVH GTY((skip)) V;
+      WeakVH
+          GTY((skip)) V;
 };
 
 #define tree2WeakVH_eq tree_map_base_eq
@@ -240,5 +242,5 @@ void setCachedValue(tree t, Value *V) {
   (*slot)->base.from = t;
   WeakVH *W = new (&(*slot)->V) WeakVH(V);
   assert(W == &(*slot)->V && "Pointer was displaced!");
-  (void) W;
+  (void)W;
 }
