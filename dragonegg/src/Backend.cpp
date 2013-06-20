@@ -660,7 +660,6 @@ static void InitializeBackend(void) {
 
   // Configure the pass builder.
   PassBuilder.SizeLevel = optimize_size;
-  PassBuilder.DisableSimplifyLibCalls = flag_no_simplify_libcalls;
   PassBuilder.DisableUnitAtATime = !flag_unit_at_a_time;
   PassBuilder.DisableUnrollLoops = !flag_unroll_loops;
 //  Don't turn on the SLP vectorizer by default at -O3 for the moment.
