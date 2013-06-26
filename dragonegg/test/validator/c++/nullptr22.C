@@ -1,4 +1,4 @@
-// RUN: %dragonegg -xc++ -S -std=c++0x %s
+// RUN: %dragonegg -xc++ -S -std=c++0x -o /dev/null %s
 // XFAIL: gcc-4.5
 // PR14777
 void f1(const char*, ...) __attribute__((format(printf, 1, 2)));

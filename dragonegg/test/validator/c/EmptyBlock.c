@@ -1,4 +1,4 @@
-// RUN: %dragonegg -S %s
+// RUN: %dragonegg -S -o /dev/null %s
 
 void *buf[20];
 

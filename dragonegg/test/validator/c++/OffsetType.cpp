@@ -1,4 +1,4 @@
-// RUN: %dragonegg -S -g %s
+// RUN: %dragonegg -S -g -o /dev/null %s
 
 struct X { };
 

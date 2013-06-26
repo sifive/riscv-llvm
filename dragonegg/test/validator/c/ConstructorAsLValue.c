@@ -1,4 +1,4 @@
-// RUN: %dragonegg -S %s -fplugin-arg-dragonegg-enable-gcc-optzns -O1
+// RUN: %dragonegg -S -o /dev/null %s -fplugin-arg-dragonegg-enable-gcc-optzns -O1
 #define __vector __attribute__((vector_size(16) ))
 typedef __vector signed char qword;
 typedef __vector unsigned int VU32;

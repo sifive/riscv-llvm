@@ -1,4 +1,4 @@
-// RUN: %dragonegg -S %s -O1
+// RUN: %dragonegg -S -o /dev/null %s -O1
 // GCC PR c++/11878
 
 struct A

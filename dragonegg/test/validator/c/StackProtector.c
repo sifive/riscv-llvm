@@ -1,1 +1,1 @@
-// RUN: %dragonegg -S %s -fstack-protector --param ssp-buffer-size=1
+// RUN: %dragonegg -S -o /dev/null %s -fstack-protector --param ssp-buffer-size=1
