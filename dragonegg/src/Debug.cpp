@@ -918,7 +918,6 @@ DIType DebugInfo::getOrCreateType(tree type) {
   DIType Ty;
   switch (TREE_CODE(type)) {
   case ERROR_MARK:
-  case LANG_TYPE:
   case TRANSLATION_UNIT_DECL:
   default:
     llvm_unreachable("Unsupported type");
@@ -926,6 +925,13 @@ DIType DebugInfo::getOrCreateType(tree type) {
 #if (GCC_MINOR > 5)
   case NULLPTR_TYPE:
 #endif
+  case LANG_TYPE: {
+    tree name = TYPE_NAME(type);
+    if (TREE_CODE(name) == TYPE_DECL)
+      name = DECL_NAME(name);
+    return Builder.createUnspecifiedType(IDENTIFIER_POINTER(name));
+  }
+
   case OFFSET_TYPE:
   case POINTER_TYPE:
   case REFERENCE_TYPE:
