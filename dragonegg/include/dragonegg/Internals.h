@@ -584,6 +584,9 @@ private:
 
   // Ternary expressions.
   llvm::Value *EmitReg_CondExpr(tree_node *op0, tree_node *op1, tree_node *op2);
+#if (GCC_MINOR > 5)
+  llvm::Value *EmitReg_FMA_EXPR(tree_node *op0, tree_node *op1, tree_node *op2);
+#endif
 #if (GCC_MINOR > 6)
   llvm::Value *EmitReg_VEC_PERM_EXPR(tree_node *op0, tree_node *op1,
                                      tree_node *op2);

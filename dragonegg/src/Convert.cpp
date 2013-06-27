@@ -8000,6 +8000,18 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     }
 #endif
 
+#if (GCC_MINOR > 5)
+    Value *TreeToLLVM::EmitReg_FMA_EXPR(tree op0, tree op1, tree op2) {
+      Value *V0 = EmitRegister(op0);
+      Value *V1 = EmitRegister(op1);
+      Value *V2 = EmitRegister(op2);
+
+      Value *FMAIntr = Intrinsic::getDeclaration(TheModule, Intrinsic::fma,
+                                                 V0->getType());
+      return Builder.CreateCall3(FMAIntr, V0, V1, V2);
+    }
+#endif
+
     Value *TreeToLLVM::EmitReg_VecUnpackHiExpr(tree type, tree op0) {
       // Eg: <2 x double> = VEC_UNPACK_HI_EXPR(<4 x float>)
       Value *Op = EmitRegister(op0);
@@ -8946,7 +8958,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       tree_code code = gimple_assign_rhs_code(stmt);
       tree rhs1 = gimple_assign_rhs1(stmt);
       tree rhs2 = gimple_assign_rhs2(stmt);
-#if (GCC_MINOR > 6)
+#if (GCC_MINOR > 5)
       tree rhs3 = gimple_assign_rhs3(stmt);
 #endif
 
@@ -9138,6 +9150,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
         break;
 
 // Ternary expressions.
+#if (GCC_MINOR > 5)
+      case FMA_EXPR:
+        RHS = EmitReg_FMA_EXPR(rhs1, rhs2, rhs3);
+        break;
+#endif
 #if (GCC_MINOR > 6)
       case COND_EXPR:
       case VEC_COND_EXPR:
