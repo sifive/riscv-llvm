@@ -4607,6 +4607,11 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     //TODO    Result = Builder.CreateBitCast(Result, ConvertType(gimple_call_return_type(stmt)));
     //TODO    return true;
     //TODO  }
+  case BUILT_IN_SIGNBIT:
+  case BUILT_IN_SIGNBITF:
+  case BUILT_IN_SIGNBITL:
+    Result = EmitBuiltinSIGNBIT(stmt);
+    return true;
   case BUILT_IN_TRAP:
     Builder.CreateCall(Intrinsic::getDeclaration(TheModule, Intrinsic::trap));
     // Emit an explicit unreachable instruction.
@@ -5403,6 +5408,18 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
         Type *CplxPtrTy = CplxTy->getPointerTo();
         return Builder.CreateLoad(Builder.CreateBitCast(Tmp, CplxPtrTy));
       }
+    }
+
+    Value *TreeToLLVM::EmitBuiltinSIGNBIT(gimple stmt) {
+      Value *Arg = EmitRegister(gimple_call_arg(stmt, 0));
+      Type *ArgTy = Arg->getType();
+      unsigned ArgWidth = ArgTy->getPrimitiveSizeInBits();
+      Type *ArgIntTy = IntegerType::get(Context, ArgWidth);
+      Value *BCArg = Builder.CreateBitCast(Arg, ArgIntTy);
+      Value *ZeroCmp = Constant::getNullValue(ArgIntTy);
+      Value *Result = Builder.CreateICmpSLT(BCArg, ZeroCmp);
+      return Builder.CreateZExt(Result,
+                                ConvertType(gimple_call_return_type(stmt)));
     }
 
     bool TreeToLLVM::EmitBuiltinConstantP(gimple stmt, Value * &Result) {
