@@ -1,5 +1,5 @@
 // RUN: %dragonegg -mfma4 -S %s -o - | FileCheck %s
-// XFAIL: gcc-4.5
+// XFAIL: gcc-4.5, i386, i486, i586, i686
 
 // CHECK: @fmaftest
 // CHECK: call float @llvm.fma.f32
