@@ -411,6 +411,8 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
   expanded_location Loc = expand_location(DECL_SOURCE_LOCATION(decl));
   DIType TyD = getOrCreateType(TREE_TYPE(decl));
   StringRef DispName = GV->getName();
+  if (DispName.empty())
+    DispName = "__unknown__";
   if (DECL_NAME(decl)) {
     if (IDENTIFIER_POINTER(DECL_NAME(decl)))
       DispName = IDENTIFIER_POINTER(DECL_NAME(decl));
