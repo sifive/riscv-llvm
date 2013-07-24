@@ -522,7 +522,6 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   // TODO: DisableTailCalls.
   // TODO: TrapFuncName.
   Options.PositionIndependentExecutable = flag_pie;
-  Options.SSPBufferSize = PARAM_VALUE(PARAM_SSP_BUFFER_SIZE);
 #if (GCC_MINOR > 5)
   Options.EnableSegmentedStacks = flag_split_stack;
 #endif
