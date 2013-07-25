@@ -484,11 +484,9 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   if (flag_omit_frame_pointer) {
     // Eliminate frame pointers everywhere.
     Options.NoFramePointerElim = false;
-    Options.NoFramePointerElimNonLeaf = false;
   } else {
     // Keep frame pointers everywhere.
     Options.NoFramePointerElim = true;
-    Options.NoFramePointerElimNonLeaf = true;
   }
   // If a target has an option to eliminate frame pointers in leaf functions
   // only then it should set

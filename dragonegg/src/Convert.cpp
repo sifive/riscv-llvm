@@ -1034,6 +1034,14 @@ void TreeToLLVM::StartFunctionBody() {
   if (lookup_attribute("naked", DECL_ATTRIBUTES(FnDecl)))
     Fn->addFnAttr(Attribute::Naked);
 
+  if (flag_omit_frame_pointer) {
+    // Eliminate frame pointers everywhere.
+    Fn->addFnAttr("no-frame-pointer-elim-non-leaf", "false");
+  } else {
+    // Keep frame pointers everywhere.
+    Fn->addFnAttr("no-frame-pointer-elim-non-leaf", "true");
+  }
+
   // Handle annotate attributes
   if (DECL_ATTRIBUTES(FnDecl))
     AddAnnotateAttrsToGlobal(Fn, FnDecl);
