@@ -50,7 +50,6 @@ extern "C" {
 #include "tree.h"
 
 #include "flags.h"
-#include "params.h"
 #ifndef ENABLE_BUILD_WITH_CXX
 } // extern "C"
 #endif
@@ -900,11 +899,6 @@ ConvertFunctionType(tree type, tree decl, tree static_chain,
         .removeAttribute(Attribute::ReadOnly);
 
   assert(RetTy && "Return type not specified!");
-
-  // Add codegen attributes.
-  if (flag_stack_protect)
-    FnAttrBuilder.addAttribute("stack-protector-buffer-size",
-                               utostr(PARAM_VALUE(PARAM_SSP_BUFFER_SIZE)));
 
   if (FnAttrBuilder.hasAttributes())
     Attrs.push_back(

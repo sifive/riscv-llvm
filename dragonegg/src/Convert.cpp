@@ -61,6 +61,7 @@ extern "C" {
 #endif
 #include "langhooks.h"
 #include "output.h"
+#include "params.h"
 #include "rtl.h"
 #include "target.h" // For targetm.
 #include "tm_p.h"
@@ -1029,11 +1030,15 @@ void TreeToLLVM::StartFunctionBody() {
     Fn->addFnAttr(Attribute::StackProtect);
   else if (flag_stack_protect == 2)
     Fn->addFnAttr(Attribute::StackProtectReq);
+  if (flag_stack_protect)
+    Fn->addFnAttr("stack-protector-buffer-size",
+                  utostr(PARAM_VALUE(PARAM_SSP_BUFFER_SIZE)));
 
   // Handle naked attribute
   if (lookup_attribute("naked", DECL_ATTRIBUTES(FnDecl)))
     Fn->addFnAttr(Attribute::Naked);
 
+  // Handle frame pointers.
   if (flag_omit_frame_pointer) {
     // Eliminate frame pointers everywhere.
     Fn->addFnAttr("no-frame-pointer-elim-non-leaf", "false");
@@ -1041,6 +1046,10 @@ void TreeToLLVM::StartFunctionBody() {
     // Keep frame pointers everywhere.
     Fn->addFnAttr("no-frame-pointer-elim-non-leaf", "true");
   }
+
+#ifdef LLVM_SET_TARGET_MACHINE_ATTRIBUTES
+  LLVM_SET_TARGET_MACHINE_ATTRIBUTES(Fn);
+#endif
 
   // Handle annotate attributes
   if (DECL_ATTRIBUTES(FnDecl))

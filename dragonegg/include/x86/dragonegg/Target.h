@@ -340,10 +340,14 @@ extern const char *llvm_x86_override_target_environment();
 
 #define LLVM_SET_TARGET_MACHINE_OPTIONS(O)                                     \
   do {                                                                         \
-    if (TARGET_OMIT_LEAF_FRAME_POINTER) {                                      \
+    if (TARGET_OMIT_LEAF_FRAME_POINTER)                                        \
       O.NoFramePointerElim = false;                                            \
-      O.NoFramePointerElimNonLeaf = true;                                      \
-    }                                                                          \
+  } while (0)
+
+#define LLVM_SET_TARGET_MACHINE_ATTRIBUTES(F)                                  \
+  do {                                                                         \
+    if (TARGET_OMIT_LEAF_FRAME_POINTER)                                        \
+      F->addFnAttr("no-frame-pointer-elim-non-leaf", "true");                  \
   } while (0)
 
 #endif /* DRAGONEGG_TARGET_H */
