@@ -1,5 +1,5 @@
 import DETestRunner
-from TestFormats import FileBasedTest
+from lit.TestFormats import FileBasedTest
 
 class CompilatorTest(FileBasedTest):
     def __init__(self, compilers, compiler_flags, language_flags, skip, xfails):

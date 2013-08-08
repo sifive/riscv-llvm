@@ -1,8 +1,8 @@
 import os
 import StringIO
-import Test
-import Util
 import DEUtils
+
+from lit import Test, Util
 
 def describeFailure(output, cmd, out, err, exitCode):
     print >>output, "Command:",
