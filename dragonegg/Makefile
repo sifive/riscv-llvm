@@ -115,7 +115,7 @@ endif
 
 LIT_SITE_CONFIG=test/dragonegg-lit.site.cfg
 TEST_SRC_DIR=$(TOP_DIR)/test
-PYPATH=$(TEST_SRC_DIR):$(LIT_DIR)/lit:$(PYTHONPATH)
+PYPATH=$(LIT_DIR)/lit:$(PYTHONPATH)
 
 default: gcc-sane llvm-config-sane $(PLUGIN)
 
