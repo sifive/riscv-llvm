@@ -1,6 +1,7 @@
 import os
+import signal
+import subprocess
 import tempfile
-import TestRunner
 
 suffixMap = {
   '.adb'   : 'ada',
@@ -28,6 +29,21 @@ suffixMap = {
   '.mm'    : 'objective-c++',
 }
 
+def executeCommand(command, cwd=None, env=None):
+    p = subprocess.Popen(command, cwd=cwd,
+                         stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE,
+                         env=env, close_fds=True)
+    out,err = p.communicate()
+    exitCode = p.wait()
+
+    # Detect Ctrl-C in subprocess.
+    if exitCode == -signal.SIGINT:
+        raise KeyboardInterrupt
+
+    return out, err, exitCode
+
 def getLanguageForSuffix(suffix):
   return suffixMap[suffix]
 
@@ -47,8 +63,7 @@ def isLanguageSupported(language, compiler):
     script_dir = os.path.dirname(os.path.realpath(__file__))
     source = os.path.join(script_dir, 'e.class')
     # Java is supported if the class file compiles without error.
-    out,err,exitCode = TestRunner.executeCommand(args +
-                                                 [source, '-fuse-boehm-gc'])
+    out,err,exitCode = executeCommand(args + [source, '-fuse-boehm-gc'])
     return exitCode == 0
 
   if language == 'ada':
@@ -83,7 +98,7 @@ def isLanguageSupported(language, compiler):
   source.flush()
 
   # The language is supported if the file compiles without error.
-  out,err,exitCode = TestRunner.executeCommand(args + [source.name])
+  out,err,exitCode = executeCommand(args + [source.name])
   return exitCode == 0
 
 def getSupportedLanguages(compiler):

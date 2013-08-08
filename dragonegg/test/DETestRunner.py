@@ -1,7 +1,6 @@
 import os
 import StringIO
 import Test
-import TestRunner
 import Util
 import DEUtils
 
@@ -23,7 +22,7 @@ def describeFailure(output, cmd, out, err, exitCode):
 
 def compareCommands(cmds, args, cwd=None):
     def executeOne(cmd):
-        return TestRunner.executeCommand(cmd + args, cwd)
+        return DEUtils.executeCommand(cmd + args, cwd)
 
     results = map(executeOne, cmds)
     failed = False
@@ -59,7 +58,7 @@ def generateFortranModules(cmd, srcPath, OutputDir):
 
     # If the file compiles OK or isn't failing because of lacking modules then
     # there is no point in trying to generate modules.
-    out,err,exitCode = TestRunner.executeCommand(cmd + [srcPath], OutputDir)
+    out,err,exitCode = DEUtils.executeCommand(cmd + [srcPath], OutputDir)
     if exitCode == 0 or err is None or "Can't open module file" not in err:
         return
 
@@ -81,7 +80,7 @@ def generateFortranModules(cmd, srcPath, OutputDir):
         newFilesToCompile = []
         # Compile each file in turn.
         for path in filesToCompile:
-            out,err,exitCode = TestRunner.executeCommand(cmd + [path], OutputDir)
+            out,err,exitCode = DEUtils.executeCommand(cmd + [path], OutputDir)
             if exitCode != 0 and err is not None and "Can't open module file" in err:
                 # It failed to compile due to a missing module.  Remember it for
                 # the next round.
