@@ -2,7 +2,8 @@ import os
 import StringIO
 import DEUtils
 
-from lit import Test, Util
+from lit import Test
+import lit.util
 
 def describeFailure(output, cmd, out, err, exitCode):
     print >>output, "Command:",
@@ -110,7 +111,7 @@ def executeCompilatorTest(test, litConfig, compilers, flags, language_flags,
     execDir,execBase = os.path.split(execPath)
     tmpDir = os.path.join(execDir, 'Output')
     tmpDir = os.path.join(tmpDir, execBase)
-    Util.mkdir_p(tmpDir)
+    lit.util.mkdir_p(tmpDir)
 
     # Is this test expected to fail?
     isXFail = test_path in xfails
