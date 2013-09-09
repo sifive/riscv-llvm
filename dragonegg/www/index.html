@@ -17,8 +17,7 @@
   <a href="http://gcc.gnu.org/wiki/plugins">gcc plugin</a> that replaces GCC's
   optimizers and code generators with those from the
   <a href="http://llvm.org">LLVM project</a>. It works with
-  <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a> or
-  <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a>,
+  <a href="http://gcc.gnu.org">gcc-4.5 or newer</a>,
   can target the x86-32/x86-64 and ARM processor families, and has been
   successfully used on the Darwin, FreeBSD, KFreeBSD, Linux and OpenBSD
   platforms.  It fully supports Ada, C, C++ and Fortran.  It has partial support
@@ -41,7 +40,7 @@
   <ul>
   <li>Works best with <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a>.</li>
   <li>Fortran works very well.  Ada, C and C++ also work well.  Ada works poorly
-  with gcc-4.7.</li>
+  with  <a href="http://gcc.gnu.org/gcc-4.7/">gcc-4.7</a> and later.</li>
   <li>It can compile a reasonable amount of Obj-C, Obj-C++ and Go.</li>
   <li>It can compile simple Java programs, but they don't execute properly
   (this is a consequence of the java front-end not supporting GCC's LTO).</li>
@@ -53,8 +52,21 @@
   <!--=====================================================================-->
 
   <ul>
-  <li><p><a href="#gettingrelease">DragonEgg-3.2</a> is the most recent
+  <li><p><a href="#gettingrelease">DragonEgg-3.3</a> is the most recent
       DragonEgg release.  It requires
+      <a href="http://llvm.org/releases/download.html#3.3">LLVM-3.3</a> and
+      <a href="http://gcc.gnu.org/">gcc 4.5 or newer</a>.
+      <p>The 3.3 release has the following notable changes:</p>
+      <ul>
+
+      <li>Supports gcc-4.8 (requires gcc-4.8.1 or newer).</li>
+      <li>Object files can be written directly using LLVM’s integrated assembler.</li>
+      <li>Produces saner debug info.</li>
+      <li>Bitfields can now contain arbitrary scalar types (useful for Ada).</li>
+
+      </ul>
+
+  <li><p>DragonEgg-3.2 was the sixth DragonEgg release.  It requires
       <a href="http://llvm.org/releases/download.html#3.2">LLVM-3.2</a> and
       <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>,
       <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a> or
@@ -303,31 +315,32 @@ declare i32 @puts(i8* nocapture) nounwind
   <!--=====================================================================-->
 
   <p>Get the
-  <a href="http://llvm.org/releases/download.html#3.2">DragonEgg-3.2 source code</a>:
-     <pre>	wget http://llvm.org/releases/3.2/dragonegg-3.2.src.tar.gz</pre>
+  <a href="http://llvm.org/releases/download.html#3.3">DragonEgg-3.3 source code</a>:
+     <pre>	wget http://llvm.org/releases/3.3/dragonegg-3.3.src.tar.gz</pre>
   <p>Unpack it:</p>
-     <pre>	tar xzf dragonegg-3.2.src.tar.gz</pre>
-  <p>Install version 3.2 of LLVM, for example by downloading and installing the
-  <a href="http://llvm.org/releases/download.html#3.2">LLVM-3.2 binaries</a>
+     <pre>	tar xzf dragonegg-3.3.src.tar.gz</pre>
+  <p>Install version 3.3 of LLVM, for example by downloading and installing the
+  <a href="http://llvm.org/releases/download.html#3.3">LLVM-3.3 binaries</a>
   (mysteriously referred to as clang binaries) for your platform.</p>
   <p>Make sure you have <a href="http://gcc.gnu.org/gcc-4.5/">gcc-4.5</a>,
-  <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a> or
-  <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.7</a> installed (you do not need
-  to build your own copy).  On Debian and Ubuntu linux systems you also need to
-  install the <tt>gcc-4.5-plugin-dev</tt>, <tt>gcc-4.6-plugin-dev</tt> or
-  <tt>gcc-4.7-plugin-dev</tt> package, as appropriate.</p>
+  <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a>,
+  <a href="http://gcc.gnu.org/gcc-4.7/">gcc-4.7</a> or
+  <a href="http://gcc.gnu.org/gcc-4.8/">gcc-4.8</a> installed (you do not need
+  to build your own copy); <a href="http://gcc.gnu.org/gcc-4.6/">gcc-4.6</a> works
+  best.  On Debian and Ubuntu you need to install the corresponding
+  plugin-dev package (gcc-4.5-plugin-dev, gcc-4.6-plugin-dev, etc).</p>
   <p>Doing</p>
      <pre>	GCC=gcc-4.6 make</pre>
   <p>(if using gcc-4.6; otherwise replace gcc-4.6 with your gcc version)
-  in the <tt>dragonegg-3.2.src</tt> directory should then build
+  in the <tt>dragonegg-3.3.src</tt> directory should then build
   <tt>dragonegg.so</tt>.  If the LLVM binaries are not in your path then you
   can use</p>
      <pre>	GCC=gcc-4.6 LLVM_CONFIG=directory_where_llvm_installed/bin/llvm-config make</pre>
    <p>If you only built LLVM and did not install it then you can still build
      dragonegg by setting LLVM_CONFIG to point to the copy of llvm-config in the
      build tree.</p>
-  <p>To use <tt>dragonegg.so</tt>, compile something with
-  gcc-4.5/gcc-4.6/gcc-4.7, adding
+  <p>To use <tt>dragonegg.so</tt>, compile something with gcc-4.6, or whatever
+  version of gcc you used, adding
   <tt>-fplugin=path_to_dragonegg/dragonegg.so</tt> to the command line.
   See the <tt>README</tt> file for more details and useful command line
   options.</p>
@@ -342,9 +355,9 @@ declare i32 @puts(i8* nocapture) nounwind
      <pre>	svn co http://llvm.org/svn/llvm-project/llvm/trunk llvm</pre>
   <p><a href="http://llvm.org/docs/GettingStarted.html">Build LLVM</a> in the
   usual way.</p>
-  <p>Install gcc-4.5, gcc-4.6 or gcc-4.7 (you do not need to build your own
-  copy).  On debian and ubuntu you need to install the corresponding plugin-dev
-  package (gcc-4.5-plugin-dev, gcc-4.6-plugin-dev, etc).</p>
+  <p>Install gcc-4.5, gcc-4.6, gcc-4.7 or gcc-4.8 (you do not need to build your
+  own copy).  On Debian and Ubuntu you need to install the corresponding
+  plugin-dev package (gcc-4.5-plugin-dev, gcc-4.6-plugin-dev, etc).</p>
   <p>Doing</p>
      <pre>	GCC=place_you_installed_gcc/bin/gcc make</pre>
   <p>in the <tt>dragonegg</tt> directory should then build <tt>dragonegg.so</tt>.
