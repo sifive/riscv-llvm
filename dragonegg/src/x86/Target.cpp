@@ -1954,13 +1954,13 @@ void llvm_x86_set_subtarget_features(std::string &C,
   F.AddFeature("mmx", TARGET_MMX);
   F.AddFeature("popcnt", TARGET_POPCNT);
 #ifdef TARGET_RDRND
-  F.AddFeature("rdrand", TARGET_RDRND);
+  F.AddFeature("rdrnd", TARGET_RDRND);
 #endif
   F.AddFeature("sse", TARGET_SSE);
   F.AddFeature("sse2", TARGET_SSE2);
   F.AddFeature("sse3", TARGET_SSE3);
-  F.AddFeature("sse41", TARGET_SSE4_1);
-  F.AddFeature("sse42", TARGET_SSE4_2);
+  F.AddFeature("sse4.1", TARGET_SSE4_1);
+  F.AddFeature("sse4.2", TARGET_SSE4_2);
   F.AddFeature("sse4a", TARGET_SSE4A);
   F.AddFeature("ssse3", TARGET_SSSE3);
 }
