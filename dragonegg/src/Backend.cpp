@@ -323,9 +323,12 @@ static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
 #error LLVM_TARGET_NAME macro not specified
 #endif
 
-/// ConfigureLLVM - Initialized and configure LLVM.
+/// ConfigureLLVM - Initialize and configure LLVM.
 static void ConfigureLLVM(void) {
-// Initialize the LLVM backend.
+  // Initialize the pass manager.
+  initializePassManager();
+
+  // Initialize the LLVM backend.
 #define DoInit2(TARG, MOD) LLVMInitialize##TARG##MOD()
 #define DoInit(T, M) DoInit2(T, M)
   DoInit(LLVM_TARGET_NAME, TargetInfo);
