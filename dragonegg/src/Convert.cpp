@@ -1030,6 +1030,8 @@ void TreeToLLVM::StartFunctionBody() {
     Fn->addFnAttr(Attribute::StackProtect);
   else if (flag_stack_protect == 2)
     Fn->addFnAttr(Attribute::StackProtectReq);
+  else if (flag_stack_protect == 3)
+    Fn->addFnAttr(Attribute::StackProtectStrong);
   if (flag_stack_protect)
     Fn->addFnAttr("stack-protector-buffer-size",
                   utostr(PARAM_VALUE(PARAM_SSP_BUFFER_SIZE)));
