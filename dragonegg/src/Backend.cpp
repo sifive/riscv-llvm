@@ -325,9 +325,6 @@ static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
 
 /// ConfigureLLVM - Initialize and configure LLVM.
 static void ConfigureLLVM(void) {
-  // Initialize the pass manager.
-  initializePassManager();
-
   // Initialize the LLVM backend.
 #define DoInit2(TARG, MOD) LLVMInitialize##TARG##MOD()
 #define DoInit(T, M) DoInit2(T, M)
