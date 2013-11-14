@@ -4,7 +4,7 @@
 // functions.
 
 // CHECK: @"\01f\01oo" = unnamed_addr global i32 0
-// CHECK: metadata !"foo"{{.*}} "\01f\01oo",
+// CHECK: metadata !"foo"{{.*}} @"\01f\01oo",
 
 int foo __asm__("f\001oo");
 
