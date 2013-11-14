@@ -952,11 +952,11 @@ static void emit_alias(tree decl, tree target) {
   }
 
   GlobalValue *Aliasee = 0;
-  bool IsWeakRef = false;
+  bool IsWeakRef = lookup_attribute("weakref", DECL_ATTRIBUTES(decl));
   if (isa<IDENTIFIER_NODE>(target)) {
     StringRef AliaseeName(IDENTIFIER_POINTER(target),
                           IDENTIFIER_LENGTH(target));
-    if (!lookup_attribute("weakref", DECL_ATTRIBUTES(decl))) {
+    if (!IsWeakRef) {
       Aliasee = TheModule->getNamedValue(AliaseeName);
       if (!Aliasee)
         Aliasee = TheModule->getNamedValue(("\1" + AliaseeName).str());
@@ -966,7 +966,6 @@ static void emit_alias(tree decl, tree target) {
         return;
       }
     } else {
-      IsWeakRef = true;
       // weakref to external symbol.
       if (GlobalVariable *GV = llvm::dyn_cast<GlobalVariable>(V))
         Aliasee = new GlobalVariable(
