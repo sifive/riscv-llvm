@@ -952,6 +952,7 @@ static void emit_alias(tree decl, tree target) {
   }
 
   GlobalValue *Aliasee = 0;
+  bool IsWeakRef = false;
   if (isa<IDENTIFIER_NODE>(target)) {
     StringRef AliaseeName(IDENTIFIER_POINTER(target),
                           IDENTIFIER_LENGTH(target));
@@ -965,6 +966,7 @@ static void emit_alias(tree decl, tree target) {
         return;
       }
     } else {
+      IsWeakRef = true;
       // weakref to external symbol.
       if (GlobalVariable *GV = llvm::dyn_cast<GlobalVariable>(V))
         Aliasee = new GlobalVariable(
@@ -983,7 +985,7 @@ static void emit_alias(tree decl, tree target) {
 
   GlobalValue::LinkageTypes Linkage = GetLinkageForAlias(decl);
 
-  if (Linkage != GlobalValue::InternalLinkage) {
+  if (Linkage != GlobalValue::InternalLinkage && !IsWeakRef) {
     // Create the LLVM alias.
     GlobalAlias *GA =
         new GlobalAlias(Aliasee->getType(), Linkage, "", Aliasee, TheModule);
