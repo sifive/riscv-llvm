@@ -1099,7 +1099,7 @@ DICompositeType DebugInfo::CreateCompositeType(
   case dwarf::DW_TAG_structure_type:
     return Builder.createStructType(Context, Name, F, LineNumber, SizeInBits,
                                     AlignInBits, Flags, DerivedFrom, Elements,
-                                    0, ContainingType);
+                                    0, DIType(ContainingType));
   case dwarf::DW_TAG_union_type:
     return Builder.createUnionType(Context, Name, F, LineNumber, SizeInBits,
                                    AlignInBits, Flags, Elements, RuntimeLang);
@@ -1127,7 +1127,8 @@ DISubprogram DebugInfo::CreateSubprogram(
   assert(CTy.Verify() && "Expected a composite type!");
   if (ContainingType.isValid() || VK || VIndex)
     return Builder.createMethod(Context, Name, LinkageName, F, LineNo, CTy,
-                                isLocalToUnit, isDefinition, VK, VIndex, NULL,
+                                isLocalToUnit, isDefinition, VK, VIndex,
+                                DIType(),
                                 Flags, isOptimized, Fn, NULL);
   return Builder.createFunction(Context, Name, LinkageName, F, LineNo, CTy,
                                 isLocalToUnit, isDefinition, LineNo, Flags,
