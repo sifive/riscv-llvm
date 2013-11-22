@@ -1948,7 +1948,7 @@ void llvm_x86_set_subtarget_features(std::string &C,
   F.AddFeature("3dnowa", TARGET_3DNOW_A);
   F.AddFeature("aes", TARGET_AES);
   F.AddFeature("avx", TARGET_AVX);
-  F.AddFeature("cmpxchg16b", TARGET_CMPXCHG16B);
+  F.AddFeature("cx16", TARGET_CMPXCHG16B);
   F.AddFeature("fma", TARGET_FMA);
   F.AddFeature("fma4", TARGET_FMA4);
   F.AddFeature("mmx", TARGET_MMX);
