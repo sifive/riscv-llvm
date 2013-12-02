@@ -976,6 +976,10 @@ DIType DebugInfo::getOrCreateType(tree type) {
 /// initialization is done.
 void DebugInfo::Initialize() {
 
+  // Debug info metadata without a version or with an outdated version will be
+  // dropped. Add a version here to avoid that.
+  M.addModuleFlag(llvm::Module::Error, "Debug Info Version",
+                  llvm::DEBUG_METADATA_VERSION);
   // Each input file is encoded as a separate compile unit in LLVM
   // debugging information output. However, many target specific tool chains
   // prefer to encode only one compile unit in an object file. In this
