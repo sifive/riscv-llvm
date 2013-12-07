@@ -1201,7 +1201,7 @@ static void count_num_registers_uses(std::vector<Type *> &ScalarElts,
       ;
     } else {
       // Floating point scalar argument.
-      assert(Ty->isFloatingPointTy() && Ty->isPrimitiveType() &&
+      assert(Ty->isFloatingPointTy() &&
              "Expecting a floating point primitive type!");
       if (Ty->getTypeID() == Type::FloatTyID ||
           Ty->getTypeID() == Type::DoubleTyID)
