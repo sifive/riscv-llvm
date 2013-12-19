@@ -133,7 +133,8 @@ $(TARGET_UTIL_OBJECTS): %.o : $(TOP_DIR)/utils/%.cpp
 
 $(TARGET_UTIL): $(TARGET_UTIL_OBJECTS)
 	@echo Linking $@
-	$(QUIET)$(CXX) -o $@ $^ $(shell $(LLVM_CONFIG) --libs support) \
+	$(QUIET)$(CXX) -o $@ $^ \
+	$(shell $(LLVM_CONFIG) --libs support --system-libs) \
 	$(LD_OPTIONS)
 
 %.o : $(SRC_DIR)/%.cpp $(TARGET_UTIL)
@@ -149,7 +150,7 @@ $(PLUGIN): $(PLUGIN_OBJECTS) $(TARGET_OBJECT) $(TARGET_UTIL)
 	@echo Linking $@
 	$(QUIET)$(CXX) -o $@ $(LOADABLE_MODULE_OPTIONS) $(CXXFLAGS) \
 	$(PLUGIN_OBJECTS) $(TARGET_OBJECT) \
-	$(shell $(LLVM_CONFIG) --libs $(LLVM_COMPONENTS) \
+	$(shell $(LLVM_CONFIG) --libs $(LLVM_COMPONENTS) --system-libs \
 	$(shell $(TARGET_UTIL) -p)) \
 	$(LD_OPTIONS)
 
