@@ -26,8 +26,7 @@ TOP_DIR?=$(CURDIR)
 # Where to find the lit.py script and modules, used for running tests.
 LIT_DIR?=$(shell $(LLVM_CONFIG) --src-root)/utils/lit
 # Where to find LLVM utils, used for running tests.
-LLVM_TOOLS_DIR?=$(shell $(LLVM_CONFIG) --obj-root)/bin:$(shell $(LLVM_CONFIG) \
-	--obj-root)/$(shell $(LLVM_CONFIG) --build-mode)/bin/
+LLVM_TOOLS_DIR?=$(shell $(LLVM_CONFIG) --bindir)
 
 INCLUDE_DIR=$(TOP_DIR)/include
 SRC_DIR=$(TOP_DIR)/src
