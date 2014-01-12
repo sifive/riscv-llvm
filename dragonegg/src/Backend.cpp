@@ -1,6 +1,6 @@
 //===----------- Backend.cpp - High-level LLVM backend interface ----------===//
 //
-// Copyright (C) 2005 to 2013  Chris Lattner, Duncan Sands et al.
+// Copyright (C) 2005 to 2014  Chris Lattner, Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //
@@ -32,13 +32,13 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Verifier.h"
-#include "llvm/Assembly/PrintModulePass.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/PrintModulePass.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/SourceMgr.h"
