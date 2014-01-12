@@ -35,9 +35,9 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/PrintModulePass.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -773,7 +773,7 @@ static void createPerModuleOptimizationPasses() {
     // Emit an LLVM .ll file to the output.  This is used when passed
     // -emit-llvm -S to the GCC driver.
     InitializeOutputStreams(false);
-    PerModulePasses->add(createPrintModulePass(OutStream));
+    PerModulePasses->add(createPrintModulePass(*OutStream));
   } else {
     // If there are passes we have to run on the entire module, we do codegen
     // as a separate "pass" after that happens.
