@@ -16,7 +16,9 @@ add_lit_testsuite(check-dragonegg-validator "Running the DragonEgg's validator t
   ${CMAKE_CURRENT_SOURCE_DIR}/validator
   --config-prefix=validator-lit
   PARAMS site=${CMAKE_CURRENT_BINARY_DIR}/dragonegg-lit.site.cfg
-  DEPENDS dragonegg FileCheck
+  DEPENDS dragonegg
+  llvm-as
+  FileCheck count not
   )
 
 add_lit_testsuite(check-dragonegg-compilator "Running the DragonEgg's compilator tests"
