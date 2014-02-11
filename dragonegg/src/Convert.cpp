@@ -4423,12 +4423,16 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
     Value *NewTy = ConstantInt::get(Tmp->getType(), val);
 
     Value *Args[] = { EmitMemory(gimple_call_arg(stmt, 0)), NewTy };
+    Type *Int8PtrTy = Type::getInt8PtrTy(Context);
 
     // Grab the current return type.
-    Type *Ty = ConvertType(gimple_call_return_type(stmt));
+    Type *Ty[2] = {
+      ConvertType(gimple_call_return_type(stmt)),
+      Int8PtrTy
+    };
 
     // Manually coerce the arg to the correct pointer type.
-    Args[0] = Builder.CreateBitCast(Args[0], Type::getInt8PtrTy(Context));
+    Args[0] = Builder.CreateBitCast(Args[0], Int8PtrTy);
     Args[1] = Builder.CreateIntCast(Args[1], Type::getInt1Ty(Context),
                                     /*isSigned*/ false);
 
