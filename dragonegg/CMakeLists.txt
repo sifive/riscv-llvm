@@ -119,8 +119,4 @@ add_llvm_loadable_module(
   src/${TARGET_arch_dir}/Target.cpp
   )
 
-add_dependencies(dragonegg
-  intrinsics_gen
-  )
-
 add_subdirectory(test)
