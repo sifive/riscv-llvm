@@ -9,9 +9,9 @@ void foo(int x, int y) {
   register int lr9 asm("r9") = x;
   register int lr10 asm("r10") = y;
   int foo;
-  asm volatile("bar" : "=r"(lr9) : "r"(lr9), "r"(lr10));
+  asm volatile("nop" : "=r"(lr9) : "r"(lr9), "r"(lr10));
   foo = lr9;
   lr9 = x;
   lr10 = foo;
-  asm volatile("bar" : "=r"(lr9) : "r"(lr9), "r"(lr10));
+  asm volatile("nop" : "=r"(lr9) : "r"(lr9), "r"(lr10));
 }

@@ -50,7 +50,7 @@ __asm__ ("lcall *(%%edi); cld": "=a" (return_code), "=b" (address), "=c" (length
 
 int test(unsigned long b) {
   int a;
-  asm volatile("foo " : "=a" (a) :"0" (b));
+  asm volatile("nop " : "=a" (a) :"0" (b));
   return a;
 }
 
@@ -83,7 +83,7 @@ unsigned
 t11 (signed char input)
 {
   unsigned output;
-__asm__ ("xyz": "=a" (output):"0" (input));
+__asm__ ("nop": "=a" (output):"0" (input));
   return output;
 }
 
@@ -92,7 +92,7 @@ unsigned char
 t12 (unsigned input)
 {
   unsigned char output;
-__asm__ ("xyz": "=a" (output):"0" (input));
+__asm__ ("nop": "=a" (output):"0" (input));
   return output;
 }
 
@@ -100,7 +100,7 @@ unsigned char
 t13 (unsigned input)
 {
   unsigned char output;
-__asm__ ("xyz %1": "=a" (output):"0" (input));
+__asm__ ("nop": "=a" (output):"0" (input));
   return output;
 }
 
@@ -112,6 +112,6 @@ struct large
 unsigned long
 t15 (int x, struct large *P)
 {
-__asm__ ("xyz ": "=r" (x):"m" (*P), "0" (x));
+__asm__ ("nop ": "=r" (x):"m" (*P), "0" (x));
   return x;
 }
