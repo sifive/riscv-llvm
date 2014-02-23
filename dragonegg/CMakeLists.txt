@@ -117,6 +117,9 @@ add_llvm_loadable_module(
   src/Trees.cpp
   src/TypeConversion.cpp
   src/${TARGET_arch_dir}/Target.cpp
+
+  DEPENDS
+  intrinsics_gen
   )
 
 add_subdirectory(test)
