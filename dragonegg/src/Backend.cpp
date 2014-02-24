@@ -677,7 +677,7 @@ static void InitializeOutputStreams(bool Binary) {
   std::string Error;
 
   OutStream = new raw_fd_ostream(llvm_asm_file_name, Error,
-                                 Binary ? sys::fs::F_Binary : sys::fs::F_None);
+                                 Binary ? sys::fs::F_None : sys::fs::F_Text);
 
   if (!Error.empty())
     report_fatal_error(Error);
