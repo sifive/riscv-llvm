@@ -32,7 +32,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/CFG.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetLowering.h"
 
