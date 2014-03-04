@@ -27,7 +27,7 @@
 #include "dragonegg/Cache.h"
 
 // LLVM headers
-#include "llvm/Support/ValueHandle.h"
+#include "llvm/IR/ValueHandle.h"
 
 // System headers
 #include <cassert>
