@@ -4251,7 +4251,9 @@ TreeToLLVM::BuildCmpAndSwapAtomic(gimple stmt, unsigned Bits, bool isBool) {
 
   Value *C[3] = { Ptr, Old_Val, New_Val };
   Value *Result =
-      Builder.CreateAtomicCmpXchg(C[0], C[1], C[2], SequentiallyConsistent);
+      Builder.CreateAtomicCmpXchg(C[0], C[1], C[2],
+                                  SequentiallyConsistent,
+                                  SequentiallyConsistent);
 
   if (isBool)
     Result = Builder.CreateICmpEQ(Result, Old_Val);
