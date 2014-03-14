@@ -1090,8 +1090,6 @@ static void emit_global(tree decl) {
 
   if (false) { // FIXME DECL_LLVM_PRIVATE(decl)) {
     Linkage = GlobalValue::PrivateLinkage;
-  } else if (false) { //FIXME DECL_LLVM_LINKER_PRIVATE(decl)) {
-    Linkage = GlobalValue::LinkerPrivateLinkage;
   } else if (!TREE_PUBLIC(decl)) {
     Linkage = GlobalValue::InternalLinkage;
   } else if (DECL_WEAK(decl)) {

@@ -1494,7 +1494,7 @@ static Constant *AddressOfSimpleConstant(tree exp, TargetFolder &Folder) {
 
   // Create a new global variable.
   Slot = new GlobalVariable(*TheModule, Init->getType(), true,
-                            GlobalVariable::LinkerPrivateLinkage, Init, ".cst");
+                            GlobalVariable::PrivateLinkage, Init, ".cst");
   unsigned align = TYPE_ALIGN(main_type(exp));
 #ifdef CONSTANT_ALIGNMENT
   align = CONSTANT_ALIGNMENT(exp, align);

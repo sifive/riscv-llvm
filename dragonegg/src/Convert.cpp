@@ -968,8 +968,6 @@ void TreeToLLVM::StartFunctionBody() {
   // Compute the linkage that the function should get.
   if (false) { //FIXME DECL_LLVM_PRIVATE(FnDecl)) {
     Fn->setLinkage(Function::PrivateLinkage);
-  } else if (false) { //FIXME DECL_LLVM_LINKER_PRIVATE(FnDecl)) {
-    Fn->setLinkage(Function::LinkerPrivateLinkage);
   } else if (!TREE_PUBLIC(FnDecl) /*|| lang_hooks.llvm_is_in_anon(subr)*/) {
     Fn->setLinkage(Function::InternalLinkage);
   } else if (DECL_COMDAT(FnDecl)) {
