@@ -8232,7 +8232,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
       // If there are multiple constraint tuples, pick one.  Constraints is
       // altered to point to shorter strings (which are malloc'ed), and everything
       // below Just Works as in the NumChoices==1 case.
-      BumpPtrAllocator StringStorage(256, 256);
+      BumpPtrAllocator StringStorage;
       if (NumChoices > 1)
         ChooseConstraintTuple(stmt, Constraints, NumChoices, StringStorage);
 
