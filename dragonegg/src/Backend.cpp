@@ -519,10 +519,8 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   // TODO: RealignStack.
   // TODO: DisableTailCalls.
   // TODO: TrapFuncName.
+  // TODO: -fsplit-stack
   Options.PositionIndependentExecutable = flag_pie;
-#if (GCC_MINOR > 5)
-  Options.EnableSegmentedStacks = flag_split_stack;
-#endif
 
 #ifdef LLVM_SET_TARGET_MACHINE_OPTIONS
   LLVM_SET_TARGET_MACHINE_OPTIONS(Options);
