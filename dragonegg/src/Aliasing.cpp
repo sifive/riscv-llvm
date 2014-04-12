@@ -29,6 +29,7 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/IR/Metadata.h"
 
 // System headers
 #include <gmp.h>
