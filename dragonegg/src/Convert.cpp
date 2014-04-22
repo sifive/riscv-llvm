@@ -98,6 +98,7 @@ extern void debug_gimple_stmt(union gimple_statement_d *);
 
 static LLVMContext &Context = getGlobalContext();
 
+#define DEBUG_TYPE "dragonegg"
 STATISTIC(NumBasicBlocks, "Number of basic blocks converted");
 STATISTIC(NumStatements, "Number of gimple statements converted");
 
