@@ -1655,12 +1655,16 @@ static void emit_cgraph_aliases(struct cgraph_node *node) {
   struct ipa_ref *ref;
   for (int i = 0;
        ipa_ref_list_referring_iterate(&cgraph_symbol(node)->ref_list, i, ref);
-       i++)
-    if (ref->use == IPA_REF_ALIAS) {
-      struct cgraph_node *alias = ipa_ref_referring_node(ref);
-      emit_alias(cgraph_symbol(alias)->decl, alias->thunk.alias);
-      emit_cgraph_aliases(alias);
-    }
+       i++) {
+    if (ref->use != IPA_REF_ALIAS)
+      continue;
+    struct cgraph_node *alias = ipa_ref_referring_node(ref);
+    if (lookup_attribute("weakref",
+                         DECL_ATTRIBUTES(cgraph_symbol(alias)->decl)))
+      continue;
+    emit_alias(cgraph_symbol(alias)->decl, alias->thunk.alias);
+    emit_cgraph_aliases(alias);
+  }
 #endif
 }
 
