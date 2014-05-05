@@ -1016,12 +1016,16 @@ static void emit_varpool_aliases(struct varpool_node *node) {
   struct ipa_ref *ref;
   for (int i = 0;
        ipa_ref_list_referring_iterate(&varpool_symbol(node)->ref_list, i, ref);
-       i++)
-    if (ref->use == IPA_REF_ALIAS) {
-      struct varpool_node *alias = ipa_ref_referring_varpool_node(ref);
-      emit_alias(varpool_symbol(alias)->decl, alias->alias_of);
-      emit_varpool_aliases(alias);
-    }
+       i++) {
+    if (ref->use != IPA_REF_ALIAS)
+      continue;
+    struct varpool_node *alias = ipa_ref_referring_varpool_node(ref);
+    if (lookup_attribute("weakref",
+                         DECL_ATTRIBUTES(varpool_symbol(alias)->decl)))
+      continue;
+    emit_alias(varpool_symbol(alias)->decl, alias->alias_of);
+    emit_varpool_aliases(alias);
+  }
 #endif
 }
 
