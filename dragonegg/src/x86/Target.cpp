@@ -1936,6 +1936,12 @@ const char *llvm_x86_override_target_environment() {
 #endif
 }
 
+static void addFeature(llvm::SubtargetFeatures &F, const char *Feature,
+		       bool Enabled) {
+  const char *Prefix = Enabled ? "+" : "-";
+  F.AddFeature(std::string(Prefix) + Feature);
+}
+
 void llvm_x86_set_subtarget_features(std::string &C,
                                      llvm::SubtargetFeatures &F) {
   if (TARGET_MACHO && !strcmp(ix86_arch_string, "apple"))
@@ -1943,24 +1949,24 @@ void llvm_x86_set_subtarget_features(std::string &C,
   else
     C = ix86_arch_string;
 
-  F.AddFeature("64bit", TARGET_64BIT);
-  F.AddFeature("3dnow", TARGET_3DNOW);
-  F.AddFeature("3dnowa", TARGET_3DNOW_A);
-  F.AddFeature("aes", TARGET_AES);
-  F.AddFeature("avx", TARGET_AVX);
-  F.AddFeature("cx16", TARGET_CMPXCHG16B);
-  F.AddFeature("fma", TARGET_FMA);
-  F.AddFeature("fma4", TARGET_FMA4);
-  F.AddFeature("mmx", TARGET_MMX);
-  F.AddFeature("popcnt", TARGET_POPCNT);
+  addFeature(F, "64bit", TARGET_64BIT);
+  addFeature(F, "3dnow", TARGET_3DNOW);
+  addFeature(F, "3dnowa", TARGET_3DNOW_A);
+  addFeature(F, "aes", TARGET_AES);
+  addFeature(F, "avx", TARGET_AVX);
+  addFeature(F, "cx16", TARGET_CMPXCHG16B);
+  addFeature(F, "fma", TARGET_FMA);
+  addFeature(F, "fma4", TARGET_FMA4);
+  addFeature(F, "mmx", TARGET_MMX);
+  addFeature(F, "popcnt", TARGET_POPCNT);
 #ifdef TARGET_RDRND
-  F.AddFeature("rdrnd", TARGET_RDRND);
+  addFeature(F, "rdrnd", TARGET_RDRND);
 #endif
-  F.AddFeature("sse", TARGET_SSE);
-  F.AddFeature("sse2", TARGET_SSE2);
-  F.AddFeature("sse3", TARGET_SSE3);
-  F.AddFeature("sse4.1", TARGET_SSE4_1);
-  F.AddFeature("sse4.2", TARGET_SSE4_2);
-  F.AddFeature("sse4a", TARGET_SSE4A);
-  F.AddFeature("ssse3", TARGET_SSSE3);
+  addFeature(F, "sse", TARGET_SSE);
+  addFeature(F, "sse2", TARGET_SSE2);
+  addFeature(F, "sse3", TARGET_SSE3);
+  addFeature(F, "sse4.1", TARGET_SSE4_1);
+  addFeature(F, "sse4.2", TARGET_SSE4_2);
+  addFeature(F, "sse4a", TARGET_SSE4A);
+  addFeature(F, "ssse3", TARGET_SSSE3);
 }
