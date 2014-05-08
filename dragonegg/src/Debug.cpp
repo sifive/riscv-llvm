@@ -487,7 +487,7 @@ DIType DebugInfo::createMethodType(tree type) {
 
   // Create a  place holder type first. The may be used as a context
   // for the argument types.
-  llvm::DIType FwdType = Builder.createForwardDecl(
+  llvm::DIType FwdType = Builder.createReplaceableForwardDecl(
     llvm::dwarf::DW_TAG_subroutine_type, StringRef(),
     findRegion(TYPE_CONTEXT(type)), getOrCreateFile(main_input_filename),
     0, 0, 0, 0);
@@ -689,7 +689,7 @@ DIType DebugInfo::createStructType(tree type) {
         return DIType(TN);
   }
 
-  llvm::DIType FwdDecl = Builder.createForwardDecl(
+  llvm::DIType FwdDecl = Builder.createReplaceableForwardDecl(
       Tag, GetNodeName(type), TyContext, getOrCreateFile(Loc.file), Loc.line,
       0, 0, 0);
 
