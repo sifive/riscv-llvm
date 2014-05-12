@@ -530,7 +530,6 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
   TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr, Options,
                                        RelocModel, CMModel, CodeGenOptLevel());
   assert(TheTarget->getDataLayout()->isBigEndian() == BYTES_BIG_ENDIAN);
-  TheTarget->setMCUseCFI(flag_dwarf2_cfi_asm);
   // Binutils does not yet support the use of file directives with an explicit
   // directory.  FIXME: Once GCC learns to detect support for this, condition
   // on what GCC detected.
