@@ -1921,7 +1921,7 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
 
     ArrayType *AT = ArrayType::get(SBP, AUGs.size());
     Constant *Init = ConstantArray::get(AT, AUGs);
-    GlobalValue *gv =
+    auto *gv =
         new GlobalVariable(*TheModule, AT, false, GlobalValue::AppendingLinkage,
                            Init, "llvm.used");
     gv->setSection("llvm.metadata");
@@ -1941,7 +1941,7 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
 
     ArrayType *AT = ArrayType::get(SBP, ACUGs.size());
     Constant *Init = ConstantArray::get(AT, ACUGs);
-    GlobalValue *gv =
+    auto *gv =
         new GlobalVariable(*TheModule, AT, false, GlobalValue::AppendingLinkage,
                            Init, "llvm.compiler.used");
     gv->setSection("llvm.metadata");
@@ -1954,9 +1954,9 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
         ArrayType::get(AttributeAnnotateGlobals[0]->getType(),
                        AttributeAnnotateGlobals.size()),
         AttributeAnnotateGlobals);
-    GlobalValue *gv = new GlobalVariable(*TheModule, Array->getType(), false,
-                                         GlobalValue::AppendingLinkage, Array,
-                                         "llvm.global.annotations");
+    auto *gv = new GlobalVariable(*TheModule, Array->getType(), false,
+                                  GlobalValue::AppendingLinkage, Array,
+                                  "llvm.global.annotations");
     gv->setSection("llvm.metadata");
     AttributeAnnotateGlobals.clear();
   }
