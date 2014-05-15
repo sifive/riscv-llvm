@@ -526,14 +526,14 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 #ifdef LLVM_SET_TARGET_MACHINE_OPTIONS
   LLVM_SET_TARGET_MACHINE_OPTIONS(Options);
 #endif
+  // Binutils does not yet support the use of file directives with an explicit
+  // directory.  FIXME: Once GCC learns to detect support for this, condition
+  // on what GCC detected.
+  Options.MCOptions.MCUseDwarfDirectory = false;
 
   TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr, Options,
                                        RelocModel, CMModel, CodeGenOptLevel());
   assert(TheTarget->getDataLayout()->isBigEndian() == BYTES_BIG_ENDIAN);
-  // Binutils does not yet support the use of file directives with an explicit
-  // directory.  FIXME: Once GCC learns to detect support for this, condition
-  // on what GCC detected.
-  TheTarget->setMCUseDwarfDirectory(false);
 }
 
 /// output_ident - Insert a .ident directive that identifies the plugin.
