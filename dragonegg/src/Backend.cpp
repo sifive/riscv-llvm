@@ -984,8 +984,8 @@ static void emit_alias(tree decl, tree target) {
 
   if (Linkage != GlobalValue::InternalLinkage && !IsWeakRef) {
     // Create the LLVM alias.
-    GlobalAlias *GA =
-        new GlobalAlias(Aliasee->getType(), Linkage, "", Aliasee, TheModule);
+    auto *GA = new GlobalAlias(Aliasee->getType()->getElementType(), Linkage,
+                               "", Aliasee, TheModule);
     handleVisibility(decl, GA);
 
     // Associate it with decl instead of V.
