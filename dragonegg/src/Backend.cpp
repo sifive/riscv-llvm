@@ -986,8 +986,8 @@ static void emit_alias(tree decl, tree target) {
     // Create the LLVM alias.
     // FIXME: handle alias to aliases.
     auto *GO = cast<GlobalObject>(Aliasee);
-    auto *GA = new GlobalAlias(Aliasee->getType()->getElementType(), Linkage,
-                               "", GO, TheModule);
+    auto *GA = GlobalAlias::create(Aliasee->getType()->getElementType(), 0,
+                                   Linkage, "", GO);
     handleVisibility(decl, GA);
 
     // Associate it with decl instead of V.
