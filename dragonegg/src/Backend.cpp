@@ -983,11 +983,11 @@ static void emit_alias(tree decl, tree target) {
   GlobalValue::LinkageTypes Linkage = GetLinkageForAlias(decl);
 
   if (Linkage != GlobalValue::InternalLinkage && !IsWeakRef) {
-    // Create the LLVM alias.
-    // FIXME: handle alias to aliases.
-    auto *GO = cast<GlobalObject>(Aliasee);
+    auto *GV = cast<GlobalValue>(Aliasee->stripPointerCasts());
+    if (auto *GA = llvm::dyn_cast<GlobalAlias>(GV))
+      GV = cast<GlobalValue>(GA->getAliasee()->stripPointerCasts());
     auto *GA = GlobalAlias::create(Aliasee->getType()->getElementType(), 0,
-                                   Linkage, "", GO);
+                                   Linkage, "", GV);
     handleVisibility(decl, GA);
 
     // Associate it with decl instead of V.
