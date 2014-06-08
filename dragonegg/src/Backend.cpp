@@ -152,7 +152,7 @@ std::vector<Constant *> AttributeAnnotateGlobals;
 /// code generator.
 static FunctionPassManager *PerFunctionPasses = 0;
 static PassManager *PerModulePasses = 0;
-static FunctionPassManager *CodeGenPasses = 0;
+static PassManager *CodeGenPasses = 0;
 
 static void createPerFunctionOptimizationPasses();
 static void createPerModuleOptimizationPasses();
@@ -780,8 +780,7 @@ static void createPerModuleOptimizationPasses() {
     // FIXME: This is disabled right now until bugs can be worked out.  Reenable
     // this for fast -O0 compiles!
     if (PerModulePasses || 1) {
-      FunctionPassManager *PM = CodeGenPasses =
-          new FunctionPassManager(TheModule);
+      PassManager *PM = CodeGenPasses = new PassManager();
       PM->add(new DataLayoutPass(*TheTarget->getDataLayout()));
       TheTarget->addAnalysisPasses(*PM);
 
@@ -1980,12 +1979,7 @@ static void llvm_finish_unit(void */*gcc_data*/, void */*user_data*/) {
     void *OldHandlerData = Context.getInlineAsmDiagnosticContext();
     Context.setInlineAsmDiagnosticHandler(InlineAsmDiagnosticHandler, 0);
 
-    CodeGenPasses->doInitialization();
-    for (Module::iterator I = TheModule->begin(), E = TheModule->end(); I != E;
-         ++I)
-      if (!I->isDeclaration())
-        CodeGenPasses->run(*I);
-    CodeGenPasses->doFinalization();
+    CodeGenPasses->run(*TheModule);
 
     Context.setInlineAsmDiagnosticHandler(OldHandler, OldHandlerData);
   }
