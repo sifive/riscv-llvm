@@ -4254,6 +4254,9 @@ TreeToLLVM::BuildCmpAndSwapAtomic(gimple stmt, unsigned Bits, bool isBool) {
                                   SequentiallyConsistent,
                                   SequentiallyConsistent);
 
+  // AtomicCmpXchg has the type {i1,iN}.
+  Result = Builder.CreateExtractValue(Result, 0);
+
   if (isBool)
     Result = Builder.CreateICmpEQ(Result, Old_Val);
   tree return_type = gimple_call_return_type(stmt);
