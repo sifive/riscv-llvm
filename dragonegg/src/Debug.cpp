@@ -1,6 +1,6 @@
 //===-------------- Debug.cpp - Debug information gathering ---------------===//
 //
-// Copyright (C) 2005 to 2013  Jim Laskey, Duncan Sands et al.
+// Copyright (C) 2005 to 2014  Jim Laskey, Duncan Sands et al.
 //
 // This file is part of DragonEgg.
 //
@@ -519,17 +519,16 @@ DIType DebugInfo::createMethodType(tree type) {
       ProcessedFirstArg = true;
   }
 
-  llvm::DIArray EltTypeArray = Builder.getOrCreateArray(EltTys);
+  llvm::DITypeArray EltTypeArray = Builder.getOrCreateTypeArray(EltTys);
 
   RegionStack.pop_back();
   std::map<tree_node *, WeakVH>::iterator RI = RegionMap.find(type);
   if (RI != RegionMap.end())
     RegionMap.erase(RI);
 
-  llvm::DIType RealType = CreateCompositeType(
-      llvm::dwarf::DW_TAG_subroutine_type, findRegion(TYPE_CONTEXT(type)),
-      StringRef(), getOrCreateFile(main_input_filename), 0, 0, 0, 0, 0,
-      llvm::DIType(), EltTypeArray);
+  llvm::DIType RealType = Builder.createSubroutineType(
+      getOrCreateFile(main_input_filename),
+      EltTypeArray);
 
   // Now that we have a real decl for the struct, replace anything using the
   // old decl with the new one.  This will recursively update the debug info.
@@ -1112,7 +1111,7 @@ DICompositeType DebugInfo::CreateCompositeType(
                                          SizeInBits, AlignInBits, Elements,
                                          DerivedFrom);
   case dwarf::DW_TAG_subroutine_type:
-    return Builder.createSubroutineType(F, Elements);
+    llvm_unreachable("DW_TAG_subroutine is not handled here.");
   case dwarf::DW_TAG_class_type:
     break;
   }
