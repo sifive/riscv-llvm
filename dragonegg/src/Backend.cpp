@@ -45,6 +45,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetLibraryInfo.h"
+#include "llvm/Target/TargetSubtargetInfo.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm-c/Target.h"
@@ -313,10 +314,10 @@ static bool SizeOfGlobalMatchesDecl(GlobalValue *GV, tree decl) {
   // TODO: Change getTypeSizeInBits for aggregate types so it is no longer
   // rounded up to the alignment.
   uint64_t gcc_size = getInt64(DECL_SIZE(decl), true);
-  const DataLayout *DL = TheTarget->getDataLayout();
+  const DataLayout *DL = TheTarget->getSubtargetImpl()->getDataLayout();
   unsigned Align = 8 * DL->getABITypeAlignment(Ty);
-  return TheTarget->getDataLayout()->getTypeAllocSizeInBits(Ty) ==
-         ((gcc_size + Align - 1) / Align) * Align;
+  return TheTarget->getSubtargetImpl()->getDataLayout()->getTypeAllocSizeInBits(
+             Ty) == ((gcc_size + Align - 1) / Align) * Align;
 }
 #endif
 
@@ -533,7 +534,8 @@ static void CreateTargetMachine(const std::string &TargetTriple) {
 
   TheTarget = TME->createTargetMachine(TargetTriple, CPU, FeatureStr, Options,
                                        RelocModel, CMModel, CodeGenOptLevel());
-  assert(TheTarget->getDataLayout()->isBigEndian() == BYTES_BIG_ENDIAN);
+  assert(TheTarget->getSubtargetImpl()->getDataLayout()->isBigEndian() ==
+         BYTES_BIG_ENDIAN);
 }
 
 /// output_ident - Insert a .ident directive that identifies the plugin.
@@ -581,8 +583,9 @@ static void CreateModule(const std::string &TargetTriple) {
   // Install information about the target triple and data layout into the module
   // for optimizer use.
   TheModule->setTargetTriple(TargetTriple);
-  TheModule->setDataLayout(
-      TheTarget->getDataLayout()->getStringRepresentation());
+  TheModule->setDataLayout(TheTarget->getSubtargetImpl()
+                               ->getDataLayout()
+                               ->getStringRepresentation());
 }
 
 /// flag_default_initialize_globals - Whether global variables with no explicit
@@ -643,7 +646,7 @@ static void InitializeBackend(void) {
   // Create a module to hold the generated LLVM IR.
   CreateModule(TargetTriple);
 
-  TheFolder = new TargetFolder(TheTarget->getDataLayout());
+  TheFolder = new TargetFolder(TheTarget->getSubtargetImpl()->getDataLayout());
 
   if (debug_info_level > DINFO_LEVEL_NONE) {
     TheDebugInfo = new DebugInfo(TheModule);
@@ -781,7 +784,8 @@ static void createPerModuleOptimizationPasses() {
     // this for fast -O0 compiles!
     if (PerModulePasses || 1) {
       PassManager *PM = CodeGenPasses = new PassManager();
-      PM->add(new DataLayoutPass(*TheTarget->getDataLayout()));
+      PM->add(
+          new DataLayoutPass(*TheTarget->getSubtargetImpl()->getDataLayout()));
       TheTarget->addAnalysisPasses(*PM);
 
 // Request that addPassesToEmitFile run the Verifier after running
