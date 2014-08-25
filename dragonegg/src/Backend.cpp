@@ -675,13 +675,13 @@ static void InitializeBackend(void) {
 /// InitializeOutputStreams - Initialize the assembly code output streams.
 static void InitializeOutputStreams(bool Binary) {
   assert(!OutStream && "Output stream already initialized!");
-  std::string Error;
+  std::error_code EC;
 
-  OutStream = new raw_fd_ostream(llvm_asm_file_name, Error,
+  OutStream = new raw_fd_ostream(llvm_asm_file_name, EC,
                                  Binary ? sys::fs::F_None : sys::fs::F_Text);
 
-  if (!Error.empty())
-    report_fatal_error(Error);
+  if (EC)
+    report_fatal_error(EC.message());
 
   FormattedOutStream.setStream(*OutStream,
                                formatted_raw_ostream::PRESERVE_STREAM);
