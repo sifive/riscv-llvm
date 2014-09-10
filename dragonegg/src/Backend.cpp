@@ -694,7 +694,7 @@ static void createPerFunctionOptimizationPasses() {
   // Create and set up the per-function pass manager.
   // FIXME: Move the code generator to be function-at-a-time.
   PerFunctionPasses = new FunctionPassManager(TheModule);
-  PerFunctionPasses->add(new DataLayoutPass(TheModule));
+  PerFunctionPasses->add(new DataLayoutPass());
   TheTarget->addAnalysisPasses(*PerFunctionPasses);
 
 #ifndef NDEBUG
@@ -740,7 +740,7 @@ static void createPerModuleOptimizationPasses() {
     return;
 
   PerModulePasses = new PassManager();
-  PerModulePasses->add(new DataLayoutPass(TheModule));
+  PerModulePasses->add(new DataLayoutPass());
   TheTarget->addAnalysisPasses(*PerModulePasses);
 
   Pass *InliningPass;
@@ -784,8 +784,7 @@ static void createPerModuleOptimizationPasses() {
     // this for fast -O0 compiles!
     if (PerModulePasses || 1) {
       PassManager *PM = CodeGenPasses = new PassManager();
-      PM->add(
-          new DataLayoutPass(*TheTarget->getSubtargetImpl()->getDataLayout()));
+      PM->add(new DataLayoutPass());
       TheTarget->addAnalysisPasses(*PM);
 
 // Request that addPassesToEmitFile run the Verifier after running
