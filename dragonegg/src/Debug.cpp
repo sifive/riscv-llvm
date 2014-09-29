@@ -422,7 +422,7 @@ void DebugInfo::EmitGlobalVariable(GlobalVariable *GV, tree decl) {
   if (DECL_CONTEXT(decl))
     if (!isa<FUNCTION_DECL>(DECL_CONTEXT(decl)))
       LinkageName = GV->getName();
-  Builder.createStaticVariable(
+  Builder.createGlobalVariable(
       findRegion(DECL_CONTEXT(decl)), DispName, LinkageName,
       getOrCreateFile(Loc.file), Loc.line, TyD, GV->hasInternalLinkage(), GV);
 }
