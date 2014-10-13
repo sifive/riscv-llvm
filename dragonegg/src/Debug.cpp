@@ -377,7 +377,8 @@ void DebugInfo::EmitDeclare(tree decl, unsigned Tag, StringRef Name, tree type,
   llvm::DIVariable D = Builder.createLocalVariable(
       Tag, VarScope, Name, getOrCreateFile(Loc.file), Loc.line, Ty, optimize);
 
-  Instruction *Call = InsertDeclare(AI, D, IRBuilder.GetInsertBlock());
+  Instruction *Call = Builder.insertDeclare(AI, D, Builder.createExpression(),
+                                            IRBuilder.GetInsertBlock());
 
   Call->setDebugLoc(DebugLoc::get(Loc.line, 0, VarScope));
 }
