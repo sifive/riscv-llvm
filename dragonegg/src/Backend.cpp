@@ -1742,8 +1742,7 @@ static struct rtl_opt_pass pass_rtl_emit_function = { {
   PROP_ssa | PROP_gimple_leh | PROP_cfg, /* properties_required */
   0,                                     /* properties_provided */
   PROP_ssa | PROP_trees,                 /* properties_destroyed */
-  TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts, /* todo_flags_start */
-  TODO_ggc_collect /* todo_flags_finish */
+  TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts
 } };
 
 /// emit_file_scope_asms - Output any file-scope assembly.
