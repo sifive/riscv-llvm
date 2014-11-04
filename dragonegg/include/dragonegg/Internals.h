@@ -602,7 +602,7 @@ private:
                           const MemRef *DestLoc, const llvm::AttributeSet &PAL);
   llvm::CallInst *EmitSimpleCall(llvm::StringRef CalleeName,
                                  tree_node *ret_type,
-                                 /* arguments */ ...) END_WITH_NULL;
+                                 /* arguments */ ...) LLVM_END_WITH_NULL;
   llvm::Value *EmitFieldAnnotation(llvm::Value *FieldPtr, tree_node *FieldDecl);
 
   // Inline Assembly and Register Variables.
