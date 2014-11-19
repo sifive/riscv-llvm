@@ -2704,7 +2704,7 @@ void TreeToLLVM::EmitLandingPads() {
             for (tree type = c->type_list; type; type = TREE_CHAIN(type)) {
               Constant *TypeInfo = ConvertTypeInfo(TREE_VALUE(type));
               // No point in trying to catch a typeinfo that was already caught.
-              if (!AlreadyCaught.insert(TypeInfo))
+              if (!AlreadyCaught.insert(TypeInfo).second)
                 continue;
               LPadInst->addClause(TypeInfo);
             }
@@ -8798,7 +8798,7 @@ bool TreeToLLVM::EmitBuiltinCall(gimple stmt, tree fndecl,
           for (tree type = c->type_list; type; type = TREE_CHAIN(type)) {
             Value *TypeInfo = ConvertTypeInfo(TREE_VALUE(type));
             // No point in trying to catch a typeinfo that was already caught.
-            if (!AlreadyCaught.insert(TypeInfo))
+            if (!AlreadyCaught.insert(TypeInfo).second)
               continue;
 
             TypeInfo = Builder.CreateBitCast(TypeInfo, Builder.getInt8PtrTy());
