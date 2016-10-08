@@ -129,8 +129,7 @@ namespace {
        cl::desc("Choose libc version (none by default)."),
        cl::values(clEnumValN(NoLibc, "none", "Don't link in a libc"),
                   clEnumValN(KleeLibc, "klee", "Link in klee libc"),
-		  clEnumValN(UcLibc, "uclibc", "Link in uclibc (adapted for klee)"),
-		  clEnumValEnd),
+		  clEnumValN(UcLibc, "uclibc", "Link in uclibc (adapted for klee)")),
        cl::init(NoLibc));
 
     

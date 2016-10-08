@@ -83,8 +83,7 @@ namespace {
                         clEnumValN(eSwitchTypeLLVM, "llvm", 
                                    "lower using LLVM"),
                         clEnumValN(eSwitchTypeInternal, "internal", 
-                                   "execute switch internally"),
-                        clEnumValEnd),
+                                   "execute switch internally")),
              cl::init(eSwitchTypeInternal));
   
   cl::opt<bool>

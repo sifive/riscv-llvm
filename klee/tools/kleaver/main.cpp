@@ -68,8 +68,7 @@ namespace {
              clEnumValN(PrintAST, "print-ast",
                         "Print parsed AST nodes from the input file."),
              clEnumValN(Evaluate, "evaluate",
-                        "Print parsed AST nodes from the input file."),
-             clEnumValEnd));
+                        "Print parsed AST nodes from the input file.")));
 
 
   enum BuilderKinds {
@@ -88,8 +87,7 @@ namespace {
               clEnumValN(ConstantFoldingBuilder, "constant-folding",
                          "Fold constant expressions."),
               clEnumValN(SimplifyingBuilder, "simplify",
-                         "Fold constants and simplify expressions."),
-              clEnumValEnd));
+                         "Fold constants and simplify expressions.")));
 
   cl::opt<bool>
   UseDummySolver("use-dummy-solver",
