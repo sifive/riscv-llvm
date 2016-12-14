@@ -1327,11 +1327,11 @@ static bool isDebugIntrinsic(const Function *f, KModule *KM) {
 static inline const llvm::fltSemantics * fpWidthToSemantics(unsigned width) {
   switch(width) {
   case Expr::Int32:
-    return &llvm::APFloat::IEEEsingle;
+    return &llvm::APFloat::IEEEsingle();
   case Expr::Int64:
-    return &llvm::APFloat::IEEEdouble;
+    return &llvm::APFloat::IEEEdouble();
   case Expr::Fl80:
-    return &llvm::APFloat::x87DoubleExtended;
+    return &llvm::APFloat::x87DoubleExtended();
   default:
     return 0;
   }
