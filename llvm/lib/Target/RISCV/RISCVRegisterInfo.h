@@ -53,6 +53,8 @@ struct RISCVRegisterInfo : public RISCVGenRegisterInfo {
   bool trackLivenessAfterRegAlloc(const MachineFunction &) const override {
     return true;
   }
+
+  bool enableMultipleCopyHints() const override { return true; }
 };
 }
 
