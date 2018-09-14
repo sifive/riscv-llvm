@@ -50,7 +50,11 @@ static MCRegisterInfo *createRISCVMCRegisterInfo(const Triple &TT) {
 
 static MCAsmInfo *createRISCVMCAsmInfo(const MCRegisterInfo &MRI,
                                        const Triple &TT) {
-  return new RISCVMCAsmInfo(TT);
+  MCAsmInfo *MAI = new RISCVMCAsmInfo(TT);
+  // Initial state of the frame pointer is SP.
+  unsigned Reg = MRI.getDwarfRegNum(RISCV::X2, true);
+  MAI->addInitialFrameState(MCCFIInstruction::createDefCfa(nullptr, Reg, 0));
+  return MAI;
 }
 
 static MCSubtargetInfo *createRISCVMCSubtargetInfo(const Triple &TT,
