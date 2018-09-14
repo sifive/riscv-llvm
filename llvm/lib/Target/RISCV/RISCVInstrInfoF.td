@@ -279,6 +279,16 @@ def : Pat<(fcopysign FPR32:$rs1, (fneg FPR32:$rs2)), (FSGNJN_S $rs1, $rs2)>;
 def : PatFpr32Fpr32<fminnum, FMIN_S>;
 def : PatFpr32Fpr32<fmaxnum, FMAX_S>;
 
+/// Fused multiply-add operations
+
+def : Pat<(fma FPR32:$rs1, FPR32:$rs2, FPR32:$rs3),
+          (FMADD_S FPR32:$rs1, FPR32:$rs2, FPR32:$rs3, 0b111)>;
+// fmsub: rs1*rs2-rs3
+def : Pat<(fma FPR32:$rs1, FPR32:$rs2, (fneg FPR32:$rs3)),
+          (FMSUB_S FPR32:$rs1, FPR32:$rs2, FPR32:$rs3, 0b111)>;
+
+// TODO: other FMA patterns
+
 /// Setcc
 
 def : PatFpr32Fpr32<seteq, FEQ_S>;
