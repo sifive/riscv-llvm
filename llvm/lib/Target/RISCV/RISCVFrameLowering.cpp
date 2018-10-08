@@ -17,6 +17,7 @@
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
 
@@ -98,6 +99,7 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
   MachineFrameInfo &MFI = MF.getFrameInfo();
   auto *RVFI = MF.getInfo<RISCVMachineFunctionInfo>();
   MachineBasicBlock::iterator MBBI = MBB.begin();
+  const RISCVInstrInfo *TII = STI.getInstrInfo();
 
   unsigned FPReg = getFPReg(STI);
   unsigned SPReg = getSPReg(STI);
@@ -133,6 +135,25 @@ void RISCVFrameLowering::emitPrologue(MachineFunction &MF,
   if (hasFP(MF))
     adjustReg(MBB, MBBI, DL, FPReg, SPReg,
               StackSize - RVFI->getVarArgsSaveSize(), MachineInstr::FrameSetup);
+
+  // Emit CFI records:
+  const MCRegisterInfo *MRI = MF.getMMI().getContext().getRegisterInfo();
+  // .cfi_def_cfa_offset -StackSize
+  unsigned CFIIndex = MF.addFrameInst(
+      MCCFIInstruction::createDefCfaOffset(nullptr, -StackSize));
+  BuildMI(MBB, MBBI, DL, TII->get(TargetOpcode::CFI_INSTRUCTION))
+      .addCFIIndex(CFIIndex)
+      .setMIFlags(MachineInstr::FrameSetup);
+  // .cfi_def_cfa_register DwarfRegNum
+  for (const auto &Entry : CSI) {
+    unsigned Reg = Entry.getReg();
+    int FI = Entry.getFrameIdx();
+    CFIIndex = MF.addFrameInst(MCCFIInstruction::createOffset(
+        nullptr, MRI->getDwarfRegNum(Reg, true), MFI.getObjectOffset(FI)));
+    BuildMI(MBB, MBBI, DL, TII->get(TargetOpcode::CFI_INSTRUCTION))
+        .addCFIIndex(CFIIndex)
+        .setMIFlags(MachineInstr::FrameSetup);
+  }
 }
 
 void RISCVFrameLowering::emitEpilogue(MachineFunction &MF,
