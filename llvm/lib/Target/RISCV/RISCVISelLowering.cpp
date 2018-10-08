@@ -31,6 +31,7 @@
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/KnownBits.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -255,6 +256,19 @@ bool RISCVTargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
   }
 
   return TargetLowering::isZExtFree(Val, VT2);
+}
+
+void RISCVTargetLowering::computeKnownBitsForTargetNode(
+    const SDValue Op, KnownBits &Known, const APInt &DemandedElts,
+    const SelectionDAG &DAG, unsigned Depth) const {
+  if (Op.getOpcode() != RISCVISD::SELECT_CC)
+    return;
+
+  KnownBits Known2;
+  DAG.computeKnownBits(Op->getOperand(3), Known, Depth + 1);
+  DAG.computeKnownBits(Op->getOperand(4), Known2, Depth + 1);
+  Known.Zero &= Known2.Zero;
+  Known.One &= Known2.One;
 }
 
 // Changes the condition code and swaps operands if necessary, so the SetCC
