@@ -31,5 +31,5 @@ type = Library
 name = RISCVCodeGen
 parent = RISCV
 required_libraries = AsmPrinter Core CodeGen MC RISCVAsmPrinter RISCVDesc
-  RISCVInfo RISCVUtils SelectionDAG Support Target
+  RISCVInfo RISCVUtils Scalar SelectionDAG Support Target
 add_to_library_groups = RISCV
