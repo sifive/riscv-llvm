@@ -963,6 +963,9 @@ bool DAGTypeLegalizer::PromoteIntegerOperand(SDNode *N, unsigned OpNo) {
 
   case ISD::FRAMEADDR:
   case ISD::RETURNADDR: Res = PromoteIntOp_RETURNADDR(N, OpNo); break;
+  case ISD::PREFETCH:
+    Res = PromoteIntOp_PREFETCH(N, OpNo);
+    break;
   }
 
   // If the result is null, the sub-method took care of registering results etc.
@@ -1328,6 +1331,17 @@ SDValue DAGTypeLegalizer::PromoteIntOp_RETURNADDR(SDNode *N, unsigned OpNo) {
   // Promote the RETURNADDR/FRAMEADDR argument to a supported integer width.
   SDValue Op = GetPromotedInteger(N->getOperand(0));
   return SDValue(DAG.UpdateNodeOperands(N, Op), 0);
+}
+
+SDValue DAGTypeLegalizer::PromoteIntOp_PREFETCH(SDNode *N, unsigned OpNo) {
+  // Promote the rw, locality, and cache type arguments to a supported integer
+  // width.
+  SDValue Op2 = GetPromotedInteger(N->getOperand(2));
+  SDValue Op3 = GetPromotedInteger(N->getOperand(3));
+  SDValue Op4 = GetPromotedInteger(N->getOperand(4));
+  return SDValue(DAG.UpdateNodeOperands(N, N->getOperand(0), N->getOperand(1),
+                                        Op2, Op3, Op4),
+                 0);
 }
 
 //===----------------------------------------------------------------------===//
