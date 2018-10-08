@@ -22,10 +22,13 @@
 
 namespace llvm {
 
+class RISCVSubtarget;
+
 class RISCVInstrInfo : public RISCVGenInstrInfo {
+  const RISCVSubtarget &Subtarget;
 
 public:
-  RISCVInstrInfo();
+  explicit RISCVInstrInfo(const RISCVSubtarget &Subtarget);
 
   unsigned isLoadFromStackSlot(const MachineInstr &MI,
                                int &FrameIndex) const override;
