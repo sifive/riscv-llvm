@@ -9,6 +9,8 @@ define i8 @atomicrmw_xchg_i8_monotonic(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a2, zero
 ; RV32I-NEXT:    call __atomic_exchange_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -44,6 +46,8 @@ define i8 @atomicrmw_xchg_i8_acquire(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 2
 ; RV32I-NEXT:    call __atomic_exchange_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -79,6 +83,8 @@ define i8 @atomicrmw_xchg_i8_release(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 3
 ; RV32I-NEXT:    call __atomic_exchange_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -114,6 +120,8 @@ define i8 @atomicrmw_xchg_i8_acq_rel(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 4
 ; RV32I-NEXT:    call __atomic_exchange_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -149,6 +157,8 @@ define i8 @atomicrmw_xchg_i8_seq_cst(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 5
 ; RV32I-NEXT:    call __atomic_exchange_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -359,6 +369,8 @@ define i8 @atomicrmw_sub_i8_monotonic(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a2, zero
 ; RV32I-NEXT:    call __atomic_fetch_sub_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -394,6 +406,8 @@ define i8 @atomicrmw_sub_i8_acquire(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 2
 ; RV32I-NEXT:    call __atomic_fetch_sub_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -429,6 +443,8 @@ define i8 @atomicrmw_sub_i8_release(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 3
 ; RV32I-NEXT:    call __atomic_fetch_sub_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -464,6 +480,8 @@ define i8 @atomicrmw_sub_i8_acq_rel(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 4
 ; RV32I-NEXT:    call __atomic_fetch_sub_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -499,6 +517,8 @@ define i8 @atomicrmw_sub_i8_seq_cst(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 5
 ; RV32I-NEXT:    call __atomic_fetch_sub_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -679,6 +699,8 @@ define i8 @atomicrmw_nand_i8_monotonic(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a2, zero
 ; RV32I-NEXT:    call __atomic_fetch_nand_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -715,6 +737,8 @@ define i8 @atomicrmw_nand_i8_acquire(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 2
 ; RV32I-NEXT:    call __atomic_fetch_nand_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -751,6 +775,8 @@ define i8 @atomicrmw_nand_i8_release(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 3
 ; RV32I-NEXT:    call __atomic_fetch_nand_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -787,6 +813,8 @@ define i8 @atomicrmw_nand_i8_acq_rel(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 4
 ; RV32I-NEXT:    call __atomic_fetch_nand_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -823,6 +851,8 @@ define i8 @atomicrmw_nand_i8_seq_cst(i8* %a, i8 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 5
 ; RV32I-NEXT:    call __atomic_fetch_nand_1
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -2639,6 +2669,8 @@ define i16 @atomicrmw_xchg_i16_monotonic(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a2, zero
 ; RV32I-NEXT:    call __atomic_exchange_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -2675,6 +2707,8 @@ define i16 @atomicrmw_xchg_i16_acquire(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 2
 ; RV32I-NEXT:    call __atomic_exchange_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -2711,6 +2745,8 @@ define i16 @atomicrmw_xchg_i16_release(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 3
 ; RV32I-NEXT:    call __atomic_exchange_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -2747,6 +2783,8 @@ define i16 @atomicrmw_xchg_i16_acq_rel(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 4
 ; RV32I-NEXT:    call __atomic_exchange_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -2783,6 +2821,8 @@ define i16 @atomicrmw_xchg_i16_seq_cst(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 5
 ; RV32I-NEXT:    call __atomic_exchange_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -2999,6 +3039,8 @@ define i16 @atomicrmw_sub_i16_monotonic(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a2, zero
 ; RV32I-NEXT:    call __atomic_fetch_sub_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -3035,6 +3077,8 @@ define i16 @atomicrmw_sub_i16_acquire(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 2
 ; RV32I-NEXT:    call __atomic_fetch_sub_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -3071,6 +3115,8 @@ define i16 @atomicrmw_sub_i16_release(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 3
 ; RV32I-NEXT:    call __atomic_fetch_sub_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -3107,6 +3153,8 @@ define i16 @atomicrmw_sub_i16_acq_rel(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 4
 ; RV32I-NEXT:    call __atomic_fetch_sub_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -3143,6 +3191,8 @@ define i16 @atomicrmw_sub_i16_seq_cst(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 5
 ; RV32I-NEXT:    call __atomic_fetch_sub_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -3329,6 +3379,8 @@ define i16 @atomicrmw_nand_i16_monotonic(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a2, zero
 ; RV32I-NEXT:    call __atomic_fetch_nand_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -3366,6 +3418,8 @@ define i16 @atomicrmw_nand_i16_acquire(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 2
 ; RV32I-NEXT:    call __atomic_fetch_nand_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -3403,6 +3457,8 @@ define i16 @atomicrmw_nand_i16_release(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 3
 ; RV32I-NEXT:    call __atomic_fetch_nand_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -3440,6 +3496,8 @@ define i16 @atomicrmw_nand_i16_acq_rel(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 4
 ; RV32I-NEXT:    call __atomic_fetch_nand_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -3477,6 +3535,8 @@ define i16 @atomicrmw_nand_i16_seq_cst(i16* %a, i16 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 5
 ; RV32I-NEXT:    call __atomic_fetch_nand_2
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5374,6 +5434,8 @@ define i32 @atomicrmw_xchg_i32_monotonic(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a2, zero
 ; RV32I-NEXT:    call __atomic_exchange_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5393,6 +5455,8 @@ define i32 @atomicrmw_xchg_i32_acquire(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 2
 ; RV32I-NEXT:    call __atomic_exchange_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5412,6 +5476,8 @@ define i32 @atomicrmw_xchg_i32_release(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 3
 ; RV32I-NEXT:    call __atomic_exchange_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5431,6 +5497,8 @@ define i32 @atomicrmw_xchg_i32_acq_rel(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 4
 ; RV32I-NEXT:    call __atomic_exchange_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5450,6 +5518,8 @@ define i32 @atomicrmw_xchg_i32_seq_cst(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 5
 ; RV32I-NEXT:    call __atomic_exchange_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5564,6 +5634,8 @@ define i32 @atomicrmw_sub_i32_monotonic(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a2, zero
 ; RV32I-NEXT:    call __atomic_fetch_sub_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5584,6 +5656,8 @@ define i32 @atomicrmw_sub_i32_acquire(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 2
 ; RV32I-NEXT:    call __atomic_fetch_sub_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5604,6 +5678,8 @@ define i32 @atomicrmw_sub_i32_release(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 3
 ; RV32I-NEXT:    call __atomic_fetch_sub_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5624,6 +5700,8 @@ define i32 @atomicrmw_sub_i32_acq_rel(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 4
 ; RV32I-NEXT:    call __atomic_fetch_sub_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5644,6 +5722,8 @@ define i32 @atomicrmw_sub_i32_seq_cst(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 5
 ; RV32I-NEXT:    call __atomic_fetch_sub_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5759,6 +5839,8 @@ define i32 @atomicrmw_nand_i32_monotonic(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a2, zero
 ; RV32I-NEXT:    call __atomic_fetch_nand_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5785,6 +5867,8 @@ define i32 @atomicrmw_nand_i32_acquire(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 2
 ; RV32I-NEXT:    call __atomic_fetch_nand_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5811,6 +5895,8 @@ define i32 @atomicrmw_nand_i32_release(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 3
 ; RV32I-NEXT:    call __atomic_fetch_nand_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5837,6 +5923,8 @@ define i32 @atomicrmw_nand_i32_acq_rel(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 4
 ; RV32I-NEXT:    call __atomic_fetch_nand_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -5863,6 +5951,8 @@ define i32 @atomicrmw_nand_i32_seq_cst(i32* %a, i32 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a2, zero, 5
 ; RV32I-NEXT:    call __atomic_fetch_nand_4
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7039,6 +7129,8 @@ define i64 @atomicrmw_xchg_i64_monotonic(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a3, zero
 ; RV32I-NEXT:    call __atomic_exchange_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7063,6 +7155,8 @@ define i64 @atomicrmw_xchg_i64_acquire(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 2
 ; RV32I-NEXT:    call __atomic_exchange_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7087,6 +7181,8 @@ define i64 @atomicrmw_xchg_i64_release(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 3
 ; RV32I-NEXT:    call __atomic_exchange_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7111,6 +7207,8 @@ define i64 @atomicrmw_xchg_i64_acq_rel(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 4
 ; RV32I-NEXT:    call __atomic_exchange_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7135,6 +7233,8 @@ define i64 @atomicrmw_xchg_i64_seq_cst(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 5
 ; RV32I-NEXT:    call __atomic_exchange_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7279,6 +7379,8 @@ define i64 @atomicrmw_sub_i64_monotonic(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a3, zero
 ; RV32I-NEXT:    call __atomic_fetch_sub_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7303,6 +7405,8 @@ define i64 @atomicrmw_sub_i64_acquire(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 2
 ; RV32I-NEXT:    call __atomic_fetch_sub_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7327,6 +7431,8 @@ define i64 @atomicrmw_sub_i64_release(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 3
 ; RV32I-NEXT:    call __atomic_fetch_sub_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7351,6 +7457,8 @@ define i64 @atomicrmw_sub_i64_acq_rel(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 4
 ; RV32I-NEXT:    call __atomic_fetch_sub_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7375,6 +7483,8 @@ define i64 @atomicrmw_sub_i64_seq_cst(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 5
 ; RV32I-NEXT:    call __atomic_fetch_sub_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7519,6 +7629,8 @@ define i64 @atomicrmw_nand_i64_monotonic(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    mv a3, zero
 ; RV32I-NEXT:    call __atomic_fetch_nand_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7543,6 +7655,8 @@ define i64 @atomicrmw_nand_i64_acquire(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 2
 ; RV32I-NEXT:    call __atomic_fetch_nand_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7567,6 +7681,8 @@ define i64 @atomicrmw_nand_i64_release(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 3
 ; RV32I-NEXT:    call __atomic_fetch_nand_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7591,6 +7707,8 @@ define i64 @atomicrmw_nand_i64_acq_rel(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 4
 ; RV32I-NEXT:    call __atomic_fetch_nand_8
 ; RV32I-NEXT:    lw ra, 12(sp)
@@ -7615,6 +7733,8 @@ define i64 @atomicrmw_nand_i64_seq_cst(i64* %a, i64 %b) {
 ; RV32I:       # %bb.0:
 ; RV32I-NEXT:    addi sp, sp, -16
 ; RV32I-NEXT:    sw ra, 12(sp)
+; RV32I-NEXT:    .cfi_def_cfa_offset 16
+; RV32I-NEXT:    .cfi_offset 1, -4
 ; RV32I-NEXT:    addi a3, zero, 5
 ; RV32I-NEXT:    call __atomic_fetch_nand_8
 ; RV32I-NEXT:    lw ra, 12(sp)
