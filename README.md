@@ -34,6 +34,11 @@ passed in integer registers).
 
     sudo apt-get update
     sudo apt-get -y dist-upgrade
+
+The dist-upgrade can pop up a text GUI and  ask questions (for example I've seen them about
+updating grub), which eats input already pasted, so it's best to wait for the result from
+the above two lines by themselves before proceeding.
+
     sudo apt-get -y install \
       binutils build-essential libtool texinfo \
       gzip zip unzip patchutils curl git \
