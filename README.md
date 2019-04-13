@@ -51,6 +51,7 @@ the above two lines by themselves before proceeding.
     cd riscv
     mkdir _install
     export PATH=`pwd`/_install/bin:$PATH
+    hash -r
 
     # gcc, binutils, newlib
     git clone --recursive https://github.com/riscv/riscv-gnu-toolchain
@@ -69,6 +70,7 @@ the above two lines by themselves before proceeding.
     # LLVM
     git clone https://github.com/sifive/riscv-llvm
     pushd riscv-llvm
+    ln -s ../../clang llvm/tools || true
     mkdir _build
     cd _build
     cmake -G Ninja -DCMAKE_BUILD_TYPE="Release" \
