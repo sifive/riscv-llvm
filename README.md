@@ -1,4 +1,14 @@
 # RISC-V LLVM
+##NOTICE
+
+The code in this repo is now quite out of date compared to master llvm *plus* all the
+RISC-V patches that were added here have now been upstreamed.
+
+However, the build instructions themselves are still a good quick-start guide.
+
+I've updated the commands below to clone llvm from the official llvm repository, not from here,
+and to account for RISC-V now having been upgraded to non-experimental status.
+
 ## About
 This repository adds support for various aspects of the RISC-V
 instruction set to the Clang C/C++ compiler and LLVM back end.
@@ -58,17 +68,14 @@ the above two lines by themselves before proceeding.
     pushd riscv-gnu-toolchain
     ./configure --prefix=`pwd`/../_install --enable-multilib
     make -j`nproc`
-    popd
 
     # qemu
-    git clone https://github.com/riscv/riscv-qemu
-    pushd riscv-qemu
-    ./configure --prefix=`pwd`/../_install --target-list=riscv64-linux-user,riscv32-linux-user
-    make -j`nproc` install
+    make -j`nproc` build-qemu
     popd
 
     # LLVM
-    git clone https://github.com/sifive/riscv-llvm
+    git clone https://github.com/llvm/llvm-project.git riscv-llvm
+    #git clone https://github.com/sifive/riscv-llvm
     pushd riscv-llvm
     ln -s ../../clang llvm/tools || true
     mkdir _build
@@ -79,7 +86,7 @@ the above two lines by themselves before proceeding.
       -DLLVM_OPTIMIZED_TABLEGEN=True -DLLVM_BUILD_TESTS=False \
       -DDEFAULT_SYSROOT="../../_install/riscv64-unknown-elf" \
       -DLLVM_DEFAULT_TARGET_TRIPLE="riscv64-unknown-elf" \
-      -DLLVM_TARGETS_TO_BUILD="" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" \
+      -DLLVM_TARGETS_TO_BUILD="RISCV" \
       ../llvm
     cmake --build . --target install
     popd
