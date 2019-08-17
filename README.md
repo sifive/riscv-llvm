@@ -1,5 +1,5 @@
 # RISC-V LLVM
-##NOTICE
+## NOTICE
 
 The code in this repo is now quite out of date compared to master llvm *plus* all the
 RISC-V patches that were added here have now been upstreamed.
