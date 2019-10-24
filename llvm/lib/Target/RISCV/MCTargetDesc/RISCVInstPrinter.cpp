@@ -149,6 +149,30 @@ void RISCVInstPrinter::printAtomicMemOp(const MCInst *MI, unsigned OpNo,
   return;
 }
 
+void RISCVInstPrinter::printVTypeI(const MCInst *MI, unsigned OpNo,
+                                   const MCSubtargetInfo &STI, raw_ostream &O) {
+  unsigned Imm = MI->getOperand(OpNo).getImm();
+  unsigned sew = (Imm >> 2) & 0x7;
+  unsigned lmul = Imm & 0x3;
+
+  lmul = 0x1 << lmul;
+  sew = 0x1 << (sew + 3);
+  O << "e" << sew << ",m" << lmul;
+}
+
+void RISCVInstPrinter::printVRMaskOp(const MCInst *MI, unsigned OpNo,
+                                     const MCSubtargetInfo &STI,
+                                     raw_ostream &O) {
+  const MCOperand &MO = MI->getOperand(OpNo);
+
+  assert(MO.isReg() && "printVRMaskOp can only print register operands");
+  if (MO.getReg() == RISCV::NoRegister)
+    return;
+  O << ", ";
+  printRegName(O, MO.getReg());
+  O << ".t";
+}
+
 const char *RISCVInstPrinter::getRegisterName(unsigned RegNo) {
   return getRegisterName(RegNo, ArchRegNames ? RISCV::NoRegAltName
                                              : RISCV::ABIRegAltName);

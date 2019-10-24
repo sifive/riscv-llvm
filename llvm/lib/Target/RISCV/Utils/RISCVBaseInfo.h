@@ -45,7 +45,9 @@ enum {
   InstFormatCJ = 16,
   InstFormatOther = 17,
 
-  InstFormatMask = 31
+  InstFormatMask = 31,
+
+  InstVectorWithMask = (0x1 << 5),
 };
 
 enum {

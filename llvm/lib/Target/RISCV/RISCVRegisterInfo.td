@@ -233,3 +233,28 @@ def FPR64C : RegisterClass<"RISCV", [f64], 64, (add
   (sequence "F%u_D", 10, 15),
   (sequence "F%u_D", 8, 9)
 )>;
+
+// Vector registers
+let RegAltNameIndices = [ABIRegAltName] in {
+  foreach Index = 0-31 in {
+    def V#Index : RISCVReg<Index, "v"#Index, ["v"#Index]>, DwarfRegNum<[!add(Index, 64)]>;
+  }
+}
+
+class RegisterTypes<list<ValueType> reg_types> {
+  list<ValueType> types = reg_types;
+}
+
+def VLenVT : RegisterTypes<[nxv16i8, nxv8i16, nxv4i32, nxv2i64]>;
+
+// The order of registers represents the preferred allocation sequence,
+// meaning caller-save regs are listed before callee-save.
+def VR : RegisterClass<"RISCV", VLenVT.types,
+                        128, (add
+    (sequence "V%u", 25, 31),
+    (sequence "V%u", 8, 24),
+    (sequence "V%u", 0, 7)
+  )> {
+}
+
+def VRV0 : RegisterClass<"RISCV", VLenVT.types, 128, (add V0)>;

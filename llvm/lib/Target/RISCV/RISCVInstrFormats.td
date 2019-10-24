@@ -71,6 +71,7 @@ def OPC_MSUB      : RISCVOpcode<0b1000111>;
 def OPC_NMSUB     : RISCVOpcode<0b1001011>;
 def OPC_NMADD     : RISCVOpcode<0b1001111>;
 def OPC_OP_FP     : RISCVOpcode<0b1010011>;
+def OPC_OP_V      : RISCVOpcode<0b1010111>;
 def OPC_BRANCH    : RISCVOpcode<0b1100011>;
 def OPC_JALR      : RISCVOpcode<0b1100111>;
 def OPC_JAL       : RISCVOpcode<0b1101111>;
