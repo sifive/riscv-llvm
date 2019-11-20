@@ -517,8 +517,10 @@ defm VSSUBU_V : VALU_IV_V_X<"vssubu", 0b100010>;
 defm VSSUB_V : VALU_IV_V_X<"vssub", 0b100011>;
 
 // Vector Single-Width Averaging Add and Subtract
-defm VAADD_V : VALU_IV_V_X_I<"vaadd", 0b100100>;
-defm VASUB_V : VALU_IV_V_X<"vasub", 0b100110>;
+defm VAADDU_V : VALU_MV_V_X<"vaaddu", 0b001000>;
+defm VAADD_V : VALU_MV_V_X<"vaadd", 0b001001>;
+defm VASUBU_V : VALU_MV_V_X<"vasubu", 0b001010>;
+defm VASUB_V : VALU_MV_V_X<"vasub", 0b001011>;
 
 // Vector Single-Width Fractional Multiply with Rounding and Saturation
 defm VSMUL_V : VALU_IV_V_X<"vsmul", 0b100111>;

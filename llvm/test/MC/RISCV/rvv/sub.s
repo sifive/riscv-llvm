@@ -236,27 +236,51 @@ vssub.vx v1, v3, a0
 
 vasub.vv v1, v3, v2, v0.t
 // CHECK-INST: vasub.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x98]
+// CHECK-ENCODING: [0xd7,0x20,0x31,0x2c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 98 <unknown>
+// CHECK-UNKNOWN: d7 20 31 2c <unknown>
 
 vasub.vv v1, v3, v2
 // CHECK-INST: vasub.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x9a]
+// CHECK-ENCODING: [0xd7,0x20,0x31,0x2e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 9a <unknown>
+// CHECK-UNKNOWN: d7 20 31 2e <unknown>
 
 vasub.vx v1, v3, a0, v0.t
 // CHECK-INST: vasub.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x98]
+// CHECK-ENCODING: [0xd7,0x60,0x35,0x2c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 98 <unknown>
+// CHECK-UNKNOWN: d7 60 35 2c <unknown>
 
 vasub.vx v1, v3, a0
 // CHECK-INST: vasub.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x9a]
+// CHECK-ENCODING: [0xd7,0x60,0x35,0x2e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 9a <unknown>
+// CHECK-UNKNOWN: d7 60 35 2e <unknown>
+
+vasubu.vv v1, v3, v2, v0.t
+// CHECK-INST: vasubu.vv v1, v3, v2, v0.t
+// CHECK-ENCODING: [0xd7,0x20,0x31,0x28]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 20 31 28 <unknown>
+
+vasubu.vv v1, v3, v2
+// CHECK-INST: vasubu.vv v1, v3, v2
+// CHECK-ENCODING: [0xd7,0x20,0x31,0x2a]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 20 31 2a <unknown>
+
+vasubu.vx v1, v3, a0, v0.t
+// CHECK-INST: vasubu.vx v1, v3, a0, v0.t
+// CHECK-ENCODING: [0xd7,0x60,0x35,0x28]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 60 35 28 <unknown>
+
+vasubu.vx v1, v3, a0
+// CHECK-INST: vasubu.vx v1, v3, a0
+// CHECK-ENCODING: [0xd7,0x60,0x35,0x2a]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 60 35 2a <unknown>
 
 vfsub.vv v1, v3, v2, v0.t
 // CHECK-INST: vfsub.vv v1, v3, v2, v0.t

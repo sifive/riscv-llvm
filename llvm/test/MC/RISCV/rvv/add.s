@@ -266,39 +266,51 @@ vsadd.vi v1, v3, 15
 
 vaadd.vv v1, v3, v2, v0.t
 // CHECK-INST: vaadd.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x90]
+// CHECK-ENCODING: [0xd7,0x20,0x31,0x24]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 90 <unknown>
+// CHECK-UNKNOWN: d7 20 31 24 <unknown>
 
 vaadd.vv v1, v3, v2
 // CHECK-INST: vaadd.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x92]
+// CHECK-ENCODING: [0xd7,0x20,0x31,0x26]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 92 <unknown>
+// CHECK-UNKNOWN: d7 20 31 26 <unknown>
 
 vaadd.vx v1, v3, a0, v0.t
 // CHECK-INST: vaadd.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x90]
+// CHECK-ENCODING: [0xd7,0x60,0x35,0x24]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 90 <unknown>
+// CHECK-UNKNOWN: d7 60 35 24 <unknown>
 
 vaadd.vx v1, v3, a0
 // CHECK-INST: vaadd.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x92]
+// CHECK-ENCODING: [0xd7,0x60,0x35,0x26]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 92 <unknown>
+// CHECK-UNKNOWN: d7 60 35 26 <unknown>
 
-vaadd.vi v1, v3, 15, v0.t
-// CHECK-INST: vaadd.vi v1, v3, 15, v0.t
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x90]
+vaaddu.vv v1, v3, v2, v0.t
+// CHECK-INST: vaaddu.vv v1, v3, v2, v0.t
+// CHECK-ENCODING: [0xd7,0x20,0x31,0x20]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 90 <unknown>
+// CHECK-UNKNOWN: d7 20 31 20 <unknown>
 
-vaadd.vi v1, v3, 15
-// CHECK-INST: vaadd.vi v1, v3, 15
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x92]
+vaaddu.vv v1, v3, v2
+// CHECK-INST: vaaddu.vv v1, v3, v2
+// CHECK-ENCODING: [0xd7,0x20,0x31,0x22]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 92 <unknown>
+// CHECK-UNKNOWN: d7 20 31 22 <unknown>
+
+vaaddu.vx v1, v3, a0, v0.t
+// CHECK-INST: vaaddu.vx v1, v3, a0, v0.t
+// CHECK-ENCODING: [0xd7,0x60,0x35,0x20]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 60 35 20 <unknown>
+
+vaaddu.vx v1, v3, a0
+// CHECK-INST: vaaddu.vx v1, v3, a0
+// CHECK-ENCODING: [0xd7,0x60,0x35,0x22]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 60 35 22 <unknown>
 
 vfadd.vv v1, v3, v2, v0.t
 // CHECK-INST: vfadd.vv v1, v3, v2, v0.t
