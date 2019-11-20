@@ -88,27 +88,6 @@ vwmaccsu.vx v0, a0, v1, v0.t
 vwmaccus.vx v0, a0, v1, v0.t
 // CHECK-ERROR: The destination vector register group cannot overlap the mask register.
 
-vwsmaccu.vv v0, v2, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the mask register.
-
-vwsmaccu.vx v0, a0, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the mask register.
-
-vwsmacc.vv v0, v2, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the mask register.
-
-vwsmacc.vx v0, a0, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the mask register.
-
-vwsmaccsu.vv v0, v2, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the mask register.
-
-vwsmaccsu.vx v0, a0, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the mask register.
-
-vwsmaccus.vx v0, a0, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the mask register.
-
 vfwadd.vv v0, v1, v2, v0.t
 // CHECK-ERROR: The destination vector register group cannot overlap the mask register.
 
@@ -223,27 +202,6 @@ vwmaccsu.vx v1, a0, v1, v0.t
 vwmaccus.vx v1, a0, v1, v0.t
 // CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
 
-vwsmaccu.vv v1, v2, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmaccu.vx v1, a0, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmacc.vv v1, v2, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmacc.vx v1, a0, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmaccsu.vv v1, v2, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmaccsu.vx v1, a0, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmaccus.vx v1, a0, v1, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
 vfwadd.vv v1, v1, v2, v0.t
 // CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
 
@@ -325,15 +283,6 @@ vwmacc.vv v1, v1, v2, v0.t
 vwmaccsu.vv v1, v1, v2, v0.t
 // CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
 
-vwsmaccu.vv v1, v1, v2, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmacc.vv v1, v1, v2, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmaccsu.vv v1, v1, v2, v0.t
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
 vfwadd.vv v1, v2, v1, v0.t
 // CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
 
@@ -391,15 +340,6 @@ vwmacc.vv v1, v2, v1
 vwmaccsu.vv v1, v2, v1
 // CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
 
-vwsmaccu.vv v1, v2, v1
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmacc.vv v1, v2, v1
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmaccsu.vv v1, v2, v1
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
 vfwadd.vv v1, v1, v2
 // CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
 
@@ -455,15 +395,6 @@ vwmacc.vv v1, v1, v2
 // CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
 
 vwmaccsu.vv v1, v1, v2
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmaccu.vv v1, v1, v2
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmacc.vv v1, v1, v2
-// CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
-
-vwsmaccsu.vv v1, v1, v2
 // CHECK-ERROR: The destination vector register group cannot overlap the source vector register group.
 
 vfwadd.vv v1, v2, v1

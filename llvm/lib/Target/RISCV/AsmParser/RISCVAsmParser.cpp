@@ -1966,13 +1966,6 @@ bool RISCVAsmParser::validateInstruction(MCInst &Inst,
   case RISCV::VWMACCSU_VV:
   case RISCV::VWMACCSU_VX:
   case RISCV::VWMACCUS_VX:
-  case RISCV::VWSMACCU_VV:
-  case RISCV::VWSMACCU_VX:
-  case RISCV::VWSMACC_VV:
-  case RISCV::VWSMACC_VX:
-  case RISCV::VWSMACCSU_VV:
-  case RISCV::VWSMACCSU_VX:
-  case RISCV::VWSMACCUS_VX:
   case RISCV::VFWADD_VV:
   case RISCV::VFWADD_VF:
   case RISCV::VFWSUB_VV:
