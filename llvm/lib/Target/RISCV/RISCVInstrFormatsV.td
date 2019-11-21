@@ -40,8 +40,10 @@ class RISCVLSUMOP<bits<5> val> {
   bits<5> Value = val;
 }
 def LUMOPUnitStride  : RISCVLSUMOP<0b00000>;
+def LUMOPUnitStrideWholeReg : RISCVLSUMOP<0b01000>;
 def LUMOPUnitStrideFF: RISCVLSUMOP<0b10000>;
 def SUMOPUnitStride  : RISCVLSUMOP<0b00000>;
+def SUMOPUnitStrideWholeReg : RISCVLSUMOP<0b01000>;
 
 class RISCVWidth<bits<3> val> {
   bits<3> Value = val;

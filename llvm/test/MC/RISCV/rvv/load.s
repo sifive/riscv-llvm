@@ -329,3 +329,45 @@ vlxe.v v1, (a0), v3
 // CHECK-ENCODING: [0x87,0x70,0x35,0x0e]
 // CHECK-ERROR: instruction use requires an option to be enabled
 // CHECK-UNKNOWN: 87 70 35 0e <unknown>
+
+vl1r.v v1, (a0)
+// CHECK-INST: vl1r.v v1, (a0)
+// CHECK-ENCODING: [0x87,0x70,0x85,0x22]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: 87 70 85 22 <unknown>
+
+vl2r.v v1, (a0)
+// CHECK-INST: vl2r.v v1, (a0)
+// CHECK-ENCODING: [0x87,0x70,0x85,0x42]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: 87 70 85 42 <unknown>
+
+vl3r.v v1, (a0)
+// CHECK-INST: vl3r.v v1, (a0)
+// CHECK-ENCODING: [0x87,0x70,0x85,0x62]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: 87 70 85 62 <unknown>
+
+vl4r.v v1, (a0)
+// CHECK-INST: vl4r.v v1, (a0)
+// CHECK-ENCODING: [0x87,0x70,0x85,0x82]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: 87 70 85 82 <unknown>
+
+vl5r.v v1, (a0)
+// CHECK-INST: vl5r.v v1, (a0)
+// CHECK-ENCODING: [0x87,0x70,0x85,0xa2]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: 87 70 85 a2 <unknown>
+
+vl6r.v v1, (a0)
+// CHECK-INST: vl6r.v v1, (a0)
+// CHECK-ENCODING: [0x87,0x70,0x85,0xc2]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: 87 70 85 c2 <unknown>
+
+vl7r.v v1, (a0)
+// CHECK-INST: vl7r.v v1, (a0)
+// CHECK-ENCODING: [0x87,0x70,0x85,0xe2]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: 87 70 85 e2 <unknown>
