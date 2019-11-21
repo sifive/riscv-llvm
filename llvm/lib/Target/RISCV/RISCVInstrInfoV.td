@@ -228,6 +228,11 @@ multiclass VALU_IV_V_X<string opcodestr, bits<6> funct6, string vw = "v"> {
   def X  : VALUVX<funct6, OPIVX, opcodestr # "." # vw # "x">;
 }
 
+multiclass VALUr_IV_V_X<string opcodestr, bits<6> funct6, string vw = "v"> {
+  def V : VALUrVV<funct6, OPIVV, opcodestr # "." # vw # "v">;
+  def X : VALUrVX<funct6, OPIVX, opcodestr # "." # vw # "x">;
+}
+
 multiclass VALU_IV_X_I<string opcodestr, bits<6> funct6, Operand optype = simm5, string vw = "v"> {
   def X  : VALUVX<funct6, OPIVX, opcodestr # "." # vw # "x">;
   def I  : VALUVI<funct6, opcodestr # "." # vw # "i", optype>;
@@ -235,6 +240,10 @@ multiclass VALU_IV_X_I<string opcodestr, bits<6> funct6, Operand optype = simm5,
 
 multiclass VALU_IV_V<string opcodestr, bits<6> funct6> {
   def _VS  : VALUVV<funct6, OPIVV, opcodestr # ".vs">;
+}
+
+multiclass VALUr_IV_X<string opcodestr, bits<6> funct6, string vw = "v"> {
+  def X : VALUrVX<funct6, OPIVX, opcodestr # "." # vw # "x">;
 }
 
 multiclass VALU_MV_V_X<string opcodestr, bits<6> funct6, string vw = "v"> {
@@ -515,6 +524,12 @@ defm VASUB_V : VALU_MV_V_X<"vasub", 0b001011>;
 
 // Vector Single-Width Fractional Multiply with Rounding and Saturation
 defm VSMUL_V : VALU_IV_V_X<"vsmul", 0b100111>;
+
+// Vector Quad-Widening Integer Multiply-Add Instructions
+defm VQMACCU_V : VALUr_IV_V_X<"vqmaccu", 0b111100>;
+defm VQMACC_V : VALUr_IV_V_X<"vqmacc", 0b111101>;
+defm VQMACCSU_V : VALUr_IV_V_X<"vqmaccsu", 0b111111>;
+defm VQMACCUS_V : VALUr_IV_X<"vqmaccus", 0b111110>;
 
 // Vector Single-Width Scaling Shift Instructions
 defm VSSRL_V : VALU_IV_V_X_I<"vssrl", 0b101010, uimm5>;

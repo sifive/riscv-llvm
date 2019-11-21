@@ -186,6 +186,90 @@ vwmaccus.vx v1, a0, v3
 // CHECK-ERROR: instruction use requires an option to be enabled
 // CHECK-UNKNOWN: d7 60 35 fa <unknown>
 
+vqmaccu.vv v1, v2, v3, v0.t
+// CHECK-INST: vqmaccu.vv v1, v2, v3, v0.t
+// CHECK-ENCODING: [0xd7,0x00,0x31,0xf0]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 00 31 f0 <unknown>
+
+vqmaccu.vv v1, v2, v3
+// CHECK-INST: vqmaccu.vv v1, v2, v3
+// CHECK-ENCODING: [0xd7,0x00,0x31,0xf2]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 00 31 f2 <unknown>
+
+vqmaccu.vx v1, a0, v3, v0.t
+// CHECK-INST: vqmaccu.vx v1, a0, v3, v0.t
+// CHECK-ENCODING: [0xd7,0x40,0x35,0xf0]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 40 35 f0 <unknown>
+
+vqmaccu.vx v1, a0, v3
+// CHECK-INST: vqmaccu.vx v1, a0, v3
+// CHECK-ENCODING: [0xd7,0x40,0x35,0xf2]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 40 35 f2 <unknown>
+
+vqmacc.vv v1, v2, v3, v0.t
+// CHECK-INST: vqmacc.vv v1, v2, v3, v0.t
+// CHECK-ENCODING: [0xd7,0x00,0x31,0xf4]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 00 31 f4 <unknown>
+
+vqmacc.vv v1, v2, v3
+// CHECK-INST: vqmacc.vv v1, v2, v3
+// CHECK-ENCODING: [0xd7,0x00,0x31,0xf6]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 00 31 f6 <unknown>
+
+vqmacc.vx v1, a0, v3, v0.t
+// CHECK-INST: vqmacc.vx v1, a0, v3, v0.t
+// CHECK-ENCODING: [0xd7,0x40,0x35,0xf4]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 40 35 f4 <unknown>
+
+vqmacc.vx v1, a0, v3
+// CHECK-INST: vqmacc.vx v1, a0, v3
+// CHECK-ENCODING: [0xd7,0x40,0x35,0xf6]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 40 35 f6 <unknown>
+
+vqmaccsu.vv v1, v2, v3, v0.t
+// CHECK-INST: vqmaccsu.vv v1, v2, v3, v0.t
+// CHECK-ENCODING: [0xd7,0x00,0x31,0xfc]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 00 31 fc <unknown>
+
+vqmaccsu.vv v1, v2, v3
+// CHECK-INST: vqmaccsu.vv v1, v2, v3
+// CHECK-ENCODING: [0xd7,0x00,0x31,0xfe]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 00 31 fe <unknown>
+
+vqmaccsu.vx v1, a0, v3, v0.t
+// CHECK-INST: vqmaccsu.vx v1, a0, v3, v0.t
+// CHECK-ENCODING: [0xd7,0x40,0x35,0xfc]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 40 35 fc <unknown>
+
+vqmaccsu.vx v1, a0, v3
+// CHECK-INST: vqmaccsu.vx v1, a0, v3
+// CHECK-ENCODING: [0xd7,0x40,0x35,0xfe]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 40 35 fe <unknown>
+
+vqmaccus.vx v1, a0, v3, v0.t
+// CHECK-INST: vqmaccus.vx v1, a0, v3, v0.t
+// CHECK-ENCODING: [0xd7,0x40,0x35,0xf8]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 40 35 f8 <unknown>
+
+vqmaccus.vx v1, a0, v3
+// CHECK-INST: vqmaccus.vx v1, a0, v3
+// CHECK-ENCODING: [0xd7,0x40,0x35,0xfa]
+// CHECK-ERROR: instruction use requires an option to be enabled
+// CHECK-UNKNOWN: d7 40 35 fa <unknown>
+
 vfmacc.vv v1, v2, v3, v0.t
 // CHECK-INST: vfmacc.vv v1, v2, v3, v0.t
 // CHECK-ENCODING: [0xd7,0x10,0x31,0xb0]
