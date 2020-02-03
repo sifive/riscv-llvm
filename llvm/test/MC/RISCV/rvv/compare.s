@@ -6,362 +6,363 @@
 // RUN:        | llvm-objdump -d -mattr=+v - | FileCheck %s --check-prefix=CHECK-INST
 // RUN: llvm-mc -triple=riscv64 -filetype=obj -mattr=+v < %s \
 // RUN:        | llvm-objdump -d - | FileCheck %s --check-prefix=CHECK-UNKNOWN
-vmseq.vv v1, v3, v2, v0.t
-// CHECK-INST: vmseq.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x60]
+vmseq.vv v8, v4, v20, v0.t
+// CHECK-INST: vmseq.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x60]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 60 <unknown>
+// CHECK-UNKNOWN: 57 04 4a 60 <unknown>
 
-vmseq.vv v1, v3, v2
-// CHECK-INST: vmseq.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x62]
+vmseq.vv v8, v4, v20
+// CHECK-INST: vmseq.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x62]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 62 <unknown>
+// CHECK-UNKNOWN: 57 04 4a 62 <unknown>
 
-vmseq.vx v1, v3, a0, v0.t
-// CHECK-INST: vmseq.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x60]
+vmseq.vx v8, v4, a0, v0.t
+// CHECK-INST: vmseq.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0x60]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 60 <unknown>
+// CHECK-UNKNOWN: 57 44 45 60 <unknown>
 
-vmseq.vx v1, v3, a0
-// CHECK-INST: vmseq.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x62]
+vmseq.vx v8, v4, a0
+// CHECK-INST: vmseq.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x44,0x45,0x62]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 62 <unknown>
+// CHECK-UNKNOWN: 57 44 45 62 <unknown>
 
-vmseq.vi v1, v3, 15, v0.t
-// CHECK-INST: vmseq.vi v1, v3, 15, v0.t
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x60]
+vmseq.vi v8, v4, 15, v0.t
+// CHECK-INST: vmseq.vi v8, v4, 15, v0.t
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x60]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 60 <unknown>
+// CHECK-UNKNOWN: 57 b4 47 60 <unknown>
 
-vmseq.vi v1, v3, 15
-// CHECK-INST: vmseq.vi v1, v3, 15
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x62]
+vmseq.vi v8, v4, 15
+// CHECK-INST: vmseq.vi v8, v4, 15
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x62]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 62 <unknown>
+// CHECK-UNKNOWN: 57 b4 47 62 <unknown>
 
-vmsne.vv v1, v3, v2, v0.t
-// CHECK-INST: vmsne.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x64]
+vmsne.vv v8, v4, v20, v0.t
+// CHECK-INST: vmsne.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x64]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 64 <unknown>
+// CHECK-UNKNOWN: 57 04 4a 64 <unknown>
 
-vmsne.vv v1, v3, v2
-// CHECK-INST: vmsne.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x66]
+vmsne.vv v8, v4, v20
+// CHECK-INST: vmsne.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x66]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 66 <unknown>
+// CHECK-UNKNOWN: 57 04 4a 66 <unknown>
 
-vmsne.vx v1, v3, a0, v0.t
-// CHECK-INST: vmsne.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x64]
+vmsne.vx v8, v4, a0, v0.t
+// CHECK-INST: vmsne.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0x64]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 64 <unknown>
+// CHECK-UNKNOWN: 57 44 45 64 <unknown>
 
-vmsne.vx v1, v3, a0
-// CHECK-INST: vmsne.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x66]
+vmsne.vx v8, v4, a0
+// CHECK-INST: vmsne.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x44,0x45,0x66]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 66 <unknown>
+// CHECK-UNKNOWN: 57 44 45 66 <unknown>
 
-vmsne.vi v1, v3, 15, v0.t
-// CHECK-INST: vmsne.vi v1, v3, 15, v0.t
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x64]
+vmsne.vi v8, v4, 15, v0.t
+// CHECK-INST: vmsne.vi v8, v4, 15, v0.t
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x64]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 64 <unknown>
+// CHECK-UNKNOWN: 57 b4 47 64 <unknown>
 
-vmsne.vi v1, v3, 15
-// CHECK-INST: vmsne.vi v1, v3, 15
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x66]
+vmsne.vi v8, v4, 15
+// CHECK-INST: vmsne.vi v8, v4, 15
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x66]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 66 <unknown>
+// CHECK-UNKNOWN: 57 b4 47 66 <unknown>
 
-vmsltu.vv v1, v3, v2, v0.t
-// CHECK-INST: vmsltu.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x68]
+vmsltu.vv v8, v4, v20, v0.t
+// CHECK-INST: vmsltu.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x68]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 68 <unknown>
+// CHECK-UNKNOWN: 57 04 4a 68 <unknown>
 
-vmsltu.vv v1, v3, v2
-// CHECK-INST: vmsltu.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x6a]
+vmsltu.vv v8, v4, v20
+// CHECK-INST: vmsltu.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x6a]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 6a <unknown>
+// CHECK-UNKNOWN: 57 04 4a 6a <unknown>
 
-vmsltu.vx v1, v3, a0, v0.t
-// CHECK-INST: vmsltu.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x68]
+vmsltu.vx v8, v4, a0, v0.t
+// CHECK-INST: vmsltu.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0x68]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 68 <unknown>
+// CHECK-UNKNOWN: 57 44 45 68 <unknown>
 
-vmsltu.vx v1, v3, a0
-// CHECK-INST: vmsltu.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x6a]
+vmsltu.vx v8, v4, a0
+// CHECK-INST: vmsltu.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x44,0x45,0x6a]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 6a <unknown>
+// CHECK-UNKNOWN: 57 44 45 6a <unknown>
 
-vmslt.vv v1, v3, v2, v0.t
-// CHECK-INST: vmslt.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x6c]
+vmslt.vv v8, v4, v20, v0.t
+// CHECK-INST: vmslt.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x6c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 6c <unknown>
+// CHECK-UNKNOWN: 57 04 4a 6c <unknown>
 
-vmslt.vv v1, v3, v2
-// CHECK-INST: vmslt.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x6e]
+vmslt.vv v8, v4, v20
+// CHECK-INST: vmslt.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x6e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 6e <unknown>
+// CHECK-UNKNOWN: 57 04 4a 6e <unknown>
 
-vmslt.vx v1, v3, a0, v0.t
-// CHECK-INST: vmslt.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x6c]
+vmslt.vx v8, v4, a0, v0.t
+// CHECK-INST: vmslt.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0x6c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 6c <unknown>
+// CHECK-UNKNOWN: 57 44 45 6c <unknown>
 
-vmslt.vx v1, v3, a0
-// CHECK-INST: vmslt.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x6e]
+vmslt.vx v8, v4, a0
+// CHECK-INST: vmslt.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x44,0x45,0x6e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 6e <unknown>
+// CHECK-UNKNOWN: 57 44 45 6e <unknown>
 
-vmsleu.vv v1, v3, v2, v0.t
-// CHECK-INST: vmsleu.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x70]
+vmsleu.vv v8, v4, v20, v0.t
+// CHECK-INST: vmsleu.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x70]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 70 <unknown>
+// CHECK-UNKNOWN: 57 04 4a 70 <unknown>
 
-vmsleu.vv v1, v3, v2
-// CHECK-INST: vmsleu.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x72]
+vmsleu.vv v8, v4, v20
+// CHECK-INST: vmsleu.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x72]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 72 <unknown>
+// CHECK-UNKNOWN: 57 04 4a 72 <unknown>
 
-vmsleu.vx v1, v3, a0, v0.t
-// CHECK-INST: vmsleu.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x70]
+vmsleu.vx v8, v4, a0, v0.t
+// CHECK-INST: vmsleu.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0x70]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 70 <unknown>
+// CHECK-UNKNOWN: 57 44 45 70 <unknown>
 
-vmsleu.vx v1, v3, a0
-// CHECK-INST: vmsleu.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x72]
+vmsleu.vx v8, v4, a0
+// CHECK-INST: vmsleu.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x44,0x45,0x72]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 72 <unknown>
+// CHECK-UNKNOWN: 57 44 45 72 <unknown>
 
-vmsleu.vi v1, v3, 15, v0.t
-// CHECK-INST: vmsleu.vi v1, v3, 15, v0.t
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x70]
+vmsleu.vi v8, v4, 15, v0.t
+// CHECK-INST: vmsleu.vi v8, v4, 15, v0.t
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x70]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 70 <unknown>
+// CHECK-UNKNOWN: 57 b4 47 70 <unknown>
 
-vmsleu.vi v1, v3, 15
-// CHECK-INST: vmsleu.vi v1, v3, 15
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x72]
+vmsleu.vi v8, v4, 15
+// CHECK-INST: vmsleu.vi v8, v4, 15
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x72]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 72 <unknown>
+// CHECK-UNKNOWN: 57 b4 47 72 <unknown>
 
-vmsle.vv v1, v3, v2, v0.t
-// CHECK-INST: vmsle.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x74]
+vmsle.vv v8, v4, v20, v0.t
+// CHECK-INST: vmsle.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x74]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 74 <unknown>
+// CHECK-UNKNOWN: 57 04 4a 74 <unknown>
 
-vmsle.vv v1, v3, v2
-// CHECK-INST: vmsle.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x00,0x31,0x76]
+vmsle.vv v8, v4, v20
+// CHECK-INST: vmsle.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x04,0x4a,0x76]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 76 <unknown>
+// CHECK-UNKNOWN: 57 04 4a 76 <unknown>
 
-vmsle.vx v1, v3, a0, v0.t
-// CHECK-INST: vmsle.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x74]
+vmsle.vx v8, v4, a0, v0.t
+// CHECK-INST: vmsle.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0x74]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 74 <unknown>
+// CHECK-UNKNOWN: 57 44 45 74 <unknown>
 
-vmsle.vx v1, v3, a0
-// CHECK-INST: vmsle.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x76]
+vmsle.vx v8, v4, a0
+// CHECK-INST: vmsle.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x44,0x45,0x76]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 76 <unknown>
+// CHECK-UNKNOWN: 57 44 45 76 <unknown>
 
-vmsle.vi v1, v3, 15, v0.t
-// CHECK-INST: vmsle.vi v1, v3, 15, v0.t
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x74]
+vmsle.vi v8, v4, 15, v0.t
+// CHECK-INST: vmsle.vi v8, v4, 15, v0.t
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x74]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 74 <unknown>
+// CHECK-UNKNOWN: 57 b4 47 74 <unknown>
 
-vmsle.vi v1, v3, 15
-// CHECK-INST: vmsle.vi v1, v3, 15
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x76]
+vmsle.vi v8, v4, 15
+// CHECK-INST: vmsle.vi v8, v4, 15
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x76]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 76 <unknown>
+// CHECK-UNKNOWN: 57 b4 47 76 <unknown>
 
-vmsgtu.vx v1, v3, a0, v0.t
-// CHECK-INST: vmsgtu.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x78]
+vmsgtu.vx v8, v4, a0, v0.t
+// CHECK-INST: vmsgtu.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0x78]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 78 <unknown>
+// CHECK-UNKNOWN: 57 44 45 78 <unknown>
 
-vmsgtu.vx v1, v3, a0
-// CHECK-INST: vmsgtu.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x7a]
+vmsgtu.vx v8, v4, a0
+// CHECK-INST: vmsgtu.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x44,0x45,0x7a]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 7a <unknown>
+// CHECK-UNKNOWN: 57 44 45 7a <unknown>
 
-vmsgtu.vi v1, v3, 15, v0.t
-// CHECK-INST: vmsgtu.vi v1, v3, 15, v0.t
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x78]
+vmsgtu.vi v8, v4, 15, v0.t
+// CHECK-INST: vmsgtu.vi v8, v4, 15, v0.t
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x78]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 78 <unknown>
+// CHECK-UNKNOWN: 57 b4 47 78 <unknown>
 
-vmsgtu.vi v1, v3, 15
-// CHECK-INST: vmsgtu.vi v1, v3, 15
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x7a]
+vmsgtu.vi v8, v4, 15
+// CHECK-INST: vmsgtu.vi v8, v4, 15
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x7a]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 7a <unknown>
+// CHECK-UNKNOWN: 57 b4 47 7a <unknown>
 
-vmsgt.vx v1, v3, a0, v0.t
-// CHECK-INST: vmsgt.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x7c]
+vmsgt.vx v8, v4, a0, v0.t
+// CHECK-INST: vmsgt.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0x7c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 7c <unknown>
+// CHECK-UNKNOWN: 57 44 45 7c <unknown>
 
-vmsgt.vx v1, v3, a0
-// CHECK-INST: vmsgt.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0x7e]
+vmsgt.vx v8, v4, a0
+// CHECK-INST: vmsgt.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x44,0x45,0x7e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 7e <unknown>
+// CHECK-UNKNOWN: 57 44 45 7e <unknown>
 
-vmsgt.vi v1, v3, 15, v0.t
-// CHECK-INST: vmsgt.vi v1, v3, 15, v0.t
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x7c]
+vmsgt.vi v8, v4, 15, v0.t
+// CHECK-INST: vmsgt.vi v8, v4, 15, v0.t
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x7c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 7c <unknown>
+// CHECK-UNKNOWN: 57 b4 47 7c <unknown>
 
-vmsgt.vi v1, v3, 15
-// CHECK-INST: vmsgt.vi v1, v3, 15
-// CHECK-ENCODING: [0xd7,0xb0,0x37,0x7e]
+vmsgt.vi v8, v4, 15
+// CHECK-INST: vmsgt.vi v8, v4, 15
+// CHECK-ENCODING: [0x57,0xb4,0x47,0x7e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 37 7e <unknown>
+// CHECK-UNKNOWN: 57 b4 47 7e <unknown>
 
-vmfeq.vv v1, v3, v2, v0.t
-// CHECK-INST: vmfeq.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0x60]
+vmfeq.vv v8, v4, v20, v0.t
+// CHECK-INST: vmfeq.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0x60]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 60 <unknown>
+// CHECK-UNKNOWN: 57 14 4a 60 <unknown>
 
-vmfeq.vv v1, v3, v2
-// CHECK-INST: vmfeq.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x10,0x31,0x62]
+vmfeq.vv v8, v4, v20
+// CHECK-INST: vmfeq.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x14,0x4a,0x62]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 62 <unknown>
+// CHECK-UNKNOWN: 57 14 4a 62 <unknown>
 
-vmfeq.vf v1, v3, fa0, v0.t
-// CHECK-INST: vmfeq.vf v1, v3, fa0, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x60]
+vmfeq.vf v8, v4, fa0, v0.t
+// CHECK-INST: vmfeq.vf v8, v4, fa0, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0x60]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 60 <unknown>
+// CHECK-UNKNOWN: 57 54 45 60 <unknown>
 
-vmfeq.vf v1, v3, fa0
-// CHECK-INST: vmfeq.vf v1, v3, fa0
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x62]
+vmfeq.vf v8, v4, fa0
+// CHECK-INST: vmfeq.vf v8, v4, fa0
+// CHECK-ENCODING: [0x57,0x54,0x45,0x62]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 62 <unknown>
+// CHECK-UNKNOWN: 57 54 45 62 <unknown>
 
-vmfne.vv v1, v3, v2, v0.t
-// CHECK-INST: vmfne.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0x70]
+vmfne.vv v8, v4, v20, v0.t
+// CHECK-INST: vmfne.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0x70]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 70 <unknown>
+// CHECK-UNKNOWN: 57 14 4a 70 <unknown>
 
-vmfne.vv v1, v3, v2
-// CHECK-INST: vmfne.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x10,0x31,0x72]
+vmfne.vv v8, v4, v20
+// CHECK-INST: vmfne.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x14,0x4a,0x72]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 72 <unknown>
+// CHECK-UNKNOWN: 57 14 4a 72 <unknown>
 
-vmfne.vf v1, v3, fa0, v0.t
-// CHECK-INST: vmfne.vf v1, v3, fa0, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x70]
+vmfne.vf v8, v4, fa0, v0.t
+// CHECK-INST: vmfne.vf v8, v4, fa0, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0x70]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 70 <unknown>
+// CHECK-UNKNOWN: 57 54 45 70 <unknown>
 
-vmfne.vf v1, v3, fa0
-// CHECK-INST: vmfne.vf v1, v3, fa0
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x72]
+vmfne.vf v8, v4, fa0
+// CHECK-INST: vmfne.vf v8, v4, fa0
+// CHECK-ENCODING: [0x57,0x54,0x45,0x72]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 72 <unknown>
+// CHECK-UNKNOWN: 57 54 45 72 <unknown>
 
-vmflt.vv v1, v3, v2, v0.t
-// CHECK-INST: vmflt.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0x6c]
+vmflt.vv v8, v4, v20, v0.t
+// CHECK-INST: vmflt.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0x6c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 6c <unknown>
+// CHECK-UNKNOWN: 57 14 4a 6c <unknown>
 
-vmflt.vv v1, v3, v2
-// CHECK-INST: vmflt.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x10,0x31,0x6e]
+vmflt.vv v8, v4, v20
+// CHECK-INST: vmflt.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x14,0x4a,0x6e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 6e <unknown>
+// CHECK-UNKNOWN: 57 14 4a 6e <unknown>
 
-vmflt.vf v1, v3, fa0, v0.t
-// CHECK-INST: vmflt.vf v1, v3, fa0, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x6c]
+vmflt.vf v8, v4, fa0, v0.t
+// CHECK-INST: vmflt.vf v8, v4, fa0, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0x6c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 6c <unknown>
+// CHECK-UNKNOWN: 57 54 45 6c <unknown>
 
-vmflt.vf v1, v3, fa0
-// CHECK-INST: vmflt.vf v1, v3, fa0
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x6e]
+vmflt.vf v8, v4, fa0
+// CHECK-INST: vmflt.vf v8, v4, fa0
+// CHECK-ENCODING: [0x57,0x54,0x45,0x6e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 6e <unknown>
+// CHECK-UNKNOWN: 57 54 45 6e <unknown>
 
-vmfle.vv v1, v3, v2, v0.t
-// CHECK-INST: vmfle.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0x64]
+vmfle.vv v8, v4, v20, v0.t
+// CHECK-INST: vmfle.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0x64]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 64 <unknown>
+// CHECK-UNKNOWN: 57 14 4a 64 <unknown>
 
-vmfle.vv v1, v3, v2
-// CHECK-INST: vmfle.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x10,0x31,0x66]
+vmfle.vv v8, v4, v20
+// CHECK-INST: vmfle.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x14,0x4a,0x66]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 66 <unknown>
+// CHECK-UNKNOWN: 57 14 4a 66 <unknown>
 
-vmfle.vf v1, v3, fa0, v0.t
-// CHECK-INST: vmfle.vf v1, v3, fa0, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x64]
+vmfle.vf v8, v4, fa0, v0.t
+// CHECK-INST: vmfle.vf v8, v4, fa0, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0x64]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 64 <unknown>
+// CHECK-UNKNOWN: 57 54 45 64 <unknown>
 
-vmfle.vf v1, v3, fa0
-// CHECK-INST: vmfle.vf v1, v3, fa0
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x66]
+vmfle.vf v8, v4, fa0
+// CHECK-INST: vmfle.vf v8, v4, fa0
+// CHECK-ENCODING: [0x57,0x54,0x45,0x66]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 66 <unknown>
+// CHECK-UNKNOWN: 57 54 45 66 <unknown>
 
-vmfgt.vf v1, v3, fa0, v0.t
-// CHECK-INST: vmfgt.vf v1, v3, fa0, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x74]
+vmfgt.vf v8, v4, fa0, v0.t
+// CHECK-INST: vmfgt.vf v8, v4, fa0, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0x74]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 74 <unknown>
+// CHECK-UNKNOWN: 57 54 45 74 <unknown>
 
-vmfgt.vf v1, v3, fa0
-// CHECK-INST: vmfgt.vf v1, v3, fa0
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x76]
+vmfgt.vf v8, v4, fa0
+// CHECK-INST: vmfgt.vf v8, v4, fa0
+// CHECK-ENCODING: [0x57,0x54,0x45,0x76]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 76 <unknown>
+// CHECK-UNKNOWN: 57 54 45 76 <unknown>
 
-vmfge.vf v1, v3, fa0, v0.t
-// CHECK-INST: vmfge.vf v1, v3, fa0, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x7c]
+vmfge.vf v8, v4, fa0, v0.t
+// CHECK-INST: vmfge.vf v8, v4, fa0, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0x7c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 7c <unknown>
+// CHECK-UNKNOWN: 57 54 45 7c <unknown>
 
-vmfge.vf v1, v3, fa0
-// CHECK-INST: vmfge.vf v1, v3, fa0
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x7e]
+vmfge.vf v8, v4, fa0
+// CHECK-INST: vmfge.vf v8, v4, fa0
+// CHECK-ENCODING: [0x57,0x54,0x45,0x7e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 7e <unknown>
+// CHECK-UNKNOWN: 57 54 45 7e <unknown>
+

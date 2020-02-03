@@ -6,74 +6,75 @@
 // RUN:        | llvm-objdump -d -mattr=+v - | FileCheck %s --check-prefix=CHECK-INST
 // RUN: llvm-mc -triple=riscv64 -filetype=obj -mattr=+v < %s \
 // RUN:        | llvm-objdump -d - | FileCheck %s --check-prefix=CHECK-UNKNOWN
-vnclipu.wv v1, v3, v2, v0.t
-// CHECK-INST: vnclipu.wv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0xb8]
+vnclipu.wv v8, v4, v20, v0.t
+// CHECK-INST: vnclipu.wv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0xb8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 b8 <unknown>
+// CHECK-UNKNOWN: 57 04 4a b8 <unknown>
 
-vnclipu.wv v1, v3, v2
-// CHECK-INST: vnclipu.wv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x00,0x31,0xba]
+vnclipu.wv v8, v4, v20
+// CHECK-INST: vnclipu.wv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x04,0x4a,0xba]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 ba <unknown>
+// CHECK-UNKNOWN: 57 04 4a ba <unknown>
 
-vnclipu.wx v1, v3, a0, v0.t
-// CHECK-INST: vnclipu.wx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xb8]
+vnclipu.wx v8, v4, a0, v0.t
+// CHECK-INST: vnclipu.wx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0xb8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 b8 <unknown>
+// CHECK-UNKNOWN: 57 44 45 b8 <unknown>
 
-vnclipu.wx v1, v3, a0
-// CHECK-INST: vnclipu.wx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xba]
+vnclipu.wx v8, v4, a0
+// CHECK-INST: vnclipu.wx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x44,0x45,0xba]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 ba <unknown>
+// CHECK-UNKNOWN: 57 44 45 ba <unknown>
 
-vnclipu.wi v1, v3, 31, v0.t
-// CHECK-INST: vnclipu.wi v1, v3, 31, v0.t
-// CHECK-ENCODING: [0xd7,0xb0,0x3f,0xb8]
+vnclipu.wi v8, v4, 31, v0.t
+// CHECK-INST: vnclipu.wi v8, v4, 31, v0.t
+// CHECK-ENCODING: [0x57,0xb4,0x4f,0xb8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 3f b8 <unknown>
+// CHECK-UNKNOWN: 57 b4 4f b8 <unknown>
 
-vnclipu.wi v1, v3, 31
-// CHECK-INST: vnclipu.wi v1, v3, 31
-// CHECK-ENCODING: [0xd7,0xb0,0x3f,0xba]
+vnclipu.wi v8, v4, 31
+// CHECK-INST: vnclipu.wi v8, v4, 31
+// CHECK-ENCODING: [0x57,0xb4,0x4f,0xba]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 3f ba <unknown>
+// CHECK-UNKNOWN: 57 b4 4f ba <unknown>
 
-vnclip.wv v1, v3, v2, v0.t
-// CHECK-INST: vnclip.wv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0xbc]
+vnclip.wv v8, v4, v20, v0.t
+// CHECK-INST: vnclip.wv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0xbc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 bc <unknown>
+// CHECK-UNKNOWN: 57 04 4a bc <unknown>
 
-vnclip.wv v1, v3, v2
-// CHECK-INST: vnclip.wv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x00,0x31,0xbe]
+vnclip.wv v8, v4, v20
+// CHECK-INST: vnclip.wv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x04,0x4a,0xbe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 be <unknown>
+// CHECK-UNKNOWN: 57 04 4a be <unknown>
 
-vnclip.wx v1, v3, a0, v0.t
-// CHECK-INST: vnclip.wx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xbc]
+vnclip.wx v8, v4, a0, v0.t
+// CHECK-INST: vnclip.wx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0xbc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 bc <unknown>
+// CHECK-UNKNOWN: 57 44 45 bc <unknown>
 
-vnclip.wx v1, v3, a0
-// CHECK-INST: vnclip.wx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xbe]
+vnclip.wx v8, v4, a0
+// CHECK-INST: vnclip.wx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x44,0x45,0xbe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 be <unknown>
+// CHECK-UNKNOWN: 57 44 45 be <unknown>
 
-vnclip.wi v1, v3, 31, v0.t
-// CHECK-INST: vnclip.wi v1, v3, 31, v0.t
-// CHECK-ENCODING: [0xd7,0xb0,0x3f,0xbc]
+vnclip.wi v8, v4, 31, v0.t
+// CHECK-INST: vnclip.wi v8, v4, 31, v0.t
+// CHECK-ENCODING: [0x57,0xb4,0x4f,0xbc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 3f bc <unknown>
+// CHECK-UNKNOWN: 57 b4 4f bc <unknown>
 
-vnclip.wi v1, v3, 31
-// CHECK-INST: vnclip.wi v1, v3, 31
-// CHECK-ENCODING: [0xd7,0xb0,0x3f,0xbe]
+vnclip.wi v8, v4, 31
+// CHECK-INST: vnclip.wi v8, v4, 31
+// CHECK-ENCODING: [0x57,0xb4,0x4f,0xbe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 b0 3f be <unknown>
+// CHECK-UNKNOWN: 57 b4 4f be <unknown>
+

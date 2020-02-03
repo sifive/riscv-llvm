@@ -6,134 +6,135 @@
 // RUN:        | llvm-objdump -d -mattr=+v - | FileCheck %s --check-prefix=CHECK-INST
 // RUN: llvm-mc -triple=riscv64 -filetype=obj -mattr=+v < %s \
 // RUN:        | llvm-objdump -d - | FileCheck %s --check-prefix=CHECK-UNKNOWN
-vdivu.vv v1, v3, v2, v0.t
-// CHECK-INST: vdivu.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0x80]
+vdivu.vv v8, v4, v20, v0.t
+// CHECK-INST: vdivu.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0x80]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 80 <unknown>
+// CHECK-UNKNOWN: 57 24 4a 80 <unknown>
 
-vdivu.vv v1, v3, v2
-// CHECK-INST: vdivu.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x20,0x31,0x82]
+vdivu.vv v8, v4, v20
+// CHECK-INST: vdivu.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x24,0x4a,0x82]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 82 <unknown>
+// CHECK-UNKNOWN: 57 24 4a 82 <unknown>
 
-vdivu.vx v1, v3, a0, v0.t
-// CHECK-INST: vdivu.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0x80]
+vdivu.vx v8, v4, a0, v0.t
+// CHECK-INST: vdivu.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0x80]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 80 <unknown>
+// CHECK-UNKNOWN: 57 64 45 80 <unknown>
 
-vdivu.vx v1, v3, a0
-// CHECK-INST: vdivu.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x60,0x35,0x82]
+vdivu.vx v8, v4, a0
+// CHECK-INST: vdivu.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x64,0x45,0x82]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 82 <unknown>
+// CHECK-UNKNOWN: 57 64 45 82 <unknown>
 
-vdiv.vv v1, v3, v2, v0.t
-// CHECK-INST: vdiv.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0x84]
+vdiv.vv v8, v4, v20, v0.t
+// CHECK-INST: vdiv.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0x84]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 84 <unknown>
+// CHECK-UNKNOWN: 57 24 4a 84 <unknown>
 
-vdiv.vv v1, v3, v2
-// CHECK-INST: vdiv.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x20,0x31,0x86]
+vdiv.vv v8, v4, v20
+// CHECK-INST: vdiv.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x24,0x4a,0x86]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 86 <unknown>
+// CHECK-UNKNOWN: 57 24 4a 86 <unknown>
 
-vdiv.vx v1, v3, a0, v0.t
-// CHECK-INST: vdiv.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0x84]
+vdiv.vx v8, v4, a0, v0.t
+// CHECK-INST: vdiv.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0x84]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 84 <unknown>
+// CHECK-UNKNOWN: 57 64 45 84 <unknown>
 
-vdiv.vx v1, v3, a0
-// CHECK-INST: vdiv.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x60,0x35,0x86]
+vdiv.vx v8, v4, a0
+// CHECK-INST: vdiv.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x64,0x45,0x86]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 86 <unknown>
+// CHECK-UNKNOWN: 57 64 45 86 <unknown>
 
-vremu.vv v1, v3, v2, v0.t
-// CHECK-INST: vremu.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0x88]
+vremu.vv v8, v4, v20, v0.t
+// CHECK-INST: vremu.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0x88]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 88 <unknown>
+// CHECK-UNKNOWN: 57 24 4a 88 <unknown>
 
-vremu.vv v1, v3, v2
-// CHECK-INST: vremu.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x20,0x31,0x8a]
+vremu.vv v8, v4, v20
+// CHECK-INST: vremu.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x24,0x4a,0x8a]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 8a <unknown>
+// CHECK-UNKNOWN: 57 24 4a 8a <unknown>
 
-vremu.vx v1, v3, a0, v0.t
-// CHECK-INST: vremu.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0x88]
+vremu.vx v8, v4, a0, v0.t
+// CHECK-INST: vremu.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0x88]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 88 <unknown>
+// CHECK-UNKNOWN: 57 64 45 88 <unknown>
 
-vremu.vx v1, v3, a0
-// CHECK-INST: vremu.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x60,0x35,0x8a]
+vremu.vx v8, v4, a0
+// CHECK-INST: vremu.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x64,0x45,0x8a]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 8a <unknown>
+// CHECK-UNKNOWN: 57 64 45 8a <unknown>
 
-vrem.vv v1, v3, v2, v0.t
-// CHECK-INST: vrem.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0x8c]
+vrem.vv v8, v4, v20, v0.t
+// CHECK-INST: vrem.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0x8c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 8c <unknown>
+// CHECK-UNKNOWN: 57 24 4a 8c <unknown>
 
-vrem.vv v1, v3, v2
-// CHECK-INST: vrem.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x20,0x31,0x8e]
+vrem.vv v8, v4, v20
+// CHECK-INST: vrem.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x24,0x4a,0x8e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 8e <unknown>
+// CHECK-UNKNOWN: 57 24 4a 8e <unknown>
 
-vrem.vx v1, v3, a0, v0.t
-// CHECK-INST: vrem.vx v1, v3, a0, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0x8c]
+vrem.vx v8, v4, a0, v0.t
+// CHECK-INST: vrem.vx v8, v4, a0, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0x8c]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 8c <unknown>
+// CHECK-UNKNOWN: 57 64 45 8c <unknown>
 
-vrem.vx v1, v3, a0
-// CHECK-INST: vrem.vx v1, v3, a0
-// CHECK-ENCODING: [0xd7,0x60,0x35,0x8e]
+vrem.vx v8, v4, a0
+// CHECK-INST: vrem.vx v8, v4, a0
+// CHECK-ENCODING: [0x57,0x64,0x45,0x8e]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 8e <unknown>
+// CHECK-UNKNOWN: 57 64 45 8e <unknown>
 
-vfdiv.vv v1, v3, v2, v0.t
-// CHECK-INST: vfdiv.vv v1, v3, v2, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0x80]
+vfdiv.vv v8, v4, v20, v0.t
+// CHECK-INST: vfdiv.vv v8, v4, v20, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0x80]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 80 <unknown>
+// CHECK-UNKNOWN: 57 14 4a 80 <unknown>
 
-vfdiv.vv v1, v3, v2
-// CHECK-INST: vfdiv.vv v1, v3, v2
-// CHECK-ENCODING: [0xd7,0x10,0x31,0x82]
+vfdiv.vv v8, v4, v20
+// CHECK-INST: vfdiv.vv v8, v4, v20
+// CHECK-ENCODING: [0x57,0x14,0x4a,0x82]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 82 <unknown>
+// CHECK-UNKNOWN: 57 14 4a 82 <unknown>
 
-vfdiv.vf v1, v3, fa0, v0.t
-// CHECK-INST: vfdiv.vf v1, v3, fa0, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x80]
+vfdiv.vf v8, v4, fa0, v0.t
+// CHECK-INST: vfdiv.vf v8, v4, fa0, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0x80]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 80 <unknown>
+// CHECK-UNKNOWN: 57 54 45 80 <unknown>
 
-vfdiv.vf v1, v3, fa0
-// CHECK-INST: vfdiv.vf v1, v3, fa0
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x82]
+vfdiv.vf v8, v4, fa0
+// CHECK-INST: vfdiv.vf v8, v4, fa0
+// CHECK-ENCODING: [0x57,0x54,0x45,0x82]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 82 <unknown>
+// CHECK-UNKNOWN: 57 54 45 82 <unknown>
 
-vfrdiv.vf v1, v3, fa0, v0.t
-// CHECK-INST: vfrdiv.vf v1, v3, fa0, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x84]
+vfrdiv.vf v8, v4, fa0, v0.t
+// CHECK-INST: vfrdiv.vf v8, v4, fa0, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0x84]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 84 <unknown>
+// CHECK-UNKNOWN: 57 54 45 84 <unknown>
 
-vfrdiv.vf v1, v3, fa0
-// CHECK-INST: vfrdiv.vf v1, v3, fa0
-// CHECK-ENCODING: [0xd7,0x50,0x35,0x86]
+vfrdiv.vf v8, v4, fa0
+// CHECK-INST: vfrdiv.vf v8, v4, fa0
+// CHECK-ENCODING: [0x57,0x54,0x45,0x86]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 86 <unknown>
+// CHECK-UNKNOWN: 57 54 45 86 <unknown>
+

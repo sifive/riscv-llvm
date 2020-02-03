@@ -6,554 +6,555 @@
 // RUN:        | llvm-objdump -d -mattr=+v - | FileCheck %s --check-prefix=CHECK-INST
 // RUN: llvm-mc -triple=riscv64 -filetype=obj -mattr=+v < %s \
 // RUN:        | llvm-objdump -d - | FileCheck %s --check-prefix=CHECK-UNKNOWN
-vmacc.vv v1, v2, v3, v0.t
-// CHECK-INST: vmacc.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xb4]
+vmacc.vv v8, v20, v4, v0.t
+// CHECK-INST: vmacc.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xb4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 b4 <unknown>
+// CHECK-UNKNOWN: 57 24 4a b4 <unknown>
 
-vmacc.vv v1, v2, v3
-// CHECK-INST: vmacc.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xb6]
+vmacc.vv v8, v20, v4
+// CHECK-INST: vmacc.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xb6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 b6 <unknown>
+// CHECK-UNKNOWN: 57 24 4a b6 <unknown>
 
-vmacc.vx v1, a0, v3, v0.t
-// CHECK-INST: vmacc.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xb4]
+vmacc.vx v8, a0, v4, v0.t
+// CHECK-INST: vmacc.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0xb4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 b4 <unknown>
+// CHECK-UNKNOWN: 57 64 45 b4 <unknown>
 
-vmacc.vx v1, a0, v3
-// CHECK-INST: vmacc.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xb6]
+vmacc.vx v8, a0, v4
+// CHECK-INST: vmacc.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x64,0x45,0xb6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 b6 <unknown>
+// CHECK-UNKNOWN: 57 64 45 b6 <unknown>
 
-vnmsac.vv v1, v2, v3, v0.t
-// CHECK-INST: vnmsac.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xbc]
+vnmsac.vv v8, v20, v4, v0.t
+// CHECK-INST: vnmsac.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xbc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 bc <unknown>
+// CHECK-UNKNOWN: 57 24 4a bc <unknown>
 
-vnmsac.vv v1, v2, v3
-// CHECK-INST: vnmsac.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xbe]
+vnmsac.vv v8, v20, v4
+// CHECK-INST: vnmsac.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xbe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 be <unknown>
+// CHECK-UNKNOWN: 57 24 4a be <unknown>
 
-vnmsac.vx v1, a0, v3, v0.t
-// CHECK-INST: vnmsac.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xbc]
+vnmsac.vx v8, a0, v4, v0.t
+// CHECK-INST: vnmsac.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0xbc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 bc <unknown>
+// CHECK-UNKNOWN: 57 64 45 bc <unknown>
 
-vnmsac.vx v1, a0, v3
-// CHECK-INST: vnmsac.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xbe]
+vnmsac.vx v8, a0, v4
+// CHECK-INST: vnmsac.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x64,0x45,0xbe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 be <unknown>
+// CHECK-UNKNOWN: 57 64 45 be <unknown>
 
-vmadd.vv v1, v2, v3, v0.t
-// CHECK-INST: vmadd.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xa4]
+vmadd.vv v8, v20, v4, v0.t
+// CHECK-INST: vmadd.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xa4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 a4 <unknown>
+// CHECK-UNKNOWN: 57 24 4a a4 <unknown>
 
-vmadd.vv v1, v2, v3
-// CHECK-INST: vmadd.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xa6]
+vmadd.vv v8, v20, v4
+// CHECK-INST: vmadd.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xa6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 a6 <unknown>
+// CHECK-UNKNOWN: 57 24 4a a6 <unknown>
 
-vmadd.vx v1, a0, v3, v0.t
-// CHECK-INST: vmadd.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xa4]
+vmadd.vx v8, a0, v4, v0.t
+// CHECK-INST: vmadd.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0xa4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 a4 <unknown>
+// CHECK-UNKNOWN: 57 64 45 a4 <unknown>
 
-vmadd.vx v1, a0, v3
-// CHECK-INST: vmadd.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xa6]
+vmadd.vx v8, a0, v4
+// CHECK-INST: vmadd.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x64,0x45,0xa6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 a6 <unknown>
+// CHECK-UNKNOWN: 57 64 45 a6 <unknown>
 
-vnmsub.vv v1, v2, v3, v0.t
-// CHECK-INST: vnmsub.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xac]
+vnmsub.vv v8, v20, v4, v0.t
+// CHECK-INST: vnmsub.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xac]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 ac <unknown>
+// CHECK-UNKNOWN: 57 24 4a ac <unknown>
 
-vnmsub.vv v1, v2, v3
-// CHECK-INST: vnmsub.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xae]
+vnmsub.vv v8, v20, v4
+// CHECK-INST: vnmsub.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xae]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 ae <unknown>
+// CHECK-UNKNOWN: 57 24 4a ae <unknown>
 
-vnmsub.vx v1, a0, v3, v0.t
-// CHECK-INST: vnmsub.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xac]
+vnmsub.vx v8, a0, v4, v0.t
+// CHECK-INST: vnmsub.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0xac]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 ac <unknown>
+// CHECK-UNKNOWN: 57 64 45 ac <unknown>
 
-vnmsub.vx v1, a0, v3
-// CHECK-INST: vnmsub.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xae]
+vnmsub.vx v8, a0, v4
+// CHECK-INST: vnmsub.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x64,0x45,0xae]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 ae <unknown>
+// CHECK-UNKNOWN: 57 64 45 ae <unknown>
 
-vwmaccu.vv v1, v2, v3, v0.t
-// CHECK-INST: vwmaccu.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xf0]
+vwmaccu.vv v8, v20, v4, v0.t
+// CHECK-INST: vwmaccu.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xf0]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 f0 <unknown>
+// CHECK-UNKNOWN: 57 24 4a f0 <unknown>
 
-vwmaccu.vv v1, v2, v3
-// CHECK-INST: vwmaccu.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xf2]
+vwmaccu.vv v8, v20, v4
+// CHECK-INST: vwmaccu.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xf2]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 f2 <unknown>
+// CHECK-UNKNOWN: 57 24 4a f2 <unknown>
 
-vwmaccu.vx v1, a0, v3, v0.t
-// CHECK-INST: vwmaccu.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xf0]
+vwmaccu.vx v8, a0, v4, v0.t
+// CHECK-INST: vwmaccu.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0xf0]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 f0 <unknown>
+// CHECK-UNKNOWN: 57 64 45 f0 <unknown>
 
-vwmaccu.vx v1, a0, v3
-// CHECK-INST: vwmaccu.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xf2]
+vwmaccu.vx v8, a0, v4
+// CHECK-INST: vwmaccu.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x64,0x45,0xf2]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 f2 <unknown>
+// CHECK-UNKNOWN: 57 64 45 f2 <unknown>
 
-vwmacc.vv v1, v2, v3, v0.t
-// CHECK-INST: vwmacc.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xf4]
+vwmacc.vv v8, v20, v4, v0.t
+// CHECK-INST: vwmacc.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xf4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 f4 <unknown>
+// CHECK-UNKNOWN: 57 24 4a f4 <unknown>
 
-vwmacc.vv v1, v2, v3
-// CHECK-INST: vwmacc.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xf6]
+vwmacc.vv v8, v20, v4
+// CHECK-INST: vwmacc.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xf6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 f6 <unknown>
+// CHECK-UNKNOWN: 57 24 4a f6 <unknown>
 
-vwmacc.vx v1, a0, v3, v0.t
-// CHECK-INST: vwmacc.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xf4]
+vwmacc.vx v8, a0, v4, v0.t
+// CHECK-INST: vwmacc.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0xf4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 f4 <unknown>
+// CHECK-UNKNOWN: 57 64 45 f4 <unknown>
 
-vwmacc.vx v1, a0, v3
-// CHECK-INST: vwmacc.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xf6]
+vwmacc.vx v8, a0, v4
+// CHECK-INST: vwmacc.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x64,0x45,0xf6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 f6 <unknown>
+// CHECK-UNKNOWN: 57 64 45 f6 <unknown>
 
-vwmaccsu.vv v1, v2, v3, v0.t
-// CHECK-INST: vwmaccsu.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xfc]
+vwmaccsu.vv v8, v20, v4, v0.t
+// CHECK-INST: vwmaccsu.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xfc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 fc <unknown>
+// CHECK-UNKNOWN: 57 24 4a fc <unknown>
 
-vwmaccsu.vv v1, v2, v3
-// CHECK-INST: vwmaccsu.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x20,0x31,0xfe]
+vwmaccsu.vv v8, v20, v4
+// CHECK-INST: vwmaccsu.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x24,0x4a,0xfe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 20 31 fe <unknown>
+// CHECK-UNKNOWN: 57 24 4a fe <unknown>
 
-vwmaccsu.vx v1, a0, v3, v0.t
-// CHECK-INST: vwmaccsu.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xfc]
+vwmaccsu.vx v8, a0, v4, v0.t
+// CHECK-INST: vwmaccsu.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0xfc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 fc <unknown>
+// CHECK-UNKNOWN: 57 64 45 fc <unknown>
 
-vwmaccsu.vx v1, a0, v3
-// CHECK-INST: vwmaccsu.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xfe]
+vwmaccsu.vx v8, a0, v4
+// CHECK-INST: vwmaccsu.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x64,0x45,0xfe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 fe <unknown>
+// CHECK-UNKNOWN: 57 64 45 fe <unknown>
 
-vwmaccus.vx v1, a0, v3, v0.t
-// CHECK-INST: vwmaccus.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xf8]
+vwmaccus.vx v8, a0, v4, v0.t
+// CHECK-INST: vwmaccus.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x64,0x45,0xf8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 f8 <unknown>
+// CHECK-UNKNOWN: 57 64 45 f8 <unknown>
 
-vwmaccus.vx v1, a0, v3
-// CHECK-INST: vwmaccus.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x60,0x35,0xfa]
+vwmaccus.vx v8, a0, v4
+// CHECK-INST: vwmaccus.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x64,0x45,0xfa]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 60 35 fa <unknown>
+// CHECK-UNKNOWN: 57 64 45 fa <unknown>
 
-vqmaccu.vv v1, v2, v3, v0.t
-// CHECK-INST: vqmaccu.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0xf0]
+vqmaccu.vv v8, v20, v4, v0.t
+// CHECK-INST: vqmaccu.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0xf0]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 f0 <unknown>
+// CHECK-UNKNOWN: 57 04 4a f0 <unknown>
 
-vqmaccu.vv v1, v2, v3
-// CHECK-INST: vqmaccu.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x00,0x31,0xf2]
+vqmaccu.vv v8, v20, v4
+// CHECK-INST: vqmaccu.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x04,0x4a,0xf2]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 f2 <unknown>
+// CHECK-UNKNOWN: 57 04 4a f2 <unknown>
 
-vqmaccu.vx v1, a0, v3, v0.t
-// CHECK-INST: vqmaccu.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xf0]
+vqmaccu.vx v8, a0, v4, v0.t
+// CHECK-INST: vqmaccu.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0xf0]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 f0 <unknown>
+// CHECK-UNKNOWN: 57 44 45 f0 <unknown>
 
-vqmaccu.vx v1, a0, v3
-// CHECK-INST: vqmaccu.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xf2]
+vqmaccu.vx v8, a0, v4
+// CHECK-INST: vqmaccu.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x44,0x45,0xf2]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 f2 <unknown>
+// CHECK-UNKNOWN: 57 44 45 f2 <unknown>
 
-vqmacc.vv v1, v2, v3, v0.t
-// CHECK-INST: vqmacc.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0xf4]
+vqmacc.vv v8, v20, v4, v0.t
+// CHECK-INST: vqmacc.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0xf4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 f4 <unknown>
+// CHECK-UNKNOWN: 57 04 4a f4 <unknown>
 
-vqmacc.vv v1, v2, v3
-// CHECK-INST: vqmacc.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x00,0x31,0xf6]
+vqmacc.vv v8, v20, v4
+// CHECK-INST: vqmacc.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x04,0x4a,0xf6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 f6 <unknown>
+// CHECK-UNKNOWN: 57 04 4a f6 <unknown>
 
-vqmacc.vx v1, a0, v3, v0.t
-// CHECK-INST: vqmacc.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xf4]
+vqmacc.vx v8, a0, v4, v0.t
+// CHECK-INST: vqmacc.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0xf4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 f4 <unknown>
+// CHECK-UNKNOWN: 57 44 45 f4 <unknown>
 
-vqmacc.vx v1, a0, v3
-// CHECK-INST: vqmacc.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xf6]
+vqmacc.vx v8, a0, v4
+// CHECK-INST: vqmacc.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x44,0x45,0xf6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 f6 <unknown>
+// CHECK-UNKNOWN: 57 44 45 f6 <unknown>
 
-vqmaccsu.vv v1, v2, v3, v0.t
-// CHECK-INST: vqmaccsu.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x00,0x31,0xfc]
+vqmaccsu.vv v8, v20, v4, v0.t
+// CHECK-INST: vqmaccsu.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x04,0x4a,0xfc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 fc <unknown>
+// CHECK-UNKNOWN: 57 04 4a fc <unknown>
 
-vqmaccsu.vv v1, v2, v3
-// CHECK-INST: vqmaccsu.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x00,0x31,0xfe]
+vqmaccsu.vv v8, v20, v4
+// CHECK-INST: vqmaccsu.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x04,0x4a,0xfe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 00 31 fe <unknown>
+// CHECK-UNKNOWN: 57 04 4a fe <unknown>
 
-vqmaccsu.vx v1, a0, v3, v0.t
-// CHECK-INST: vqmaccsu.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xfc]
+vqmaccsu.vx v8, a0, v4, v0.t
+// CHECK-INST: vqmaccsu.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0xfc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 fc <unknown>
+// CHECK-UNKNOWN: 57 44 45 fc <unknown>
 
-vqmaccsu.vx v1, a0, v3
-// CHECK-INST: vqmaccsu.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xfe]
+vqmaccsu.vx v8, a0, v4
+// CHECK-INST: vqmaccsu.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x44,0x45,0xfe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 fe <unknown>
+// CHECK-UNKNOWN: 57 44 45 fe <unknown>
 
-vqmaccus.vx v1, a0, v3, v0.t
-// CHECK-INST: vqmaccus.vx v1, a0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xf8]
+vqmaccus.vx v8, a0, v4, v0.t
+// CHECK-INST: vqmaccus.vx v8, a0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x44,0x45,0xf8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 f8 <unknown>
+// CHECK-UNKNOWN: 57 44 45 f8 <unknown>
 
-vqmaccus.vx v1, a0, v3
-// CHECK-INST: vqmaccus.vx v1, a0, v3
-// CHECK-ENCODING: [0xd7,0x40,0x35,0xfa]
+vqmaccus.vx v8, a0, v4
+// CHECK-INST: vqmaccus.vx v8, a0, v4
+// CHECK-ENCODING: [0x57,0x44,0x45,0xfa]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 40 35 fa <unknown>
+// CHECK-UNKNOWN: 57 44 45 fa <unknown>
 
-vfmacc.vv v1, v2, v3, v0.t
-// CHECK-INST: vfmacc.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xb0]
+vfmacc.vv v8, v20, v4, v0.t
+// CHECK-INST: vfmacc.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xb0]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 b0 <unknown>
+// CHECK-UNKNOWN: 57 14 4a b0 <unknown>
 
-vfmacc.vv v1, v2, v3
-// CHECK-INST: vfmacc.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xb2]
+vfmacc.vv v8, v20, v4
+// CHECK-INST: vfmacc.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xb2]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 b2 <unknown>
+// CHECK-UNKNOWN: 57 14 4a b2 <unknown>
 
-vfmacc.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfmacc.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xb0]
+vfmacc.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfmacc.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xb0]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 b0 <unknown>
+// CHECK-UNKNOWN: 57 54 45 b0 <unknown>
 
-vfmacc.vf v1, fa0, v3
-// CHECK-INST: vfmacc.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xb2]
+vfmacc.vf v8, fa0, v4
+// CHECK-INST: vfmacc.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xb2]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 b2 <unknown>
+// CHECK-UNKNOWN: 57 54 45 b2 <unknown>
 
-vfnmacc.vv v1, v2, v3, v0.t
-// CHECK-INST: vfnmacc.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xb4]
+vfnmacc.vv v8, v20, v4, v0.t
+// CHECK-INST: vfnmacc.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xb4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 b4 <unknown>
+// CHECK-UNKNOWN: 57 14 4a b4 <unknown>
 
-vfnmacc.vv v1, v2, v3
-// CHECK-INST: vfnmacc.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xb6]
+vfnmacc.vv v8, v20, v4
+// CHECK-INST: vfnmacc.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xb6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 b6 <unknown>
+// CHECK-UNKNOWN: 57 14 4a b6 <unknown>
 
-vfnmacc.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfnmacc.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xb4]
+vfnmacc.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfnmacc.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xb4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 b4 <unknown>
+// CHECK-UNKNOWN: 57 54 45 b4 <unknown>
 
-vfnmacc.vf v1, fa0, v3
-// CHECK-INST: vfnmacc.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xb6]
+vfnmacc.vf v8, fa0, v4
+// CHECK-INST: vfnmacc.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xb6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 b6 <unknown>
+// CHECK-UNKNOWN: 57 54 45 b6 <unknown>
 
-vfmsac.vv v1, v2, v3, v0.t
-// CHECK-INST: vfmsac.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xb8]
+vfmsac.vv v8, v20, v4, v0.t
+// CHECK-INST: vfmsac.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xb8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 b8 <unknown>
+// CHECK-UNKNOWN: 57 14 4a b8 <unknown>
 
-vfmsac.vv v1, v2, v3
-// CHECK-INST: vfmsac.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xba]
+vfmsac.vv v8, v20, v4
+// CHECK-INST: vfmsac.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xba]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 ba <unknown>
+// CHECK-UNKNOWN: 57 14 4a ba <unknown>
 
-vfmsac.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfmsac.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xb8]
+vfmsac.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfmsac.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xb8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 b8 <unknown>
+// CHECK-UNKNOWN: 57 54 45 b8 <unknown>
 
-vfmsac.vf v1, fa0, v3
-// CHECK-INST: vfmsac.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xba]
+vfmsac.vf v8, fa0, v4
+// CHECK-INST: vfmsac.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xba]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 ba <unknown>
+// CHECK-UNKNOWN: 57 54 45 ba <unknown>
 
-vfnmsac.vv v1, v2, v3, v0.t
-// CHECK-INST: vfnmsac.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xbc]
+vfnmsac.vv v8, v20, v4, v0.t
+// CHECK-INST: vfnmsac.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xbc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 bc <unknown>
+// CHECK-UNKNOWN: 57 14 4a bc <unknown>
 
-vfnmsac.vv v1, v2, v3
-// CHECK-INST: vfnmsac.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xbe]
+vfnmsac.vv v8, v20, v4
+// CHECK-INST: vfnmsac.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xbe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 be <unknown>
+// CHECK-UNKNOWN: 57 14 4a be <unknown>
 
-vfnmsac.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfnmsac.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xbc]
+vfnmsac.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfnmsac.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xbc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 bc <unknown>
+// CHECK-UNKNOWN: 57 54 45 bc <unknown>
 
-vfnmsac.vf v1, fa0, v3
-// CHECK-INST: vfnmsac.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xbe]
+vfnmsac.vf v8, fa0, v4
+// CHECK-INST: vfnmsac.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xbe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 be <unknown>
+// CHECK-UNKNOWN: 57 54 45 be <unknown>
 
-vfmadd.vv v1, v2, v3, v0.t
-// CHECK-INST: vfmadd.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xa0]
+vfmadd.vv v8, v20, v4, v0.t
+// CHECK-INST: vfmadd.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xa0]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 a0 <unknown>
+// CHECK-UNKNOWN: 57 14 4a a0 <unknown>
 
-vfmadd.vv v1, v2, v3
-// CHECK-INST: vfmadd.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xa2]
+vfmadd.vv v8, v20, v4
+// CHECK-INST: vfmadd.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xa2]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 a2 <unknown>
+// CHECK-UNKNOWN: 57 14 4a a2 <unknown>
 
-vfmadd.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfmadd.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xa0]
+vfmadd.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfmadd.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xa0]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 a0 <unknown>
+// CHECK-UNKNOWN: 57 54 45 a0 <unknown>
 
-vfmadd.vf v1, fa0, v3
-// CHECK-INST: vfmadd.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xa2]
+vfmadd.vf v8, fa0, v4
+// CHECK-INST: vfmadd.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xa2]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 a2 <unknown>
+// CHECK-UNKNOWN: 57 54 45 a2 <unknown>
 
-vfnmadd.vv v1, v2, v3, v0.t
-// CHECK-INST: vfnmadd.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xa4]
+vfnmadd.vv v8, v20, v4, v0.t
+// CHECK-INST: vfnmadd.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xa4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 a4 <unknown>
+// CHECK-UNKNOWN: 57 14 4a a4 <unknown>
 
-vfnmadd.vv v1, v2, v3
-// CHECK-INST: vfnmadd.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xa6]
+vfnmadd.vv v8, v20, v4
+// CHECK-INST: vfnmadd.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xa6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 a6 <unknown>
+// CHECK-UNKNOWN: 57 14 4a a6 <unknown>
 
-vfnmadd.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfnmadd.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xa4]
+vfnmadd.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfnmadd.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xa4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 a4 <unknown>
+// CHECK-UNKNOWN: 57 54 45 a4 <unknown>
 
-vfnmadd.vf v1, fa0, v3
-// CHECK-INST: vfnmadd.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xa6]
+vfnmadd.vf v8, fa0, v4
+// CHECK-INST: vfnmadd.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xa6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 a6 <unknown>
+// CHECK-UNKNOWN: 57 54 45 a6 <unknown>
 
-vfmsub.vv v1, v2, v3, v0.t
-// CHECK-INST: vfmsub.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xa8]
+vfmsub.vv v8, v20, v4, v0.t
+// CHECK-INST: vfmsub.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xa8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 a8 <unknown>
+// CHECK-UNKNOWN: 57 14 4a a8 <unknown>
 
-vfmsub.vv v1, v2, v3
-// CHECK-INST: vfmsub.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xaa]
+vfmsub.vv v8, v20, v4
+// CHECK-INST: vfmsub.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xaa]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 aa <unknown>
+// CHECK-UNKNOWN: 57 14 4a aa <unknown>
 
-vfmsub.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfmsub.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xa8]
+vfmsub.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfmsub.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xa8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 a8 <unknown>
+// CHECK-UNKNOWN: 57 54 45 a8 <unknown>
 
-vfmsub.vf v1, fa0, v3
-// CHECK-INST: vfmsub.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xaa]
+vfmsub.vf v8, fa0, v4
+// CHECK-INST: vfmsub.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xaa]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 aa <unknown>
+// CHECK-UNKNOWN: 57 54 45 aa <unknown>
 
-vfnmsub.vv v1, v2, v3, v0.t
-// CHECK-INST: vfnmsub.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xac]
+vfnmsub.vv v8, v20, v4, v0.t
+// CHECK-INST: vfnmsub.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xac]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 ac <unknown>
+// CHECK-UNKNOWN: 57 14 4a ac <unknown>
 
-vfnmsub.vv v1, v2, v3
-// CHECK-INST: vfnmsub.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xae]
+vfnmsub.vv v8, v20, v4
+// CHECK-INST: vfnmsub.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xae]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 ae <unknown>
+// CHECK-UNKNOWN: 57 14 4a ae <unknown>
 
-vfnmsub.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfnmsub.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xac]
+vfnmsub.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfnmsub.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xac]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 ac <unknown>
+// CHECK-UNKNOWN: 57 54 45 ac <unknown>
 
-vfnmsub.vf v1, fa0, v3
-// CHECK-INST: vfnmsub.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xae]
+vfnmsub.vf v8, fa0, v4
+// CHECK-INST: vfnmsub.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xae]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 ae <unknown>
+// CHECK-UNKNOWN: 57 54 45 ae <unknown>
 
-vfwmacc.vv v1, v2, v3, v0.t
-// CHECK-INST: vfwmacc.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xf0]
+vfwmacc.vv v8, v20, v4, v0.t
+// CHECK-INST: vfwmacc.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xf0]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 f0 <unknown>
+// CHECK-UNKNOWN: 57 14 4a f0 <unknown>
 
-vfwmacc.vv v1, v2, v3
-// CHECK-INST: vfwmacc.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xf2]
+vfwmacc.vv v8, v20, v4
+// CHECK-INST: vfwmacc.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xf2]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 f2 <unknown>
+// CHECK-UNKNOWN: 57 14 4a f2 <unknown>
 
-vfwmacc.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfwmacc.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xf0]
+vfwmacc.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfwmacc.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xf0]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 f0 <unknown>
+// CHECK-UNKNOWN: 57 54 45 f0 <unknown>
 
-vfwmacc.vf v1, fa0, v3
-// CHECK-INST: vfwmacc.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xf2]
+vfwmacc.vf v8, fa0, v4
+// CHECK-INST: vfwmacc.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xf2]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 f2 <unknown>
+// CHECK-UNKNOWN: 57 54 45 f2 <unknown>
 
-vfwnmacc.vv v1, v2, v3, v0.t
-// CHECK-INST: vfwnmacc.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xf4]
+vfwnmacc.vv v8, v20, v4, v0.t
+// CHECK-INST: vfwnmacc.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xf4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 f4 <unknown>
+// CHECK-UNKNOWN: 57 14 4a f4 <unknown>
 
-vfwnmacc.vv v1, v2, v3
-// CHECK-INST: vfwnmacc.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xf6]
+vfwnmacc.vv v8, v20, v4
+// CHECK-INST: vfwnmacc.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xf6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 f6 <unknown>
+// CHECK-UNKNOWN: 57 14 4a f6 <unknown>
 
-vfwnmacc.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfwnmacc.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xf4]
+vfwnmacc.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfwnmacc.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xf4]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 f4 <unknown>
+// CHECK-UNKNOWN: 57 54 45 f4 <unknown>
 
-vfwnmacc.vf v1, fa0, v3
-// CHECK-INST: vfwnmacc.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xf6]
+vfwnmacc.vf v8, fa0, v4
+// CHECK-INST: vfwnmacc.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xf6]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 f6 <unknown>
+// CHECK-UNKNOWN: 57 54 45 f6 <unknown>
 
-vfwmsac.vv v1, v2, v3, v0.t
-// CHECK-INST: vfwmsac.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xf8]
+vfwmsac.vv v8, v20, v4, v0.t
+// CHECK-INST: vfwmsac.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xf8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 f8 <unknown>
+// CHECK-UNKNOWN: 57 14 4a f8 <unknown>
 
-vfwmsac.vv v1, v2, v3
-// CHECK-INST: vfwmsac.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xfa]
+vfwmsac.vv v8, v20, v4
+// CHECK-INST: vfwmsac.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xfa]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 fa <unknown>
+// CHECK-UNKNOWN: 57 14 4a fa <unknown>
 
-vfwmsac.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfwmsac.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xf8]
+vfwmsac.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfwmsac.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xf8]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 f8 <unknown>
+// CHECK-UNKNOWN: 57 54 45 f8 <unknown>
 
-vfwmsac.vf v1, fa0, v3
-// CHECK-INST: vfwmsac.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xfa]
+vfwmsac.vf v8, fa0, v4
+// CHECK-INST: vfwmsac.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xfa]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 fa <unknown>
+// CHECK-UNKNOWN: 57 54 45 fa <unknown>
 
-vfwnmsac.vv v1, v2, v3, v0.t
-// CHECK-INST: vfwnmsac.vv v1, v2, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xfc]
+vfwnmsac.vv v8, v20, v4, v0.t
+// CHECK-INST: vfwnmsac.vv v8, v20, v4, v0.t
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xfc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 fc <unknown>
+// CHECK-UNKNOWN: 57 14 4a fc <unknown>
 
-vfwnmsac.vv v1, v2, v3
-// CHECK-INST: vfwnmsac.vv v1, v2, v3
-// CHECK-ENCODING: [0xd7,0x10,0x31,0xfe]
+vfwnmsac.vv v8, v20, v4
+// CHECK-INST: vfwnmsac.vv v8, v20, v4
+// CHECK-ENCODING: [0x57,0x14,0x4a,0xfe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 10 31 fe <unknown>
+// CHECK-UNKNOWN: 57 14 4a fe <unknown>
 
-vfwnmsac.vf v1, fa0, v3, v0.t
-// CHECK-INST: vfwnmsac.vf v1, fa0, v3, v0.t
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xfc]
+vfwnmsac.vf v8, fa0, v4, v0.t
+// CHECK-INST: vfwnmsac.vf v8, fa0, v4, v0.t
+// CHECK-ENCODING: [0x57,0x54,0x45,0xfc]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 fc <unknown>
+// CHECK-UNKNOWN: 57 54 45 fc <unknown>
 
-vfwnmsac.vf v1, fa0, v3
-// CHECK-INST: vfwnmsac.vf v1, fa0, v3
-// CHECK-ENCODING: [0xd7,0x50,0x35,0xfe]
+vfwnmsac.vf v8, fa0, v4
+// CHECK-INST: vfwnmsac.vf v8, fa0, v4
+// CHECK-ENCODING: [0x57,0x54,0x45,0xfe]
 // CHECK-ERROR: instruction use requires an option to be enabled
-// CHECK-UNKNOWN: d7 50 35 fe <unknown>
+// CHECK-UNKNOWN: 57 54 45 fe <unknown>
+
