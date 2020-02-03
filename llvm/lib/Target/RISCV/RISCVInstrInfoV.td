@@ -413,9 +413,9 @@ def VSUXH_V : VIndexedStore<MOPSTIndexedUnOrd, LSWidthVHalf, "vsuxh.v">;
 def VSUXW_V : VIndexedStore<MOPSTIndexedUnOrd, LSWidthVWord, "vsuxw.v">;
 def VSUXE_V : VIndexedStore<MOPSTIndexedUnOrd, LSWidthVSEW, "vsuxe.v">;
 
-foreach nf = 1-7 in {
-  def VL#nf#R_V : VWholeLoad<nf, "vl" # nf # "r.v">;
-  def VS#nf#R_V : VWholeStore<nf, "vs" # nf # "r.v">;
+foreach nf = 1-8 in {
+  def VL#nf#R_V : VWholeLoad<!add(nf, -1), "vl" # nf # "r.v">;
+  def VS#nf#R_V : VWholeStore<!add(nf, -1), "vs" # nf # "r.v">;
 }
 
 // Vector Single-Width Integer Add and Subtract
