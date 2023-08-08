@@ -53,6 +53,8 @@ private:
                             MachineBasicBlock::iterator MBBI);
   bool expandRV32ZdinxLoad(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator MBBI);
+  bool expandSET_LANDINGPAD_LABEL(MachineBasicBlock &MBB,
+                                  MachineBasicBlock::iterator MBBI);
 #ifndef NDEBUG
   unsigned getInstSizeInBytes(const MachineFunction &MF) const {
     unsigned Size = 0;
@@ -161,6 +163,8 @@ bool RISCVExpandPseudo::expandMI(MachineBasicBlock &MBB,
   case RISCV::PseudoVMSET_M_B64:
     // vmset.m vd => vmxnor.mm vd, vd, vd
     return expandVMSET_VMCLR(MBB, MBBI, RISCV::VMXNOR_MM);
+  case RISCV::PseudoSET_LANDINGPAD_LABEL:
+    return expandSET_LANDINGPAD_LABEL(MBB, MBBI);
   }
 
   return false;
@@ -382,6 +386,15 @@ bool RISCVExpandPseudo::expandRV32ZdinxLoad(MachineBasicBlock &MBB,
   }
 
   MBBI->eraseFromParent();
+  return true;
+}
+
+bool RISCVExpandPseudo::expandSET_LANDINGPAD_LABEL(
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI) {
+  DebugLoc DL = MBBI->getDebugLoc();
+  const MCInstrDesc &Desc = TII->get(RISCV::LUI);
+  BuildMI(MBB, MBBI, DL, Desc, RISCV::X7).addImm(MBBI->getOperand(0).getImm());
+  MBBI->eraseFromParent(); // The pseudo instruction is gone now.
   return true;
 }
 

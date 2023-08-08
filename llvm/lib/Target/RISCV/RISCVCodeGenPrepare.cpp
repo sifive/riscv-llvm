@@ -57,6 +57,8 @@ public:
   bool visitInstruction(Instruction &I) { return false; }
   bool visitAnd(BinaryOperator &BO);
   bool visitIntrinsicInst(IntrinsicInst &I);
+  bool visitCallInst(CallInst &CI);
+  bool visitInvokeInst(InvokeInst &CI);
 };
 
 } // end anonymous namespace
@@ -156,6 +158,26 @@ bool RISCVCodeGenPrepare::visitIntrinsicInst(IntrinsicInst &I) {
   PHI->eraseFromParent();
 
   return true;
+}
+
+static bool setLPadLabel(CallBase &CB, const RISCVSubtarget *ST) {
+  if (ST->hasStdExtZicfilp() && CB.isIndirectCall()) {
+    LLVMContext &C = CB.getContext();
+    IRBuilder<> IB(&CB);
+    IB.CreateIntrinsic(
+        Type::getVoidTy(C), Intrinsic::riscv_set_lpad_label,
+        {ConstantInt::get(Type::getIntNTy(C, ST->getXLen()), 1)});
+    return true;
+  }
+  return false;
+}
+
+bool RISCVCodeGenPrepare::visitCallInst(CallInst &CI) {
+  return setLPadLabel(CI, ST);
+}
+
+bool RISCVCodeGenPrepare::visitInvokeInst(InvokeInst &I) {
+  return setLPadLabel(I, ST);
 }
 
 bool RISCVCodeGenPrepare::runOnFunction(Function &F) {

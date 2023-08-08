@@ -290,7 +290,7 @@ def uimm20_auipc : UImm20OperandMaybeSym {
   let ParserMatchClass = UImmAsmOperand<20, "AUIPC">;
 }
 
-def uimm20 : UImm20Operand {
+def uimm20 : UImm20Operand, TImmLeaf<XLenVT, [{ return isUInt<20>(Imm); }]> {
   let ParserMatchClass = UImmAsmOperand<20>;
   let MCOperandPredicate = [{
     int64_t Imm;
@@ -779,6 +779,11 @@ def SRAW  : ALUW_rr<0b0100000, 0b101, "sraw">,
             Sched<[WriteShiftReg32, ReadShiftReg32, ReadShiftReg32]>;
 } // IsSignExtendingOpW = 1
 } // Predicates = [IsRV64]
+
+let Predicates = [HasStdExtZicfilp] in {
+let hasSideEffects = 1, mayLoad = 0, mayStore = 0, Size = 4 in
+def PseudoSET_LANDINGPAD_LABEL : Pseudo<(outs), (ins uimm20:$uimm20), []>;
+}
 
 //===----------------------------------------------------------------------===//
 // Privileged instructions
@@ -1894,6 +1899,11 @@ let Predicates = [IsRV64] in {
 def : Pat<(binop_allwusers<add> GPR:$rs1, (AddiPair:$rs2)),
           (ADDIW (i64 (ADDIW GPR:$rs1, (AddiPairImmLarge AddiPair:$rs2))),
                  (AddiPairImmSmall AddiPair:$rs2))>;
+}
+
+let Predicates = [HasStdExtZicfilp] in {
+def : Pat<(int_riscv_set_lpad_label uimm20:$imm20),
+          (PseudoSET_LANDINGPAD_LABEL uimm20:$imm20)>;
 }
 
 // Cherry-picked form upstream #66762.

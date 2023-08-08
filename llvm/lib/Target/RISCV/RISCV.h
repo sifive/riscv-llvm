@@ -72,6 +72,9 @@ void initializeRISCVInsertWriteVXRMPass(PassRegistry &);
 FunctionPass *createRISCVRedundantCopyEliminationPass();
 void initializeRISCVRedundantCopyEliminationPass(PassRegistry &);
 
+FunctionPass *createRISCVIndirectBranchTrackingPass();
+void initializeRISCVIndirectBranchTrackingPass(PassRegistry &);
+
 FunctionPass *createRISCVMoveMergePass();
 void initializeRISCVMoveMergePass(PassRegistry &);
 

@@ -1847,6 +1847,11 @@ def int_riscv_sm4ed      : ScalarCryptoByteSelect32;
 // Zksh
 def int_riscv_sm3p0      : ScalarCryptoGprIntrinsic32;
 def int_riscv_sm3p1      : ScalarCryptoGprIntrinsic32;
+
+// Zicfilp
+def int_riscv_set_lpad_label
+      : DefaultAttrsIntrinsic<[], [llvm_anyint_ty],
+                              [ImmArg<ArgIndex<0>>, IntrNoMem, IntrHasSideEffects]>;
 } // TargetPrefix = "riscv"
 
 //===----------------------------------------------------------------------===//
