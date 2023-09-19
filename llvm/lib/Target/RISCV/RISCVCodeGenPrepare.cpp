@@ -25,6 +25,9 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
+#include "llvm/IR/IRBuilder.h"  // SIFIVE
+#include "llvm/IR/IntrinsicsRISCV.h" // SIFIVE
+
 using namespace llvm;
 
 #define DEBUG_TYPE "riscv-codegenprepare"
