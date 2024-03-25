@@ -19593,6 +19593,7 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(SF_VC_V_IVW_SE)
   NODE_NAME_CASE(SF_VC_V_VVW_SE)
   NODE_NAME_CASE(SF_VC_V_FVW_SE)
+  NODE_NAME_CASE(SW_GUARDED_BRIND) // SIFIVE. Cherry-picked from upstream #66762
   }
   // clang-format on
   return nullptr;
