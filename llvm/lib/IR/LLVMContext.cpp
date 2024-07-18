@@ -97,6 +97,11 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
          "convergencectrl operand bundle id drifted!");
   (void)ConvergenceCtrlEntry;
 
+  auto *RISCVCFIEntry = pImpl->getOrInsertBundleTag("riscv_cfi");
+  assert(RISCVCFIEntry->second == LLVMContext::OB_riscv_cfi &&
+         "riscv_cfi operand bundle id drifted!");
+  (void)RISCVCFIEntry;
+
   SyncScope::ID SingleThreadSSID =
       pImpl->getOrInsertSyncScopeID("singlethread");
   assert(SingleThreadSSID == SyncScope::SingleThread &&

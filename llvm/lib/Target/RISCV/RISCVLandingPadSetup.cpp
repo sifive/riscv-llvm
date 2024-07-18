@@ -67,6 +67,11 @@ bool RISCVLandingPadSetup::runOnMachineFunction(MachineFunction &MF) {
               "unsigned 20-bits");
         Label = PreferredLandingPadLabel;
       }
+      if (MI.getCFIType())
+        Label = MI.getCFIType();
+      // Use -1 as no landing pad mark.
+      if (Label == -1)
+        continue;
       BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(RISCV::LUI), RISCV::X7)
           .addImm(Label);
       MachineInstrBuilder(MF, &MI).addUse(RISCV::X7, RegState::ImplicitKill);

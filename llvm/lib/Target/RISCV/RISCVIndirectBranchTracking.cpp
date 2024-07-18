@@ -82,7 +82,14 @@ bool RISCVIndirectBranchTrackingPass::runOnMachineFunction(
         continue;
 
       if (F.hasAddressTaken() || !F.hasLocalLinkage()) {
-        emitLpad(MBB, TII, FixedLabel);
+        int32_t Label = FixedLabel;
+        if (auto *MD = F.getMetadata(LLVMContext::MD_riscv_cfi_type))
+          Label =
+              mdconst::extract<ConstantInt>(MD->getOperand(0))->getZExtValue();
+        // Use -1 as no landing pad mark.
+        if (Label == -1)
+          continue;
+        emitLpad(MBB, TII, Label);
         if (MF.getAlignment() < LpadAlign)
           MF.setAlignment(LpadAlign);
         Changed = true;

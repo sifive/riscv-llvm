@@ -8805,6 +8805,13 @@ void SelectionDAGBuilder::LowerCallTo(const CallBase &CB, SDValue Callee,
       CFIType = cast<ConstantInt>(Bundle->Inputs[0]);
       assert(CFIType->getType()->isIntegerTy(32) && "Invalid CFI type");
     }
+    if (auto Bundle = CB.getOperandBundle(LLVMContext::OB_riscv_cfi)) {
+      assert(!CFIType && "Not expected kcfi operand bundles.");
+      CFIType = cast<ConstantInt>(Bundle->Inputs[0]);
+      assert(CFIType->getType()->isIntegerTy(32) &&
+             (isUInt<20>(CFIType->getZExtValue()) || CFIType->isMinusOne()) &&
+             "Invalid CFI type");
+    }
   }
 
   SDValue ConvControlToken;
@@ -9430,7 +9437,7 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
              {LLVMContext::OB_deopt, LLVMContext::OB_funclet,
               LLVMContext::OB_cfguardtarget, LLVMContext::OB_preallocated,
               LLVMContext::OB_clang_arc_attachedcall, LLVMContext::OB_kcfi,
-              LLVMContext::OB_convergencectrl}) &&
+              LLVMContext::OB_convergencectrl, LLVMContext::OB_riscv_cfi}) &&
          "Cannot lower calls with arbitrary operand bundles!");
 
   SDValue Callee = getValue(I.getCalledOperand());

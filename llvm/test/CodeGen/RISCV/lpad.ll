@@ -163,3 +163,41 @@ define void @interrupt() "interrupt"="user" {
 ; CHECK-NEXT:    mret
   ret void
 }
+
+; Check interrupt function does not needs landing pad.
+define void @specific_label() !riscv_cfi_type !0 {
+; CHECK-LABEL: specific_label:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    lpad 14
+; CHECK-NEXT:    ret
+  ret void
+}
+
+; Check not insert lpad when riscv_cfi_type operand is mimus one.
+define void @specific_label2() !riscv_cfi_type !1 {
+; CHECK-LABEL: specific_label2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    ret
+  ret void
+}
+
+define internal void @call_specific_label(ptr %0) {
+; CHECK-LABEL: call_specific_label:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    lui t2, 14
+; CHECK-NEXT:    jr a0
+  tail call void %0() ["riscv_cfi"(i32 14)]
+  ret void
+}
+
+; Check not changed t2 when riscv_cfi operand is mimus one.
+define internal void @call_specific_label2(ptr %0) {
+; CHECK-LABEL: call_specific_label2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    jr a0
+  tail call void %0() ["riscv_cfi"(i32 -1)]
+  ret void
+}
+
+!0 = !{i32 14}
+!1 = !{i32 -1}

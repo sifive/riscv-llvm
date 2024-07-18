@@ -2422,6 +2422,25 @@ void Verifier::verifyFunctionMetadata(
             "expected a constant integer operand for !kcfi_type", MD);
       Check(cast<ConstantInt>(C)->getBitWidth() == 32,
             "expected a 32-bit integer constant operand for !kcfi_type", MD);
+    } else if (Pair.first == LLVMContext::MD_riscv_cfi_type) {
+      MDNode *MD = Pair.second;
+      Check(MD->getNumOperands() == 1,
+            "!riscv_cfi_type must have exactly one operand", MD);
+      Check(MD->getOperand(0) != nullptr,
+            "!riscv_cfi_type operand must not be null", MD);
+      Check(isa<ConstantAsMetadata>(MD->getOperand(0)),
+            "expected a constant operand for !riscv_cfi_type", MD);
+      Constant *C = cast<ConstantAsMetadata>(MD->getOperand(0))->getValue();
+      Check(isa<ConstantInt>(C) && isa<IntegerType>(C->getType()),
+            "expected a constant integer operand for !riscv_cfi_type", MD);
+      auto *CI = cast<ConstantInt>(C);
+      Check(CI->getBitWidth() == 32,
+            "expected a 32-bit integer constant operand for !riscv_cfi_type",
+            MD);
+      Check(isUInt<20>(CI->getZExtValue()) || CI->isMinusOne(),
+            "expected a 20-bit integer constant or minus one operand for "
+            "!riscv_cfi_type",
+            MD);
     }
   }
 }
@@ -2919,7 +2938,7 @@ void Verifier::visitFunction(const Function &F) {
     }
 
     unsigned NumDebugAttachments = 0, NumProfAttachments = 0,
-             NumKCFIAttachments = 0;
+             NumKCFIAttachments = 0, NumRISCVCFIAttachments = 0;
     // Visit metadata attachments.
     for (const auto &I : MDs) {
       // Verify that the attachment is legal.
@@ -2954,6 +2973,12 @@ void Verifier::visitFunction(const Function &F) {
         ++NumKCFIAttachments;
         Check(NumKCFIAttachments == 1,
               "function must have a single !kcfi_type attachment", &F,
+              I.second);
+        break;
+      case LLVMContext::MD_riscv_cfi_type:
+        ++NumRISCVCFIAttachments;
+        Check(NumRISCVCFIAttachments == 1,
+              "function must have a single !riscv_cfi_type attachment", &F,
               I.second);
         break;
       }
@@ -3677,7 +3702,7 @@ void Verifier::visitCallBase(CallBase &Call) {
        FoundGCTransitionBundle = false, FoundCFGuardTargetBundle = false,
        FoundPreallocatedBundle = false, FoundGCLiveBundle = false,
        FoundPtrauthBundle = false, FoundKCFIBundle = false,
-       FoundAttachedCallBundle = false;
+       FoundAttachedCallBundle = false, FoundRISCVCFIBundle = false;
   for (unsigned i = 0, e = Call.getNumOperandBundles(); i < e; ++i) {
     OperandBundleUse BU = Call.getOperandBundleAt(i);
     uint32_t Tag = BU.getTagID();
@@ -3740,6 +3765,18 @@ void Verifier::visitCallBase(CallBase &Call) {
             "Multiple \"clang.arc.attachedcall\" operand bundles", Call);
       FoundAttachedCallBundle = true;
       verifyAttachedCallBundle(Call, BU);
+    } else if (Tag == LLVMContext::OB_riscv_cfi) {
+      Check(!FoundRISCVCFIBundle, "Multiple riscv_cfi operand bundles", Call);
+      FoundRISCVCFIBundle = true;
+      Check(BU.Inputs.size() == 1,
+            "Expected exactly one riscv_cfi bundle operand", Call);
+      Check(isa<ConstantInt>(BU.Inputs[0]) &&
+                BU.Inputs[0]->getType()->isIntegerTy(32),
+            "riscv_cfi bundle operand must be an i32 constant", Call);
+      auto *C = cast<ConstantInt>(BU.Inputs[0]);
+      Check(isUInt<20>(C->getZExtValue()) || C->isMinusOne(),
+            "riscv_cfi bundle operand must be fit to 20-bits or minus one",
+            Call);
     }
   }
 
